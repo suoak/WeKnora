@@ -367,6 +367,14 @@ const canMutateKnowledge = computed(() => {
   return authStore.hasRole('contributor');
 });
 
+// Local members can remove documents and configure data sources without
+// inheriting unrelated move, upload or share-administration privileges.
+const canCollaborateInWorkspace = computed(() => !isViaShare.value
+  && Number(kbInfo.value?.tenant_id || 0) === Number(authStore.currentTenantId || 0)
+  && authStore.hasRole('viewer'));
+const canDeleteKnowledge = computed(() => canCollaborateInWorkspace.value || canMutateKnowledge.value);
+const canConfigureKB = computed(() => canCollaborateInWorkspace.value || canManage.value);
+
 // Downloading returns the original source file, which is intentionally more
 // restrictive than viewing parsed content or using the preview tab. A tenant
 // Viewer can never download; for cross-tenant KBs the effective share
@@ -2043,7 +2051,7 @@ const {
   itemSelector: '.knowledge-card[data-select-id], .doc-list-row[data-select-id]',
   selectedIds,
   getItemId: (el) => el.dataset.selectId || null,
-  enabled: computed(() => (canEdit.value || canDownloadKnowledge.value) && !isFAQ.value && cardList.value.length > 0),
+  enabled: computed(() => (canEdit.value || canDownloadKnowledge.value || canDeleteKnowledge.value) && !isFAQ.value && cardList.value.length > 0),
   onSelectionStart: () => {
     batchMode.value = true;
   },
@@ -2348,7 +2356,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
             <div class="kb-title-actions">
               <KBInfoPopover v-if="kbInfo && !authStore.isLiteMode" :kb-info="kbInfo"
                 :supported-file-types="[...supportedFileTypes]" />
-              <t-tooltip v-if="canManage" :content="$t('knowledgeBase.settings')" placement="top">
+              <t-tooltip v-if="canConfigureKB" :content="$t('knowledgeBase.settings')" placement="top">
                 <button type="button" class="kb-settings-button" :aria-label="$t('knowledgeBase.settings')" :disabled="!kbId" @click="handleOpenKBSettings">
                   <t-icon name="setting" size="16px" />
                 </button>
@@ -2476,7 +2484,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                       </section>
                     </template>
                   </t-popup>
-                  <button v-if="viewMode === 'grid' && (canDownloadKnowledge || canMutateKnowledge) && cardList.length"
+                  <button v-if="viewMode === 'grid' && (canDownloadKnowledge || canMutateKnowledge || canDeleteKnowledge) && cardList.length"
                     type="button" class="doc-filter-toggle doc-batch-toggle" :class="{ active: batchMode }" :aria-pressed="batchMode"
                     :disabled="batchDeleting || batchReparsing || batchTagging || batchDownloading"
                     @click="toggleBatchMode">
@@ -2584,7 +2592,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                     :batch-mode="batchMode"
                     :can-edit="canEdit"
                     :can-download="canDownloadKnowledge"
-                    :can-mutate-knowledge="canMutateKnowledge"
+                    :can-mutate-knowledge="canMutateKnowledge" :can-delete-knowledge="canDeleteKnowledge"
                     :trace-available-by-id="traceAvailableById"
                     :move-menu-mode="moveMenuMode"
                     :move-target-kbs="moveTargetKbs"
@@ -2609,7 +2617,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 <template v-else-if="cardList.length && viewMode === 'list'">
                   <DocumentListView :kb-id="kbId" :items="cardList" :folder-options="folderOptions"
                     :selected-ids="selectedIds"
-                    :can-edit="canEdit" :can-download="canDownloadKnowledge" :can-mutate-knowledge="canMutateKnowledge"
+                    :can-edit="canEdit" :can-download="canDownloadKnowledge" :can-mutate-knowledge="canMutateKnowledge" :can-delete-knowledge="canDeleteKnowledge"
                     :trace-visible-ids="traceAvailableById"
                     :move-menu-mode="moveMenuMode"
                     :move-target-kbs="moveTargetKbs"
@@ -2647,7 +2655,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
               <div class="doc-batch-bar-anchor" v-show="batchMode || selectedIds.size > 0">
                 <DocumentBatchBar :count="selectedIds.size" :delete-loading="batchDeleting"
                   :reparse-loading="batchReparsing" :tag-loading="batchTagging" :download-loading="batchDownloading"
-                  :can-download="canDownloadKnowledge" :can-mutate="canMutateKnowledge"
+                  :can-download="canDownloadKnowledge" :can-mutate="canMutateKnowledge" :can-delete="canDeleteKnowledge"
                   :visible="batchMode || selectedIds.size > 0"
                   :show-move-to-folder="canEdit" :folder-options="folderOptions"
                   @cancel="handleBatchCancel" @delete="confirmBatchDelete" @reparse="confirmBatchReparse"

@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -80,7 +81,9 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 			"Verified recovery source three: source synchronization authorization is separate from published knowledge access.",
 		),
 	}
+	var sourceRequests atomic.Int64
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		sourceRequests.Add(1)
 		require.Equal(t, "Bearer access-A", r.Header.Get("Authorization"))
 		switch {
 		case r.URL.Path == "/open-apis/drive/v1/metas/batch_query":
@@ -99,7 +102,7 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 				return
 			}
 			_ = json.NewEncoder(w).
-				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": "1"}}}})
+				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": fmt.Sprint(f.revision.Load())}}}})
 		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/files/") && strings.HasSuffix(r.URL.Path, "/download"):
 			token := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/open-apis/drive/v1/files/"), "/download")
 			if files[token] == nil {
@@ -154,6 +157,8 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Exec("UPDATE task_pending_ops SET payload=?,op='processing' WHERE id=?",
 		string(envelope), op.ID).Error)
 	types.EnableLegacyReadGuards(f.db)
+	t.Setenv("FEISHU_PERSONAL_WORKSPACE_IMPORT_SNAPSHOTS", "1")
+	requestsBeforeProcessing := sourceRequests.Load()
 	owner, err := f.p.repo.Claim(context.Background(), imported.AttemptID, f.p.lease)
 	require.NoError(t, err)
 	proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
@@ -191,8 +196,21 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NotEmpty(t, originalVectors)
 	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), owner, op.ID))
 	observed := mustPersonalAttempt(t, f, owner.ID)
+	// The source can be edited while this imported copy awaits recovery.
+	// Resume must publish the checked original bytes without replacing chunks.
+	f.revision.Store(2)
+	var connection types.FeishuConnection
+	var grant types.FeishuPersonalGrantEpoch
+	require.NoError(t, f.db.Where("user_id='A'").Take(&connection).Error)
+	require.NoError(t, f.db.Where("user_id='A'").Take(&grant).Error)
+	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuConnection{}).Error)
+	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuPersonalGrantEpoch{}).Error)
 	require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
 	require.NoError(t, f.p.processFirstCreateDocument(context.Background(), payload))
+	require.Equal(t, requestsBeforeProcessing, sourceRequests.Load(),
+		"processing and publishing an imported copy must never revisit its source")
+	require.NoError(t, f.db.Create(&connection).Error)
+	require.NoError(t, f.db.Create(&grant).Error)
 	var receipt types.TaskPendingOp
 	require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope,
 		knowledge.ID).Take(&receipt).Error)

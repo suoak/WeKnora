@@ -1,0 +1,5 @@
+services:
+  app:
+    image: "sha256:01e12996b9b3ce22ba56455dd415b2955c25469e389783fe1331a6c9831fece1"
+    environment: {"WEKNORA_SANDBOX_DOCKER_ENABLED": "false"}
+    volumes: !override [{"type": "volume", "source": "data-files", "target": "/data/files", "volume": {}}, {"type": "volume", "source": "docreader-tmp", "target": "/tmp/docreader", "read_only": true, "volume": {}}, {"type": "bind", "source": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/production-config.yaml", "target": "/app/config/config.yaml", "read_only": true, "bind": {"create_host_path": true}}, {"type": "volume", "source": "feishu-personal-private", "target": "/data/feishu-personal-private"}, {"type": "bind", "source": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/knowhub-p0-approved-20261030T131554Z/approval-public.pem", "target": "/app/config/feishu-recovery-approval-public.pem", "read_only": true}]

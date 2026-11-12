@@ -13,9 +13,9 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// Source uncertainty is durable and independent of the ingestion feature flag.
-// Only a successful full reconciliation may release it, and document holds
-// remain authoritative even then. Ordinary datasource edits cannot write it.
+// A failed fetch or candidate build must not freeze subsequent synchronization.
+// Still fence the reporting execution; exact document withdrawals are handled
+// independently below, without changing the source's admission fingerprint.
 func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.DataSource, uncertain bool) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
@@ -27,8 +27,10 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 		if err != nil {
 			return err
 		}
-		state := "hold"
-		if !uncertain {
+		if uncertain {
+			return nil
+		}
+		{
 			var unresolved int64
 			if err := tx.Model(&types.FeishuLegacyResource{}).Where("data_source_id=? AND state IN ('hold','revoked')", ds.ID).Count(&unresolved).Error; err != nil {
 				return err
@@ -36,9 +38,8 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 			if unresolved != 0 {
 				return types.ErrLegacySourceRestricted
 			}
-			state = "active"
 		}
-		return tx.Model(&types.DataSource{}).Where("id=? AND tenant_id=? AND legacy_access_state <> 'revoked'", ds.ID, ds.TenantID).Update("legacy_access_state", state).Error
+		return tx.Model(&types.DataSource{}).Where("id=? AND tenant_id=? AND legacy_access_state <> 'revoked'", ds.ID, ds.TenantID).Update("legacy_access_state", "active").Error
 	})
 }
 
@@ -59,7 +60,39 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 	// Deny commits before redaction/cleanup. A failed snapshot, trigger or
 	// projection write must not roll the access restriction back to readable.
 	if sourceWide {
-		if err = s.SetSourceUncertain(ctx, ds, true); err != nil {
+		// Commit the exact document deny before redaction, so a cleanup failure
+		// cannot leave that document readable. Keep sibling sync admission live.
+		if err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if e := s.executionFence(ctx, tx, ds); e != nil {
+				return e
+			}
+			identity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, external)
+			if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", identity).Error; e != nil {
+				return e
+			}
+			id := legacyResourceID(ds, external)
+			var r types.FeishuLegacyResource
+			e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&r, "id=?", id).Error
+			if errors.Is(e, gorm.ErrRecordNotFound) {
+				var rows []types.Knowledge
+				if e = tx.Where("tenant_id=? AND knowledge_base_id=? AND metadata->>'datasource_id'=? AND metadata->>'external_id'=?", ds.TenantID, ds.KnowledgeBaseID, ds.ID, external).Limit(2).Find(&rows).Error; e != nil {
+					return e
+				}
+				if len(rows) == 0 {
+					return nil
+				}
+				if len(rows) != 1 {
+					return legacyFence("restriction_identity_ambiguous")
+				}
+				k := rows[0]
+				r = types.FeishuLegacyResource{ID: id, TenantID: ds.TenantID, KnowledgeBaseID: ds.KnowledgeBaseID, DataSourceID: ds.ID, ExternalID: external, KnowledgeID: k.ID, OriginalFilePath: k.FilePath, State: "hold", QuarantineSnapshot: json.RawMessage(`{}`)}
+				return tx.Create(&r).Error
+			}
+			if e != nil {
+				return e
+			}
+			return tx.Model(&r).Where("state NOT IN ?", []string{"revoked", "deleted"}).Update("state", "hold").Error
+		}); err != nil {
 			return false, err
 		}
 	}
@@ -94,7 +127,7 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 		} else if e != nil {
 			return e
 		}
-		if r.State == "revoked" {
+		if r.State == "revoked" || r.State == "deleted" {
 			terminal = true
 			return nil
 		}

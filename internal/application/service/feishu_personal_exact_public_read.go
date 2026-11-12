@@ -108,6 +108,9 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 			return ctx, true, err
 		}
 		if personal {
+			if local, handled, err := p.indexedLocalReadContext(ctx, id); handled || err != nil {
+				return local, handled, err
+			}
 			var kb string
 			if err := p.service.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").
 				Where("id=?", id).Scan(&kb).Error; err != nil {
@@ -145,15 +148,20 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 		return nil, true, err
 	}
 	if count == 0 {
-		return nil, false, nil
+		tenant, valid := types.TenantIDFromContext(ctx)
+		if !valid {
+			return nil, false, nil
+		}
+		catalog, err := p.hasPersonalCatalogImports(ctx, tenant, []string{kb})
+		if err != nil {
+			return nil, true, err
+		}
+		if !catalog {
+			return nil, false, nil
+		}
 	}
 	owner, err := p.loadAuthorizationKB(ctx, kb)
 	if err != nil {
-		return nil, true, err
-	}
-	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
-		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
-	}); err != nil {
 		return nil, true, err
 	}
 	tenant, valid := types.TenantIDFromContext(ctx)
@@ -183,6 +191,11 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 			return nil, true, err
 		}
 		return types.NewPageResult(total, page, rows), true, nil
+	}
+	if _, err := p.checkExactPublishedViewer(ctx, types.PersonalExactReceipt{
+		TenantID: owner.TenantID, KnowledgeBaseID: owner.ID,
+	}); err != nil {
+		return nil, true, err
 	}
 	rows := make([]*types.Knowledge, 0, len(ids))
 	reads := make([]context.Context, 0, len(ids))

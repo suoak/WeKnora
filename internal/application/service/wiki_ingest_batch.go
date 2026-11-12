@@ -550,14 +550,26 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	var wikiConfig *types.WikiConfig
 	wikiConfig = kb.WikiConfig
 
-	if proofErr := s.checkPersonalWikiPending(pendingOps); proofErr != nil {
-		return proofErr
-	}
 	proofCtx, proofErr := s.personalWikiProofContext(ctx, payload.KnowledgeBaseID)
-	if proofErr != nil {
+	if !wikiSelectionMayContinue(proofErr) {
 		return proofErr
 	}
 	ctx = proofCtx
+	pendingOps, peekedIDs, err = s.selectWikiPending(ctx, payload.KnowledgeBaseID, pendingOps, peekedIDs, claimOwnership)
+	if err != nil {
+		return err
+	}
+	if proofErr != nil || len(pendingOps) == 0 {
+		claimsSettled = true
+		if err := s.clearWikiBlock(ctx, payload); err != nil {
+			return err
+		}
+		followUpScheduled = s.scheduleFollowUp(ctx, payload, wikiFollowUpDelay, batchSize, maxInflight, false)
+		return nil
+	}
+	if proofErr := s.checkPersonalWikiPending(pendingOps); proofErr != nil {
+		return proofErr
+	}
 	if err := s.clearWikiBlock(ctx, payload); err != nil {
 		return err
 	}
@@ -1261,6 +1273,12 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 
 	proofCtx, proofErr := s.personalWikiProofContext(ctx, payload.KnowledgeBaseID)
 	if proofErr != nil {
+		if wikiDocumentSelectionEnabled() && errors.Is(proofErr, apprepo.ErrWikiNoEligibleDocuments) {
+			if err := s.parkWikiFinalize(proofCtx, payload.KnowledgeBaseID, ids); err != nil {
+				return err
+			}
+			return s.clearWikiBlock(proofCtx, payload)
+		}
 		return proofErr
 	}
 	ctx = proofCtx

@@ -110,7 +110,7 @@ func RegisterInitializationRoutes(r *gin.RouterGroup, handler *handler.Initializ
 	g.apiKeyRoute(r, http.MethodPost, "/initialization/initialize/:kbId",
 		apiKeyManageKnowledgeBases(apiKeyFullAccess()), g.OwnedKBOrAdminFromKbIDParam(), g.KBAccessWrite("kbId"), handler.InitializeByKB)
 	g.apiKeyRoute(r, http.MethodPut, "/initialization/config/:kbId",
-		apiKeyManageKnowledgeBases(apiKeyFullAccess()), g.OwnedKBOrAdminFromKbIDParam(), g.KBAccessWrite("kbId"), handler.UpdateKBConfig)
+		apiKeyManageKnowledgeBases(apiKeyFullAccess()), g.Viewer(), g.KBAccessWrite("kbId"), handler.UpdateKBConfig)
 
 	// Ollama / 远程 API / 抽取等系统级检测/下载操作。这些不绑某个 KB，
 	// 会改空间级模型配置或拉远端模型；JWT 侧只读探测 Viewer+、变更 Admin+。
@@ -311,30 +311,30 @@ func RegisterDataSourceRoutes(
 		ds.GET("/types", g.Viewer(), handler.GetAvailableConnectors)
 
 		// Validate credentials without persistence (for "Test Connection" button) — Admin+
-		ds.POST("/validate-credentials", g.Contributor(), handler.SourceWriteAccess, handler.ValidateCredentials)
+		ds.POST("/validate-credentials", g.Viewer(), handler.SourceWriteAccess, handler.ValidateCredentials)
 
 		// CRUD operations
-		ds.POST("", g.Contributor(), handler.SourceWriteAccess, handler.CreateDataSource)
+		ds.POST("", g.Viewer(), handler.SourceWriteAccess, handler.CreateDataSource)
 		ds.GET("", g.Viewer(), handler.ListDataSources)
 		ds.GET("/:id", g.Viewer(), handler.GetDataSource)
-		ds.PUT("/:id", g.Contributor(), handler.SourceWriteAccess, handler.UpdateDataSource)
+		ds.PUT("/:id", g.Viewer(), handler.SourceWriteAccess, handler.UpdateDataSource)
 		ds.GET("/:id/document-deferrals", g.Admin(), handler.GetDocumentDeferrals)
 		ds.PUT("/:id/document-deferrals", g.Admin(), handler.PutDocumentDeferrals)
-		ds.DELETE("/:id", g.Contributor(), handler.SourceWriteAccess, handler.DeleteDataSource)
+		ds.DELETE("/:id", g.Viewer(), handler.SourceWriteAccess, handler.DeleteDataSource)
 
 		// Credential subresource. Single logical field "credentials" because
 		// connector credentials are a per-connector atomic map (see
 		// internal/handler/datasource_credentials.go). — Admin+
-		ds.PUT("/:id/credentials", g.Contributor(), handler.SourceWriteAccess, credHandler.Put)
-		ds.DELETE("/:id/credentials/:field", g.Contributor(), handler.SourceWriteAccess, credHandler.DeleteField)
+		ds.PUT("/:id/credentials", g.Viewer(), handler.SourceWriteAccess, credHandler.Put)
+		ds.DELETE("/:id/credentials/:field", g.Viewer(), handler.SourceWriteAccess, credHandler.DeleteField)
 
 		// Connection and resource management — Admin+
-		ds.POST("/:id/validate", g.Contributor(), handler.SourceWriteAccess, handler.ValidateConnection)
-		ds.GET("/:id/resources", g.Contributor(), handler.SourceWriteAccess, handler.ListAvailableResources)
-		ds.POST("/:id/resource-ancestors", g.Contributor(), handler.SourceWriteAccess, handler.ResolveResourceAncestors)
+		ds.POST("/:id/validate", g.Viewer(), handler.SourceWriteAccess, handler.ValidateConnection)
+		ds.GET("/:id/resources", g.Viewer(), handler.SourceWriteAccess, handler.ListAvailableResources)
+		ds.POST("/:id/resource-ancestors", g.Viewer(), handler.SourceWriteAccess, handler.ResolveResourceAncestors)
 
 		// Sync management — Admin+
-		ds.POST("/:id/sync", g.Contributor(), handler.SourceWriteAccess, handler.ManualSync)
+		ds.POST("/:id/sync", g.Viewer(), handler.SourceWriteAccess, handler.ManualSync)
 		ds.GET("/:id/safety-recovery/plan", g.Admin(), handler.FeishuRecoveryPlan)
 		ds.GET("/:id/safety-recovery/status", g.Admin(), handler.FeishuRecoveryStatus)
 		ds.POST("/:id/safety-recovery/execute", g.Admin(), handler.FeishuRecoveryExecute)
@@ -344,8 +344,8 @@ func RegisterDataSourceRoutes(
 		ds.POST("/:id/safety-recovery/normal-service/:operation", g.Admin(), handler.FeishuNormalService)
 		ds.POST("/:id/safety-recovery/reconcile", g.Admin(), handler.FeishuSourceReconciliation)
 		ds.GET("/:id/safety-recovery/eligibility", g.Admin(), handler.FeishuSourceEligibility)
-		ds.POST("/:id/pause", g.Contributor(), handler.SourceWriteAccess, handler.PauseDataSource)
-		ds.POST("/:id/resume", g.Contributor(), handler.SourceWriteAccess, handler.ResumeDataSource)
+		ds.POST("/:id/pause", g.Viewer(), handler.SourceWriteAccess, handler.PauseDataSource)
+		ds.POST("/:id/resume", g.Viewer(), handler.SourceWriteAccess, handler.ResumeDataSource)
 
 		// Sync logs — Viewer+ (read-only audit trail)
 		ds.GET("/:id/logs", g.Viewer(), handler.GetSyncLogs)

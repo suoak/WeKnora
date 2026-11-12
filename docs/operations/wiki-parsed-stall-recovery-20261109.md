@@ -1,0 +1,54 @@
+# Parsed Wiki stalls and source reconciliation
+
+The production NTOS knowledge base `45c73999-ba38-4e12-895f-b53ac59fb647` has 703 enabled GitLab documents with completed summaries, zero pending subtasks, completed reader/chunking/embedding spans and 18,354 enabled text chunks with ready indexes. Their failure message identifies housekeeping expiry while finalizing. Restoring these records must preserve parsed content and old Wiki work rather than rerunning the parser or declaring success.
+
+`wiki-regenerate -restore-parsed-stalls` previews an exact native PostgreSQL snapshot under the existing KB lock. It verifies current source bindings, absence of live source execution, parse-stage evidence, enabled text/vector coverage, chunk ownership and the ordinary full-KB input proof with only those independently checked failed rows admitted for preview. Apply requires the reviewed snapshot, restores `finalizing` with one pending Wiki subtask, adds fresh ingest intents without changing old task IDs, payloads or failure counts, and retains the original error in a recovery audit. Full ordinary input verification and unchanged chunk/index fingerprints must pass before commit. Preview performs no writes. The normal worker owns completion; the separate existing selective page recovery remains necessary for unverified historical pages.
+
+The source protection recovery API also cannot continue a production version-3 shared-queue receipt after worker replacement. A live signed normal-service root can now sponsor a fresh independently signed reconciliation plan while inheriting the exact historical release checkpoint. The old signature is verified at its original activation time solely as historical evidence. Its checkpoint bytes, task identities, normal-service root and current source authority remain checked. This never renews the departed worker's authority or issues a new shared-queue release.
+
+Long-running spreadsheet inputs can change while retaining identical individual embedding inputs. Typed private checkpoints can now supply exact current input hashes from the same resource under the same model stamp, model ID, KB configuration and dimension, even when source revision/package digest changes. Every cache read still owns current SQL execution and source read authority. Old bodies and unmatched inputs are never returned. In production, 679 of one retained attempt's 1,999 vectors match current registered input hashes; no reuse count is claimed until the corrected worker actually runs.
+
+Production now runs `046e294fbc8530c26b05fed6581d23e22e90dcf8`, with the previous public document/cleanup release retained for rollback. The application is healthy and schema remains 3045. Native PostgreSQL, race tests, vet and native builds passed before deployment. The source-reconciliation parent bridge and private checkpoint reuse are included in this release.
+
+At 23:27 CST on November 9, production NTOS had zero failed documents, its Wiki processing state was resolved, and new pages were publishing. Recovery preserved all 89 original Wiki operations, added 703 parsed-document ingest intents, and then used the existing selective page recovery to isolate 3,569 unverified historical pages and queue 253 documents. Isolated page bodies remain retained. Generation is still running; pending-operation counts can grow as ingest produces page-finalization work.
+
+The same verification now supports locally published web, API and browser-extension documents, including the housekeeping message variant identifying a postprocess stage. It still excludes Feishu/personal and unknown connector channels, requires completed reader/chunking/embedding spans, complete native indexes and the ordinary current-KB proof, and rejects real parser failures, claimed operations, source holds and stale snapshots. Only spans in the latest processing attempt determine whether a parser is active; abandoned spans from older attempts remain unchanged as historical evidence. Native PostgreSQL race tests cover preview/apply and ordinary generation for every supported local channel, retained historical orphan spans and rejection of active current spans. This is an operator-tool change and does not require an application restart. The CLI accepts a bounded `-timeout` from one to ten minutes, defaulting to two minutes.
+
+The User Manual KB had 29 similarly misclassified web documents with 52,662 enabled text chunks, complete native vector coverage and completed current parse stages. Its older attempts retained 99 unfinished spans from September and October. After a fresh 131,054-row backup was copied off-host and verified, the reviewed recovery restored those 29 documents to finalizing and added 29 intents without changing the existing 51 operations or any chunks, vectors or old spans. Selective page verification and normal generation remain separate steps.
+
+The source recovery plan admitted nine controlled reconciliation runs. Four held sources have subsequently reached active access state, while other runs still report per-document source conflicts, unavailable assets, remote permission failures or model backpressure. Admission alone is not successful reconciliation. One personal source has a current OAuth binding but no historical sharing approval and was rejected before creating a run; its hold has not been removed. The two ordinary partial sources were submitted through the existing manual incremental API with their configurations and cursors retained.
+
+The user clarified on November 10 that importing into a space is publication consent; no second authorization from the importer is required. A candidate fix makes controlled recovery use the existing import and live destination authority, matching ordinary imports/updates. An encrypted, single-run policy records this authority mode without manufacturing a historical sharing approval. Its guard rechecks the exact import/resource/destination, current owner membership, current connection/epoch, claimed run/generation, source configuration, audience and expiry. Remote view/export/copy checks and the final verified publication transaction remain required. Old optional continuing policies retain their previous contract. Production rollout of this additional change requires separate build and execution evidence.
+
+Read-only inspection of retained XLSX exports also found overlapping column definitions with different properties. Rejecting every overlap prevents those files from reaching the native parser. The candidate identity normalizer preserves each column's complete ordered attribute stack while normalizing range packaging and the already permitted width variation. It never chooses a winning style or discards a hidden/style attribute; overlapping order changes remain detectable. Expansion is bounded to 32,768 definitions. Existing non-overlapping v1 identities retain their byte representation. Synthetic tests cover equal range packaging, changed styles/hidden state/order, dropped definitions and expansion bounds.
+
+The full native DOCX/XLSX race suite, including the large-table streaming case, passed for this identity change. Read-only before/after diagnostic binaries then compared the same 24 retained production XLSX archives: five previously rejected files became acceptable, the other 19 remained acceptable with unchanged identities, and none remained rejected. No remote request, model request, source publication or file mutation was performed by this comparison. The destination-consent tests also verify signed admission without any historic approval, ignore obsolete secondary approvals, and still reject changed import resource/destination, disabled owner, withdrawn membership, lost execution claim and revoked source. Final release validation additionally runs vet and a native server build.
+
+Production checks as `suchen1` returned HTTP 200 for the Opportunity Signals detail, chunks and original-file preview, with the expected file SHA256. The previously queued NTS deletion remains deleted with zero chunks and embeddings. Actual CSBU logs show 3,061 exact current input hashes reused from private embedding checkpoints while new inputs continue processing. EWEB selective recovery preserved the original 448 operations, isolated 121 additional pages whose current proofs had expired, and queued eight documents after a fresh verified backup.
+
+These notes do not certify that all production Wiki queues have drained. Remaining source and Wiki failures require their own execution evidence; no queue, hold, publication receipt or historical failure record may be cleared merely to remove the warning.
+
+## 2026-11-10：下载连接重置导致同步全局暂停
+
+生产 `feishu_response_io_failure` 的原始下载错误由连接器分类为
+`connection_reset`。保护层此前仅将响应头阶段的 `ECONNRESET` / `EPIPE`
+交回连接器重试，响应体阶段的同类故障却会触发全局停止。
+
+现在这两类明确的断连错误在响应体阶段仍以原错误返回，当前下载失败，部分字节不会
+作为成功文件继续解析；当前分布式许可验证成功时，由连接器执行原有的有限重试。
+许可缺失、向量响应错误、`io.ErrUnexpectedEOF` 和无法分类的读取错误仍保持关闭。
+
+部署该修复不等于解除既有停止状态。须保留事故审计、队列、游标与向量检查点，
+通过当前版本的计划、独立签名、Reset 和 Canary 接口恢复；不可直接删除停止键。
+
+## 2026-11-10：宽列导出兼容性
+
+新一轮恢复识别出一份文档的两个留存 XLSX 版本均存在超过旧 255 上限的列宽。
+两份文件的 ZIP、XML、列索引及展开数量均通过结构检查。候选修复继续从身份中
+排除列宽，仅移除该任意上限；非数字、非有限数和负数仍拒绝，列范围、层叠样式、
+隐藏状态、内容、公式、资源和关系仍参与原有完整校验。列宽不用于范围展开。
+
+候选代码的短模式 DOCX/XLSX 竞态测试、原生 PostgreSQL 发布身份测试、vet 和
+原生服务构建已通过。使用同一批生产留存文件只读对比时，两份被拒绝文件恢复可校验，
+此前接受的七份文件身份值保持不变；扩展检查的十五份文件全部可校验。
+诊断没有请求飞书、调用模型或修改业务数据。该候选修复尚需部署验收。

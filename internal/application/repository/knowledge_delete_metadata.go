@@ -78,6 +78,9 @@ func (r *knowledgeRepository) MarkKnowledgeDeleting(ctx context.Context, knowled
 	}
 	now := time.Now().UTC().Truncate(time.Microsecond)
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := fenceLegacyKnowledgeDeletion(tx, knowledge); err != nil {
+			return err
+		}
 		if err := fencePersonalKnowledgeDeletion(tx, knowledge); err != nil {
 			return err
 		}

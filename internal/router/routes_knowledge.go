@@ -81,7 +81,7 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		kb.PUT("/folders", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.RenameKnowledgeFolder)
 		// Clearing all contents under a KB is a destructive op; gate
 		// behind Admin instead of Contributor.
-		kb.With(apiKeyFullAccess()).DELETE("", g.Admin(), g.KBAccessWrite("id"), handler.ClearKnowledgeBaseContents)
+		kb.With(apiKeyFullAccess()).DELETE("", g.Viewer(), middleware.KBDeletionMetadata(), g.KBAccessWrite("id"), handler.ClearKnowledgeBaseContents)
 	}
 
 	// Image gallery: list every image asset of a KB (read-only, Viewer+).
@@ -123,7 +123,7 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		kRead.GET("/:id/spans", middleware.KnowledgeProcessingMetadata(g.knowledgeService),
 			g.Viewer(), g.KBAccessReadFromKnowledgeIDParam("id"), handler.GetKnowledgeSpans)
 		k.DELETE("/:id", middleware.KnowledgeDeletionMetadata(g.knowledgeService),
-			g.OwnedKnowledgeKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.DeleteKnowledge)
+			g.Viewer(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.DeleteKnowledge)
 		k.PUT("/:id", g.OwnedKnowledgeKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.UpdateKnowledge)
 		k.POST("/:id/regenerate-summary", g.OwnedKnowledgeKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.RegenerateKnowledgeSummary)
 		k.PUT("/manual/:id", g.OwnedKnowledgeKBOrAdmin(), g.KBAccessWriteFromKnowledgeIDParam("id"), handler.UpdateManualKnowledge)
@@ -151,7 +151,7 @@ func RegisterKnowledgeRoutes(r *gin.RouterGroup, handler *handler.KnowledgeHandl
 		// can only touch KBs it is already permitted to write.
 		k.PUT("/tags", g.Contributor(), handler.UpdateKnowledgeTagBatch)
 		k.POST("/batch-reparse", g.Contributor(), handler.BatchReparseKnowledge)
-		k.POST("/batch-delete", g.Contributor(), handler.BatchDeleteKnowledge)
+		k.POST("/batch-delete", g.Viewer(), handler.BatchDeleteKnowledge)
 		k.POST("/folder", g.Contributor(), handler.MoveKnowledgeToFolder)
 		k.POST("/move", g.Contributor(), handler.MoveKnowledge)
 	}
@@ -236,7 +236,7 @@ func RegisterKnowledgeBaseRoutes(r *gin.RouterGroup, handler *handler.KnowledgeB
 		// handler 内再按 permission/所有者租户做最终判定 —— 尤其 DeleteKnowledgeBase
 		// 以调用者「自身」租户(c.Keys，未被 KBAccess 改写)校验 kb.TenantID，
 		// 把删除锁死为「所有者租户 + Admin」，共享 editor 无法删除源 KB。
-		kbManagement.PUT("/:id", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"), handler.UpdateKnowledgeBase)
+		kbManagement.PUT("/:id", g.Viewer(), g.KBAccessWrite("id"), handler.UpdateKnowledgeBase)
 		// 立即重新生成知识库 AI 描述 — 与更新知识库同档鉴权；同步执行一次小模型调用。
 		kbManagement.POST("/:id/profile/generate", g.OwnedKBOrAdmin(), g.KBAccessWrite("id"),
 			handler.GenerateKnowledgeBaseProfile)

@@ -54,6 +54,7 @@ const props = defineProps<{
   canEdit: boolean;
   canDownload: boolean;
   canMutateKnowledge: boolean;
+  canDeleteKnowledge?: boolean;
   traceAvailableById: Record<string, boolean>;
   /** Every folder of the knowledge base, for the "move to folder" picker. */
   folderOptions?: FolderOption[];
@@ -356,7 +357,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
           </div>
           <button type="button" class="card-content-title" :title="item.file_name"
             @click.stop="onCardClick(item)">{{ item.file_name }}</button>
-          <div v-if="(canEdit || canDownload) && batchMode" class="card-nav-check" @click.stop>
+          <div v-if="(canEdit || canDownload || canDeleteKnowledge) && batchMode" class="card-nav-check" @click.stop>
             <t-checkbox
               class="card-select-checkbox"
               size="small"
@@ -367,7 +368,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             />
           </div>
           <t-popup
-            v-else-if="canEdit"
+            v-else-if="canEdit || canDeleteKnowledge"
             :visible="activeMenuIndex === index"
             overlayClassName="card-more"
             :on-visible-change="(v: boolean) => onMenuVisibleChange(v, item, index)"
@@ -406,7 +407,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
                 <DocumentActionMenu
                   :item="item"
                   :can-download="canDownload"
-                  :can-mutate-knowledge="canMutateKnowledge"
+                  :can-mutate-knowledge="canMutateKnowledge" :can-delete-knowledge="canDeleteKnowledge"
                   :trace-visible="isTraceMenuVisible(item)"
                   :folders-available="Boolean(folderOptions?.length)"
                   @download="handleAction('download', item)"

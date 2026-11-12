@@ -11,7 +11,9 @@ import (
 // plan after its old canary review expires or its worker is replaced. This
 // issues no source/SQL execution authority, renews no old approval and never
 // trips or pauses healthy normal synchronization.
-func (m *RecoveryManager) normalReconciliationParent(ctx context.Context) (*NormalServiceRecord, string, error) {
+func (m *RecoveryManager) normalReconciliationParent(
+	ctx context.Context,
+) (*NormalServiceRecord, string, error) {
 	record, err := m.normalRecord(ctx)
 	if err != nil || record == nil {
 		return nil, "", ErrRecoveryRejected
@@ -26,9 +28,15 @@ func (m *RecoveryManager) normalReconciliationParent(ctx context.Context) (*Norm
 	if err != nil || json.Unmarshal([]byte(mode), &state) != nil ||
 		state.RunID != "" || state.Generation != 0 || !recoverySHA.MatchString(state.PlanSHA256) ||
 		(state.Phase != "awaiting_review" && state.Phase != "approved_sources") ||
-		(state.Version != 1 && state.Version != 2) ||
+		(state.Version != 1 && state.Version != 2 && state.Version != 3) ||
 		(state.Version == 1 && (state.Steady != nil || state.Phase != "awaiting_review")) ||
-		(state.Version == 2 && (state.Steady == nil || state.Steady.Plan.ReleaseSharedQueue)) {
+		(state.Version == 2 && (state.Steady == nil || state.Steady.Plan.ReleaseSharedQueue)) ||
+		(state.Version == 3 && (state.Steady == nil || !state.Steady.Plan.ReleaseSharedQueue)) {
+		return nil, "", ErrRecoveryRejected
+	}
+	if state.Version == 3 && m.verifySteady(*state.Steady, state.Steady.ActivatedMS, false) != nil {
+		// Verify historical evidence at its original activation time. This does
+		// not extend that grant or authorize the departed worker to execute.
 		return nil, "", ErrRecoveryRejected
 	}
 	required, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery_required").Result()
@@ -42,7 +50,7 @@ func validSteadyParentVersion(p SteadyPlan) bool {
 	if p.Version == 1 {
 		return p.NormalServiceAuthorizationID == ""
 	}
-	if p.Version != 2 || p.NormalServiceAuthorizationID == "" || p.ReleaseSharedQueue || p.RevocationOnly {
+	if p.Version != 2 || p.NormalServiceAuthorizationID == "" || p.RevocationOnly {
 		return false
 	}
 	if _, err := uuid.Parse(p.NormalServiceAuthorizationID); err != nil {
@@ -66,6 +74,16 @@ func (m *RecoveryManager) checkSteadyParent(ctx context.Context, p SteadyPlan) (
 	record, raw, err := m.normalReconciliationParent(ctx)
 	if err != nil || record.Authorization.ID != p.NormalServiceAuthorizationID {
 		return "", ErrRecoveryRejected
+	}
+	if p.ReleaseSharedQueue {
+		// A normal root can inherit the exact immutable release checkpoint,
+		// never issue a new shared-queue release through reconciliation.
+		mode, readErr := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
+		var state recoveryMode
+		if readErr != nil || json.Unmarshal([]byte(mode), &state) != nil || state.Steady == nil ||
+			!state.Steady.Plan.ReleaseSharedQueue || !sameSharedQueueRelease(state.Steady.Plan, p) {
+			return "", ErrRecoveryRejected
+		}
 	}
 	return raw, nil
 }

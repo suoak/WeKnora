@@ -240,9 +240,6 @@ func (c *exactPersonalConsumer) convert(
 	if err != nil {
 		return nil, err
 	}
-	if c.resuming && len(parsed.assets) != 0 {
-		return nil, errPersonalExactDependencies
-	}
 	c.parsed = parsed
 	// This is the same AnyDoc result consumed by the normal image resolver and
 	// chunker. Paths are logical references to checked embedded bytes; no URL or

@@ -905,6 +905,16 @@ func (r *chunkRepository) ListImageInfoByKnowledgeIDs(
 }
 
 // DeleteByKnowledgeList deletes all chunks for a knowledge list
+func (r *chunkRepository) ListChunkIDsForDeletion(ctx context.Context, tenantID uint64, knowledgeID string) ([]string, error) {
+	if err := types.CheckPrivateKBRead(r.db.WithContext(ctx), knowledgeID, ""); err != nil {
+		return nil, err
+	}
+	var ids []string
+	err := r.db.WithContext(ctx).Table("chunks").Where(
+		"tenant_id=? AND knowledge_id=? AND deleted_at IS NULL", tenantID, knowledgeID).Pluck("id", &ids).Error
+	return ids, err
+}
+
 func (r *chunkRepository) DeleteByKnowledgeList(ctx context.Context, tenantID uint64, knowledgeIDs []string) error {
 	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
 		return types.ErrExactDocumentScope

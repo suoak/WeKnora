@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/datasource"
@@ -246,6 +247,48 @@ func runSyncMode[N any](
 					tally.fetch()
 					accepted := true
 					for _, it := range items {
+						if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") == "true" && it != nil && it.Metadata["attachment"] != "true" {
+							id := it.ExternalID
+							it.CurrentSnapshot = func(check context.Context) (*types.FetchedItem, error) {
+								// Re-list the binding as well as re-fetching its body. A
+								// captured node can retain stale object IDs or edit times.
+								currentNodes, partial, err := ops.List(check, client, resourceID)
+								if err != nil {
+									return nil, err
+								}
+								if partial != nil {
+									return nil, partial
+								}
+								var currentNode N
+								matches := 0
+								for _, candidate := range currentNodes {
+									if ops.Token(candidate) == tok {
+										currentNode = candidate
+										matches++
+									}
+								}
+								if matches != 1 {
+									return nil, errors.New("current source binding unavailable or ambiguous")
+								}
+								fresh, err := ops.Fetch(check, client, currentNode, resourceID, config.MultimodalEnabled)
+								if err != nil {
+									return nil, err
+								}
+								var found *types.FetchedItem
+								for _, candidate := range fresh {
+									if candidate != nil && candidate.ExternalID == id {
+										if found != nil {
+											return nil, errors.New("ambiguous current source snapshot")
+										}
+										found = candidate
+									}
+								}
+								if found == nil {
+									return nil, errors.New("current source snapshot unavailable")
+								}
+								return found, nil
+							}
+						}
 						if eerr := h.Emit(ctx, *it); eerr != nil {
 							var local *datasource.DocumentFailureError
 							if !errors.As(eerr, &local) {

@@ -70,7 +70,7 @@ const messages = {
   storeInstall: 'Chrome 웹 스토어에서 설치',
   edgeStoreInstall: 'Edge 추가 기능에서 설치',
 },
-  loadState: { retry: '다시 시도', networkTitle: '연결 문제', networkDescription: '네트워크 연결을 확인하고 다시 시도하세요.', forbiddenTitle: '접근 권한 없음', forbiddenDescription: '현재 역할로는 이 리소스에 접근할 수 없습니다.', notFoundTitle: '리소스를 찾을 수 없음', notFoundDescription: '삭제되었거나 링크가 오래되었을 수 있습니다.', genericTitle: '콘텐츠를 불러오지 못했습니다', genericDescription: '다시 시도하고 문제가 계속되면 관리자에게 문의하세요.' },
+  loadState: { notReadyTitle: "문서가 아직 준비되지 않았습니다", notReadyDescription: "문서 처리가 완료되지 않았습니다. 처리 상태를 확인한 후 다시 시도하세요.", verificationTitle: "문서 접근 확인 필요", verificationDescription: "문서 접근 조건을 확인할 수 없습니다. 원본의 권한을 확인하거나 공간 관리자에게 문의하세요.", retry: '다시 시도', networkTitle: '연결 문제', networkDescription: '네트워크 연결을 확인하고 다시 시도하세요.', forbiddenTitle: '접근 권한 없음', forbiddenDescription: '현재 역할로는 이 리소스에 접근할 수 없습니다.', notFoundTitle: '리소스를 찾을 수 없음', notFoundDescription: '삭제되었거나 링크가 오래되었을 수 있습니다.', genericTitle: '콘텐츠를 불러오지 못했습니다', genericDescription: '다시 시도하고 문제가 계속되면 관리자에게 문의하세요.' },
   portal: {
     brandSubtitle: 'CSBU IPD 지식 포털', heroEyebrow: '지식 탐색', heroTitle: '조직의 관리된 지식 공간 탐색',
     heroDescription: 'IPD 프로세스를 따라 전문 지식을 탐색하고 Viewer 읽기 전용 권한을 요청하세요.', viewSwitcherLabel: '지식 포털 보기',
@@ -4522,6 +4522,8 @@ const messages = {
       backToOverview: '개요로 돌아가기',
       sourceVerificationStatus: '소스 접근 권한 확인 대기 중이며 {count}개 작업이 보존되었습니다',
       blockedStatus: 'Wiki 처리가 중단되었습니다. {count}개 작업이 보존되었습니다. 관리자에게 문의하세요',
+	  skippedStatus: '문서 {count}개를 건너뛰고 다른 문서는 계속 처리합니다',
+	  skipReasons: { document_disabled: '비활성 문서', document_not_parsed: '파싱 미완료', personal_publication_pending: '개인 가져오기 검증 대기', source_verification_required: '접근 권한 또는 최신 내용 검증 대기' },
       generatingStatus: 'Wiki 생성 중, 남은 작업 {count}개',
       queueStatus: 'Wiki 대기열에 {count}개의 보류 중인 작업',
       issueTitle: '이 페이지에는 {count}개의 대기 중인 지식 충돌 또는 오류가 있습니다',

@@ -11,6 +11,7 @@ defineProps<{
   downloadLoading?: boolean;
   canDownload?: boolean;
   canMutate?: boolean;
+  canDelete?: boolean;
   // When true the bar stays visible even with 0 selections, so users can exit
   // batch mode from here without selecting anything first.
   visible?: boolean;
@@ -94,7 +95,7 @@ const folderPickerVisible = ref(false);
             </template>
           </t-popup>
 
-          <t-popconfirm v-if="canMutate" theme="warning" :content="t('knowledgeBase.confirmBatchDeleteDocument', { count })"
+          <t-popconfirm v-if="canDelete ?? canMutate" theme="warning" :content="t('knowledgeBase.confirmBatchDeleteDocument', { count })"
             :confirm-btn="{ content: t('knowledgeBase.confirmDelete'), theme: 'danger' }"
             :cancel-btn="{ content: t('common.cancel') }" placement="top" @confirm="emit('delete')">
             <t-button theme="danger" variant="outline" size="small"

@@ -8,7 +8,25 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-// A canonical KB viewer who is a live member of the owning workspace can see
+// Historical application imports can predate exact receipts. Their authorized
+// workspace catalog is still metadata, never a publication or source grant.
+func (p *PersonalRecovery) hasPersonalCatalogImports(ctx context.Context, tenant uint64, kbs []string) (bool, error) {
+	caller := types.CallerFromContext(ctx)
+	principal, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
+	effective, valid := types.TenantIDFromContext(ctx)
+	if !ok || principal.Type != types.PrincipalWebUser || principal.ID != caller.UserID ||
+		caller.UserID == "" || caller.TenantID != tenant || !valid || effective != tenant || len(kbs) == 0 {
+		return false, nil
+	}
+	var count int64
+	err := p.service.db.WithContext(ctx).Table("feishu_personal_imports m").
+		Joins("JOIN knowledges k ON k.id=m.knowledge_id AND k.knowledge_base_id=m.kb_id").
+		Where("m.kb_id IN ? AND k.tenant_id=? AND k.channel=? AND k.deleted_at IS NULL",
+			kbs, tenant, "feishu_personal").Limit(1).Count(&count).Error
+	return count > 0, err
+}
+
+// A canonical KB viewer who is a live member or system administrator can see
 // file catalog metadata, even while processing/source-content access is closed.
 // This is not a source proof and never grants detail, file, chunk or model access.
 func (p *PersonalRecovery) exactPageMetadata(
@@ -31,11 +49,15 @@ func (p *PersonalRecovery) exactPageMetadata(
 	}
 	memberCheck := func() error {
 		var member bool
+		_, keyed := types.TenantAPIKeyScopeFromContext(ctx)
 		if err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
-SELECT 1 FROM tenant_members m JOIN users u ON u.id=m.user_id
-WHERE m.user_id=? AND m.tenant_id=? AND m.role=? AND m.status='active'
-AND m.deleted_at IS NULL AND u.is_active AND u.deleted_at IS NULL)`,
-			caller.UserID, tenant, caller.Role).Scan(&member).Error; err != nil {
+SELECT 1 FROM users u JOIN tenants t ON t.id=?
+WHERE u.id=? AND u.is_active AND u.deleted_at IS NULL
+AND t.status='active' AND t.deleted_at IS NULL
+AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXISTS(
+ SELECT 1 FROM tenant_members m WHERE m.user_id=u.id AND m.tenant_id=t.id
+ AND m.role=? AND m.status='active' AND m.deleted_at IS NULL)))`,
+			tenant, caller.UserID, caller.Role, !keyed, caller.Role).Scan(&member).Error; err != nil {
 			return err
 		}
 		if !member {
@@ -178,7 +200,13 @@ func (s *knowledgeService) exactPublicMetadataBatch(
 		return nil, true, err
 	}
 	if count == 0 {
-		return nil, false, nil
+		catalog, err := p.hasPersonalCatalogImports(ctx, tenant, kbs)
+		if err != nil {
+			return nil, true, err
+		}
+		if !catalog {
+			return nil, false, nil
+		}
 	}
 	if len(unique) > 256 {
 		return nil, true, errPersonalExactDocument

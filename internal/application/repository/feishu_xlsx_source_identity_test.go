@@ -71,7 +71,7 @@ func TestFeishuXLSXSourceIdentityPostgres(t *testing.T) {
 	ctx := types.WithSyncExecution(context.Background(), types.SyncExecution{
 		DataSourceID: ds.ID, TenantID: tenant.ID, SyncLogID: log.ID, Generation: 1,
 	})
-	old, current := identityXLSX(t, "10"), identityXLSX(t, "11.5")
+	old, current := identityXLSX(t, "10"), identityXLSX(t, "512.25")
 	metadata, _ := json.Marshal(map[string]string{
 		"obj_type": "sheet", "datasource_id": ds.ID,
 		"external_id": "sheet:synthetic",

@@ -314,6 +314,9 @@ func (p *WikiPage) AfterFind(tx *gorm.DB) error {
 	if err := CheckLegacySourceRead(tx, "", p.KnowledgeBaseID); err != nil {
 		return err
 	}
+	if err := CheckWikiVerifiedPageRead(tx, p); err != nil {
+		return err
+	}
 	p.ReadETag = p.DependencyETag()
 	p.ReadBodyETag = p.BodyDependencyETag()
 	return nil
@@ -774,6 +777,8 @@ type WikiGraphEdge struct {
 
 // WikiStats provides aggregate statistics about the wiki
 type WikiStats struct {
+	SkippedDocuments int64            `json:"skipped_documents,omitempty"`
+	SkippedByReason  map[string]int64 `json:"skipped_by_reason,omitempty"`
 	ProcessingStatus string           `json:"processing_status"`
 	BlockedReason    string           `json:"blocked_reason,omitempty"`
 	TotalPages       int64            `json:"total_pages"`

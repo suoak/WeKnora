@@ -299,19 +299,24 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.EmbeddingModelID = req.EmbeddingModelID
 	}
 
-	// 处理多模态模型配置
-	kb.VLMConfig = types.VLMConfig{}
-	if req.VLMConfig != nil && req.Multimodal.Enabled && req.VLMConfig.ModelID != "" {
-		vllmModel, err := h.modelService.GetModelByID(ctx, req.VLMConfig.ModelID)
-		if err != nil || vllmModel == nil {
-			logger.Warn(ctx, "VLM model not found")
-		} else {
-			kb.VLMConfig.Enabled = req.VLMConfig.Enabled
-			kb.VLMConfig.ModelID = req.VLMConfig.ModelID
+	// An omitted VLM field preserves the current settings. Reject invalid
+	// explicit choices instead of reporting success after silently disabling it.
+	if req.VLMConfig != nil {
+		if req.VLMConfig.Enabled {
+			if req.VLMConfig.ModelID == "" {
+				c.Error(errors.NewBadRequestError("A vision model is required when image processing is enabled"))
+				return
+			}
+			vllmModel, modelErr := h.modelService.GetModelByID(ctx, req.VLMConfig.ModelID)
+			if modelErr != nil || vllmModel == nil {
+				c.Error(errors.NewBadRequestError("The selected vision model is unavailable"))
+				return
+			}
 		}
-	}
-	if !kb.VLMConfig.Enabled {
-		kb.VLMConfig.ModelID = ""
+		kb.VLMConfig = *req.VLMConfig
+		if !kb.VLMConfig.Enabled {
+			kb.VLMConfig.ModelID = ""
+		}
 	}
 
 	// 处理ASR语音识别配置
@@ -361,12 +366,6 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 		kb.ChunkingConfig.TableMetadataInstructions = strings.TrimSpace(*req.DocumentSplitting.TableMetadataInstructions)
 	}
 
-	// 更新多模态配置
-	if req.Multimodal.Enabled {
-		// VLM model already set above
-	} else {
-		kb.VLMConfig.ModelID = ""
-	}
 	if req.VLMConfig != nil {
 		kb.VLMConfig.DescriptionLanguage = strings.TrimSpace(req.VLMConfig.DescriptionLanguage)
 		kb.VLMConfig.CustomInstructions = strings.TrimSpace(req.VLMConfig.CustomInstructions)

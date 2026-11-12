@@ -164,12 +164,13 @@ original_file_path text,external_id text)`).Error)
 				)
 			}
 			proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
-			if change == "valid" || change == "empty_registry_hash" {
+			if change == "valid" || change == "empty_registry_hash" || change == "revision" {
 				require.NoError(t, err)
 				require.Equal(t, k.ID, proof.knowledge)
 				require.Equal(t, owner.Fence, proof.generation)
 				require.Equal(t, manifest.Hash, proof.fileSHA256)
 				require.Len(t, proof.file, int(k.FileSize))
+				require.Equal(t, owner.Revision, proof.revision, "remote edits must not replace the imported snapshot")
 			} else {
 				require.Error(t, err)
 				require.Nil(t, proof)

@@ -86,6 +86,8 @@ export interface WikiGraphData {
 }
 
 export interface WikiStats {
+	 skipped_documents?: number;
+	 skipped_by_reason?: Record<string, number>;
   processing_status?: string;
   blocked_reason?: string;
   total_pages: number;

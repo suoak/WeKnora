@@ -82,7 +82,7 @@ export default {
   storeInstall: 'Install from Chrome Web Store',
   edgeStoreInstall: 'Install from Edge Add-ons',
 },
-  loadState: { retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
+  loadState: { notReadyTitle: "Document is not ready", notReadyDescription: "Document processing has not completed. Check its processing status and try again.", verificationTitle: "Document access needs verification", verificationDescription: "Document access could not be verified. Check the source authorization or contact a workspace administrator.", retry: 'Try again', networkTitle: 'Connection problem', networkDescription: 'Check your network connection and try again.', forbiddenTitle: 'Access denied', forbiddenDescription: 'Your current role cannot access this resource.', notFoundTitle: 'Resource not found', notFoundDescription: 'It may have been removed or the link may be outdated.', genericTitle: 'Could not load this content', genericDescription: 'Try again. If the problem continues, contact an administrator.' },
   portal: {
     brandSubtitle: 'CSBU IPD Knowledge Portal',
     heroEyebrow: 'KNOWLEDGE DISCOVERY',
@@ -3539,6 +3539,8 @@ export default {
       backToOverview: 'Back to overview',
       sourceVerificationStatus: 'Waiting for source access verification; {count} tasks retained',
       blockedStatus: 'Wiki processing blocked; {count} tasks retained. Contact an administrator.',
+	  skippedStatus: '{count} documents skipped; other documents continue processing',
+	  skipReasons: { document_disabled: 'Document disabled', document_not_parsed: 'Parsing incomplete', personal_publication_pending: 'Personal import awaiting verification', source_verification_required: 'Source access or current content awaiting verification' },
       generatingStatus: 'Generating Wiki; {count} tasks remaining',
       queueStatus: '{count} pending tasks in Wiki queue',
       issueTitle: 'This page has {count} pending knowledge conflicts or errors',

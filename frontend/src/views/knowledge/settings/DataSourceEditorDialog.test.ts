@@ -106,11 +106,11 @@ async function fixture({
   return { vm, calls, replace, storedToken: () => storedToken, close: () => app.unmount() }
 }
 
-test('space contributors can add Feishu Wiki and Drive without administrator connector privileges', async () => {
-  const f = await fixture({ create: true, type: 'feishu', role: 'contributor' })
+test('space viewers can configure every connector without administrator privileges', async () => {
+  const f = await fixture({ create: true, type: 'feishu', role: 'viewer' })
   try {
-    assert.deepEqual(Array.from(f.vm.connectorDefs, (def: any) => def.type).sort(),
-      ['feishu', 'feishu_drive', 'lark', 'lark_drive'])
+    const types = Array.from(f.vm.connectorDefs, (def: any) => def.type)
+    for (const kind of ['feishu', 'feishu_drive', 'lark', 'lark_drive', 'gitlab']) assert.ok(types.includes(kind))
   } finally { f.close() }
 })
 

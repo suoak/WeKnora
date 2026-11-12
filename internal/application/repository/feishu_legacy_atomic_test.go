@@ -752,34 +752,12 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		}
 		search(false)
 		require.NoError(t, store.SetSourceUncertain(ctx, ds, true))
-		require.ErrorIs(t, legacyTenantModelGate(requestScope, guardDB, 999999), types.ErrLegacySourceRestricted,
-			"cross-space model calls must recheck the actual source KB, not on"+
-				"ly the caller tenant")
-		search(true)
-		require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID), types.ErrLegacySourceRestricted)
-		var knowledge types.Knowledge
-		require.ErrorIs(t, guardDB.First(&knowledge, "id=?", kid).Error, types.ErrLegacySourceRestricted)
-		adminCtx := types.WithLegacyKBAdminMetadata(context.Background(), kb.ID)
-		var administrativeKB types.KnowledgeBase
-		require.NoError(t, guardDB.WithContext(adminCtx).First(&administrativeKB, "id=?", kb.ID).Error,
-			"source administration must remain available for recovery")
-		require.ErrorIs(
-			t,
-			guardDB.WithContext(adminCtx).First(&types.Knowledge{}, "id=?", kid).Error,
-			types.ErrLegacySourceRestricted,
-			"metadata administration must not authorize a document body",
-		)
-		var chunk types.Chunk
-		require.ErrorIs(
-			t,
-			guardDB.Where("knowledge_id=? AND deleted_at IS NULL", kid).First(&chunk).Error,
-			types.ErrLegacySourceRestricted,
-		)
-		require.ErrorIs(
-			t,
-			legacyTenantModelGate(context.Background(), guardDB, tenant.ID),
-			types.ErrLegacySourceRestricted,
-		)
+		search(false)
+		require.NoError(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID), "a generic fetch failure does not revoke an existing document")
+		var retryableSource types.DataSource
+		require.NoError(t, db.First(&retryableSource, "id=?", ds.ID).Error)
+		require.NotEqual(t, "hold", retryableSource.LegacyAccessState)
+
 		require.NoError(t, store.SetSourceUncertain(ctx, ds, false))
 		require.NoError(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID))
 		require.NoError(

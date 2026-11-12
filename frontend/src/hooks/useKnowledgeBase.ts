@@ -105,6 +105,7 @@ export default function (knowledgeBaseId?: string) {
     }
   };
   const readError = (err: any) => {
+    if (classifyLoadError(err) === 'notReady') return t('loadState.notReadyDescription');
     const status = Number(err?.response?.status ?? err?.status ?? err?.error?.code);
     return t(status === 403 ? 'knowledgeBase.documentReadForbidden' : 'knowledgeBase.chunkLoadFailed');
   };

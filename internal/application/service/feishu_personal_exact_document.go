@@ -27,6 +27,8 @@ var (
 // publication proof at public read boundaries. It never requests source OAuth.
 var ErrPersonalPublishedSnapshotUnverified = errPersonalExactDocument
 
+type workspaceImportSnapshotKey struct{}
+
 // A source attestation is not a KB grant, a model-input receipt or a serving
 // receipt. Keep it private and non-serializable: task payloads cannot supply it.
 // Consumers must fence publication and prove their actual derived inputs.
@@ -170,31 +172,37 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		return nil, err
 	}
 	expected := core.PersonalResource{Type: m.ResourceType, Token: m.DocumentToken}
-	mark("remote_resource")
-	current, err := p.resolveResource(remote, m, expected)
-	if err != nil {
-		return nil, err
-	}
-	mark("remote_identity")
-	if current.Token != expected.Token || current.Type != expected.Type {
-		return nil, errPersonalExactDocument
-	}
-	mark("remote_revision")
-	if current.Modified != a.Revision {
-		return nil, errPersonalExactDocument
-	}
-	client := p.service.client(&core.Config{AppID: m.AppID})
-	mark("remote_permissions")
-	permission, err := inspectExactPersonalPermissions(remote,
-		func(current context.Context, action string) (bool, error) {
-			return client.PersonalResourcePermission(current, expected, action)
-		})
-	if err != nil {
-		return nil, err
-	}
-	permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
-	if !permission.View || !permission.Export || !permission.Copy {
-		return nil, errPersonalExactDocument
+	snapshot, _ := remote.Value(workspaceImportSnapshotKey{}).(string)
+	workspaceCopy := snapshot == a.ID
+	if !workspaceCopy {
+		mark("remote_resource")
+		current, err := p.resolveResource(remote, m, expected)
+		if err != nil {
+			return nil, err
+		}
+		mark("remote_identity")
+		if current.Token != expected.Token || current.Type != expected.Type {
+			return nil, errPersonalExactDocument
+		}
+		// The import owns the exported snapshot, not the current remote revision.
+		// Fetch already checks the revision before/after export. Below, the retained
+		// manifest and actual file bytes are checked again, and publication remains
+		// fenced to that original revision. Later edits must not invalidate a user's
+		// completed export or make a partially processed import impossible to resume.
+		// Resource identity and current source permissions are still verified here.
+		client := p.service.client(&core.Config{AppID: m.AppID})
+		mark("remote_permissions")
+		permission, err := inspectExactPersonalPermissions(remote,
+			func(current context.Context, action string) (bool, error) {
+				return client.PersonalResourcePermission(current, expected, action)
+			})
+		if err != nil {
+			return nil, err
+		}
+		permissionBits = &[3]bool{permission.View, permission.Export, permission.Copy}
+		if !permission.View || !permission.Export || !permission.Copy {
+			return nil, errPersonalExactDocument
+		}
 	}
 	mark("manifest")
 	manifest, err := p.store.read(a)
@@ -242,15 +250,27 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 	// cloud data from protection. Unknown or mixed dependencies remain closed.
 	mark("legacy_overlap")
 	var overlaps bool
-	err = p.service.db.WithContext(ctx).Raw(`SELECT
+	if workspaceCopy {
+		// A separately exported copy may share a cloud document identity with
+		// another source. It must never adopt that source's local file or rows.
+		err = p.service.db.WithContext(ctx).Raw(`SELECT
+EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND
+ (knowledge_id=? OR original_file_path IN (?,?))) OR
+EXISTS(SELECT 1 FROM feishu_legacy_attempts la JOIN feishu_legacy_resources lr ON lr.id=la.resource_id
+ WHERE lr.tenant_id=? AND la.manifest->'knowledge'->>'file_path' IN (?,?))`,
+			a.CallerTenantID, m.KnowledgeID, k.FilePath, file.PhysicalPath,
+			a.CallerTenantID, k.FilePath, file.PhysicalPath).Scan(&overlaps).Error
+	} else {
+		err = p.service.db.WithContext(ctx).Raw(`SELECT
 EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND
  (knowledge_id=? OR original_file_path IN (?,?) OR external_id=? OR external_id=?)) OR
 EXISTS(SELECT 1 FROM feishu_legacy_attempts la JOIN feishu_legacy_resources lr ON lr.id=la.resource_id
  WHERE lr.tenant_id=? AND la.manifest->'knowledge'->>'file_path' IN (?,?)) OR
 EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feishu_drive','lark','lark_drive')
  AND position(? in config::text)>0)`, a.CallerTenantID, m.KnowledgeID, k.FilePath, file.PhysicalPath,
-		m.DocumentToken, m.ResourceType+":"+m.DocumentToken, a.CallerTenantID,
-		k.FilePath, file.PhysicalPath, a.CallerTenantID, m.DocumentToken).Scan(&overlaps).Error
+			m.DocumentToken, m.ResourceType+":"+m.DocumentToken, a.CallerTenantID,
+			k.FilePath, file.PhysicalPath, a.CallerTenantID, m.DocumentToken).Scan(&overlaps).Error
+	}
 	if err != nil {
 		return nil, err
 	}

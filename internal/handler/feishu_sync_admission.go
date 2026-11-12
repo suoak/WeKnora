@@ -29,8 +29,8 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 			protection = rejected.ProtectionState
 			switch protection {
 			case "hold":
-				message = "数据源已保存，来源处于保护状态，请管理员核验恢复后同步"
-				recoveryAction = "reconcile_source"
+				message = "来源需要重新核验，请重新保存数据源配置后同步"
+				recoveryAction = "save_source_configuration"
 			case "revoked":
 				message = "数据源已保留，来源授权已撤销，需要重新授权后同步"
 				recoveryAction = "reauthorize_source"
@@ -43,7 +43,7 @@ func writeSyncAdmissionFailure(c *gin.Context, err error) bool {
 		case "sync_source_not_approved":
 			message = "该来源尚未启用同步，请联系管理员"
 		case "sync_source_config_changed":
-			message = "来源配置已变化，请联系管理员重新核验"
+			message = "来源配置已变化，请保存最新配置后重试"
 		case "sync_source_authority_changed":
 			message = "来源授权已变化，请联系管理员核验"
 			status = http.StatusForbidden

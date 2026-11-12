@@ -28,6 +28,31 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 		table := tx.Statement.Table
 		switch table {
 		case "wiki_pages", "wiki_page_revisions", "wiki_folders", "wiki_page_issues":
+			if kb := LegacyWikiCleanupKB(tx.Statement.Context); kb != "" {
+				tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Eq{
+					Column: clause.Column{Table: table, Name: "knowledge_base_id"}, Value: kb,
+				}}})
+				return
+			}
+			if scope, ok := tx.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead); ok && scope.Guard != nil {
+				if table == "wiki_page_revisions" || table == "wiki_page_issues" {
+					tx.AddError(ErrLegacySourceRestricted)
+					return
+				}
+				if err := scope.Guard(tx, "", scope.KB, nil); err != nil {
+					tx.AddError(err)
+					return
+				}
+				tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Table: table, Name: "knowledge_base_id"}, Value: scope.KB}}})
+				if table == "wiki_pages" && scope.PageRestricted {
+					values := make([]interface{}, 0, len(scope.PageIDs))
+					for _, id := range scope.PageIDs {
+						values = append(values, id)
+					}
+					tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.IN{Column: clause.Column{Table: table, Name: "id"}, Values: values}}})
+				}
+				return
+			}
 			predicate := `NOT EXISTS (SELECT 1 FROM feishu_legacy_resources lr WHERE lr.knowledge_base_id=` + table +
 				`.knowledge_base_id AND lr.state IN ('hold','revoked'))
 AND NOT EXISTS (SELECT 1 FROM data_sources ld WHERE ld.knowledge_base_id=` + table + `.knowledge_base_id
@@ -86,7 +111,13 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	if kbID == "" {
 		return nil
 	}
+	if knowledgeID == "" && kbID == LegacyWikiCleanupKB(db.Statement.Context) {
+		return nil
+	}
 	if scoped, err := CheckExactDocumentRead(db.Statement.Context, knowledgeID, kbID); scoped {
+		return err
+	}
+	if scoped, err := CheckWikiVerifiedRead(db, knowledgeID, kbID, nil); scoped {
 		return err
 	}
 	if knowledgeID != "" {
@@ -136,6 +167,28 @@ WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS 
 	}
 	if valid.TenantID == 0 {
 		return ErrLegacySourceRestricted
+	}
+	// A connector's health is not a workspace membership decision. Metadata,
+	// settings and deletion admission remain available to local Web members;
+	// document output still goes through its own receipt/ACL boundary.
+	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID && knowledgeID == "" {
+		recordLegacyRead(db.Statement.Context, kbID)
+		return nil
+	}
+	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID && knowledgeID != "" {
+		var denied bool
+		if err := db.Raw(`SELECT
+ EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND knowledge_id=? AND state IN ('hold','revoked'))
+ OR EXISTS(SELECT 1 FROM data_sources d JOIN knowledges k ON k.metadata->>'datasource_id'=d.id
+ WHERE k.id=? AND d.knowledge_base_id=? AND d.deleted_at IS NULL AND d.legacy_access_state='revoked')`,
+			kbID, knowledgeID, knowledgeID, kbID).Scan(&denied).Error; err != nil {
+			return err
+		}
+		if denied {
+			return ErrLegacySourceRestricted
+		}
+		recordLegacyRead(db.Statement.Context, kbID)
+		return nil
 	}
 	var denied bool
 	sourceStates := []string{"hold", "revoked"}
@@ -191,6 +244,9 @@ func (k *KnowledgeBase) AfterFind(tx *gorm.DB) error {
 }
 
 func (p *WikiPageRevision) AfterFind(tx *gorm.DB) error {
+	if scoped, _ := CheckWikiVerifiedRead(tx, "", p.KnowledgeBaseID, nil); scoped {
+		return ErrLegacySourceRestricted
+	}
 	return CheckLegacySourceRead(tx, "", p.KnowledgeBaseID)
 }
 

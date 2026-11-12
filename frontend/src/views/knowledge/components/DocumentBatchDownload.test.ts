@@ -25,7 +25,7 @@ test('批量下载界面限制单批 200 项并保留只读权限边界', () => 
   assert.match(knowledgeBase, /ids\.length > MAX_BATCH_DOWNLOAD_FILES/)
   assert.match(knowledgeBase, /:can-download="canDownloadKnowledge"/)
   assert.match(knowledgeBase, /@select-loaded="toggleSelectAll\(true\)"/)
-  assert.match(listView, /v-if="canEdit \|\| canDownload"/)
+  assert.match(listView, /v-if="canEdit \|\| canDownload \|\| canDeleteKnowledge"/)
 })
 
 test('Blob 格式的 JSON 错误会还原为可读消息', () => {
