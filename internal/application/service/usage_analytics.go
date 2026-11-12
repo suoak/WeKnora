@@ -200,7 +200,7 @@ func prepareInboundMCPEvent(ctx context.Context, report types.MCPUsageReport) (*
 		EventKey: report.EventKey, CallerTenantID: tenantID, PrincipalType: principalType, PrincipalID: principalID, APIKeyID: keyID,
 		Direction: "inbound", ToolName: report.ToolName, ClientName: report.ClientName, ClientVersion: report.ClientVersion,
 		Transport: report.Transport, Success: report.Success, ErrorCode: report.ErrorCode, LatencyMs: report.LatencyMs,
-		RequestID: requestID, OccurredAt: occurred, CreatedAt: now,
+		RequestID: requestID, TraceID: report.TraceID, OccurredAt: occurred, CreatedAt: now,
 		EntryPoint: report.EntryPoint, EndpointID: report.EndpointID, ClientSource: report.ClientSource,
 	}
 	return event, nil

@@ -1,6 +1,7 @@
 package router
 
 import (
+	"context"
 	"encoding/json"
 
 	"github.com/Tencent/WeKnora/internal/config"
@@ -39,7 +40,9 @@ func personalPerformanceTrace(c *gin.Context) {
 		if trace != nil {
 			raw, err := json.Marshal(trace.Summary())
 			if err == nil {
-				logger.Infof(ctx, "[PersonalMCPPerf] %s", string(raw))
+				// The request context intentionally suppresses arbitrary payload logs.
+				// Emit only this server-owned, anonymous numeric projection outside it.
+				logger.Infof(context.Background(), "[PersonalMCPPerf] %s", string(raw))
 			}
 		}
 	}()

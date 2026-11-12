@@ -104,7 +104,10 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	s := service.NewPortalPersonalKnowledge(cfg, db, members, repository.NewTenantAPIKeyRepository(db), repository.NewKnowledgeBaseRepository(db), repository.NewTenantRepository(db), repository.NewKnowledgeRepository(db), repository.NewChunkRepository(db), service.NewModelService(repository.NewModelRepository(db), repository.NewKnowledgeBaseRepository(db), nil, nil, nil, nil), registry, nil, nil, nil)
 	g := gin.New()
 	g.Use(legacyReadScopeMiddleware(repository.NewKnowledgeRepository(db)))
-	RegisterPersonalMCPRoutes(g, mcpserver.NewConfiguredPersonalServer(cfg, s), documentTestTenants{repo: repository.NewTenantRepository(db)}, documentTestUsers{repo: repository.NewUserRepository(db)}, members, keys, cfg)
+	personal := mcpserver.NewConfiguredPersonalServer(cfg, s)
+	usage := &personalConcurrencyUsage{}
+	personal.SetUsageRecorder(usage)
+	RegisterPersonalMCPRoutes(g, personal, documentTestTenants{repo: repository.NewTenantRepository(db)}, documentTestUsers{repo: repository.NewUserRepository(db)}, members, keys, cfg)
 	rpc := func(key, method string, args any) (int, string) {
 		payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": args})
 		r := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewReader(payload))
@@ -178,6 +181,7 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		require.NotContains(t, body, "isError")
 		require.Contains(t, body, "concept/verified")
 	}
+	exercisePersonalMCPConcurrency(t, g, s, a.Token, b.Token, db, usage)
 	var indexes int64
 	require.NoError(t, db.Table("wiki_pages").Where("page_type='index'").Count(&indexes).Error)
 	require.Zero(t, indexes)

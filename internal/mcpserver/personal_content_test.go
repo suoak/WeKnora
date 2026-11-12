@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
@@ -14,7 +15,7 @@ import (
 
 func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 	s := ConfigurePersonalContentServer(NewPersonalServer(true, &service.PortalMCPKnowledge{}), &service.PersonalContent{})
-	ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve", "add_content"}})
+	ctx := types.WithTenantAPIKeyScope(types.WithPrincipal(context.Background(), types.Principal{Type: types.PrincipalWebUser, ID: "owner"}), types.TenantAPIKeyScope{ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve", "add_content"}})
 	list := func(isolated bool, capable bool) []string {
 		r := httptest.NewRequest("POST", personalPath, bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
 		if capable {
@@ -47,8 +48,10 @@ func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 	require.NotContains(t, list(true, true), "add_document")
 	require.Len(t, list(false, false), 8)
 	require.Len(t, list(false, true), 12)
-	for i := 0; i < cap(s.slots); i++ {
-		s.slots <- struct{}{}
+	for i := 0; i < s.admission.global; i++ {
+		release, err := s.admission.acquire(ctx, "busy-"+strconv.Itoa(i))
+		require.NoError(t, err)
+		defer release()
 	}
 	// Write admission is independent even when every query slot is occupied.
 	r := httptest.NewRequest("POST", personalPath, bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"add_document","arguments":{"knowledge_base_id":"kb","title":"t","content":"body","idempotency_key":"request-1"}}}`)).WithContext(ctx)
@@ -58,7 +61,7 @@ func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 	s.Handler().ServeHTTP(w, r)
 	require.Equal(t, 200, w.Code)
 	require.Contains(t, w.Body.String(), "choose a current writable")
-	require.Equal(t, cap(s.slots), len(s.slots))
+	require.Equal(t, s.admission.global, s.admission.snapshot("owner").Active)
 }
 
 func TestIsolatedPersonalRejectsAllWriteNamesAndHeaderClaims(t *testing.T) {

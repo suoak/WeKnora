@@ -51,12 +51,13 @@ type Config struct {
 }
 
 type PersonalMCPConfig struct {
-	UploadScannerAddress string `yaml:"upload_scanner_address" json:"-"`
-	Enabled              bool   `yaml:"enabled" json:"enabled"`
-	PolicyReference      string `yaml:"policy_reference" json:"policy_reference"`
-	ReviewEnabled        bool   `yaml:"review_enabled" json:"review_enabled"`
-	SystemAdminReview    bool   `yaml:"system_admin_review" json:"system_admin_review"`
-	ExceptionsEnabled    bool   `yaml:"exceptions_enabled" json:"exceptions_enabled"`
+	UploadScannerAddress string                       `yaml:"upload_scanner_address" json:"-"`
+	Concurrency          PersonalMCPConcurrencyConfig `yaml:"concurrency" json:"concurrency"`
+	Enabled              bool                         `yaml:"enabled" json:"enabled"`
+	PolicyReference      string                       `yaml:"policy_reference" json:"policy_reference"`
+	ReviewEnabled        bool                         `yaml:"review_enabled" json:"review_enabled"`
+	SystemAdminReview    bool                         `yaml:"system_admin_review" json:"system_admin_review"`
+	ExceptionsEnabled    bool                         `yaml:"exceptions_enabled" json:"exceptions_enabled"`
 }
 
 // AgentConfig represents the global agent settings.

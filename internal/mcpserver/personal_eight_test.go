@@ -2,12 +2,15 @@ package mcpserver
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"sort"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -47,15 +50,20 @@ func TestV1NextEightToolProtocolRegistration(t *testing.T) {
 
 func TestV1NextPersonalConcurrencyIsBounded(t *testing.T) {
 	s := NewPersonalServer(true, &service.PortalMCPKnowledge{})
-	for i := 0; i < cap(s.slots); i++ {
-		s.slots <- struct{}{}
+	s.protocol.wait = time.Millisecond
+	for i := 0; i < s.protocol.perUser; i++ {
+		release, err := s.protocol.acquire(context.Background(), "owner")
+		require.NoError(t, err)
+		defer release()
 	}
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/api/v1/mcp/personal",
 		bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"ping"}`))
 	r.Header.Set("Content-Type", "application/json")
+	r = r.WithContext(types.WithPrincipal(r.Context(), types.Principal{Type: types.PrincipalWebUser, ID: "owner"}))
 	s.Handler().ServeHTTP(w, r)
 	require.Equal(t, 429, w.Code)
 	require.Equal(t, "1", w.Header().Get("Retry-After"))
-	require.Equal(t, cap(s.slots), len(s.slots), "rejected request does not consume a slot")
+	require.Equal(t, s.protocol.perUser, s.protocol.snapshot("owner").Active)
+	require.Zero(t, s.protocol.snapshot("owner").Queued)
 }
