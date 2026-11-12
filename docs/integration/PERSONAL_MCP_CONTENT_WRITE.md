@@ -124,3 +124,23 @@ approved Compose chain; preserve the 8443 proxy mapping, certificates and
 no-Docker-socket overlay. Existing Keys retain their old capabilities. Reverting
 code makes `add_content` inert; do not remove created knowledge or alter user
 permissions. No database rollback or schema upgrade is part of this change.
+
+
+## Linux packaging-host validation ? 2026-11-12
+
+Connected through the existing pinned-host helper to 172.30.232.42. Used a new
+0700 task directory and the existing Bookworm build image, network=none,
+2 CPUs / 4 GiB, no business database/file volumes or published ports.
+
+- Complete access and MCP packages: PASS.
+- Initial SQL fixture: FAIL because API key scope tables were missing.
+- Fixed only fixture AutoMigrate to include both scope models; SQL isolation,
+  concurrent idempotent replay, revocation and file-creation regression: PASS.
+- Container/handler selected-run compilation: PASS (no matching tests).
+
+Evidence is in `personal-mcp-content-evidence/manifest.json`. The original
+`done.json` correctly remains all_pass=false for the initial run; the separate
+`retry-result.json` records the successful corrected run. No initial failure
+was overwritten. This resolves the Windows linker blocker, but does not replace
+operator 8443/external authenticated deployment acceptance or the remaining
+file-upload/employee-state delivery requirements.

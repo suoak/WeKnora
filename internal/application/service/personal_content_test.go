@@ -24,7 +24,7 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(1)
 	t.Cleanup(func() { pool.Close() })
-	require.NoError(t, db.AutoMigrate(&types.User{}, &types.Tenant{}, &types.TenantMember{}, &types.KnowledgeBase{}, &types.TenantAPIKey{}, &types.Knowledge{}))
+	require.NoError(t, db.AutoMigrate(&types.User{}, &types.Tenant{}, &types.TenantMember{}, &types.KnowledgeBase{}, &types.TenantAPIKey{}, &types.APIKeyTenantScope{}, &types.APIKeyKnowledgeBaseScope{}, &types.Knowledge{}))
 	require.NoError(t, db.Exec("CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)").Error)
 	require.NoError(t, db.Create(&types.Tenant{ID: 1, Name: "space", Status: "active", StorageEngineConfig: &types.StorageEngineConfig{DefaultProvider: "local"}}).Error)
 	for _, u := range []string{"A", "B"} {
