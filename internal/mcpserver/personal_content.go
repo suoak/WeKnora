@@ -29,7 +29,7 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 		scope, _ := types.TenantAPIKeyScopeFromContext(ctx)
 		out := []mcp.Tool{}
 		for _, t := range all {
-			if (t.Name != writableKBTool && t.Name != "add_document") || !logger.IsolatedPersonalPayload(ctx) && scope.HasCapability(types.APIKeyCapabilityAddContent) {
+			if (!personalContentTool(t.Name)) || !logger.IsolatedPersonalPayload(ctx) && scope.HasCapability(types.APIKeyCapabilityAddContent) {
 				out = append(out, t)
 			}
 		}
@@ -41,6 +41,8 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 	m.AddTool(mcp.NewTool(writableKBTool, mcp.WithDescription("List current knowledge bases where this Key's owner may add content. Rechecked on every write."), mcp.WithReadOnlyHintAnnotation(true)), s.callContent)
 	m.AddTool(mcp.NewTool("add_document", mcp.WithDescription("Create Markdown/text knowledge with a required idempotency key. Processing is asynchronous. Reuse the key only for the identical request. URLs and local file paths are unsupported."),
 		mcp.WithString("knowledge_base_id", mcp.Required()), mcp.WithString("title", mcp.Required()), mcp.WithString("content", mcp.Required()), mcp.WithString("idempotency_key", mcp.Required()), mcp.WithBoolean("publish"), mcp.WithReadOnlyHintAnnotation(false)), s.callContent)
+	m.AddTool(mcp.NewTool("upload_document", mcp.WithDescription("Upload complete file bytes as canonical base64, never a local path or URL. Supports scanned PDF, DOCX, XLSX, TXT and Markdown up to 8 MiB. Reuse idempotency_key for retries. Discover a writable KB first; exact names are accepted."), mcp.WithString("knowledge_base_id", mcp.Required()), mcp.WithString("filename", mcp.Required()), mcp.WithString("content_base64", mcp.Required()), mcp.WithString("idempotency_key", mcp.Required()), mcp.WithReadOnlyHintAnnotation(false)), s.callContent)
+	m.AddTool(mcp.NewTool("get_document_processing_status", mcp.WithDescription("Read processing status for a document created by this Key; permission is checked again. No document content or storage paths are returned."), mcp.WithString("document_id", mcp.Required()), mcp.WithReadOnlyHintAnnotation(true)), s.callContent)
 	s.externalHandler = server.NewStreamableHTTPServer(m, server.WithStateLess(true))
 	return s
 }
@@ -54,6 +56,34 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 		return mcp.NewToolResultError("add_content capability required"), nil
 	}
 	switch r.Params.Name {
+	case "upload_document":
+		args := r.GetArguments()
+		if !onlyPersonalFields(args, "knowledge_base_id filename content_base64 idempotency_key") {
+			return mcp.NewToolResultError("unexpected upload arguments; send file bytes, not paths or URLs"), nil
+		}
+		for _, name := range []string{"knowledge_base_id", "filename", "content_base64", "idempotency_key"} {
+			if _, ok := args[name].(string); !ok {
+				return mcp.NewToolResultError("missing string argument: " + name), nil
+			}
+		}
+		kb, err := s.content.ResolveContentSelector(ctx, r.GetString("knowledge_base_id", ""))
+		if err != nil {
+			return mcp.NewToolResultError("choose a current writable knowledge base using list_writable_knowledge_bases"), nil
+		}
+		row, err := s.content.Upload(ctx, service.PersonalUploadRequest{KBID: kb, Filename: r.GetString("filename", ""), ContentBase64: r.GetString("content_base64", ""), IdempotencyKey: r.GetString("idempotency_key", "")})
+		if err != nil {
+			return mcp.NewToolResultError("upload denied or rejected; verify format, size and scanner availability, then retry with the same idempotency_key"), nil
+		}
+		return personalProcessingResult(ctx, row)
+	case "get_document_processing_status":
+		if !onlyPersonalFields(r.GetArguments(), "document_id") {
+			return mcp.NewToolResultError("unexpected arguments"), nil
+		}
+		row, err := s.content.Status(ctx, r.GetString("document_id", ""))
+		if err != nil {
+			return mcp.NewToolResultError("status unavailable or authorization revoked"), nil
+		}
+		return personalProcessingResult(ctx, row)
 	case writableKBTool:
 		if len(r.GetArguments()) != 0 {
 			return mcp.NewToolResultError("unexpected arguments"), nil
@@ -78,11 +108,15 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 				return mcp.NewToolResultError("invalid publish argument"), nil
 			}
 		}
-		row, err := s.content.Add(ctx, service.PersonalContentRequest{KBID: r.GetString("knowledge_base_id", ""), Title: r.GetString("title", ""), Content: r.GetString("content", ""), IdempotencyKey: r.GetString("idempotency_key", ""), Publish: r.GetBool("publish", true)})
+		kb, err := s.content.ResolveContentSelector(ctx, r.GetString("knowledge_base_id", ""))
+		if err != nil {
+			return mcp.NewToolResultError("choose a current writable knowledge base using list_writable_knowledge_bases"), nil
+		}
+		row, err := s.content.Add(ctx, service.PersonalContentRequest{KBID: kb, Title: r.GetString("title", ""), Content: r.GetString("content", ""), IdempotencyKey: r.GetString("idempotency_key", ""), Publish: r.GetBool("publish", true)})
 		if err != nil {
 			return mcp.NewToolResultError("creation denied or failed; retry only with the same idempotency_key"), nil
 		}
-		return personalJSON(ctx, map[string]any{"knowledge_base_id": row.KnowledgeBaseID, "document_id": row.ID, "parse_status": row.ParseStatus, "failure_reason": row.ErrorMessage, "note": "Processing uses the existing asynchronous pipeline; publication and search eligibility follow existing policy."})
+		return personalProcessingResult(ctx, row)
 	}
 	return mcp.NewToolResultError("tool not allowed"), nil
 }
@@ -93,7 +127,7 @@ func (s *PersonalServer) routeContent(w http.ResponseWriter, r *http.Request) bo
 	if s.externalHandler == nil || logger.IsolatedPersonalPayload(r.Context()) || r.Method != http.MethodPost {
 		return false
 	}
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
+	r.Body = http.MaxBytesReader(w, r.Body, 12<<20)
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "request too large or invalid", http.StatusRequestEntityTooLarge)
@@ -106,7 +140,7 @@ func (s *PersonalServer) routeContent(w http.ResponseWriter, r *http.Request) bo
 			Name string `json:"name"`
 		} `json:"params"`
 	}
-	if json.Unmarshal(body, &env) != nil || env.Method != "tools/call" || env.Params.Name != "add_document" && env.Params.Name != writableKBTool {
+	if json.Unmarshal(body, &env) != nil || env.Method != "tools/call" || !personalContentTool(env.Params.Name) {
 		return false
 	}
 	d := json.NewDecoder(bytes.NewReader(body))
@@ -131,4 +165,25 @@ func (s *PersonalServer) routeContent(w http.ResponseWriter, r *http.Request) bo
 	w.Header().Set("Cache-Control", "private, no-store")
 	s.externalHandler.ServeHTTP(w, r.WithContext(ctx))
 	return true
+}
+
+func personalContentTool(name string) bool {
+	switch name {
+	case writableKBTool, "add_document", "upload_document", "get_document_processing_status":
+		return true
+	}
+	return false
+}
+func personalProcessingResult(ctx context.Context, row *types.Knowledge) (*mcp.CallToolResult, error) {
+	state, reason := "processing", ""
+	switch row.ParseStatus {
+	case "completed":
+		state = "success"
+	case "failed":
+		state = "failed"
+		reason = "Document processing failed; an authorized operator can retry the existing document."
+	case "draft":
+		state = "draft"
+	}
+	return personalJSON(ctx, map[string]any{"knowledge_base_id": row.KnowledgeBaseID, "document_id": row.ID, "status": state, "parse_status": row.ParseStatus, "failure_reason": reason, "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement."})
 }

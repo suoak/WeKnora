@@ -115,6 +115,7 @@
             </div>
             <div class="environment-endpoint"><t-icon name="link" /><code class="environment-url">{{ connectionURL }}</code></div>
             <p class="secondary-copy">两个地址共用当前个人 Key，无需重复创建。</p>
+            <t-alert v-if="connectionEnvironment === 'intranet'" theme="info">云外支持统一检索；开启“允许新增内容”后，可向本人当前可写知识库新增文本和文件（PDF、DOCX、XLSX、TXT、Markdown，最大 8 MiB）。请先让 AI 列出可写知识库并按名称选择；上传文件内容，不传本地路径。</t-alert>
             <t-alert v-if="connectionEnvironment === 'isolated'" theme="info">云内地址仅提供知识检索和读取，不支持文件上传或数据修改。服务端已就绪，实际可用性仍取决于运维网络映射和 DNS 联调。</t-alert>
           </section>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
@@ -206,7 +207,7 @@ async function testPersonalConnection() {
     const secret = await ensureConnectionSecret()
     if (request !== protocolRequest || secret === TOKEN_PLACEHOLDER) return
     await testPersonalMcpConnection(connectionURL.value, secret)
-    if (request === protocolRequest && configVisible.value) { personalProtocolPassed.value = true; personalConnection.value = 'MCP 协议通过：服务鉴权与只读工具发现成功；尚未验证客户端会话及知识检索。' }
+    if (request === protocolRequest && configVisible.value) { personalProtocolPassed.value = true; personalConnection.value = 'MCP 协议通过：服务鉴权与工具发现成功；尚未验证客户端会话及知识检索。' }
   } catch (error) { if (request === protocolRequest && configVisible.value) personalConnection.value = error instanceof Error ? error.message : '连接失败' }
   finally { if (request === protocolRequest) testingPersonal.value = false }
 }

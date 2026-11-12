@@ -46,7 +46,7 @@ func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 	require.Len(t, list(true, true), 8)
 	require.NotContains(t, list(true, true), "add_document")
 	require.Len(t, list(false, false), 8)
-	require.Len(t, list(false, true), 10)
+	require.Len(t, list(false, true), 12)
 	for i := 0; i < cap(s.slots); i++ {
 		s.slots <- struct{}{}
 	}
@@ -57,13 +57,13 @@ func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 	w := httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, r)
 	require.Equal(t, 200, w.Code)
-	require.Contains(t, w.Body.String(), "creation denied")
+	require.Contains(t, w.Body.String(), "choose a current writable")
 	require.Equal(t, cap(s.slots), len(s.slots))
 }
 
 func TestIsolatedPersonalRejectsAllWriteNamesAndHeaderClaims(t *testing.T) {
 	s := ConfigurePersonalContentServer(NewPersonalServer(true, &service.PortalMCPKnowledge{}), &service.PersonalContent{})
-	for _, name := range []string{"add_document", "list_writable_knowledge_bases", "update_document", "delete_document", "ingest"} {
+	for _, name := range []string{"add_document", "upload_document", "get_document_processing_status", "list_writable_knowledge_bases", "update_document", "delete_document", "ingest"} {
 		body, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": map[string]any{"name": name, "arguments": map[string]any{"knowledge_base_id": "kb"}}})
 		r := httptest.NewRequest("POST", isolatedPersonalPath, bytes.NewReader(body))
 		r.Header.Set("Content-Type", "application/json")

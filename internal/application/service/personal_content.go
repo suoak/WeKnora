@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
@@ -31,14 +32,19 @@ type PersonalContent struct {
 	Knowledge interfaces.KnowledgeService
 	Employees access.EnterpriseEmployeeVerifier
 	Audit     interfaces.AuditLogService
+	Scanner   FileScanner
 }
 
-func NewPersonalContent(db *gorm.DB, keys interfaces.TenantAPIKeyRepository, members interfaces.TenantMemberService, kbs interfaces.KnowledgeBaseRepository, shares interfaces.KBShareService, tenants interfaces.TenantService, knowledge interfaces.KnowledgeService, portal *PortalMCPKnowledge, audit interfaces.AuditLogService) *PersonalContent {
+func NewPersonalContent(cfg *config.Config, db *gorm.DB, keys interfaces.TenantAPIKeyRepository, members interfaces.TenantMemberService, kbs interfaces.KnowledgeBaseRepository, shares interfaces.KBShareService, tenants interfaces.TenantService, knowledge interfaces.KnowledgeService, portal *PortalMCPKnowledge, audit interfaces.AuditLogService) *PersonalContent {
 	live, ok := keys.(interfaces.UserMCPAPIKeyRepository)
 	if !ok || portal == nil || portal.Resolver == nil {
 		return nil
 	}
-	return &PersonalContent{DB: db, Keys: live, Members: members, KBs: kbs, Shares: shares, Tenants: tenants, Knowledge: knowledge, Employees: portal.Resolver.Employees, Audit: audit}
+	var scanner FileScanner
+	if cfg != nil && cfg.PersonalMCP != nil && cfg.PersonalMCP.UploadScannerAddress != "" {
+		scanner = ClamdScanner{Address: cfg.PersonalMCP.UploadScannerAddress}
+	}
+	return &PersonalContent{DB: db, Keys: live, Members: members, KBs: kbs, Shares: shares, Tenants: tenants, Knowledge: knowledge, Employees: portal.Resolver.Employees, Audit: audit, Scanner: scanner}
 }
 
 type WritableKnowledgeBase struct {
@@ -140,7 +146,8 @@ func (s *PersonalContent) ListWritable(ctx context.Context) ([]WritableKnowledge
 			continue
 		}
 		tenant, _ := types.TenantInfoFromContext(scoped)
-		rows = append(rows, WritableKnowledgeBase{ID: kb.ID, Name: kb.Name, Space: tenant.Name, Permission: "editor", ContentTypes: []string{"text/markdown", "text/plain"}})
+		contentTypes := []string{"text/markdown", "text/plain", "application/pdf", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"}
+		rows = append(rows, WritableKnowledgeBase{ID: kb.ID, Name: kb.Name, Space: tenant.Name, Permission: "editor", ContentTypes: contentTypes})
 	}
 	return rows, nil
 }

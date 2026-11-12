@@ -1,0 +1,17 @@
+[
+  {
+    "name": "permissions-protocol",
+    "started_utc": "2026-11-12T09:25:33.422348+00:00",
+    "exit_code": 0
+  },
+  {
+    "name": "real-sql-and-creation",
+    "started_utc": "2026-11-12T09:28:18.199935+00:00",
+    "exit_code": 1
+  },
+  {
+    "name": "compile-wiring",
+    "started_utc": "2026-11-12T09:29:33.096104+00:00",
+    "exit_code": 0
+  }
+]

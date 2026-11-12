@@ -2,6 +2,9 @@ package service
 
 import (
 	"context"
+	"encoding/base64"
+	fileService "github.com/Tencent/WeKnora/internal/application/service/file"
+	"os"
 	"path/filepath"
 	"sync"
 	"testing"
@@ -76,6 +79,49 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 	changed.Content = "different"
 	_, err = svc.Add(a, changed)
 	require.ErrorIs(t, err, ErrPersonalContentConflict)
+	quarantine := t.TempDir()
+	t.Setenv("TMPDIR", quarantine)
+	t.Setenv("TMP", quarantine)
+	t.Setenv("TEMP", quarantine)
+	svc.Scanner = personalTestScanner(func(context.Context, []byte) error { return nil })
+	storage := t.TempDir()
+	t.Setenv("LOCAL_STORAGE_BASE_DIR", storage)
+	files := fileService.NewLocalFileService(storage, "")
+	svc.Knowledge.(*knowledgeService).fileSvc = files
+	svc.Knowledge.(*knowledgeService).task = &createKnowledgeTaskEnqueuerStub{}
+	upload := PersonalUploadRequest{KBID: "A-kb", Filename: "upload.txt", ContentBase64: base64.StdEncoding.EncodeToString([]byte("file knowledge")), IdempotencyKey: "upload-0001"}
+	_, err = svc.Upload(b, upload)
+	require.Error(t, err)
+	svc.Scanner = nil // Explicitly deferred antivirus: type and authorization checks still apply.
+	uploaded, err := svc.Upload(a, upload)
+	require.NoError(t, err)
+	require.NotNil(t, uploaded)
+	status, err := svc.Status(a, uploaded.ID)
+	require.NoError(t, err)
+	require.Equal(t, uploaded.ID, status.ID)
+	_, err = svc.Status(b, uploaded.ID)
+	require.Error(t, err)
+	for i := 0; i < 6; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			again, e := svc.Upload(a, upload)
+			require.NoError(t, e)
+			if again != nil {
+				require.Equal(t, uploaded.ID, again.ID)
+			}
+		}()
+	}
+	wg.Wait()
+	entries, err := os.ReadDir(quarantine)
+	require.NoError(t, err)
+	require.Empty(t, entries, "quarantine files removed after all replays")
+	bad := upload
+	bad.Filename = "other.txt"
+	_, err = svc.Upload(a, bad)
+	require.ErrorIs(t, err, ErrPersonalContentConflict)
+	require.NoError(t, db.Table("knowledges").Count(&count).Error)
+	require.EqualValues(t, 2, count)
 	require.NoError(t, db.Exec("UPDATE tenant_members SET status='suspended' WHERE user_id='A'").Error)
 	_, err = svc.Add(a, request)
 	require.Error(t, err, "replay must recheck membership")

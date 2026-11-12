@@ -1,0 +1,63 @@
+{
+  "host": "172.30.232.42",
+  "directory": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112",
+  "antivirus_deferred_by_user": true,
+  "employee_recheck_deferred_by_user": true,
+  "production_modified": false,
+  "source_base": "5dc9808f6",
+  "artifacts": {
+    "results.json": {
+      "sha256": "826bb88462b36630a4f63d77d128d7c872cf0c266e0fdbe2a5136a0846cc7143"
+    },
+    "done.json": {
+      "sha256": "8a7aac8fc5b879985bf3d381cd9e0ae10b40c0db32023562c39927a58768f0c1"
+    },
+    "upload-retry-result.json": {
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    "app-build-results.json": {
+      "sha256": "960ecfe64e9178acdb79966c1cd1d53a78832b1b158e01f5337fb1791f96053c"
+    },
+    "lab-started.json": {
+      "sha256": "98f507ed1f0c8c6cf4998627e134fc810894bfafcccca254282c178c0dbe20c4"
+    },
+    "accept-results.json": {
+      "sha256": "9b641b3dc14b05c4e41ae188d4cddeea55d061516d14d3f678fe6ffab3be86f6"
+    },
+    "accept-done.json": {
+      "sha256": "26c0d3dba6ef26a9c3a6904863d7dd10a2ff68fe29e910f5d927d8dfc26923a6"
+    },
+    "supplement-results.json": {
+      "sha256": "09fa18500ffd8ffa4f85c6f19b69f4556a4d36d4b273af997d2314688b21b249"
+    },
+    "supplement-done.json": {
+      "sha256": "749db1e427aa7fed05a29ee6446e3d76ced799d357726677a1762509205f7ea2"
+    },
+    "processing-results.json": {
+      "sha256": "71b7b33b1f03618a1ca489355d24c3d665cbf4ea5bd3edfe34beff6dbb358b0c"
+    },
+    "recovery-result.json": {
+      "sha256": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01"
+    },
+    "permissions-protocol.log": {
+      "remote_only": true,
+      "sha256": "a41e61aa7c18c4952e9684d4efacd2c65d0bf10522fbecc4b32fcd44559c09e4"
+    },
+    "real-sql-and-creation.log": {
+      "remote_only": true,
+      "sha256": "a72ee3b0bde35680509bf898c77037215104708a62d13972127f8468f4711fa7"
+    },
+    "upload-retry.log": {
+      "remote_only": true,
+      "sha256": "006e7bf7ad885fef841eb7fa822720b0010fa314a9d9aad1a19065b9c9c4d90d"
+    },
+    "compile-wiring.log": {
+      "remote_only": true,
+      "sha256": "f3a00280fa5222abc75d823159ea33308f16888dd891590020e1b1dc9a76c238"
+    },
+    "regression-full.log": {
+      "remote_only": true,
+      "sha256": "97f4a20fa3c62f76c8b1d23f5e39c3d2c70d4b4a16c04081fd2916a9e504d7e5"
+    }
+  }
+}

@@ -186,7 +186,8 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 		logger.Errorf(ctx, "Failed to check knowledge existence: %v", err)
 		return nil, err
 	}
-	if exists {
+	_, personalUpload := ctx.Value(personalFileAdmissionKey{}).(personalFileAdmission)
+	if exists && !personalUpload {
 		if isFeishuAdmissionSource(channel) {
 			if err := s.ResumeKnowledgeDispatch(ctx, existingKnowledge); err != nil {
 				return existingKnowledge, err
@@ -286,6 +287,9 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 		knowledge.ID = feishuAdmissionID(tenantID, kbID, metadata, hash, safeFilename)
 	}
 
+	if admission, ok := ctx.Value(personalFileAdmissionKey{}).(personalFileAdmission); ok {
+		knowledge.ID = admission.ID
+	}
 	// Save the file to storage (use KB-level storage engine if configured)
 	logger.Infof(ctx, "Saving file, knowledge ID: %s", knowledge.ID)
 	fileSvc := s.resolveFileService(ctx, kb)
@@ -303,6 +307,17 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 	logger.Info(ctx, "Saving knowledge record to database")
 	if err := s.repo.CreateKnowledge(ctx, knowledge); err != nil {
 		logger.Errorf(ctx, "Failed to create knowledge record, ID: %s, error: %v", knowledge.ID, err)
+		if personalUpload {
+			// A timeout can mean INSERT committed. Never delete a blob still
+			// referenced by the same idempotent request, or on an uncertain read.
+			current, readErr := s.repo.GetKnowledgeByID(context.WithoutCancel(ctx), tenantID, knowledge.ID)
+			if readErr == nil && current != nil && current.FilePath == filePath {
+				return current, nil
+			}
+			if readErr != nil {
+				return nil, err
+			}
+		}
 		if isFeishuAdmissionSource(channel) {
 			// An error can mean an unknown commit. Do not delete the candidate
 			// blob when the row may already reference it; reconciliation owns it.
@@ -969,6 +984,11 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 	fileName := ensureManualFileName(title)
 	meta := types.NewManualKnowledgeMetadata(cleanContent, status, 1)
 	meta.CreationRequestHash = payload.CreationRequestHash
+	if payload.CreationID != "" {
+		if scope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok {
+			meta.MCPKeyID = fmt.Sprint(scope.KeyID)
+		}
+	}
 
 	knowledge := &types.Knowledge{
 		ID:               payload.CreationID,

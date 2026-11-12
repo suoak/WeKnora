@@ -320,6 +320,7 @@ func (k *Knowledge) BeforeCreate(tx *gorm.DB) (err error) {
 // ManualKnowledgeMetadata stores metadata for manual Markdown knowledge content.
 type ManualKnowledgeMetadata struct {
 	CreationRequestHash string `json:"creation_request_hash,omitempty"`
+	MCPKeyID            string `json:"mcp_key_id,omitempty"`
 	Content             string `json:"content"`
 	Format              string `json:"format"`
 	Status              string `json:"status"`
@@ -427,6 +428,17 @@ func (k *Knowledge) SetManualMetadata(meta *ManualKnowledgeMetadata) error {
 			return err
 		}
 		fields["creation_request_hash"] = hash
+		jsonValue, err = json.Marshal(fields)
+		if err != nil {
+			return err
+		}
+	}
+	if key, ok := old["mcp_key_id"]; ok {
+		fields, err := jsonValue.Map()
+		if err != nil {
+			return err
+		}
+		fields["mcp_key_id"] = key
 		jsonValue, err = json.Marshal(fields)
 		if err != nil {
 			return err
