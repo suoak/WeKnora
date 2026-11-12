@@ -1,0 +1,3 @@
+# Preserve the verified production bytes, including frozen HTTP80 whitespace.
+*.conf -text whitespace=-blank-at-eol
+*.template -text whitespace=-blank-at-eol
