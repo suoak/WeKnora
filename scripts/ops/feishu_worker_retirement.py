@@ -160,8 +160,45 @@ end
 local serverkeys=redis.call('ZRANGE','asynq:servers',0,-1);table.sort(serverkeys)
 local live={};for _,key in ipairs(serverkeys) do if redis.call('EXISTS',key)==1 then table.insert(live,key) end end
 if #live~=#snap.servers then return redis.error_reply('CONSUMER_CHANGED') end
+-- Go protobuf map serialization may reorder queue entries on every heartbeat.
+-- Normalize only repeated field 5 order; preserve every other field byte.
+local function stableConsumer(raw)
+ if not raw or #raw>1048576 then return nil end
+ local pos=1;local rest={};local queues={}
+ local function number()
+  local value=0;local scale=1
+  for i=1,10 do
+   local byte=string.byte(raw,pos);if not byte then return nil end
+   pos=pos+1;value=value+(byte%128)*scale
+   if byte<128 then return value end
+   scale=scale*128
+  end
+  return nil
+ end
+ while pos<=#raw do
+  local start=pos;local tag=number();if not tag or tag<8 then return nil end
+  local wire=tag%8
+  if wire==0 then if not number() then return nil end
+  elseif wire==2 then
+   local size=number();if not size or size>#raw-pos+1 then return nil end
+   pos=pos+size
+  elseif wire==1 then pos=pos+8
+  elseif wire==5 then pos=pos+4
+  else return nil end
+  if pos>#raw+1 then return nil end
+  local bytes=string.sub(raw,start,pos-1)
+  if math.floor(tag/8)==5 then
+   if wire~=2 then return nil end
+   table.insert(queues,bytes)
+  else table.insert(rest,bytes) end
+ end
+ table.sort(queues)
+ return table.concat(rest)..table.concat(queues)
+end
 for i,row in ipairs(snap.servers) do
- if live[i]~=row.key or redis.call('GET',row.key)~=ARGV[at] then return redis.error_reply('CONSUMER_CHANGED') end
+ local actual=stableConsumer(redis.call('GET',row.key));local expected=stableConsumer(ARGV[at])
+ if live[i]~=row.key or not actual or not expected or actual~=expected then
+  return redis.error_reply('CONSUMER_CHANGED') end
  at=at+1
 end
 if at~=#ARGV+1 or not tonumber(snap.revision) or tonumber(snap.revision)>9007199254740990 or

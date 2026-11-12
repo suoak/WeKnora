@@ -277,6 +277,26 @@ class RetirementTests(unittest.TestCase):
         self.assertEqual(self.redis.cmd("GET", self.prefix + "trip"), b"feishu_headers_io_failure")
         self.assertIsNone(self.redis.cmd("GET", self.prefix + "permit"))
 
+    def test_heartbeat_queue_map_reordering_is_not_a_consumer_change(self):
+        raw = self.redis.cmd("GET", self.server_key)
+        first = pb(5, pb(1, b"sync") + pb(2, 2))
+        second = pb(5, pb(1, b"approved_sync") + pb(2, 1))
+        self.assertIn(first + second, raw)
+        self.redis.cmd("SET", self.server_key, raw.replace(first + second, second + first))
+        self.execute()
+        self.assertEqual(self.redis.cmd("HLEN", self.prefix + "workers"), 1)
+        self.assertEqual(self.redis.cmd("GET", self.prefix + "trip"), b"feishu_headers_io_failure")
+        self.assertEqual(self.redis.cmd("LLEN", "asynq:{sync}:pending"), 6)
+
+    def test_changed_priority_active_count_and_malformed_consumer_stay_closed(self):
+        original = self.redis.cmd("GET", self.server_key)
+        queue = pb(5, pb(1, b"sync") + pb(2, 2))
+        changed = original.replace(queue, pb(5, pb(1, b"sync") + pb(2, 3)))
+        for raw in (changed, original + pb(9, 1), original + b"\x80", original + b"\x2a\xff"):
+            self.redis.cmd("SET", self.server_key, raw)
+            self.assertRaises(ValueError, self.execute)
+            self.untouched()
+
 
 if __name__ == "__main__":
     unittest.main()
