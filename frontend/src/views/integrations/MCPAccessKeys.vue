@@ -99,14 +99,23 @@
           <t-button v-if="personalConfig" variant="text" class="change-client" :disabled="revealingSecret || testingPersonal" @click="configStage = 'clients'; secretVisible = false; clearProtocolState()"><t-icon name="chevron-left" />更换客户端</t-button>
           <section v-if="personalConfig" class="connection-environment" aria-label="接入环境">
             <strong>接入环境</strong>
-            <t-radio-group v-model="connectionEnvironment" variant="default-filled" :disabled="revealingSecret || testingPersonal">
-              <t-radio-button value="intranet">企业内网</t-radio-button>
-              <t-radio-button value="isolated">隔离环境</t-radio-button>
-            </t-radio-group>
-            <p class="secondary-copy">{{ connectionEnvironment === 'intranet' ? '适用于企业内网研发电脑，使用当前个人 MCP Key 接入。' : '适用于隔离网络中的 AI 工具，使用 HTTPS 连接，仅提供知识检索和读取，不支持文件上传或数据修改。' }}</p>
-            <code class="environment-url">{{ connectionURL }}</code>
-            <p class="secondary-copy">两个环境使用同一个人 Key，无需重复创建。</p>
-            <t-alert v-if="connectionEnvironment === 'isolated'" theme="info">隔离环境服务端已就绪，实际可用性仍取决于运维网络映射和 DNS 联调。请在目标环境的客户端验证连接。</t-alert>
+            <div class="environment-options" role="radiogroup" aria-label="接入环境">
+              <label class="environment-option" :class="{ 'is-selected': connectionEnvironment === 'intranet', 'is-disabled': revealingSecret || testingPersonal }">
+                <input v-model="connectionEnvironment" type="radio" name="personal-mcp-environment" value="intranet" aria-label="云外地址" :disabled="revealingSecret || testingPersonal" />
+                <span class="environment-option__icon"><t-icon name="desktop" /></span>
+                <span class="environment-option__copy"><strong>云外地址</strong><span>企业内网研发电脑</span></span>
+                <span class="environment-option__indicator" aria-hidden="true"><t-icon v-if="connectionEnvironment === 'intranet'" name="check" /></span>
+              </label>
+              <label class="environment-option" :class="{ 'is-selected': connectionEnvironment === 'isolated', 'is-disabled': revealingSecret || testingPersonal }">
+                <input v-model="connectionEnvironment" type="radio" name="personal-mcp-environment" value="isolated" aria-label="云内地址" :disabled="revealingSecret || testingPersonal" />
+                <span class="environment-option__icon"><t-icon name="secured" /></span>
+                <span class="environment-option__copy"><strong>云内地址</strong><span>HTTPS · 知识只读</span></span>
+                <span class="environment-option__indicator" aria-hidden="true"><t-icon v-if="connectionEnvironment === 'isolated'" name="check" /></span>
+              </label>
+            </div>
+            <div class="environment-endpoint"><t-icon name="link" /><code class="environment-url">{{ connectionURL }}</code></div>
+            <p class="secondary-copy">两个地址共用当前个人 Key，无需重复创建。</p>
+            <t-alert v-if="connectionEnvironment === 'isolated'" theme="info">云内地址仅提供知识检索和读取，不支持文件上传或数据修改。服务端已就绪，实际可用性仍取决于运维网络映射和 DNS 联调。</t-alert>
           </section>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
           <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? '预览中的 Secret 已遮蔽。“复制完整配置（含密钥）”会自动填入此 Key 的真实 Secret，无需手动替换。仅保存到可信个人配置，禁止提交代码仓库。' : '此 Key 未保存可恢复的 Secret。请使用已保存的 Secret 设置客户端，或在管理中重新生成；占位模板不是完整配置。' }}</t-alert>

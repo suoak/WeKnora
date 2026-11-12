@@ -11,24 +11,24 @@ test('environment switching preserves the Key, masks previews and copies the rig
   await openKey(page, 3)
   await chooseClient(page, 'Codex')
   const dialog = page.locator('.t-dialog:visible')
-  await expect(dialog.getByRole('radio', { name: '企业内网', exact: true })).toBeChecked()
+  await expect(dialog.getByRole('radio', { name: '云外地址', exact: true })).toBeChecked()
   for (const client of ['Codex', 'Claude Code', 'GitHub Copilot', 'VS Code', 'WorkBuddy', 'Pi', '其他 MCP 客户端']) {
     if (client !== 'Codex') {
       await dialog.getByRole('button', { name: '更换客户端', exact: true }).click()
       await chooseClient(page, client)
     }
-    await dialog.getByText('隔离环境', { exact: true }).click()
+    await dialog.getByText('云内地址', { exact: true }).click()
     await expect(dialog.locator('pre')).toContainText('https://knowhub.ruijie.com.cn:8443/api/v1/mcp/personal')
     await expect(dialog.locator('pre')).not.toContainText('synthetic-key-3')
     await dialog.getByRole('button', { name: '复制完整配置（含密钥）', exact: true }).click()
     await expect.poll(() => page.evaluate(() => navigator.clipboard.readText())).toContain('Bearer synthetic-key-3')
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain('https://knowhub.ruijie.com.cn:8443/api/v1/mcp/personal')
-    await dialog.getByText('企业内网', { exact: true }).click()
+    await dialog.getByText('云外地址', { exact: true }).click()
     await dialog.getByRole('button', { name: '复制完整配置（含密钥）', exact: true }).click()
     expect(await page.evaluate(() => navigator.clipboard.readText())).toContain(new URL('/api/v1/mcp/personal', page.url()).href)
   }
   expect(api.mutations).toEqual([])
-  await dialog.getByText('隔离环境', { exact: true }).click()
+  await dialog.getByText('云内地址', { exact: true }).click()
   const revealCount = api.reveals.length
   await dialog.getByRole('button', { name: '验证 MCP 协议', exact: true }).click()
   await expect(dialog).toContainText('这不代表服务故障')
@@ -40,5 +40,5 @@ test('environment switching preserves the Key, masks previews and copies the rig
   await dialog.locator('.t-dialog__close').click()
   await openKey(page, 3)
   await chooseClient(page, 'Codex')
-  await expect(dialog.getByRole('radio', { name: '企业内网', exact: true })).toBeChecked()
+  await expect(dialog.getByRole('radio', { name: '云外地址', exact: true })).toBeChecked()
 })
