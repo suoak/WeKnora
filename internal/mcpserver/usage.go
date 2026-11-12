@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -23,9 +24,10 @@ type usageRecorder interface {
 type (
 	invocationKey struct{}
 	invocation    struct {
-		report types.MCPUsageReport
-		called bool
-		scope  *types.MCPUsageScope
+		report             types.MCPUsageReport
+		called             bool
+		concurrencyLimited bool
+		scope              *types.MCPUsageScope
 	}
 )
 
@@ -215,6 +217,9 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 		}
 		ctx, scope := types.WithMCPUsageScope(r.Context())
 		v := &invocation{report: newUsageReport(entry, envelope.Params.Name), scope: scope}
+		if entry == "go_personal" {
+			v.report.TraceID = perftrace.IDFromContext(ctx)
+		}
 		ctx = context.WithValue(ctx, invocationKey{}, v)
 		if ep, e := endpointFromContext(ctx); e == nil {
 			v.report.EndpointID = ep.ID
@@ -241,6 +246,9 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 					v.report.ErrorCode = "permission_denied"
 				case 429:
 					v.report.ErrorCode = "rate_limited"
+					if v.concurrencyLimited {
+						v.report.ErrorCode = "concurrency_limited"
+					}
 				case 408, 504:
 					v.report.ErrorCode = "timeout"
 				default:

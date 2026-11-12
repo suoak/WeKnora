@@ -198,6 +198,7 @@ func (UsageResourceLink) TableName() string { return "usage_resource_links" }
 // adapter. Identity and tenant fields are absent: the Go authentication
 // context is the only authority for them.
 type MCPUsageReport struct {
+	TraceID string `json:"-"`
 	// Only server adapters set these fields. The HTTP report handler overwrites
 	// entry/client provenance; callers cannot submit authenticated identity.
 	EntryPoint             string    `json:"-"`
