@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// WikiParsedStallCandidate describes a parsed document eligible for reviewed recovery.
 type WikiParsedStallCandidate struct {
 	ID, KnowledgeHash, ChunkHash, IndexHash, OriginalError string
 	TextChunks, IndexChunks, Attempt                       int64
@@ -41,28 +42,32 @@ func PrepareWikiParsedStallRecovery(ctx context.Context, db *gorm.DB, tenant uin
 	var plan *WikiParsedStallPlan
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var sources []struct{ ID string }
-		if err := tx.Table("data_sources").Select("id").Where("tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
-			tenant, kb).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Scan(&sources).Error; err != nil {
+		if err := tx.Table("data_sources").Select("id").
+			Where("tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
+				tenant, kb).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Scan(&sources).Error; err != nil {
 			return err
 		}
 		var anchor types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=?", kb, tenant).Take(&anchor).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=? AND tenant_id=?", kb,
+			tenant).Take(&anchor).Error; err != nil {
 			return err
 		}
 		if !anchor.IsWikiEnabled() || anchor.VectorStoreID != nil {
-			return errors.New("Wiki enabled local native index required")
+			return errors.New("wiki enabled local native index required")
 		}
 		var busy int64
-		if err := tx.Table("sync_logs").Where("data_source_id IN (SELECT id FROM data_sources WHERE knowledge_base_id=?) "+
-			"AND (status IN ('running','pending') OR execution_claimed)", kb).Count(&busy).Error; err != nil {
+		if err := tx.Table("sync_logs").
+			Where("data_source_id IN (SELECT id FROM data_sources WHERE knowledge_base_id=?) "+
+				"AND (status IN ('running','pending') OR execution_claimed)", kb).Count(&busy).Error; err != nil {
 			return err
 		}
 		if busy != 0 {
 			return errors.New("source execution still active")
 		}
 		var locked []struct{ ID string }
-		if err := tx.Table("knowledges").Select("id").Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL",
-			kb, tenant).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Scan(&locked).Error; err != nil {
+		if err := tx.Table("knowledges").Select("id").
+			Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL",
+				kb, tenant).Order("id").Clauses(clause.Locking{Strength: "UPDATE"}).Scan(&locked).Error; err != nil {
 			return err
 		}
 		var rows []WikiParsedStallCandidate
@@ -168,7 +173,8 @@ func PrepareWikiParsedStallRecovery(ctx context.Context, db *gorm.DB, tenant uin
 			}
 			if err := tx.Create(&types.TaskPendingOp{
 				TenantID: tenant, TaskType: types.TypeWikiIngest,
-				Scope: types.TaskScopeKnowledgeBase, ScopeID: kb, Op: "ingest", DedupKey: row.ID, Payload: payload, EnqueuedAt: now,
+				Scope: types.TaskScopeKnowledgeBase, ScopeID: kb, Op: "ingest", DedupKey: row.ID,
+				Payload: payload, EnqueuedAt: now,
 			}).Error; err != nil {
 				return err
 			}
@@ -211,7 +217,8 @@ func PrepareWikiParsedStallRecovery(ctx context.Context, db *gorm.DB, tenant uin
 		}
 		return tx.Create(&types.TaskPendingOp{
 			TenantID: tenant, TaskType: "wiki:parsed_recovery",
-			Scope: "wiki_parsed_recovery_audit", ScopeID: kb, Op: "applied", DedupKey: plan.Snapshot, Payload: audit, EnqueuedAt: now,
+			Scope: "wiki_parsed_recovery_audit", ScopeID: kb, Op: "applied", DedupKey: plan.Snapshot,
+			Payload: audit, EnqueuedAt: now,
 		}).Error
 	})
 	return plan, err

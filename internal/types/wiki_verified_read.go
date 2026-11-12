@@ -6,18 +6,31 @@ import (
 	"gorm.io/gorm"
 )
 
-type wikiVerifiedReadKey struct{}
-type wikiVerifiedRead struct {
-	KB             string
-	Guard          WikiVerifiedReadGuard
-	PageIDs        []string
-	PageRestricted bool
+type (
+	wikiVerifiedReadKey struct{}
+	wikiVerifiedRead    struct {
+		KB             string
+		Guard          WikiVerifiedReadGuard
+		PageIDs        []string
+		PageRestricted bool
+	}
+)
+
+// WithWikiVerifiedPageReadGuard attaches a page-specific verified-read guard.
+func WithWikiVerifiedPageReadGuard(
+	ctx context.Context,
+	kb string,
+	pages []string,
+	guard WikiVerifiedReadGuard,
+) context.Context {
+	return context.WithValue(
+		ctx,
+		wikiVerifiedReadKey{},
+		wikiVerifiedRead{KB: kb, Guard: guard, PageIDs: append([]string(nil), pages...), PageRestricted: true},
+	)
 }
 
-func WithWikiVerifiedPageReadGuard(ctx context.Context, kb string, pages []string, guard WikiVerifiedReadGuard) context.Context {
-	return context.WithValue(ctx, wikiVerifiedReadKey{}, wikiVerifiedRead{KB: kb, Guard: guard, PageIDs: append([]string(nil), pages...), PageRestricted: true})
-}
-
+// CheckWikiVerifiedPageRead checks the current page-specific verified-read guard.
 func CheckWikiVerifiedPageRead(db *gorm.DB, page *WikiPage) error {
 	scope, ok := db.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead)
 	if !ok || !scope.PageRestricted {
@@ -34,10 +47,12 @@ func CheckWikiVerifiedPageRead(db *gorm.DB, page *WikiPage) error {
 // request headers. Private KB checks still run before it is consumed.
 type WikiVerifiedReadGuard func(*gorm.DB, string, string, *WikiPage) error
 
+// WithWikiVerifiedReadGuard attaches a knowledge-base verified-read guard.
 func WithWikiVerifiedReadGuard(ctx context.Context, kb string, guard WikiVerifiedReadGuard) context.Context {
 	return context.WithValue(ctx, wikiVerifiedReadKey{}, wikiVerifiedRead{KB: kb, Guard: guard})
 }
 
+// CheckWikiVerifiedRead checks the current knowledge-base verified-read guard.
 func CheckWikiVerifiedRead(db *gorm.DB, knowledge, kb string, page *WikiPage) (bool, error) {
 	scope, ok := db.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead)
 	if !ok || scope.Guard == nil {

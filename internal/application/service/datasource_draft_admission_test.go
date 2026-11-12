@@ -33,13 +33,13 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 				Type: "feishu", Status: types.DataSourceStatusPaused, LegacyAccessState: "unmanaged",
 				Config: types.JSON(`{"resource_ids":[]}`),
 			}
-			want := "hold"
+			// A validated configuration save replaces execution ownership; it
+			// does not revoke the member's permission or republish old documents.
+			want := "active"
 			switch mode {
 			case "unused":
-				want = "unmanaged"
 			case "active":
 				source.Status = types.DataSourceStatusActive
-				want = "unmanaged"
 			case "active_access":
 				source.Status = types.DataSourceStatusActive
 				source.LegacyAccessState, want = "active", "active"
@@ -55,7 +55,7 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 			case "held":
 				source.LegacyAccessState = "hold"
 			case "revoked":
-				source.LegacyAccessState, want = "revoked", "revoked"
+				source.LegacyAccessState = "revoked"
 			}
 			require.NoError(t, repository.NewDataSourceRepository(db).Create(ctx, source))
 			switch mode {
@@ -88,6 +88,14 @@ func testFeishuUnusedDraftAdmission(t *testing.T, f *fixture.Fixture) {
 			require.Equal(t, want, stored.LegacyAccessState)
 			require.Equal(t, want, source.LegacyAccessState, "response must report the persisted protection state")
 			require.JSONEq(t, string(source.Config), string(stored.Config))
+			require.Nil(t, stored.LastSyncAt)
+			require.Empty(t, stored.LastSyncCursor)
+			require.Empty(t, stored.LastSyncResult)
+			if mode == "resource" {
+				var resource types.FeishuLegacyResource
+				require.NoError(t, db.Where("data_source_id=?", source.ID).First(&resource).Error)
+				require.Equal(t, "hold", resource.State, "saving settings cannot republish historical content")
+			}
 			if mode == "unused" || mode == "active" || mode == "active_access" {
 				// Saving the draft enables it. A second initial configuration edit
 				// must still work until an execution or publication actually exists.

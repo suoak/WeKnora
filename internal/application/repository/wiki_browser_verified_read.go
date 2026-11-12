@@ -10,9 +10,13 @@ import (
 	"gorm.io/gorm"
 )
 
-// This serves current proved pages only. It neither grants document-body
+// BeginVerifiedWikiBrowserRead opens a transaction with verified Wiki read guards.
 // access nor certifies historical revisions, and never mutates Wiki state.
-func BeginVerifiedWikiBrowserRead(ctx context.Context, repo interfaces.WikiPageRepository, kb string) (context.Context, error) {
+func BeginVerifiedWikiBrowserRead(
+	ctx context.Context,
+	repo interfaces.WikiPageRepository,
+	kb string,
+) (context.Context, error) {
 	r, ok := repo.(*wikiPageRepository)
 	if !ok || !WikiDocumentSelectionForKB(kb) {
 		return ctx, ErrWikiMCPUnverified
@@ -40,7 +44,9 @@ func BeginVerifiedWikiBrowserRead(ctx context.Context, repo interfaces.WikiPageR
 		proof = captured
 		partial = len(selection.Skipped) > 0
 		var pages []*types.WikiPage
-		if err := tx.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS browser_validation_inputs").Where("tenant_id=? AND knowledge_base_id=?", tenant, kb).Order("id").Limit(wikiMCPMaxPages + 1).Find(&pages).Error; err != nil {
+		if err := tx.Session(&gorm.Session{SkipHooks: true}).
+			Table("wiki_pages AS browser_validation_inputs").Where("tenant_id=? AND knowledge_base_id=?",
+			tenant, kb).Order("id").Limit(wikiMCPMaxPages + 1).Find(&pages).Error; err != nil {
 			return err
 		}
 		if len(pages) > wikiMCPMaxPages {
@@ -81,7 +87,8 @@ func BeginVerifiedWikiBrowserRead(ctx context.Context, repo interfaces.WikiPageR
 			if err != nil {
 				return err
 			}
-			if fresh.DependencySHA256 != proof.DependencySHA256 || wikiDigest(fresh.Epochs) != wikiDigest(proof.Epochs) {
+			if fresh.DependencySHA256 != proof.DependencySHA256 ||
+				wikiDigest(fresh.Epochs) != wikiDigest(proof.Epochs) {
 				return ErrWikiMCPInputsChanged
 			}
 		} else {
@@ -109,7 +116,10 @@ func BeginVerifiedWikiBrowserRead(ctx context.Context, repo interfaces.WikiPageR
 				readIDs = append(readIDs, id)
 			}
 			var current []*types.WikiPage
-			if err := db.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS browser_output_inputs").Where("tenant_id=? AND knowledge_base_id=? AND id IN ?", tenant, kb, readIDs).Find(&current).Error; err != nil {
+			if err := db.Session(&gorm.Session{SkipHooks: true}).
+				Table("wiki_pages AS browser_output_inputs").
+				Where("tenant_id=? AND knowledge_base_id=? AND id IN ?", tenant, kb, readIDs).
+				Find(&current).Error; err != nil {
 				return err
 			}
 			if len(current) != len(reads) {

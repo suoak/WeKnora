@@ -10,11 +10,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// WikiDocumentSelectionEnabled checks the controlled activation of document selection.
 func WikiDocumentSelectionEnabled() bool {
 	return os.Getenv("KNOWHUB_WIKI_DOCUMENT_SELECTION") == "true"
 }
 
-// Production rollout is bounded to reviewed KBs. Enabling the feature alone
+// WikiDocumentSelectionForKB checks document-selection activation for one knowledge base.
 // cannot move historical pages in every space out of the live namespace.
 func WikiDocumentSelectionForKB(kb string) bool {
 	if !WikiDocumentSelectionEnabled() {
@@ -30,7 +31,7 @@ func WikiDocumentSelectionForKB(kb string) bool {
 			if err != nil {
 				return false
 			}
-			defer file.Close()
+			defer func() { _ = file.Close() }()
 			raw, err := io.ReadAll(io.LimitReader(file, (16<<10)+1))
 			if err != nil || len(raw) > 16<<10 {
 				return false
@@ -61,18 +62,25 @@ func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGener
 			return nil, err
 		}
 		var anchor struct{ TenantID uint64 }
-		err := db.Table("knowledge_bases kb").Select("kb.tenant_id").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb).Take(&anchor).Error
+		err := db.Table("knowledge_bases kb").
+			Select("kb.tenant_id").
+			Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").
+			Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb).
+			Take(&anchor).
+			Error
 		if err != nil {
 			return nil, err
 		}
 		return &wikiGenerationProof{Tenant: anchor.TenantID, KB: kb}, nil
 	}
 	var seal WikiMCPProvenance
-	if err := db.Where("page_id=? AND tenant_id=? AND knowledge_base_id=?", page.ID, page.TenantID, kb).Take(&seal).Error; err != nil {
+	if err := db.Where("page_id=? AND tenant_id=? AND knowledge_base_id=?", page.ID, page.TenantID, kb).
+		Take(&seal).Error; err != nil {
 		return nil, err
 	}
 	var sources map[string]string
-	if json.Unmarshal([]byte(seal.SourceVersions), &sources) != nil || len(sources) == 0 || len(sources) > 2048 {
+	if json.Unmarshal([]byte(seal.SourceVersions), &sources) != nil || len(sources) == 0 ||
+		len(sources) > 2048 {
 		return nil, ErrWikiMCPUnverified
 	}
 	selected := map[string]bool{}

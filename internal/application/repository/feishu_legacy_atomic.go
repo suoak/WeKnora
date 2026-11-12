@@ -235,8 +235,13 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 }
 
 func (s *FeishuLegacyStore) beginWithSourceIdentity(
-	ctx context.Context, ds *types.DataSource, item *types.FetchedItem, sourceHash string,
-	identity *types.FeishuLegacySourceIdentity, proof *LegacySourceIdentityProof, latest *LegacyLatestSnapshotProof,
+	ctx context.Context,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+	sourceHash string,
+	identity *types.FeishuLegacySourceIdentity,
+	proof *LegacySourceIdentityProof,
+	latest *LegacyLatestSnapshotProof,
 ) (r *types.FeishuLegacyResource, a *types.FeishuLegacyAttempt, err error) {
 	if item.ExternalID == "" || item.UpdatedAt.IsZero() || len(sourceHash) != 64 {
 		return nil, nil, legacyFence("invalid_source_revision")
@@ -383,7 +388,14 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 					return legacyFence("source_revision_hash_unconfirmed")
 				}
 				if expectedHash != sourceHash {
-					matched, matchErr := legacyAttemptSourceMatches(tx, r, expectedAttempt, sourceHash, identity, proof)
+					matched, matchErr := legacyAttemptSourceMatches(
+						tx,
+						r,
+						expectedAttempt,
+						sourceHash,
+						identity,
+						proof,
+					)
 					if matchErr != nil {
 						return matchErr
 					}
@@ -468,7 +480,12 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 			if e := tx.Where("id=?", latest.baseline.resource.CurrentAttempt).First(&previous).Error; e != nil {
 				return e
 			}
-			initial.LatestSnapshot = &types.FeishuLatestSnapshotAudit{PreviousAttempt: previous.ID, PreviousGeneration: latest.baseline.resource.Generation, PreviousHash: previous.SourceHash, CurrentHash: sourceHash}
+			initial.LatestSnapshot = &types.FeishuLatestSnapshotAudit{
+				PreviousAttempt:    previous.ID,
+				PreviousGeneration: latest.baseline.resource.Generation,
+				PreviousHash:       previous.SourceHash,
+				CurrentHash:        sourceHash,
+			}
 		}
 		if identity != nil || latest != nil {
 			initial.SHA256, e = LegacyManifestHash(initial)
@@ -598,7 +615,8 @@ func (s *FeishuLegacyStore) Prepare(
 		if m.SourceIdentity != nil && !legacyIdentityEqual(m.SourceIdentity, initial.SourceIdentity) {
 			return legacyFence("source_identity_manifest_changed")
 		}
-		if m.LatestSnapshot != nil && (initial.LatestSnapshot == nil || *m.LatestSnapshot != *initial.LatestSnapshot) {
+		if m.LatestSnapshot != nil &&
+			(initial.LatestSnapshot == nil || *m.LatestSnapshot != *initial.LatestSnapshot) {
 			return legacyFence("latest_source_manifest_changed")
 		}
 		m.SourceIdentity = initial.SourceIdentity
@@ -1073,7 +1091,9 @@ func (s *FeishuLegacyStore) Receipt(
 		}
 		if out.Chunks != int64(len(manifest.Chunks)) || out.Chunks != out.ParentChunks+out.IndexedChunks ||
 			out.ParentChunks != parents || out.IndexedChunks != indexedCount ||
-			int64(len(publicIndexed)) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
+			int64(
+				len(publicIndexed),
+			) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
 			return legacyFence("receipt_graph_count_mismatch")
 		}
 		manifestByID := make(map[string]*types.Chunk, len(manifest.Chunks))
@@ -1082,7 +1102,8 @@ func (s *FeishuLegacyStore) Receipt(
 		}
 		for _, chunk := range public {
 			owned := manifestByID[chunk.ID]
-			if owned == nil || owned.ChunkType != chunk.ChunkType || owned.ParentChunkID != chunk.ParentChunkID {
+			if owned == nil || owned.ChunkType != chunk.ChunkType ||
+				owned.ParentChunkID != chunk.ParentChunkID {
 				return legacyFence("receipt_public_graph_mismatch")
 			}
 		}

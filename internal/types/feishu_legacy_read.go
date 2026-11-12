@@ -34,22 +34,38 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 				}}})
 				return
 			}
-			if scope, ok := tx.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead); ok && scope.Guard != nil {
+			if scope, ok := tx.Statement.Context.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead); ok &&
+				scope.Guard != nil {
 				if table == "wiki_page_revisions" || table == "wiki_page_issues" {
-					tx.AddError(ErrLegacySourceRestricted)
+					_ = tx.AddError(ErrLegacySourceRestricted)
 					return
 				}
 				if err := scope.Guard(tx, "", scope.KB, nil); err != nil {
-					tx.AddError(err)
+					_ = tx.AddError(err)
 					return
 				}
-				tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.Eq{Column: clause.Column{Table: table, Name: "knowledge_base_id"}, Value: scope.KB}}})
+				tx.Statement.AddClause(
+					clause.Where{
+						Exprs: []clause.Expression{
+							clause.Eq{
+								Column: clause.Column{Table: table, Name: "knowledge_base_id"},
+								Value:  scope.KB,
+							},
+						},
+					},
+				)
 				if table == "wiki_pages" && scope.PageRestricted {
 					values := make([]interface{}, 0, len(scope.PageIDs))
 					for _, id := range scope.PageIDs {
 						values = append(values, id)
 					}
-					tx.Statement.AddClause(clause.Where{Exprs: []clause.Expression{clause.IN{Column: clause.Column{Table: table, Name: "id"}, Values: values}}})
+					tx.Statement.AddClause(
+						clause.Where{
+							Exprs: []clause.Expression{
+								clause.IN{Column: clause.Column{Table: table, Name: "id"}, Values: values},
+							},
+						},
+					)
 				}
 				return
 			}
@@ -104,7 +120,8 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 		return nil
 	}
 	if kbID == "" && knowledgeID != "" {
-		if err := db.Raw("SELECT knowledge_base_id FROM knowledges WHERE id=?", knowledgeID).Scan(&kbID).Error; err != nil {
+		if err := db.Raw("SELECT knowledge_base_id FROM knowledges WHERE id=?", knowledgeID).Scan(&kbID).
+			Error; err != nil {
 			return err
 		}
 	}
@@ -153,7 +170,11 @@ WHERE scope=? AND scope_id=?)`, PersonalExactReceiptScope, knowledgeID).Scan(&ex
 		}
 	}
 	var managed bool
-	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=?) OR EXISTS(SELECT 1 FROM data_sources WHERE knowledge_base_id=? AND (type IN ('feishu','feishu_drive','lark','lark_drive') OR legacy_access_state<>'unmanaged'))", kbID, kbID).Scan(&managed).Error; err != nil {
+	if err := db.Raw("SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE "+
+		"knowledge_base_id=?) OR EXISTS(SELECT 1 FROM data_sources WHERE "+
+		"knowledge_base_id=? AND (type IN "+
+		"('feishu','feishu_drive','lark','lark_drive') OR "+
+		"legacy_access_state<>'unmanaged'))", kbID, kbID).Scan(&managed).Error; err != nil {
 		return err
 	}
 	if !managed {
@@ -178,7 +199,8 @@ WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS 
 	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID && knowledgeID != "" {
 		var denied bool
 		if err := db.Raw(`SELECT
- EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE knowledge_base_id=? AND knowledge_id=? AND state IN ('hold','revoked'))
+ EXISTS(SELECT 1 FROM feishu_legacy_resources
+ WHERE knowledge_base_id=? AND knowledge_id=? AND state IN ('hold','revoked'))
  OR EXISTS(SELECT 1 FROM data_sources d JOIN knowledges k ON k.metadata->>'datasource_id'=d.id
  WHERE k.id=? AND d.knowledge_base_id=? AND d.deleted_at IS NULL AND d.legacy_access_state='revoked')`,
 			kbID, knowledgeID, knowledgeID, kbID).Scan(&denied).Error; err != nil {

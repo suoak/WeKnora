@@ -63,7 +63,10 @@ func (r *DataSourceRepository) FindByID(ctx context.Context, id string) (*types.
 }
 
 // FindByKnowledgeBase lists all data sources for a knowledge base
-func (r *DataSourceRepository) FindByKnowledgeBase(ctx context.Context, kbID string) ([]*types.DataSource, error) {
+func (r *DataSourceRepository) FindByKnowledgeBase(
+	ctx context.Context,
+	kbID string,
+) ([]*types.DataSource, error) {
 	if kbID == "" {
 		return nil, errors.New("knowledge base id is empty")
 	}
@@ -92,7 +95,9 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			if err != nil {
 				return err
 			}
-			if legacySourceKind(old.Type) && (old.LegacyAccessState == "hold" || !legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
+			if legacySourceKind(old.Type) &&
+				(old.LegacyAccessState == "hold" || !legacyConfigEqual(old.Config, ds.Config) || old.
+					Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
@@ -111,8 +116,10 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 					return err
 				}
 				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
-					Updates(map[string]any{"legacy_access_state": "active", "last_sync_cursor": nil,
-						"last_sync_result": nil, "last_sync_at": nil, "error_message": ""}).Error; err != nil {
+					Updates(map[string]any{
+						"legacy_access_state": "active", "last_sync_cursor": nil,
+						"last_sync_result": nil, "last_sync_at": nil, "error_message": "",
+					}).Error; err != nil {
 					return err
 				}
 				old.LegacyAccessState = "active"
@@ -322,7 +329,12 @@ func (r *SyncLogRepository) FindByID(ctx context.Context, id string) (*types.Syn
 }
 
 // FindByDataSource lists sync logs for a data source with pagination
-func (r *SyncLogRepository) FindByDataSource(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+func (r *SyncLogRepository) FindByDataSource(
+	ctx context.Context,
+	dsID string,
+	limit int,
+	offset int,
+) ([]*types.SyncLog, error) {
 	if dsID == "" {
 		return nil, errors.New("data source id is empty")
 	}

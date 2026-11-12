@@ -9,7 +9,11 @@ import (
 
 // ListKnowledgeForKBClear returns identities for a live, authorized parent's
 // cleanup. Content read permission from the remote connector is not required.
-func (r *knowledgeRepository) ListKnowledgeForKBClear(ctx context.Context, tenant uint64, kb string) ([]*types.Knowledge, error) {
+func (r *knowledgeRepository) ListKnowledgeForKBClear(
+	ctx context.Context,
+	tenant uint64,
+	kb string,
+) ([]*types.Knowledge, error) {
 	if tenant == 0 || kb == "" {
 		return nil, errors.New("knowledge base identity required")
 	}

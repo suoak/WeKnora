@@ -2,11 +2,13 @@ package types
 
 import "context"
 
-type legacyWikiCleanupKey struct{}
-type legacyWikiCleanup struct {
-	tenant uint64
-	kb     string
-}
+type (
+	legacyWikiCleanupKey struct{}
+	legacyWikiCleanup    struct {
+		tenant uint64
+		kb     string
+	}
+)
 
 // WithLegacyWikiCleanup is for an already authorized document-deletion worker.
 // It scopes derived-page cleanup to one persisted workspace/KB; it is never
@@ -15,6 +17,7 @@ func WithLegacyWikiCleanup(ctx context.Context, tenant uint64, kb string) contex
 	return context.WithValue(ctx, legacyWikiCleanupKey{}, legacyWikiCleanup{tenant: tenant, kb: kb})
 }
 
+// LegacyWikiCleanupKB returns the knowledge base scoped to legacy Wiki cleanup.
 func LegacyWikiCleanupKB(ctx context.Context) string {
 	scope, ok := ctx.Value(legacyWikiCleanupKey{}).(legacyWikiCleanup)
 	tenant, _ := TenantIDFromContext(ctx)
