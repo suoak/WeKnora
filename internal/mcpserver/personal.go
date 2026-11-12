@@ -97,6 +97,7 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var targets []string
+		protocolOnly := r.Method == http.MethodGet || r.Method == http.MethodDelete
 		pool, class := s.protocol, "protocol"
 		if r.Method == http.MethodGet {
 			pool, class = s.streams, "stream"
@@ -117,6 +118,7 @@ func (s *PersonalServer) Handler() http.Handler {
 				Method string `json:"method"`
 			}
 			_ = json.Unmarshal(body, &envelope) // Already validated by personalHTTPRequestTargets.
+			protocolOnly = personalMetadataMethod(envelope.Method)
 			if envelope.Method == "tools/call" {
 				pool, class = s.admission, "tool"
 			}
@@ -153,6 +155,13 @@ func (s *PersonalServer) Handler() http.Handler {
 			release()
 			perftrace.AdmissionReleased(r.Context(), pool.snapshot(principal.ID))
 		}()
+		authorize := func() error {
+			if protocolOnly {
+				return s.knowledge.Resolver.AuthorizeProtocol(r.Context())
+			}
+			_, err := s.knowledge.Resolve(r.Context(), targets)
+			return err
+		}
 		// Connected SSE listeners are idle most of the time. Their initial live
 		// permission resolution still uses the short-operation budget, so a large
 		// listener limit cannot fan out the same number of expensive DB reads.
@@ -173,15 +182,14 @@ func (s *PersonalServer) Handler() http.Handler {
 			}
 			err = func() error {
 				defer releaseScope()
-				_, resolveErr := s.knowledge.Resolve(r.Context(), targets)
-				return resolveErr
+				return authorize()
 			}()
 			if err != nil {
-				http.Error(w, "personal MCP denied", http.StatusForbidden)
+				writePersonalScopeError(w, r, err)
 				return
 			}
-		} else if _, err := s.knowledge.Resolve(r.Context(), targets); err != nil {
-			http.Error(w, "personal MCP denied", http.StatusForbidden)
+		} else if err := authorize(); err != nil {
+			writePersonalScopeError(w, r, err)
 			return
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
@@ -192,6 +200,27 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 	}))
 	return h
+}
+
+// Only protocol lifecycle and schema enumeration avoid corpus resolution.
+// Future resource/prompt execution methods must not inherit this shortcut.
+func personalMetadataMethod(method string) bool {
+	switch method {
+	case "initialize", "ping", "notifications/initialized", "notifications/cancelled",
+		"tools/list", "resources/list", "resources/templates/list", "prompts/list":
+		return true
+	default:
+		return false
+	}
+}
+
+func writePersonalScopeError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, context.DeadlineExceeded) || errors.Is(r.Context().Err(), context.DeadlineExceeded) {
+		w.Header().Set("X-KnowHub-Error-Code", "scope_timeout")
+		http.Error(w, "personal MCP scope resolution timed out; retry later", http.StatusGatewayTimeout)
+		return
+	}
+	http.Error(w, "personal MCP denied", http.StatusForbidden)
 }
 
 // IsolatedHandler is the strict read-only route used only by the dedicated

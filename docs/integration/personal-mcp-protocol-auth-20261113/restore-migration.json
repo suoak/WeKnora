@@ -1,0 +1,47 @@
+{
+  "pass": true,
+  "main": "66976ce6fec4907044377659cbca86c4cb82c0ff",
+  "backup_bytes": 12678864560,
+  "backup_sha256": "07f6787a9619ad3d30d988e459770fbfd2b5f87d2a154075ee34110db609c4b9",
+  "full_restore_exit": 0,
+  "before": {
+    "version": 3046,
+    "dirty": false,
+    "knowledges": 6839,
+    "chunks": 6189640,
+    "embeddings": 1928142,
+    "feishu_resources": 1291,
+    "feishu_attempts": 2265,
+    "usage_count": 878,
+    "usage_hash": "6ddeca7fc791267a7f24b726ef1df8d9",
+    "fence_md5": "00bd6b7bbbb4ea41d51c0e7b2906e304"
+  },
+  "after": {
+    "version": 3047,
+    "dirty": false,
+    "knowledges": 6839,
+    "chunks": 6189640,
+    "embeddings": 1928142,
+    "feishu_resources": 1291,
+    "feishu_attempts": 2265,
+    "usage_count": 878,
+    "usage_hash": "6ddeca7fc791267a7f24b726ef1df8d9",
+    "fence_md5": "00bd6b7bbbb4ea41d51c0e7b2906e304"
+  },
+  "official_migration_exit": 0,
+  "idempotent_second_run": true,
+  "feishu_write_fence_denied": true,
+  "network": "none",
+  "production_database_changed": false,
+  "migration_force_used": false,
+  "supervision_recovery": {
+    "outer_wait_timeout_seconds": 7200,
+    "actual_pg_restore_engine_exit": 0,
+    "exit_evidence": "persisted actual Docker Engine exit record; live exec metadata expired",
+    "actual_exec_id": "4e431c72f29a716d46085876a9d158c5621f704c1944623abd2c93548e324292",
+    "full_backup_rehashed_after_restore": true,
+    "canonical_post_restore_checks_executed": true,
+    "runtime_dictionary": "gojieba1.4.7 matched dependency, explicit JIEBA_DICT_DIR only",
+    "production_switch_attempted_before_recovery": false
+  }
+}

@@ -1,0 +1,17 @@
+{
+  "main": "66976ce6fec4907044377659cbca86c4cb82c0ff",
+  "actual_http_served_bytes": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "sha256": "b3cd5d6506551d56d0b91a3f8d8e460e6558fd65f7987caf263a65bc327457ea"
+    },
+    {
+      "path": "assets/index-DxDX1Ii3.js",
+      "status": 200,
+      "sha256": "8fd34a8718bffdd018fc606528abe0d53173f8c4faddb29a629d128c590f91ad"
+    }
+  ],
+  "frontend_commit": "66976ce",
+  "observed_utc": "2026-11-12T16:28:14.852620+00:00"
+}
