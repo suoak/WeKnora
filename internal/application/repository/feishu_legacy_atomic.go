@@ -245,7 +245,7 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		return nil, nil, legacyFence("source_identity_algorithm_unconfirmed")
 	}
 	if identity != nil {
-		docx := identity.Algorithm == legacyDOCXIdentityAlgorithm && item.Metadata["obj_type"] == "docx" &&
+		docx := legacyDOCXIdentityAlgorithmValid(identity.Algorithm) && item.Metadata["obj_type"] == "docx" &&
 			strings.EqualFold(path.Ext(item.FileName), ".docx")
 		xlsx := identity.Algorithm == legacyXLSXIdentityAlgorithm &&
 			(item.Metadata["obj_type"] == "sheet" || item.Metadata["obj_type"] == "bitable") &&

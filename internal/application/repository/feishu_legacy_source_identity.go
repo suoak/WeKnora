@@ -14,8 +14,9 @@ import (
 )
 
 const (
-	legacyDOCXIdentityAlgorithm = "feishu-docx-package-v1+name-title-v1"
-	legacyXLSXIdentityAlgorithm = "feishu-xlsx-package-v1+name-title-v1"
+	legacyDOCXIdentityAlgorithm         = "feishu-docx-package-v1+name-title-v1"
+	legacyDOCXEmbeddedIdentityAlgorithm = "feishu-docx-package-v2+name-title-v1"
+	legacyXLSXIdentityAlgorithm         = "feishu-xlsx-package-v1+name-title-v1"
 )
 
 // LegacyXLSXSourceIdentity binds a complete package identity to its source name.
@@ -47,13 +48,13 @@ func LegacyDOCXSourceIdentity(content []byte, name, title string) (*types.Feishu
 	if err != nil {
 		return nil, err
 	}
-	if algorithm != "feishu-docx-package-v1" {
+	if algorithm != "feishu-docx-package-v1" && algorithm != "feishu-docx-package-v2" {
 		return nil, legacyFence("source_identity_algorithm_unconfirmed")
 	}
 	b, _ := json.Marshal([]any{digest, name, title})
 	h := sha256.Sum256(b)
 	return &types.FeishuLegacySourceIdentity{
-		Algorithm: legacyDOCXIdentityAlgorithm,
+		Algorithm: algorithm + "+name-title-v1",
 		Digest:    hex.EncodeToString(h[:]),
 	}, nil
 }
@@ -168,8 +169,12 @@ func legacyIdentityValid(identity *types.FeishuLegacySourceIdentity) bool {
 		return true
 	}
 	_, err := hex.DecodeString(identity.Digest)
-	return (identity.Algorithm == legacyDOCXIdentityAlgorithm || identity.Algorithm == legacyXLSXIdentityAlgorithm) &&
+	return (legacyDOCXIdentityAlgorithmValid(identity.Algorithm) || identity.Algorithm == legacyXLSXIdentityAlgorithm) &&
 		len(identity.Digest) == 64 && err == nil
+}
+
+func legacyDOCXIdentityAlgorithmValid(algorithm string) bool {
+	return algorithm == legacyDOCXIdentityAlgorithm || algorithm == legacyDOCXEmbeddedIdentityAlgorithm
 }
 
 func legacyIdentityEqual(a, b *types.FeishuLegacySourceIdentity) bool {

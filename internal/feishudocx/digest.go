@@ -34,10 +34,10 @@ var ErrInvalidPackage = errors.New("invalid or unsupported Feishu DOCX package")
 
 type partDigest struct{ Name, SHA256 string }
 
-// CanonicalDOCXDigest covers every regular ZIP part. Only export-created time
-// and numbering abstract-ID allocation are normalized, based on repeated export
-// evidence. Body, relationships, images, tables, modified time and numbering
-// semantics remain protected. Unsupported/malformed packages fail closed.
+// CanonicalDOCXDigest covers every regular ZIP part. Export-created time and
+// numbering abstract-ID allocation are normalized. Embedded XLSX packages use
+// v2, which also ignores their ZIP packing while binding every extracted byte.
+// Packages without embedded XLSX retain the existing v1 identity.
 func CanonicalDOCXDigest(content []byte) (string, string, error) {
 	if len(content) > maxArchive {
 		return "", "", ErrInvalidPackage
@@ -49,6 +49,7 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 	seen := map[string]bool{}
 	var parts []partDigest
 	var expanded uint64
+	identityAlgorithm := algorithm
 	for _, entry := range z.File {
 		name := entry.Name
 		clean := strings.TrimSuffix(name, "/")
@@ -137,6 +138,13 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 				return "", "", ErrInvalidPackage
 			}
 		}
+		if strings.HasPrefix(name, "word/embeddings/") && strings.EqualFold(path.Ext(name), ".xlsx") {
+			body, err = embeddedXLSXIdentity(body, &expanded)
+			if err != nil {
+				return "", "", ErrInvalidPackage
+			}
+			identityAlgorithm = "feishu-docx-package-v2"
+		}
 		parts = append(parts, partDigest{Name: name, SHA256: sum(body)})
 	}
 	for _, required := range []string{"[Content_Types].xml", "_rels/.rels", "word/document.xml"} {
@@ -152,8 +160,8 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 	identity, _ := json.Marshal(struct {
 		Algorithm string
 		Parts     []partDigest
-	}{algorithm, parts})
-	return sum(identity), algorithm, nil
+	}{identityAlgorithm, parts})
+	return sum(identity), identityAlgorithm, nil
 }
 
 func sum(body []byte) string { hash := sha256.Sum256(body); return hex.EncodeToString(hash[:]) }
