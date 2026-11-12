@@ -1,23 +1,31 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { FEEDBACK_URL, isNavigationEntryActive, NAVIGATION_REGISTRY, visibleNavigationEntries } from './navigation.ts'
+import { FEEDBACK_URL, USER_HELP_URL, isNavigationEntryActive, NAVIGATION_REGISTRY, visibleNavigationEntries } from './navigation.ts'
 
 const supported = () => true
+
+test('user help opens the approved document without requiring management permissions', () => {
+  const entry = visibleNavigationEntries({ role: 'viewer', isSystemAdmin: false, supports: supported }).find(entry => entry.id === 'user-help')!
+  assert.equal(entry.externalUrl, 'https://ruijie.feishu.cn/docx/E3fSdQCgyoy6bwxHTWVckgWYnLc')
+  assert.equal(entry.externalUrl, USER_HELP_URL)
+  assert.equal(entry.route, undefined)
+  assert.equal(isNavigationEntryActive(entry, '/platform/mcp-access'), false)
+})
 
 test('viewer and contributor see global and accessible workspace navigation only', () => {
   for (const role of ['viewer', 'contributor']) {
     const entries = visibleNavigationEntries({ role, isSystemAdmin: false, supports: supported })
-    assert.deepEqual(entries.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback'])
+    assert.deepEqual(entries.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'user-help'])
     assert.ok(entries.every((entry) => entry.group !== 'management'))
   }
 })
 
 test('management center is visible to workspace admins and system admins', () => {
   const admin = visibleNavigationEntries({ role: 'admin', isSystemAdmin: false, supports: supported })
-  assert.deepEqual(admin.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'management-center'])
+  assert.deepEqual(admin.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'user-help', 'management-center'])
 
   const systemAdmin = visibleNavigationEntries({ role: 'viewer', isSystemAdmin: true, supports: supported })
-  assert.deepEqual(systemAdmin.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'management-center'])
+  assert.deepEqual(systemAdmin.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'user-help', 'management-center'])
 })
 
 test('capabilities and active settings section are respected', () => {
@@ -26,7 +34,7 @@ test('capabilities and active settings section are respected', () => {
   const management = NAVIGATION_REGISTRY.find((entry) => entry.id === 'management-center')!
   assert.equal(isNavigationEntryActive(management, '/platform/settings', 'usage-analytics'), true)
   assert.equal(isNavigationEntryActive(management, '/platform/knowledge-bases'), false)
-  assert.deepEqual(NAVIGATION_REGISTRY.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'management-center'])
+  assert.deepEqual(NAVIGATION_REGISTRY.map((entry) => entry.id), ['portal', 'knowledge-bases', 'agents', 'mcp-access', 'members', 'feedback', 'user-help', 'management-center'])
 })
 
 test('feedback is a role-independent external destination and never becomes active', () => {

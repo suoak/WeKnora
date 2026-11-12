@@ -19,6 +19,7 @@ export interface NavigationEntry {
 }
 
 export const FEEDBACK_URL = 'https://ruijie.feishu.cn/wiki/GC4AwjoNUicPyEkyv9fcrC3Wnlb'
+export const USER_HELP_URL = 'https://ruijie.feishu.cn/docx/E3fSdQCgyoy6bwxHTWVckgWYnLc'
 
 export interface NavigationContext {
   role: string
@@ -36,6 +37,7 @@ export const NAVIGATION_REGISTRY: readonly NavigationEntry[] = [
   { id: 'mcp-access', labelKey: 'navigation.mcpAccess', icon: 'link', route: '/platform/mcp-access', group: 'workspace', order: 35 },
   { id: 'members', labelKey: 'navigation.members', icon: 'usergroup', route: '/platform/settings?section=members', settingsSection: 'members', group: 'workspace', order: 40 },
   { id: 'feedback', labelKey: 'navigation.feedback', icon: 'chat-message', externalUrl: FEEDBACK_URL, group: 'workspace', order: 45 },
+  { id: 'user-help', labelKey: 'navigation.userHelp', icon: 'help-circle', externalUrl: USER_HELP_URL, group: 'workspace', order: 46 },
   { id: 'management-center', labelKey: 'navigation.managementCenter', icon: 'setting', route: '/platform/settings?section=tenant', group: 'management', visibility: 'management', order: 50 },
 ] as const
 
