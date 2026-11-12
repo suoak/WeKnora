@@ -151,7 +151,34 @@ func (s *PersonalServer) Handler() http.Handler {
 			release()
 			perftrace.AdmissionReleased(r.Context(), pool.snapshot(principal.ID))
 		}()
-		if _, err := s.knowledge.Resolve(r.Context(), targets); err != nil {
+		// Connected SSE listeners are idle most of the time. Their initial live
+		// permission resolution still uses the short-operation budget, so a large
+		// listener limit cannot fan out the same number of expensive DB reads.
+		if r.Method == http.MethodGet {
+			releaseScope, err := s.protocol.acquire(r.Context(), principal.ID)
+			if err != nil {
+				if errors.Is(err, errPersonalCapacity) {
+					perftrace.Admission(r.Context(), "stream", "concurrency_limited",
+						time.Since(waitStarted), s.protocol.snapshot(principal.ID))
+					w.Header().Set("Retry-After", strconv.Itoa(int((s.protocol.wait+time.Second-1)/time.Second)))
+					w.Header().Set("Cache-Control", "private, no-store")
+					w.Header().Set("X-KnowHub-Error-Code", "concurrency_limited")
+					http.Error(w, "personal MCP concurrency capacity exceeded; retry later", http.StatusTooManyRequests)
+				} else {
+					http.Error(w, "personal MCP request canceled", http.StatusRequestTimeout)
+				}
+				return
+			}
+			err = func() error {
+				defer releaseScope()
+				_, resolveErr := s.knowledge.Resolve(r.Context(), targets)
+				return resolveErr
+			}()
+			if err != nil {
+				http.Error(w, "personal MCP denied", http.StatusForbidden)
+				return
+			}
+		} else if _, err := s.knowledge.Resolve(r.Context(), targets); err != nil {
 			http.Error(w, "personal MCP denied", http.StatusForbidden)
 			return
 		}

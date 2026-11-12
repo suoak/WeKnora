@@ -38,6 +38,7 @@ func (s *PersonalServer) SetUsageRecorder(r usageRecorder) { s.usage = r }
 func (s *Server) SetUsageRecorder(r usageRecorder) { s.usage = r }
 
 func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
+	defer perftrace.Measure(ctx, perftrace.UsageAnalytics)()
 	if recorder, ok := sink.(interface {
 		Begin(context.Context, types.MCPUsageReport) error
 	}); ok {
@@ -48,6 +49,7 @@ func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageRe
 }
 
 func emitUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
+	defer perftrace.Measure(ctx, perftrace.UsageAnalytics)()
 	if sink == nil {
 		return
 	}

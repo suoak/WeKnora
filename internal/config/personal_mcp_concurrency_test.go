@@ -12,6 +12,7 @@ func TestPersonalMCPConcurrencyConfig(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, 16, c.GlobalLimit)
 	require.Equal(t, 4, c.UserLimit)
+	require.Equal(t, 4, c.ProtocolUserLimit)
 	require.Equal(t, 1500, c.WaitTimeoutMs)
 	for _, bad := range []PersonalMCPConcurrencyConfig{
 		{GlobalLimit: -1}, {UserLimit: 17}, {QueueLimit: 1}, {WaitTimeoutMs: 10000}, {ProtocolLimit: 1},

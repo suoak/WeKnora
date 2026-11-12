@@ -25,6 +25,7 @@ const (
 	Embedding
 	Merge
 	Serialize
+	UsageAnalytics
 	stageCount
 )
 
@@ -39,6 +40,7 @@ type AdmissionLoad struct {
 
 var names = [stageCount]string{
 	"auth", "resolve", "snapshot", "dimension_sql", "bm25_sql", "vector_sql", "embedding", "merge", "serialize",
+	"usage_analytics",
 }
 
 // Trace belongs to one HTTP request; no user ID, query, result, or Key is stored.

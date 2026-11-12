@@ -18,7 +18,7 @@ personal_mcp:
     user_queue_limit: 8
     wait_timeout_ms: 1500
     protocol_limit: 8
-    protocol_user_limit: 2
+    protocol_user_limit: 4
     # SSE GET listeners hold their permit until disconnect/30s timeout and
     # cannot consume protocol discovery or tool capacity.
     stream_limit: 8
