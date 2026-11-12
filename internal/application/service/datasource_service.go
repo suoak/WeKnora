@@ -289,7 +289,12 @@ func (s *DataSourceService) UpdateDataSource(
 		}
 	}
 
-	if err := s.dsRepo.Update(ctx, ds); err != nil {
+	updateCtx := ctx
+	if ds.Type == existing.Type && ds.KnowledgeBaseID == existing.KnowledgeBaseID &&
+		reflect.DeepEqual(ds.Config, existing.Config) {
+		updateCtx = apprepo.WithPreservedSourceConfiguration(ctx)
+	}
+	if err := s.dsRepo.Update(updateCtx, ds); err != nil {
 		logger.Errorf(ctx, "failed to update data source: %v", err)
 		return nil, err
 	}

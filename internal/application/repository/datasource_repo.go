@@ -16,6 +16,15 @@ type DataSourceRepository struct {
 	db *gorm.DB
 }
 
+type preservedSourceConfigurationKey struct{}
+
+// WithPreservedSourceConfiguration prevents a metadata-only save from repairing
+// a legacy hold without revalidation. Actual configuration changes still fence
+// old executions independently of this marker.
+func WithPreservedSourceConfiguration(ctx context.Context) context.Context {
+	return context.WithValue(ctx, preservedSourceConfigurationKey{}, true)
+}
+
 // NewDataSourceRepository creates a new data source repository
 func NewDataSourceRepository(db *gorm.DB) interfaces.DataSourceRepository {
 	return &DataSourceRepository{db: db}
@@ -95,8 +104,9 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			if err != nil {
 				return err
 			}
+			preserve, _ := ctx.Value(preservedSourceConfigurationKey{}).(bool)
 			if legacySourceKind(old.Type) &&
-				(old.LegacyAccessState == "hold" || !legacyConfigEqual(old.Config, ds.Config) || old.
+				((old.LegacyAccessState == "hold" && !preserve) || !legacyConfigEqual(old.Config, ds.Config) || old.
 					Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")

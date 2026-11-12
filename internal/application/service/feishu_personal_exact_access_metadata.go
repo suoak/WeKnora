@@ -46,7 +46,8 @@ indexing_strategy,chunking_config,faq_config,image_processing_config,extract_con
 question_generation_config,auto_tag_config,profile_config,asr_config,wiki_config,
 CASE WHEN vlm_config IS NULL THEN NULL ELSE vlm_config::jsonb - 'api_key' END AS vlm_config,
 created_at,updated_at`
-	if grant.Permission.HasPermission(types.OrgRoleEditor) {
+	if grant.Permission.HasPermission(types.OrgRoleEditor) &&
+		grant.Caller.Role.HasPermission(types.TenantRoleContributor) {
 		// Settings must round-trip the existing configuration rather than
 		// replacing omitted fields with editor defaults. Generated document
 		// profiles and storage credentials remain outside metadata responses.
