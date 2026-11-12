@@ -9,7 +9,11 @@ import (
 
 // ListKnowledgeForKBClear returns identities for a live, authorized parent's
 // cleanup. Content read permission from the remote connector is not required.
-func (r *knowledgeRepository) ListKnowledgeForKBClear(ctx context.Context, tenant uint64, kb string) ([]*types.Knowledge, error) {
+func (r *knowledgeRepository) ListKnowledgeForKBClear(
+	ctx context.Context,
+	tenant uint64,
+	kb string,
+) ([]*types.Knowledge, error) {
 	if tenant == 0 || kb == "" {
 		return nil, errors.New("knowledge base identity required")
 	}
@@ -26,7 +30,8 @@ func (r *knowledgeRepository) ListKnowledgeForKBClear(ctx context.Context, tenan
 	}
 	var ids []string
 	if err := r.db.WithContext(ctx).Table("knowledges").Where(
-		"tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", tenant, kb).Pluck("id", &ids).Error; err != nil {
+		"tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", tenant, kb).Pluck("id", &ids).
+		Error; err != nil {
 		return nil, err
 	}
 	return r.GetKnowledgeDeletionMetadata(ctx, tenant, ids)

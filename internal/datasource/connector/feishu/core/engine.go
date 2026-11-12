@@ -48,7 +48,13 @@ type NodeOps[N any] interface {
 
 	// fetch retrieves one node's content; (nil, nil) means an unsupported
 	// type that yields no item.
-	Fetch(ctx context.Context, client *Client, n N, resourceID string, multimodal bool) ([]*types.FetchedItem, error)
+	Fetch(
+		ctx context.Context,
+		client *Client,
+		n N,
+		resourceID string,
+		multimodal bool,
+	) ([]*types.FetchedItem, error)
 
 	// ListFailureItems converts a partial-listing error into error FetchedItems.
 	ListFailureItems(resourceID string, partial error) []types.FetchedItem
@@ -132,7 +138,10 @@ func runSyncMode[N any](
 	for root, previous := range prevTimes {
 		if !configured[root] {
 			for token := range previous {
-				missing = append(missing, types.FetchedItem{ExternalID: token, IsDeleted: true, SourceResourceID: root})
+				missing = append(
+					missing,
+					types.FetchedItem{ExternalID: token, IsDeleted: true, SourceResourceID: root},
+				)
 			}
 		}
 	}
@@ -225,7 +234,8 @@ func runSyncMode[N any](
 					ExternalID:       tok,
 					Title:            ops.Title(node),
 					SourceResourceID: resourceID,
-					Metadata:         FeishuErrorItemMeta(ferr, map[string]string{"failure_stage": "fetch_document"}),
+					Metadata: FeishuErrorItemMeta(ferr,
+						map[string]string{"failure_stage": "fetch_document"}),
 				}); eerr != nil {
 					var local *datasource.DocumentFailureError
 					if !errors.As(eerr, &local) {
@@ -247,7 +257,8 @@ func runSyncMode[N any](
 					tally.fetch()
 					accepted := true
 					for _, it := range items {
-						if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") == "true" && it != nil && it.Metadata["attachment"] != "true" {
+						if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") == "true" && it != nil && it.
+							Metadata["attachment"] != "true" {
 							id := it.ExternalID
 							it.CurrentSnapshot = func(check context.Context) (*types.FetchedItem, error) {
 								// Re-list the binding as well as re-fetching its body. A
@@ -270,7 +281,8 @@ func runSyncMode[N any](
 								if matches != 1 {
 									return nil, errors.New("current source binding unavailable or ambiguous")
 								}
-								fresh, err := ops.Fetch(check, client, currentNode, resourceID, config.MultimodalEnabled)
+								fresh, err := ops.Fetch(check, client, currentNode, resourceID, config.
+									MultimodalEnabled)
 								if err != nil {
 									return nil, err
 								}

@@ -22,6 +22,7 @@ import (
 // PersonalServer uses the existing Go MCP library/tool schemas, but never the
 // workspace machine principal, endpoint scope, ask or write tool handlers.
 type PersonalServer struct {
+	usage     usageRecorder
 	enabled   bool
 	knowledge *service.PortalMCPKnowledge
 	handler   http.Handler
@@ -30,6 +31,7 @@ type PersonalServer struct {
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
 func (s *PersonalServer) Enabled() bool          { return s != nil && s.enabled && s.knowledge != nil }
+
 func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *PersonalServer {
 	s := &PersonalServer{enabled: enabled, knowledge: knowledge, slots: make(chan struct{}, 8)}
 	m := server.NewMCPServer("knowhub-personal", "0.1.0", server.WithToolCapabilities(false), server.WithRecovery(), server.WithToolHandlerMiddleware(s.guard))
@@ -50,8 +52,13 @@ func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *Per
 	s.handler = server.NewStreamableHTTPServer(m, server.WithStateLess(true))
 	return s
 }
+
 func (s *PersonalServer) Handler() http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	var sink usageRecorder
+	if s != nil {
+		sink = s.usage
+	}
+	h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
 			return
@@ -67,7 +74,10 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		perftrace.Authenticated(r.Context())
 		bounded, cancel := context.WithTimeout(r.Context(), 30*time.Second)
-		defer cancel()
+		defer func() {
+			captureUsageContextError(bounded)
+			cancel()
+		}()
 		ctx, _ := access.WithPortalDiagnostics(bounded)
 		r = r.WithContext(ctx)
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
@@ -91,23 +101,26 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
 		s.handler.ServeHTTP(w, r)
-	})
+	}))
+	return h
 }
 
-// IsolatedHandler preserves the existing inner route while enforcing a
-// separate, permanently read-only protocol and output boundary.
+// IsolatedHandler is the strict read-only route used only by the dedicated
+// TLS proxy. It shares the original server, identity and knowledge service.
 func (s *PersonalServer) IsolatedHandler() http.Handler {
 	return personalHTTPBoundary(s.Handler(), isolatedPersonalPath)
 }
+
 func (s *PersonalServer) guard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
-	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
-		handler := s.enforceGuard(next)
+	return func(ctx context.Context, req mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		h := observeTool(s.usage, "go_personal", s.enforceGuard(next))
 		if logger.IsolatedPersonalPayload(ctx) {
-			handler = personalToolBoundary(handler)
+			return personalToolBoundary(h)(ctx, req)
 		}
-		return handler(ctx, r)
+		return h(ctx, req)
 	}
 }
+
 func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 		if s == nil || !s.enabled || s.knowledge == nil {
@@ -157,21 +170,23 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		return mcp.NewToolResultError("authorization changed"), nil
 	}
 }
+
 func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 	done := perftrace.Measure(ctx, perftrace.Serialize)
 	defer done()
 	b, err := json.Marshal(value)
+	if err != nil && !logger.IsolatedPersonalPayload(ctx) {
+		return nil, err
+	}
 	if err == nil && logger.IsolatedPersonalPayload(ctx) {
 		b, err = redactPersonalOutput(b)
 	}
 	if err != nil {
-		if logger.IsolatedPersonalPayload(ctx) {
-			return mcp.NewToolResultError("resource denied or unavailable"), nil
-		}
-		return nil, err
+		return mcp.NewToolResultError("resource denied or unavailable"), nil
 	}
 	return mcp.NewToolResultText(string(b)), nil
 }
+
 func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	fail := func() (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError("resource denied or unavailable"), nil

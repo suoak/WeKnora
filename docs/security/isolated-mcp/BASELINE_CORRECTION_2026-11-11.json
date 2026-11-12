@@ -1,0 +1,99 @@
+{
+  "audit_date_beijing": "2026-11-11",
+  "observed_at": "2026-11-11T00:33:41.399622+08:00",
+  "remote": "https://github.com/suoak/WeKnora.git",
+  "workspace_branch": "feature/knowhub-sourceid-oidc",
+  "workspace_head": "be308d0058db4e647cd5103ae27b39da3a20eace",
+  "local_main": "f5d022d9692e2beb179f03decb2458e6173dc1cc",
+  "github_main_verified_by_ls_remote_and_fetch": "4b385fd11e2f617eee491781067b2f69cb8aa1be",
+  "functional_introduction_commit": "cfc9bbf8dd1d5185cece1e6764749f8c9648f6bc",
+  "divergence_HEAD_vs_main": [
+    "1",
+    "680"
+  ],
+  "files": {
+    "internal/router/routes_personal_mcp.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "87a1c7ccff8c850b4d77d1129e4b21769833d951"
+    },
+    "internal/mcpserver/personal.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "d7e2e6a0b3221c4ef8da7d978154ee0393f625c4"
+    },
+    "internal/middleware/personal_mcp_auth.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "a05541ee7567705575c2a6db92e9fd0a7057edda"
+    },
+    "internal/mcpserver/personal_config.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "bee4a2ee156e9722773e64a5fc3f9d7838e40de8"
+    },
+    "internal/application/service/portal_mcp.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "e102700ab6bc3d9f903dff0840f4150691e15bbf"
+    },
+    "internal/application/access/portal_text.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": true,
+      "remote_main_blob": "ac3996435ba7350930386dde595bd5f2b2fb316b"
+    },
+    "internal/mcpserver/usage.go": {
+      "workspace_head_exists": false,
+      "local_main_exists": false,
+      "remote_main_blob": "4ade08edf8f8badbb8fc384e5af53a504bcb8dd7"
+    },
+    "frontend/nginx.conf": {
+      "workspace_head_exists": true,
+      "local_main_exists": true,
+      "remote_main_blob": "34ae73bdb1900d9de035f913f693fac5b04834da"
+    }
+  },
+  "production": {
+    "user_confirmed_in_use_url": "http://10.51.134.114/api/v1/mcp/personal",
+    "current_image_id": "UNKNOWN",
+    "current_source_revision": "UNKNOWN",
+    "effective_proxy_upstream": "NOT_VERIFIED",
+    "authenticated_rpc_status": "VERIFIED_INITIALIZE_LIST_AND_READONLY_KB_LIST_R2",
+    "ssh_status": "Previous P0 BatchMode authentication failed; no new authorized session available",
+    "authenticated_rpc_status_at_R1": "NOT_RUN_AUTH_REQUIRED"
+  },
+  "changes": {
+    "application_changes": false,
+    "production_changes": false,
+    "credentials_read_or_created": false,
+    "git_fetch_performed": true,
+    "branch_checkout_or_merge": false
+  },
+  "retained_history": {
+    "P0_AUDIT_2026-11-10.md": {
+      "historical_section_sha256_utf8_lf": "f71fea8e0cb4878bee77ce071497f457fdeed8be1fd7888ab250acf1776c5d22",
+      "historical_section_lines": 122,
+      "note": "Hash computed after correction from retained original section; not an independently captured pre-edit snapshot."
+    },
+    "IMPLEMENTATION_PLAN.md": {
+      "historical_section_sha256_utf8_lf": "a6fc828d61c550c9f9f1a1c6406b81cac0d343e437c8508dcf491d7a805de4d6",
+      "historical_section_lines": 155,
+      "note": "Hash computed after correction from retained original section; not an independently captured pre-edit snapshot."
+    },
+    "TEST_PLAN.md": {
+      "historical_section_sha256_utf8_lf": "c19e4d1ead97623a1785388586f94d3d68f3eda074256ad2f5ce530be67a6be9",
+      "historical_section_lines": 57,
+      "note": "Hash computed after correction from retained original section; not an independently captured pre-edit snapshot."
+    }
+  },
+  "validation": {
+    "markdown_links": true,
+    "fences": true,
+    "whitespace": true,
+    "private_key_blocks_absent": true,
+    "application_tests": "NOT_RUN",
+    "production_protocol_tests": "B01_B04_PASS; B05_NOT_RUN; B06_NOT_VERIFIED",
+    "production_protocol_tests_at_R1": "NOT_RUN"
+  },
+  "protocol_evidence": "PROTOCOL_EVIDENCE_2026-11-11.json"
+}

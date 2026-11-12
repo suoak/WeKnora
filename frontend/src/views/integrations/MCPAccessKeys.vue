@@ -97,6 +97,26 @@
           </template>
           <template v-else>
           <t-button v-if="personalConfig" variant="text" class="change-client" :disabled="revealingSecret || testingPersonal" @click="configStage = 'clients'; secretVisible = false; clearProtocolState()"><t-icon name="chevron-left" />更换客户端</t-button>
+          <section v-if="personalConfig" class="connection-environment" aria-label="接入环境">
+            <strong>接入环境</strong>
+            <div class="environment-options" role="radiogroup" aria-label="接入环境">
+              <label class="environment-option" :class="{ 'is-selected': connectionEnvironment === 'intranet', 'is-disabled': revealingSecret || testingPersonal }">
+                <input v-model="connectionEnvironment" type="radio" name="personal-mcp-environment" value="intranet" aria-label="云外地址" :disabled="revealingSecret || testingPersonal" />
+                <span class="environment-option__icon"><t-icon name="desktop" /></span>
+                <span class="environment-option__copy"><strong>云外地址</strong><span>企业内网研发电脑</span></span>
+                <span class="environment-option__indicator" aria-hidden="true"><t-icon v-if="connectionEnvironment === 'intranet'" name="check" /></span>
+              </label>
+              <label class="environment-option" :class="{ 'is-selected': connectionEnvironment === 'isolated', 'is-disabled': revealingSecret || testingPersonal }">
+                <input v-model="connectionEnvironment" type="radio" name="personal-mcp-environment" value="isolated" aria-label="云内地址" :disabled="revealingSecret || testingPersonal" />
+                <span class="environment-option__icon"><t-icon name="secured" /></span>
+                <span class="environment-option__copy"><strong>云内地址</strong><span>HTTPS · 知识只读</span></span>
+                <span class="environment-option__indicator" aria-hidden="true"><t-icon v-if="connectionEnvironment === 'isolated'" name="check" /></span>
+              </label>
+            </div>
+            <div class="environment-endpoint"><t-icon name="link" /><code class="environment-url">{{ connectionURL }}</code></div>
+            <p class="secondary-copy">两个地址共用当前个人 Key，无需重复创建。</p>
+            <t-alert v-if="connectionEnvironment === 'isolated'" theme="info">云内地址仅提供知识检索和读取，不支持文件上传或数据修改。服务端已就绪，实际可用性仍取决于运维网络映射和 DNS 联调。</t-alert>
+          </section>
           <t-loading v-if="revealingSecret" text="正在读取个人 Secret" />
           <t-alert v-else theme="info">{{ connectionKey.secret_available || hasConfigSecret ? '预览中的 Secret 已遮蔽。“复制完整配置（含密钥）”会自动填入此 Key 的真实 Secret，无需手动替换。仅保存到可信个人配置，禁止提交代码仓库。' : '此 Key 未保存可恢复的 Secret。请使用已保存的 Secret 设置客户端，或在管理中重新生成；占位模板不是完整配置。' }}</t-alert>
           <t-input v-if="!personalConfig && !connectionKey.secret_available && !revealingSecret && token === TOKEN_PLACEHOLDER" v-model="suppliedSecret" type="password" autocomplete="off" placeholder="填入已保存的 Secret（仅本次使用）" aria-label="已保存的 Secret" />
@@ -157,7 +177,9 @@ interface DraftScope { mode: KBScopeMode; selected: string[] }
 const clients: Array<{ value: MCPClientType; label: string; icon: string; description: string }> = [
   { value: 'workbuddy', label: 'WorkBuddy', icon: 'service', description: '企业研发 AI 助手' }, { value: 'workmate', label: 'WorkMate', icon: 'user-talk', description: '团队智能工作伙伴' }, { value: 'cursor', label: 'Cursor', icon: 'code', description: 'AI 编程客户端' }, { value: 'codebuddy', label: 'CodeBuddy', icon: 'terminal-rectangle', description: '代码研发助手' }, { value: 'generic', label: 'Generic MCP', icon: 'link', description: '其它 MCP 客户端' },
 ]
-import { personalMcpURL, testPersonalMcpConnection } from './personalMcpConfig'
+import { personalMcpURL, personalMcpEnvironmentURL, canCheckPersonalMcpInBrowser, testPersonalMcpConnection, type PersonalMcpEnvironment } from './personalMcpConfig'
+const connectionEnvironment = ref<PersonalMcpEnvironment>('intranet')
+const connectionURL = computed(() => personalMcpEnvironmentURL(publicUrl.value, connectionEnvironment.value))
 const personalConfig = ref(false), testingPersonal = ref(false), personalConnection = ref('')
 const connectionKey = ref<MCPAccessKey | null>(null), configStage = ref<'clients' | 'config'>('clients'), secretVisible = ref(false)
 const personalCreateVisible = ref(false)
@@ -173,12 +195,17 @@ const personalProtocolPassed = ref(false)
 let protocolRequest = 0
 async function testPersonalConnection() {
   if (!canConnect.value) return
+  if (!canCheckPersonalMcpInBrowser(connectionURL.value, window.location.href)) {
+    clearProtocolState()
+    personalConnection.value = '当前页面与 MCP 地址跨源，浏览器受 CORS 或混合内容策略限制，本页不发送 Secret 进行验证。这不代表服务故障；请复制配置到目标环境的 AI 客户端验证。'
+    return
+  }
   const request = ++protocolRequest
   testingPersonal.value = true; personalConnection.value = ''; personalProtocolPassed.value = false
   try {
     const secret = await ensureConnectionSecret()
     if (request !== protocolRequest || secret === TOKEN_PLACEHOLDER) return
-    await testPersonalMcpConnection(personalMcpURL(publicUrl.value), secret)
+    await testPersonalMcpConnection(connectionURL.value, secret)
     if (request === protocolRequest && configVisible.value) { personalProtocolPassed.value = true; personalConnection.value = 'MCP 协议通过：服务鉴权与只读工具发现成功；尚未验证客户端会话及知识检索。' }
   } catch (error) { if (request === protocolRequest && configVisible.value) personalConnection.value = error instanceof Error ? error.message : '连接失败' }
   finally { if (request === protocolRequest) testingPersonal.value = false }
@@ -225,7 +252,7 @@ const invalidTenantIds = computed(() => selectedTenantIds.value.filter(id => !op
 const configPresetTitle = computed(() => `${clientMeta(configClientType.value).label} · 历史兼容模板`)
 const canConnect = computed(() => Boolean(publicUrl.value && connectionKey.value && lifecycleState(connectionKey.value) === 'active'))
 const configurationCopyLabel = computed(() => connectionKey.value?.secret_available || hasConfigSecret.value ? '复制完整配置（含密钥）' : '复制占位模板（需已有密钥）')
-function configuration(secret: string) { return !publicUrl.value ? '' : personalConfig.value ? personalClientConfiguration(configPreset.value, publicUrl.value, secret) : stringifyMCPConfig(publicUrl.value, secret, configSpaces.value, configClientType.value) }
+function configuration(secret: string) { return !publicUrl.value ? '' : personalConfig.value ? personalClientConfiguration(configPreset.value, connectionURL.value, secret) : stringifyMCPConfig(publicUrl.value, secret, configSpaces.value, configClientType.value) }
 const jsonConfig = computed(() => configuration(configToken.value))
 const displayedConfig = computed(() => configuration(secretVisible.value ? configToken.value : TOKEN_PLACEHOLDER))
 function openConnect(key: MCPAccessKey) {
@@ -349,8 +376,8 @@ async function toggleSecret() { if (secretVisible.value) { secretVisible.value =
 async function copySecret() { await secretAction(async () => { if (hasConfigSecret.value) await copySensitive(configToken.value) }) }
 async function copyConfiguration() { if (!canConnect.value) return; if (!connectionKey.value?.secret_available && !hasConfigSecret.value) { await copySensitive(displayedConfig.value); return }; await secretAction(async () => { await copySensitive(jsonConfig.value) }) }
 function clearProtocolState() { protocolRequest++; testingPersonal.value = false; personalConnection.value = ''; personalProtocolPassed.value = false }
-watch([configPreset, suppliedSecret], clearProtocolState)
-function clearPlaintextToken() { clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; secretVisible.value = false; token.value = ''; configSpaces.value = []; connectionKey.value = null }
+watch([configPreset, suppliedSecret, connectionEnvironment], () => { secretVisible.value = false; clearProtocolState() })
+function clearPlaintextToken() { connectionEnvironment.value = 'intranet'; clearProtocolState(); suppliedSecret.value = ''; connectionRequest++; revealingSecret.value = false; secretVisible.value = false; token.value = ''; configSpaces.value = []; connectionKey.value = null }
 function requestRotate(key: MCPAccessKey) { rotateKey.value = key; rotateExpiryMode.value = lifecycleState(key) === 'expired' ? 'custom' : 'preserve'; rotateCustomExpiry.value = ''; rotateVisible.value = true }
 async function confirmRotate() { if (!rotateKey.value) return; if (rotateExpiryMode.value === 'custom' && (!rotateCustomExpiry.value || new Date(rotateCustomExpiry.value).getTime() <= Date.now())) return void MessagePlugin.warning('请选择未来的有效期'); const payload = rotateExpiryMode.value === 'never' ? { never_expires: true as const } : rotateExpiryMode.value === 'custom' ? { expires_at_unix: Math.floor(new Date(rotateCustomExpiry.value).getTime() / 1000) } : {}; rotating.value = true; try { const response = await rotateMCPAccessKey(rotateKey.value.id, payload); if (!response.data?.token) throw new Error('服务端未返回一次性 Secret'); showSecret(response.data); rotateVisible.value = false; detailsVisible.value = false; await load(); MessagePlugin.success('Secret 已重新生成，旧 Secret 已立即失效') } catch (error) { MessagePlugin.error(error instanceof Error ? error.message : '重新生成 Secret 失败') } finally { rotating.value = false } }
 async function revoke(id: number) { try { await revokeMCPAccessKey(id); detailsVisible.value = false; await load(); MessagePlugin.success('接入已停用，旧 Secret 已永久失效') } catch { MessagePlugin.error('停用失败') } }

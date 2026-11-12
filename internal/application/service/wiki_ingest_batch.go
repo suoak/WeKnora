@@ -209,7 +209,12 @@ func (s *wikiIngestService) newWikiBatchContext(
 		if len(need) > 0 {
 			contents, err := s.wikiService.ListSummariesByKnowledgeIDs(ctx, kbID, need)
 			if err != nil {
-				logger.Warnf(ctx, "wiki ingest: ListSummariesByKnowledgeIDs(%d kids) failed: %v", len(need), err)
+				logger.Warnf(
+					ctx,
+					"wiki ingest: ListSummariesByKnowledgeIDs(%d kids) failed: %v",
+					len(need),
+					err,
+				)
 			}
 			fetchMu.Lock()
 			for _, kid := range need {
@@ -290,7 +295,11 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		}
 		logger.Infof(
 			ctx,
-			"wiki ingest stats: kb=%s tenant=%d retry=%d/%d status=%s elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,max_inflight=%d) preview=%s",
+			"wiki ingest stats: kb=%s tenant=%d retry=%d/%d status=%s "+
+				"elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) "+
+				"ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) "+
+				"followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,"+
+				"max_inflight=%d) preview=%s",
 			payload.KnowledgeBaseID,
 			payload.TenantID,
 			retryCount,
@@ -366,7 +375,11 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		mode = "lite"
 		if _, loaded := s.liteLocks.LoadOrStore(payload.KnowledgeBaseID, struct{}{}); loaded {
 			exitStatus = "active_lock_conflict"
-			logger.Infof(ctx, "wiki ingest: another batch active for KB %s (lite lock), deferring to asynq retry", payload.KnowledgeBaseID)
+			logger.Infof(
+				ctx,
+				"wiki ingest: another batch active for KB %s (lite lock), deferring to asynq retry",
+				payload.KnowledgeBaseID,
+			)
 			return ErrWikiIngestConcurrent
 		}
 		defer s.liteLocks.Delete(payload.KnowledgeBaseID)
@@ -449,7 +462,12 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	releaseSlot, gotSlot := s.reserveInflightSlot(ctx, payload.KnowledgeBaseID, maxInflight)
 	if !gotSlot {
 		exitStatus = "inflight_cap"
-		logger.Infof(ctx, "wiki ingest: KB %s at in-flight cap (%d), rescheduling", payload.KnowledgeBaseID, maxInflight)
+		logger.Infof(
+			ctx,
+			"wiki ingest: KB %s at in-flight cap (%d), rescheduling",
+			payload.KnowledgeBaseID,
+			maxInflight,
+		)
 		s.scheduleCappedRetry(ctx, payload)
 		return nil
 	}
@@ -473,7 +491,12 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		// asynq retries this trigger with backoff — acking here would strand
 		// the queue until an unrelated upload happened to re-trigger it.
 		exitStatus = "load_pending_failed"
-		logger.Warnf(ctx, "wiki ingest: failed to load pending list for KB %s: %v", payload.KnowledgeBaseID, loadErr)
+		logger.Warnf(
+			ctx,
+			"wiki ingest: failed to load pending list for KB %s: %v",
+			payload.KnowledgeBaseID,
+			loadErr,
+		)
 		return fmt.Errorf("wiki ingest: load pending list: %w", loadErr)
 	}
 	pendingOpsCount = len(pendingOps)
@@ -492,7 +515,12 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		return nil
 	}
 
-	logger.Infof(ctx, "wiki ingest: batch processing %d ops for KB %s", len(pendingOps), payload.KnowledgeBaseID)
+	logger.Infof(
+		ctx,
+		"wiki ingest: batch processing %d ops for KB %s",
+		len(pendingOps),
+		payload.KnowledgeBaseID,
+	)
 	// The parse attempt each document's op was queued under, for the slot
 	// release after reduce (see finalizeWikiSubtask).
 	opAttempts := make(map[string]int, len(pendingOps))
@@ -536,10 +564,21 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 			releaseCtx, releaseCancel := wikiIngestCleanupContext(ctx)
 			defer releaseCancel()
 			if err := s.pendingRepo.ReleaseByIDs(releaseCtx, peekedIDs); err != nil {
-				logger.Warnf(ctx, "wiki ingest: failed to release %d claims on abnormal exit for KB %s: %v", len(peekedIDs), payload.KnowledgeBaseID, err)
+				logger.Warnf(
+					ctx,
+					"wiki ingest: failed to release %d claims on abnormal exit for KB %s: %v",
+					len(peekedIDs),
+					payload.KnowledgeBaseID,
+					err,
+				)
 				return
 			}
-			logger.Warnf(ctx, "wiki ingest: released %d claimed rows on abnormal exit for KB %s (re-claimable immediately)", len(peekedIDs), payload.KnowledgeBaseID)
+			logger.Warnf(
+				ctx,
+				"wiki ingest: released %d claimed rows on abnormal exit for KB %s (re-claimable immediately)",
+				len(peekedIDs),
+				payload.KnowledgeBaseID,
+			)
 		}()
 	}
 
@@ -555,7 +594,13 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		return proofErr
 	}
 	ctx = proofCtx
-	pendingOps, peekedIDs, err = s.selectWikiPending(ctx, payload.KnowledgeBaseID, pendingOps, peekedIDs, claimOwnership)
+	pendingOps, peekedIDs, err = s.selectWikiPending(
+		ctx,
+		payload.KnowledgeBaseID,
+		pendingOps,
+		peekedIDs,
+		claimOwnership,
+	)
 	if err != nil {
 		return err
 	}
@@ -623,9 +668,18 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 					}
 				}
 				if op.KnowledgeID != "" {
-					livePages, err := s.wikiService.ListPagesBySourceRef(mapCtx, payload.KnowledgeBaseID, op.KnowledgeID)
+					livePages, err := s.wikiService.ListPagesBySourceRef(
+						mapCtx,
+						payload.KnowledgeBaseID,
+						op.KnowledgeID,
+					)
 					if err != nil {
-						logger.Warnf(mapCtx, "wiki ingest: retract lookup failed for %s: %v", op.KnowledgeID, err)
+						logger.Warnf(
+							mapCtx,
+							"wiki ingest: retract lookup failed for %s: %v",
+							op.KnowledgeID,
+							err,
+						)
 					} else {
 						for _, p := range livePages {
 							if p == nil || p.Slug == "" {
@@ -648,7 +702,15 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 				mapMu.Lock()
 				retractOps++
 				retractHandled++
-				docPreview = append(docPreview, fmt.Sprintf("retract[%s]: %s (%d slugs)", previewText(op.KnowledgeID, 24), previewText(op.DocTitle, 48), len(slugSet)))
+				docPreview = append(
+					docPreview,
+					fmt.Sprintf(
+						"retract[%s]: %s (%d slugs)",
+						previewText(op.KnowledgeID, 24),
+						previewText(op.DocTitle, 48),
+						len(slugSet),
+					),
+				)
 
 				for slug := range slugSet {
 					slugUpdates[slug] = append(slugUpdates[slug], SlugUpdate{
@@ -691,7 +753,15 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 				mapMu.Lock()
 				ingestSucceeded++
 				docResults = append(docResults, result)
-				docPreview = append(docPreview, fmt.Sprintf("ingest[%s]: title=%s summary=%s", previewText(result.KnowledgeID, 24), previewText(result.DocTitle, 40), previewText(result.Summary, 64)))
+				docPreview = append(
+					docPreview,
+					fmt.Sprintf(
+						"ingest[%s]: title=%s summary=%s",
+						previewText(result.KnowledgeID, 24),
+						previewText(result.DocTitle, 40),
+						previewText(result.Summary, 64),
+					),
+				)
 				for _, u := range updates {
 					slugUpdates[u.Slug] = append(slugUpdates[u.Slug], u)
 				}
@@ -806,7 +876,15 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 					}
 				}()
 				changed, affectedType, additionFailed, reduceErr = s.reduceSlugUpdates(
-					reduceCtx, chatModel, payload.KnowledgeBaseID, slug, updates, payload.TenantID, batchCtx, kidToWikiSpan)
+					reduceCtx,
+					chatModel,
+					payload.KnowledgeBaseID,
+					slug,
+					updates,
+					payload.TenantID,
+					batchCtx,
+					kidToWikiSpan,
+				)
 				return reduceErr
 			})
 			if lockErr != nil {
@@ -820,7 +898,12 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 				// done: record their knowledge_ids so the trim phase re-queues
 				// them (via the failed-op retry budget) for a later,
 				// hopefully-uncontended batch instead of deleting their rows.
-				logger.Warnf(reduceCtx, "wiki ingest: slug %s busy > %s, deferring update", slug, wikiSlugLockWait)
+				logger.Warnf(
+					reduceCtx,
+					"wiki ingest: slug %s busy > %s, deferring update",
+					slug,
+					wikiSlugLockWait,
+				)
 				collectUnapplied(updates)
 				return nil
 			}
@@ -868,7 +951,13 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	// those slugs into actual pages. Rewrite those dead links to plain
 	// text so the summary doesn't contain unresolvable references.
 	if len(failedAdditionSlugs) > 0 && len(docResults) > 0 {
-		s.sanitizeDeadSummaryLinks(tailCtx, payload.KnowledgeBaseID, docResults, failedAdditionSlugs, batchCtx)
+		s.sanitizeDeadSummaryLinks(
+			tailCtx,
+			payload.KnowledgeBaseID,
+			docResults,
+			failedAdditionSlugs,
+			batchCtx,
+		)
 	}
 
 	totalPagesAffected = len(allPagesAffected)
@@ -887,7 +976,13 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 			wikiActivityActions["ingest"]++
 		}
 	}
-	RecordWikiContentActivity(tailCtx, s.audit, payload.TenantID, payload.KnowledgeBaseID, wikiActivityActions)
+	RecordWikiContentActivity(
+		tailCtx,
+		s.audit,
+		payload.TenantID,
+		payload.KnowledgeBaseID,
+		wikiActivityActions,
+	)
 
 	// Publish freshly-generated pages immediately (NOT deferred to finalize):
 	// users should see a document's wiki pages as soon as their content is
@@ -1075,17 +1170,35 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	// release net.
 	claimsSettled = true
 
-	logger.Infof(ctx, "wiki ingest: batch completed for KB %s, %d ops, %d pages affected", payload.KnowledgeBaseID, len(pendingOps), len(allPagesAffected))
+	logger.Infof(
+		ctx,
+		"wiki ingest: batch completed for KB %s, %d ops, %d pages affected",
+		payload.KnowledgeBaseID,
+		len(pendingOps),
+		len(allPagesAffected),
+	)
 
 	// Pace the follow-up: on a rate-limit trip, back off so the per-minute
 	// window can reset instead of retrying the failed docs immediately.
 	followUpDelay := wikiFollowUpDelay
 	if rateLimited {
 		followUpDelay = wikiRateLimitBackoff
-		logger.Warnf(ctx, "wiki ingest: KB %s hit upstream rate limiting, backing off follow-up to %s", payload.KnowledgeBaseID, followUpDelay)
+		logger.Warnf(
+			ctx,
+			"wiki ingest: KB %s hit upstream rate limiting, backing off follow-up to %s",
+			payload.KnowledgeBaseID,
+			followUpDelay,
+		)
 	}
 	followCtx, followCancel := wikiIngestCleanupContext(ctx)
-	followUpScheduled = s.scheduleFollowUp(followCtx, payload, followUpDelay, batchSize, maxInflight, rateLimited)
+	followUpScheduled = s.scheduleFollowUp(
+		followCtx,
+		payload,
+		followUpDelay,
+		batchSize,
+		maxInflight,
+		rateLimited,
+	)
 	followCancel()
 	return nil
 }
@@ -1133,7 +1246,12 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 			// (GetPage→modify→UpdatePage lost update). Return an error so
 			// asynq retries the (coalesced) finalize once Redis recovers,
 			// instead of racing a concurrent finalize.
-			logger.Warnf(ctx, "wiki finalize: SetNX failed for KB %s: %v (retrying)", payload.KnowledgeBaseID, err)
+			logger.Warnf(
+				ctx,
+				"wiki finalize: SetNX failed for KB %s: %v (retrying)",
+				payload.KnowledgeBaseID,
+				err,
+			)
 			return fmt.Errorf("wiki finalize: acquire lock: %w", err)
 		} else if !acquired {
 			// Another finalize is running; it will drain the lane and
@@ -1164,7 +1282,13 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		defer s.liteFinalizeLocks.Delete(payload.KnowledgeBaseID)
 	}
 
-	rows, err := s.pendingRepo.PeekBatch(ctx, wikiFinalizeTaskType, wikiTaskScope, payload.KnowledgeBaseID, wikiFinalizeMaxRows)
+	rows, err := s.pendingRepo.PeekBatch(
+		ctx,
+		wikiFinalizeTaskType,
+		wikiTaskScope,
+		payload.KnowledgeBaseID,
+		wikiFinalizeMaxRows,
+	)
 	if err != nil {
 		return fmt.Errorf("wiki finalize: peek: %w", err)
 	}
@@ -1217,9 +1341,16 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		}
 		if row.Change != nil {
 			if row.Change.Action == wikiFinalizeRemoved {
-				fmt.Fprintf(&changeDesc, "<document_removed>\n<title>%s</title>\n<summary>%s</summary>\n</document_removed>\n\n", row.Change.DocTitle, row.Change.DocSummary)
+				fmt.Fprintf(
+					&changeDesc,
+					"<document_removed>\n<title>%s</title>\n<summary>%s</summary>\n</document_removed>\n\n",
+					row.Change.DocTitle,
+					row.Change.DocSummary,
+				)
 			} else {
-				fmt.Fprintf(&changeDesc, "<document_added>\n<title>%s</title>\n<summary>%s</summary>\n</document_added>\n\n", row.Change.DocTitle, row.Change.DocSummary)
+				fmt.Fprintf(&changeDesc,
+					"<document_added>\n<title>%s</title>\n<summary>%s</summary>\n</document_added>\n\n",
+					row.Change.DocTitle, row.Change.DocSummary)
 			}
 			continue
 		}
@@ -1268,7 +1399,11 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		}
 		// No model to rebuild the index with; still run the pure-text passes,
 		// then drain. Missing model is a config gap, not a transient error.
-		logger.Warnf(ctx, "wiki finalize: no synthesis model for KB %s, skipping index rebuild", payload.KnowledgeBaseID)
+		logger.Warnf(
+			ctx,
+			"wiki finalize: no synthesis model for KB %s, skipping index rebuild",
+			payload.KnowledgeBaseID,
+		)
 	}
 
 	proofCtx, proofErr := s.personalWikiProofContext(ctx, payload.KnowledgeBaseID)
@@ -1368,7 +1503,9 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		s.scheduleFinalizeRetry(ctx, payload)
 		rescheduled = true
 	}
-	if n, cErr := s.pendingRepo.PendingCount(ctx, wikiFinalizeTaskType, wikiTaskScope, payload.KnowledgeBaseID); cErr == nil && n > 0 {
+	if n, cErr := s.pendingRepo.PendingCount(ctx, wikiFinalizeTaskType, wikiTaskScope, payload.
+		KnowledgeBaseID); cErr == nil &&
+		n > 0 {
 		if !pruneDeferred {
 			// The current canonical task ID is occupied until Asynq ACKs it.
 			// Reusing it here would coalesce away the only successor.
@@ -1377,9 +1514,18 @@ func (s *wikiIngestService) processWikiFinalize(ctx context.Context, t *asynq.Ta
 		rescheduled = true
 	}
 
-	logger.Infof(ctx,
-		"wiki finalize: kb=%s rows=%d affected_slugs=%d deleted_folders=%d folder_prune_deferred=%v index_rebuilt=%v rescheduled=%v elapsed=%s",
-		payload.KnowledgeBaseID, len(rows), len(affectedSlugs), deletedFolders, pruneDeferred, indexRebuilt, rescheduled,
+	logger.Infof(
+		ctx,
+		"wiki finalize: kb=%s rows=%d affected_slugs=%d "+
+			"deleted_folders=%d folder_prune_deferred=%v index_rebuilt=%v "+
+			"rescheduled=%v elapsed=%s",
+		payload.KnowledgeBaseID,
+		len(rows),
+		len(affectedSlugs),
+		deletedFolders,
+		pruneDeferred,
+		indexRebuilt,
+		rescheduled,
 		time.Since(startedAt).Round(time.Millisecond),
 	)
 	return nil
@@ -1401,7 +1547,13 @@ func (s *wikiIngestService) mapOneDocumentRecovered(
 ) (result *docIngestResult, updates []SlugUpdate, err error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Errorf(ctx, "wiki ingest: map panicked for knowledge %s: %v\n%s", op.KnowledgeID, r, debug.Stack())
+			logger.Errorf(
+				ctx,
+				"wiki ingest: map panicked for knowledge %s: %v\n%s",
+				op.KnowledgeID,
+				r,
+				debug.Stack(),
+			)
 			result, updates, err = nil, nil, fmt.Errorf("wiki map panicked: %v", r)
 		}
 	}()
@@ -1461,23 +1613,34 @@ func (s *wikiIngestService) mapOneDocument(
 	if len([]rune(content)) > maxContentForWiki {
 		content = string([]rune(content)[:maxContentForWiki])
 	}
-	logger.Infof(ctx, "wiki ingest: doc %s chunks=%d content_len(raw=%d,truncated=%d)", knowledgeID, len(chunks), rawRuneCount, len([]rune(content)))
+	logger.Infof(
+		ctx,
+		"wiki ingest: doc %s chunks=%d content_len(raw=%d,truncated=%d)",
+		knowledgeID,
+		len(chunks),
+		rawRuneCount,
+		len([]rune(content)),
+	)
 
 	// Refuse to run LLM-based extraction when the document carries no real
 	// text — e.g. a scanned PDF whose pages were converted to images but where
 	// VLM OCR produced nothing usable. Without this guard the LLM would have
 	// only image markup left and would happily fabricate entities/concepts.
 	if !hasSufficientTextContent(content) {
-		logger.Warnf(ctx,
-			"wiki ingest: doc %s has insufficient text content after stripping image markup (raw_len=%d), skipping LLM extraction",
-			knowledgeID, rawRuneCount,
+		logger.Warnf(
+			ctx,
+			"wiki ingest: doc %s has insufficient text content after "+
+				"stripping image markup (raw_len=%d), skipping LLM extraction",
+			knowledgeID,
+			rawRuneCount,
 		)
 		s.tracker().SkipSpan(ctx, wikiSpan, "insufficient_text_content")
 		return nil, nil, nil
 	}
 
 	docTitle := knowledgeID
-	if kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID); err == nil && kn != nil && kn.Title != "" {
+	if kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID); err == nil && kn != nil &&
+		kn.Title != "" {
 		docTitle = kn.Title
 	} else {
 		for _, ch := range chunks {
@@ -1508,15 +1671,41 @@ func (s *wikiIngestService) mapOneDocument(
 		pass0Failed       bool
 	)
 	logger.Infof(ctx, "wiki ingest: pass 0 — extracting candidate slugs for %s", knowledgeID)
-	extractSpan := s.tracker().BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.extract", types.SpanKindSubSpan, types.JSONMap{
-		"content_chars": utf8.RuneCountInString(content),
-		"old_pages":     len(oldPageSlugs),
-	})
-	extractedEntities, extractedConcepts, slugItems, err = s.extractCandidateSlugs(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, content, lang, oldPageSlugs, batchCtx)
+	extractSpan := s.tracker().
+		BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.extract", types.SpanKindSubSpan, types.JSONMap{
+			"content_chars": utf8.RuneCountInString(content),
+			"old_pages":     len(oldPageSlugs),
+		})
+	extractedEntities, extractedConcepts, slugItems, err = s.extractCandidateSlugs(
+		ctx,
+		chatModel,
+		payload.KnowledgeBaseID,
+		knowledgeID,
+		operationID,
+		content,
+		lang,
+		oldPageSlugs,
+		batchCtx,
+	)
 	if err != nil {
-		logger.Warnf(ctx, "wiki ingest: pass 0 failed for %s (%v) — falling back to legacy extractor", knowledgeID, err)
+		logger.Warnf(
+			ctx,
+			"wiki ingest: pass 0 failed for %s (%v) — falling back to legacy extractor",
+			knowledgeID,
+			err,
+		)
 		pass0Failed = true
-		extractedEntities, extractedConcepts, slugItems, err = s.extractEntitiesAndConceptsNoUpsert(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, content, lang, oldPageSlugs, batchCtx)
+		extractedEntities, extractedConcepts, slugItems, err = s.extractEntitiesAndConceptsNoUpsert(
+			ctx,
+			chatModel,
+			payload.KnowledgeBaseID,
+			knowledgeID,
+			operationID,
+			content,
+			lang,
+			oldPageSlugs,
+			batchCtx,
+		)
 		if err != nil {
 			logger.Warnf(ctx, "wiki ingest: legacy fallback also failed for %s: %v", knowledgeID, err)
 			s.tracker().FailSpan(ctx, extractSpan, "EXTRACT_FAILED", err.Error(), err)
@@ -1570,16 +1759,18 @@ func (s *wikiIngestService) mapOneDocument(
 	// Both calls run in parallel goroutines under the same wikiSpan
 	// parent — their subspans will visually overlap in the trace view,
 	// which correctly reflects their wall-clock concurrency.
-	summarySpan := s.tracker().BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.summary", types.SpanKindSubSpan, types.JSONMap{
-		"content_chars":   utf8.RuneCountInString(content),
-		"extracted_slugs": len(summaryExtractedPages),
-	})
+	summarySpan := s.tracker().
+		BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.summary", types.SpanKindSubSpan, types.JSONMap{
+			"content_chars":   utf8.RuneCountInString(content),
+			"extracted_slugs": len(summaryExtractedPages),
+		})
 	var classifySpan *Span
 	if !pass0Failed {
-		classifySpan = s.tracker().BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.classify", types.SpanKindSubSpan, types.JSONMap{
-			"chunks":     len(chunks),
-			"candidates": len(extractedEntities) + len(extractedConcepts),
-		})
+		classifySpan = s.tracker().
+			BeginSubSpan(ctx, wikiSpan, "postprocess.wiki.classify", types.SpanKindSubSpan, types.JSONMap{
+				"chunks":     len(chunks),
+				"candidates": len(extractedEntities) + len(extractedConcepts),
+			})
 	}
 
 	var wg sync.WaitGroup
@@ -1588,13 +1779,18 @@ func (s *wikiIngestService) mapOneDocument(
 		defer wg.Done()
 		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiGeneration, "summary",
 			payload.KnowledgeBaseID, []string{knowledgeID, operationID}, []string{knowledgeID})
-		summaryContent, summaryErr = s.generateWithTemplate(usageCtx, chatModel, agent.WikiSummaryPrompt, map[string]string{
-			"Content":            content,
-			"Language":           lang,
-			"ExtractedSlugs":     slugListing,
-			"CustomInstructions": batchCtx.ContentInstructions,
-			"InstructionScope":   "wiki_content",
-		})
+		summaryContent, summaryErr = s.generateWithTemplate(
+			usageCtx,
+			chatModel,
+			agent.WikiSummaryPrompt,
+			map[string]string{
+				"Content":            content,
+				"Language":           lang,
+				"ExtractedSlugs":     slugListing,
+				"CustomInstructions": batchCtx.ContentInstructions,
+				"InstructionScope":   "wiki_content",
+			},
+		)
 		if summaryErr != nil {
 			s.tracker().FailSpan(ctx, summarySpan, "SUMMARY_FAILED", summaryErr.Error(), summaryErr)
 		} else {
@@ -1616,7 +1812,17 @@ func (s *wikiIngestService) mapOneDocument(
 			return
 		}
 		candidatesXML := renderCandidateSlugsXML(extractedEntities, extractedConcepts)
-		citations, newSlugs, batchCount = s.classifyChunkCitations(ctx, chatModel, payload.KnowledgeBaseID, knowledgeID, operationID, candidatesXML, chunks, lang, batchCtx)
+		citations, newSlugs, batchCount = s.classifyChunkCitations(
+			ctx,
+			chatModel,
+			payload.KnowledgeBaseID,
+			knowledgeID,
+			operationID,
+			candidatesXML,
+			chunks,
+			lang,
+			batchCtx,
+		)
 		s.tracker().EndSpan(ctx, classifySpan, types.JSONMap{
 			"cited_slugs":      len(citations),
 			"new_slugs":        len(newSlugs),
@@ -1630,7 +1836,12 @@ func (s *wikiIngestService) mapOneDocument(
 	// Merge citations back into the item structs (non-failing; items without
 	// citations simply keep their Description+Details fallback).
 	var uncited int
-	extractedEntities, extractedConcepts, uncited = mergeCitationsIntoItems(extractedEntities, extractedConcepts, citations, newSlugs)
+	extractedEntities, extractedConcepts, uncited = mergeCitationsIntoItems(
+		extractedEntities,
+		extractedConcepts,
+		citations,
+		newSlugs,
+	)
 	extractedEntities, extractedConcepts = s.reclaimExtractedIdentities(
 		ctx, payload.KnowledgeBaseID, extractedEntities, extractedConcepts, batchCtx,
 	)
@@ -1692,7 +1903,12 @@ func (s *wikiIngestService) mapOneDocument(
 		// appends back onto the pending list so the next batch retries.
 		// The internal retries in generateWithTemplate already exhaust
 		// the LLM's own transient-error budget before we give up here.
-		logger.Errorf(ctx, "wiki ingest: generate summary failed for %s, will requeue: %v", knowledgeID, summaryErr)
+		logger.Errorf(
+			ctx,
+			"wiki ingest: generate summary failed for %s, will requeue: %v",
+			knowledgeID,
+			summaryErr,
+		)
 		s.tracker().FailSpan(ctx, wikiSpan, "SUMMARY_FAILED", summaryErr.Error(), summaryErr)
 		return nil, nil, fmt.Errorf("generate summary: %w", summaryErr)
 	}
@@ -1825,11 +2041,24 @@ func (s *wikiIngestService) mapOneDocument(
 		})
 	}
 
-	logger.Infof(ctx,
-		"wiki ingest: mapped knowledge %s title=%q candidates=%d chunks=%d batches=%d cited_chunks=%d uncited_slugs=%d new_slugs=%d updates=%d reparse_slugs=%d stale_slugs=%d pass0_fallback=%v elapsed=%s",
-		knowledgeID, previewText(docTitle, 80),
-		len(slugItems), len(chunks), batchCount, len(citedChunkSet), uncited, len(newSlugs),
-		len(updates), reparseOverlap, staleCount, pass0Failed,
+	logger.Infof(
+		ctx,
+		"wiki ingest: mapped knowledge %s title=%q candidates=%d "+
+			"chunks=%d batches=%d cited_chunks=%d uncited_slugs=%d "+
+			"new_slugs=%d updates=%d reparse_slugs=%d stale_slugs=%d "+
+			"pass0_fallback=%v elapsed=%s",
+		knowledgeID,
+		previewText(docTitle, 80),
+		len(slugItems),
+		len(chunks),
+		batchCount,
+		len(citedChunkSet),
+		uncited,
+		len(newSlugs),
+		len(updates),
+		reparseOverlap,
+		staleCount,
+		pass0Failed,
 		time.Since(docStartedAt).Round(time.Millisecond),
 	)
 
@@ -1896,13 +2125,18 @@ func (s *wikiIngestService) extractEntitiesAndConceptsNoUpsert(
 
 	usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiIngestion, "knowledge_extract",
 		kbID, []string{knowledgeID, operationID}, []string{knowledgeID})
-	extractionJSON, err := s.generateWithTemplate(usageCtx, chatModel, agent.WikiKnowledgeExtractPrompt, map[string]string{
-		"Content":            content,
-		"Language":           lang,
-		"PreviousSlugs":      prevSlugsText,
-		"CustomInstructions": batchCtx.ExtractionInstructions,
-		"InstructionScope":   "wiki_extraction",
-	})
+	extractionJSON, err := s.generateWithTemplate(
+		usageCtx,
+		chatModel,
+		agent.WikiKnowledgeExtractPrompt,
+		map[string]string{
+			"Content":            content,
+			"Language":           lang,
+			"PreviousSlugs":      prevSlugsText,
+			"CustomInstructions": batchCtx.ExtractionInstructions,
+			"InstructionScope":   "wiki_extraction",
+		},
+	)
 	if err != nil {
 		return nil, nil, nil, fmt.Errorf("combined extraction failed: %w", err)
 	}
@@ -1911,7 +2145,12 @@ func (s *wikiIngestService) extractEntitiesAndConceptsNoUpsert(
 
 	var result combinedExtraction
 	if err := json.Unmarshal([]byte(extractionJSON), &result); err != nil {
-		logger.Warnf(ctx, "wiki ingest: failed to parse combined extraction JSON: %v\nRaw: %s", err, extractionJSON)
+		logger.Warnf(
+			ctx,
+			"wiki ingest: failed to parse combined extraction JSON: %v\nRaw: %s",
+			err,
+			extractionJSON,
+		)
 		return nil, nil, nil, fmt.Errorf("parse combined extraction JSON: %w", err)
 	}
 
@@ -2018,11 +2257,13 @@ func (s *wikiIngestService) reduceSlugUpdates(
 			contributors = append(contributors, kid)
 			if pageSpan == nil {
 				if sp, ok := kidToWikiSpan[kid]; ok && sp != nil {
-					pageSpan = s.tracker().BeginSubSpan(ctx, sp, fmt.Sprintf("postprocess.wiki.page[%s]", slug), types.SpanKindSubSpan, types.JSONMap{
-						"slug":         slug,
-						"updates":      len(updates),
-						"contributors": contributors,
-					})
+					pageSpan = s.tracker().
+						BeginSubSpan(ctx, sp, fmt.Sprintf("postprocess.wiki.page[%s]", slug), types.
+							SpanKindSubSpan, types.JSONMap{
+							"slug":         slug,
+							"updates":      len(updates),
+							"contributors": contributors,
+						})
 				}
 			}
 		}
@@ -2070,7 +2311,8 @@ func (s *wikiIngestService) reduceSlugUpdates(
 	if !exists {
 		hasAdditions := false
 		for _, u := range updates {
-			if u.Type == types.WikiPageTypeEntity || u.Type == types.WikiPageTypeConcept || u.Type == "summary" {
+			if u.Type == types.WikiPageTypeEntity || u.Type == types.WikiPageTypeConcept ||
+				u.Type == "summary" {
 				hasAdditions = true
 				break
 			}
@@ -2162,7 +2404,12 @@ func (s *wikiIngestService) reduceSlugUpdates(
 
 	if len(retracts) > 0 {
 		for _, r := range retracts {
-			fmt.Fprintf(&deletedContent, "<document>\n<title>%s</title>\n<content>\n%s\n</content>\n</document>\n\n", r.DocTitle, r.RetractDocContent)
+			fmt.Fprintf(
+				&deletedContent,
+				"<document>\n<title>%s</title>\n<content>\n%s\n</content>\n</document>\n\n",
+				r.DocTitle,
+				r.RetractDocContent,
+			)
 		}
 
 		retractKIDs := make(map[string]bool)
@@ -2186,9 +2433,15 @@ func (s *wikiIngestService) reduceSlugUpdates(
 			}
 
 			if content := batchCtx.SummaryContentByKnowledgeID(ctx, refKnowledgeID); content != "" {
-				fmt.Fprintf(&remainingSourcesContent, "<document>\n<title>%s</title>\n<content>\n%s\n</content>\n</document>\n\n", refTitle, content)
+				fmt.Fprintf(
+					&remainingSourcesContent,
+					"<document>\n<title>%s</title>\n<content>\n%s\n</content>\n</document>\n\n",
+					refTitle,
+					content,
+				)
 			} else {
-				fmt.Fprintf(&remainingSourcesContent, "<document>\n<title>%s</title>\n<content>\n(summary not available)\n</content>\n</document>\n\n", refTitle)
+				fmt.Fprintf(&remainingSourcesContent, "<document>\n<title>%s</title>\n<content>\n(summary not "+
+					"available)\n</content>\n</document>\n\n", refTitle)
 			}
 		}
 		if remainingSourcesContent.Len() == 0 {
@@ -2349,23 +2602,28 @@ func (s *wikiIngestService) reduceSlugUpdates(
 		stableIDs = append(stableIDs, contributors...)
 		usageCtx := withWikiModelUsage(ctx, types.ModelUsageOperationWikiModification, "page_modify",
 			kbID, stableIDs, contributors)
-		updatedContent, err = s.generateWithTemplate(usageCtx, chatModel, agent.WikiPageModifyUserPrompt, map[string]string{
-			"HasAdditions":            hasAdditionsStr,
-			"HasRetractions":          hasRetractionsStr,
-			"PageSlug":                slug,
-			"PageTitle":               pageTitle,
-			"PageType":                pageType,
-			"PageAliases":             pageAliases,
-			"ExistingContent":         existingContent,
-			"SharedSourceContexts":    sharedSourceContexts.String(),
-			"NewContent":              newContentBuilder.String(),
-			"DeletedContent":          deletedContent.String(),
-			"RemainingSourcesContent": remainingSourcesContent.String(),
-			"AvailableSlugs":          relatedSlugs.String(),
-			"Language":                language,
-			"CustomInstructions":      batchCtx.ContentInstructions,
-			"InstructionScope":        "wiki_content",
-		})
+		updatedContent, err = s.generateWithTemplate(
+			usageCtx,
+			chatModel,
+			agent.WikiPageModifyUserPrompt,
+			map[string]string{
+				"HasAdditions":            hasAdditionsStr,
+				"HasRetractions":          hasRetractionsStr,
+				"PageSlug":                slug,
+				"PageTitle":               pageTitle,
+				"PageType":                pageType,
+				"PageAliases":             pageAliases,
+				"ExistingContent":         existingContent,
+				"SharedSourceContexts":    sharedSourceContexts.String(),
+				"NewContent":              newContentBuilder.String(),
+				"DeletedContent":          deletedContent.String(),
+				"RemainingSourcesContent": remainingSourcesContent.String(),
+				"AvailableSlugs":          relatedSlugs.String(),
+				"Language":                language,
+				"CustomInstructions":      batchCtx.ContentInstructions,
+				"InstructionScope":        "wiki_content",
+			},
+		)
 
 		if err == nil && updatedContent != "" {
 			// Translate request-local handles (ref-N) the model copied from the

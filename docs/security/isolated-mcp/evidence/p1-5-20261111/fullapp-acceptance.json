@@ -1,0 +1,526 @@
+[
+  {
+    "name": "tls12_trusted_handshake",
+    "status": "PASS"
+  },
+  {
+    "name": "tls13_trusted_handshake",
+    "status": "PASS"
+  },
+  {
+    "name": "untrusted_ca_rejected",
+    "status": "PASS"
+  },
+  {
+    "name": "wrong_hostname_rejected",
+    "status": "PASS"
+  },
+  {
+    "name": "expired_leaf_rejected",
+    "status": "PASS"
+  },
+  {
+    "name": "initialize_http",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "initialized_http",
+    "status": "PASS",
+    "http": 202
+  },
+  {
+    "name": "eight_tools_http",
+    "status": "PASS",
+    "tool_count": 8
+  },
+  {
+    "name": "initialize_https",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "initialized_https",
+    "status": "PASS",
+    "http": 202
+  },
+  {
+    "name": "eight_tools_https",
+    "status": "PASS",
+    "tool_count": 8
+  },
+  {
+    "name": "call_list_knowledge_bases",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_search_knowledge",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_grep_chunks",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_list_documents",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_read_document",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_wiki_search",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_wiki_read_page",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "call_wiki_index",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "normal_query_canary_exercises_model",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "same_key_two_entries_same_scope",
+    "status": "PASS"
+  },
+  {
+    "name": "different_user_scope",
+    "status": "PASS"
+  },
+  {
+    "name": "other_user_private_document_denied",
+    "status": "PASS"
+  },
+  {
+    "name": "unauthorized_document_denied",
+    "status": "PASS"
+  },
+  {
+    "name": "deny_ask_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_ask_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_add_document_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_add_document_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_update_document_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_update_document_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_delete_document_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_delete_document_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_upload_file_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_upload_file_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_http_proxy_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_http_proxy_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_execute_agent_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_execute_agent_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_future_internal_upload_go",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "deny_future_internal_upload_tls",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "json_disguised_content",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "json_disguised_file",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "json_disguised_base64",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "json_disguised_path",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "json_disguised_url",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "bounded_json_envelope_0",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "bounded_json_envelope_1",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "bounded_json_envelope_2",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "bounded_json_envelope_3",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "multipart_pdf_go",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_pdf_tls",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_docx_go",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_docx_tls",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_xlsx_go",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_xlsx_tls",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_zip_go",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_zip_tls",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_go_go",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "multipart_go_tls",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "rest_or_noncanonical_path_0",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_1",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_2",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_3",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_4",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_5",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_6",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_7",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_8",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_9",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_10",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_11",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_12",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_13",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_14",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_15",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_16",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_17",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_18",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_19",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "rest_or_noncanonical_path_20",
+    "status": "PASS",
+    "http": 404
+  },
+  {
+    "name": "http_method_PUT",
+    "status": "PASS",
+    "http": 405
+  },
+  {
+    "name": "http_method_PATCH",
+    "status": "PASS",
+    "http": 405
+  },
+  {
+    "name": "http_method_HEAD",
+    "status": "PASS",
+    "http": 405
+  },
+  {
+    "name": "http_method_OPTIONS",
+    "status": "PASS",
+    "http": 405
+  },
+  {
+    "name": "http_method_TRACE",
+    "status": "PASS",
+    "http": 405
+  },
+  {
+    "name": "http_method_CONNECT",
+    "status": "PASS",
+    "http": 400
+  },
+  {
+    "name": "size_1048576_go",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "size_1048576_tls",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "size_1048577_go",
+    "status": "PASS",
+    "http": 413
+  },
+  {
+    "name": "size_1048577_tls",
+    "status": "PASS",
+    "http": 413
+  },
+  {
+    "name": "compressed_payload_denied",
+    "status": "PASS",
+    "http": 415
+  },
+  {
+    "name": "foreign_origin_denied",
+    "status": "PASS",
+    "http": 403
+  },
+  {
+    "name": "unapproved_host_denied",
+    "status": "PASS",
+    "http": 421
+  },
+  {
+    "name": "environment_header_cannot_change_registry",
+    "status": "PASS"
+  },
+  {
+    "name": "missing_key_denied",
+    "status": "PASS",
+    "http": 401
+  },
+  {
+    "name": "invalid_key_denied",
+    "status": "PASS",
+    "http": 401
+  },
+  {
+    "name": "concurrency_and_rate_limit",
+    "status": "PASS",
+    "accepted": 4,
+    "limited": 56
+  },
+  {
+    "name": "four_isolated_requests_reach_model",
+    "status": "PASS"
+  },
+  {
+    "name": "global_isolation_concurrency_bound",
+    "status": "PASS",
+    "http": 429
+  },
+  {
+    "name": "internal_entry_remains_available_under_isolated_load",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "request_deadline_enforced",
+    "status": "PASS",
+    "elapsed_seconds": 30.02
+  },
+  {
+    "name": "slots_released_after_timeout",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "streamable_get",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "streamable_delete",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "json_charset_compatible",
+    "status": "PASS",
+    "http": 200
+  },
+  {
+    "name": "apm_query_canary_absent",
+    "status": "PASS"
+  },
+  {
+    "name": "log_canary_and_credentials_absent",
+    "status": "PASS",
+    "debug_file_count": 0
+  }
+]

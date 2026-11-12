@@ -10,7 +10,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// The preview contains identifiers, counts and reasons, never historical body
+// WikiDocumentSelectionPreview describes eligible and skipped Wiki input documents.
 // text. The production operator command uses a database READ ONLY transaction.
 type WikiDocumentSelectionPreview struct {
 	TenantID          uint64            `json:"tenant_id"`
@@ -24,14 +24,28 @@ type WikiDocumentSelectionPreview struct {
 	Snapshot          string            `json:"snapshot"`
 }
 
-func PreviewWikiDocumentSelection(ctx context.Context, db *gorm.DB, tenant uint64, kb string) (*WikiDocumentSelectionPreview, error) {
+// PreviewWikiDocumentSelection returns a read-only preview of Wiki input eligibility.
+func PreviewWikiDocumentSelection(
+	ctx context.Context,
+	db *gorm.DB,
+	tenant uint64,
+	kb string,
+) (*WikiDocumentSelectionPreview, error) {
 	if tenant == 0 || kb == "" {
 		return nil, errors.New("exact tenant and KB required")
 	}
-	plan := &WikiDocumentSelectionPreview{TenantID: tenant, KnowledgeBaseID: kb, IsolatedPages: []string{}, QueueDocuments: []string{}}
+	plan := &WikiDocumentSelectionPreview{
+		TenantID:        tenant,
+		KnowledgeBaseID: kb,
+		IsolatedPages:   []string{},
+		QueueDocuments:  []string{},
+	}
 	err := db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var anchor struct{ TenantID uint64 }
-		if err := tx.Table("knowledge_bases kb").Select("kb.tenant_id").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.status='active' AND t.deleted_at IS NULL").Where("kb.id=? AND kb.tenant_id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb, tenant).Take(&anchor).Error; err != nil {
+		if err := tx.Table("knowledge_bases kb").Select("kb.tenant_id").
+			Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.status='active' AND "+
+				"t.deleted_at IS NULL").Where("kb.id=? AND kb.tenant_id=? AND kb.deleted_at IS NULL AND "+
+			"kb.type='document' AND kb.is_temporary=false", kb, tenant).Take(&anchor).Error; err != nil {
 			return err
 		}
 		if err := types.CheckPrivateKBRead(tx, "", kb); err != nil {
@@ -47,7 +61,9 @@ func PreviewWikiDocumentSelection(ctx context.Context, db *gorm.DB, tenant uint6
 		plan.EligibleDocuments = wikiSelectionIDs(selection.Eligible)
 		plan.SkippedDocuments = selection.Skipped
 		var pages []*types.WikiPage
-		if err := tx.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS preview_inputs").Where("tenant_id=? AND knowledge_base_id=?", tenant, kb).Order("id").Limit(wikiMCPMaxPages + 1).Find(&pages).Error; err != nil {
+		if err := tx.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS preview_inputs").
+			Where("tenant_id=? AND knowledge_base_id=?", tenant, kb).Order("id").
+			Limit(wikiMCPMaxPages + 1).Find(&pages).Error; err != nil {
 			return err
 		}
 		if len(pages) > wikiMCPMaxPages {
@@ -76,11 +92,14 @@ func PreviewWikiDocumentSelection(ctx context.Context, db *gorm.DB, tenant uint6
 		}
 		sort.Strings(plan.QueueDocuments)
 		var pending []types.TaskPendingOp
-		if err := tx.Where("tenant_id=? AND scope='knowledge_base' AND scope_id=? AND task_type IN ('wiki:ingest','wiki:finalize')", tenant, kb).Order("id").Find(&pending).Error; err != nil {
+		if err := tx.Where("tenant_id=? AND scope='knowledge_base' AND scope_id=? AND task_type "+
+			"IN ('wiki:ingest','wiki:finalize')", tenant, kb).Order("id").Find(&pending).Error; err != nil {
 			return err
 		}
 		plan.PendingOps = int64(len(pending))
-		plan.Snapshot = wikiDigest([]any{tenant, kb, proof.Sources, proof.Epochs, selection.Skipped, pages, pending})
+		plan.Snapshot = wikiDigest(
+			[]any{tenant, kb, proof.Sources, proof.Epochs, selection.Skipped, pages, pending},
+		)
 		return nil
 	}, &sql.TxOptions{ReadOnly: true, Isolation: sql.LevelRepeatableRead})
 	return plan, err

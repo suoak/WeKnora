@@ -43,8 +43,12 @@ func TestSourceDownloadResetPreservesFailureWithoutStoppingIndependentSources(t 
 			wrapped := &net.OpError{Op: "read", Net: "tcp", Err: fmt.Errorf("download interrupted: %w", cause)}
 			transport := Transport{
 				Base: resetDownloadTransport(func(req *http.Request) (*http.Response, error) {
-					return &http.Response{StatusCode: 200, Header: make(http.Header), Request: req,
-						Body: &resetDownloadBody{prefix: strings.NewReader("partial"), err: wrapped}}, nil
+					return &http.Response{
+						StatusCode: 200,
+						Header:     make(http.Header),
+						Request:    req,
+						Body:       &resetDownloadBody{prefix: strings.NewReader("partial"), err: wrapped},
+					}, nil
 				}),
 			}
 			req, err := http.NewRequestWithContext(WithScope(context.Background(), "failed-download"),

@@ -1,0 +1,12 @@
+{
+  "scope": "knowhub-isolated-p1-20261111",
+  "post_codex_log_markers_absent": {
+    "query_canary": true,
+    "path_marker": true,
+    "signed_url_marker": true
+  },
+  "test_keys_absent": true,
+  "llm_debug_files": 0,
+  "apm_canary_exports": 0,
+  "raw_corpus_saved": false
+}

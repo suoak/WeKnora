@@ -1,0 +1,110 @@
+{
+  "checked_utc": "2026-11-10T18:24:03.954341+00:00",
+  "test_nginx_version": "nginx version: nginx/1.30.3",
+  "ssl_module": true,
+  "test_containers": [
+    {
+      "name": "knowhub-isolated-p1-20261111-app",
+      "image_id": "sha256:2b63ff41b02b21d7b302c2d3ba6b4ab43990181fc7d2221585d2cfa5161553fb",
+      "state": "running",
+      "network_mode": "host",
+      "ports": {},
+      "read_only_mounts": [
+        {
+          "destination": "/p1/logs",
+          "read_only": false
+        },
+        {
+          "destination": "/p1/WeKnora",
+          "read_only": true
+        },
+        {
+          "destination": "/app/config",
+          "read_only": true
+        },
+        {
+          "destination": "/app/migrations",
+          "read_only": true
+        },
+        {
+          "destination": "/p1/jieba",
+          "read_only": true
+        },
+        {
+          "destination": "/p1/files",
+          "read_only": false
+        }
+      ]
+    },
+    {
+      "name": "knowhub-isolated-p1-20261111-pg",
+      "image_id": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "state": "running",
+      "network_mode": "default",
+      "ports": {
+        "5432/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18643"
+          }
+        ]
+      },
+      "read_only_mounts": [
+        {
+          "destination": "/var/lib/postgresql/data",
+          "read_only": false
+        }
+      ]
+    },
+    {
+      "name": "knowhub-isolated-p1-20261111-nginx",
+      "image_id": "sha256:d0701bd41f8279135aa6c81e23fbcdae7bcc3df591c47741405412a8dcdb2eab",
+      "state": "running",
+      "network_mode": "host",
+      "ports": {},
+      "read_only_mounts": [
+        {
+          "destination": "/home/aqyfzx/ai/knowhub-isolated-p1-20261111/private/test-expired.pem",
+          "read_only": true
+        },
+        {
+          "destination": "/etc/nginx/nginx.conf",
+          "read_only": true
+        },
+        {
+          "destination": "/home/aqyfzx/ai/knowhub-isolated-p1-20261111/logs",
+          "read_only": false
+        },
+        {
+          "destination": "/home/aqyfzx/ai/knowhub-isolated-p1-20261111/private/test-fullchain.pem",
+          "read_only": true
+        },
+        {
+          "destination": "/home/aqyfzx/ai/knowhub-isolated-p1-20261111/private/test-key.pem",
+          "read_only": true
+        }
+      ]
+    },
+    {
+      "name": "knowhub-isolated-p1-20261111-redis",
+      "image_id": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "state": "running",
+      "network_mode": "default",
+      "ports": {
+        "6379/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "18647"
+          }
+        ]
+      },
+      "read_only_mounts": [
+        {
+          "destination": "/data",
+          "read_only": false
+        }
+      ]
+    }
+  ],
+  "production_access": "none during P1"
+}

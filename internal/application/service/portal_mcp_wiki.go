@@ -32,8 +32,10 @@ type PortalWikiResult struct {
 	NextOffset int              `json:"next_offset,omitempty"`
 }
 
-var personalWikiLink = regexp.MustCompile(`\[\[[^\]]*\]\]`)
-var personalWikiSlug = regexp.MustCompile(`^[\p{L}\p{N}_-]+(?:/[\p{L}\p{N}_.-]+)*$`)
+var (
+	personalWikiLink = regexp.MustCompile(`\[\[[^\]]*\]\]`)
+	personalWikiSlug = regexp.MustCompile(`^[\p{L}\p{N}_-]+(?:/[\p{L}\p{N}_.-]+)*$`)
+)
 
 // PersonalWiki shares the five-tool resolver and live grants. It never calls
 // GetIndex/GetIndexView or any create/update/Agent entry point.
@@ -77,6 +79,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 		if e = target.Revalidate(ctx); e != nil {
 			return nil, e
 		}
+		types.ObserveMCPKnowledgeBase(ctx, d.ID)
 		pages, partial, err := s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
 		if err != nil {
 			if errors.Is(err, types.ErrLegacySourceRestricted) || errors.Is(err, repository.ErrWikiMCPUnverified) {

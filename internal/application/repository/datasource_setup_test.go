@@ -39,7 +39,11 @@ CREATE TABLE feishu_legacy_resources(data_source_id TEXT);`).Error)
 			}
 			require.NoError(t, repo.Create(ctx, source))
 			if mode == "legacy_hold" {
-				require.NoError(t, repo.Update(ctx, source), "saving unchanged valid settings repairs a legacy hold")
+				require.NoError(
+					t,
+					repo.Update(ctx, source),
+					"saving unchanged valid settings repairs a legacy hold",
+				)
 				require.Equal(t, "active", source.LegacyAccessState)
 			}
 			switch mode {
@@ -48,7 +52,10 @@ CREATE TABLE feishu_legacy_resources(data_source_id TEXT);`).Error)
 					ID: mode, DataSourceID: source.ID, TenantID: 1, Status: types.SyncLogStatusRunning,
 				}).Error)
 			case "published_source":
-				require.NoError(t, db.Exec("INSERT INTO feishu_legacy_resources(data_source_id) VALUES(?)", source.ID).Error)
+				require.NoError(
+					t,
+					db.Exec("INSERT INTO feishu_legacy_resources(data_source_id) VALUES(?)", source.ID).Error,
+				)
 			}
 			// Initial credential/resource selection can involve more than one save.
 			for _, config := range []string{`{"resource_ids":["root"]}`, `{"resource_ids":["final-root"]}`} {

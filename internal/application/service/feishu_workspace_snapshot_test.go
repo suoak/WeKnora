@@ -9,7 +9,10 @@ import (
 )
 
 func TestWorkspaceImportedSnapshotDoesNotDependOnSourceAuthorization(t *testing.T) {
-	for _, change := range []string{"disconnect", "source_configuration_removed", "importer_removed", "cloud_identity_overlap", "binding", "hash", "generation", "kb_deleted"} {
+	for _, change := range []string{
+		"disconnect", "source_configuration_removed", "importer_removed",
+		"cloud_identity_overlap", "binding", "hash", "generation", "kb_deleted",
+	} {
 		t.Run(change, func(t *testing.T) {
 			f, observed, _ := pendingExactFixture(t)
 			t.Setenv("FEISHU_PERSONAL_WORKSPACE_IMPORT_SNAPSHOTS", "1")
@@ -22,7 +25,10 @@ func TestWorkspaceImportedSnapshotDoesNotDependOnSourceAuthorization(t *testing.
 				require.NoError(t, f.db.Exec("DELETE FROM feishu_connections").Error)
 				require.NoError(t, f.db.Exec("DELETE FROM feishu_personal_grant_epochs").Error)
 			case "source_configuration_removed":
-				require.NoError(t, f.db.Exec("DELETE FROM system_settings WHERE key=?", feishuAppSetting).Error)
+				require.NoError(
+					t,
+					f.db.Exec("DELETE FROM system_settings WHERE key=?", feishuAppSetting).Error,
+				)
 			case "importer_removed":
 				require.NoError(t, f.db.Exec("DELETE FROM tenant_members WHERE user_id='A'").Error)
 				require.NoError(t, f.db.Exec("UPDATE users SET is_active=false WHERE id='A'").Error)
@@ -35,9 +41,15 @@ VALUES ('other-source',1,'other-kb','other-document','revoked','local://other-fi
 			case "hash":
 				require.NoError(t, f.db.Exec("UPDATE resources SET content_hash=repeat('a',64)").Error)
 			case "generation":
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_resources SET generation=generation+1").Error)
+				require.NoError(
+					t,
+					f.db.Exec("UPDATE feishu_personal_resources SET generation=generation+1").Error,
+				)
 			case "kb_deleted":
-				require.NoError(t, f.db.Exec("UPDATE knowledge_bases SET deleted_at=now() WHERE id='kb'").Error)
+				require.NoError(
+					t,
+					f.db.Exec("UPDATE knowledge_bases SET deleted_at=now() WHERE id='kb'").Error,
+				)
 			}
 			preflight, err := f.p.preflightExactPersonalDocument(context.Background(), observed)
 			if change == "binding" || change == "hash" || change == "generation" || change == "kb_deleted" {

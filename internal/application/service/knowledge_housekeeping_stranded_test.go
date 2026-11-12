@@ -42,9 +42,30 @@ func TestHousekeepingRecoverStalledFailsUnfinishedSummary(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	svc := newHousekeepingSvcForTest(db)
 	stale := time.Now().Add(-3 * time.Hour)
-	insertKnowledgeWithSummary(t, db, "k-pending", types.ParseStatusFinalizing, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-running", types.ParseStatusFinalizing, types.SummaryStatusProcessing, stale)
-	insertKnowledgeWithSummary(t, db, "k-done", types.ParseStatusFinalizing, types.SummaryStatusCompleted, stale)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-pending",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusPending,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-running",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusProcessing,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-done",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusCompleted,
+		stale,
+	)
 
 	svc.runSweep(context.Background())
 
@@ -74,8 +95,22 @@ func TestHousekeepingRecoversStrandedPendingSummaries(t *testing.T) {
 		insertKnowledgeWithSummary(t, db, "k-"+status, status, types.SummaryStatusPending, stale)
 	}
 	insertKnowledgeWithSummary(t, db, "k-queued", types.ParseStatusCompleted, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-finalizing", types.ParseStatusFinalizing, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-recent", types.ParseStatusCompleted, types.SummaryStatusPending, time.Now())
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-finalizing",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusPending,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-recent",
+		types.ParseStatusCompleted,
+		types.SummaryStatusPending,
+		time.Now(),
+	)
 
 	svc.recoverStrandedPendingSummaries(context.Background(), cutoff)
 
@@ -258,11 +293,12 @@ func TestStalledWikiReportCannotOverwriteProgressOrClaimedWork(t *testing.T) {
 				ID: "k", TenantID: 7, KnowledgeBaseID: "kb", UpdatedAt: stale,
 			}})
 			status, message := readKnowledgeStatus(t, db, "k")
-			if mutation == "" {
+			switch mutation {
+			case "":
 				assert.Contains(t, message, "retained for reviewed recovery")
-			} else if mutation == "UPDATE knowledges SET error_message='original model failure'" {
+			case "UPDATE knowledges SET error_message='original model failure'":
 				assert.Equal(t, "original model failure", message)
-			} else {
+			default:
 				assert.Empty(t, message)
 			}
 			if mutation == "UPDATE knowledges SET parse_status='completed'" {

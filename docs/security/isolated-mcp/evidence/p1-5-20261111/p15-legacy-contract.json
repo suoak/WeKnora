@@ -1,0 +1,6 @@
+{
+  "same_key_same_authorized_ids": true,
+  "old_http_preserves_original_documented_result": true,
+  "isolated_https_masks_absolute_path": true,
+  "authorized_tail_preserved": true
+}

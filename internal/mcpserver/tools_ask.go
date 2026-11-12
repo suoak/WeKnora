@@ -396,6 +396,11 @@ func (s *Server) runQA(
 	if err := s.messageService.UpdateMessage(context.WithoutCancel(ctx), assistantMsg); err != nil {
 		logger.Warnf(ctx, "[mcpserver] failed to persist assistant message: %v", err)
 	}
+	for _, ref := range collected {
+		if ref != nil {
+			types.ObserveMCPHitKnowledgeBase(ctx, ref.KnowledgeBaseID)
+		}
+	}
 	return text, summarizeReferences(collected), nil
 }
 

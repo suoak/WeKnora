@@ -206,7 +206,8 @@ return 1`, []string{
 		c.fingerprint+":"+c.incarnation, record.Authorization.ID).Err()
 }
 
-// Successful signed recovery must release the existing normal service too.
+// Successful signed recovery may release only a safety-owned queue pause.
+// An operator's review/maintenance pause remains an independent boundary.
 // Incident steady-source planning cannot require retiring legitimate normal
 // jobs that arrived while the canary kept their consumer paused.
 func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) error {
@@ -214,10 +215,17 @@ func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) erro
 	if err != nil || record == nil {
 		return err
 	}
+	c := m.controller
+	paused, err := c.Client.Get(ctx, "asynq:{approved_sync}:paused").Result()
+	if errors.Is(err, redis.Nil) || (err == nil && paused != "feishu_safety_stop") {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
 	if err := m.steadyReady(ctx); err != nil {
 		return err
 	}
-	c := m.controller
 	raw, err := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	var state recoveryMode
 	if err != nil || json.Unmarshal([]byte(raw), &state) != nil || state.Phase != "awaiting_review" ||
@@ -229,7 +237,8 @@ func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) erro
 	return c.Client.Eval(ctx, `
 if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
  redis.call('PTTL',KEYS[2])<=0 or redis.call('GET',KEYS[3])~=ARGV[2] or
- redis.call('GET',KEYS[4])~=ARGV[3] then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
+ redis.call('GET',KEYS[4])~=ARGV[3] or redis.call('GET',KEYS[5])~='feishu_safety_stop'
+ then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
 redis.call('DEL',KEYS[5])
 redis.call('XADD',KEYS[6],'*','event','normal_service_queue_resumed','grant_id',ARGV[4],
  'reason','signed_canary_passed_existing_normal_grant')

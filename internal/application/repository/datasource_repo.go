@@ -16,6 +16,15 @@ type DataSourceRepository struct {
 	db *gorm.DB
 }
 
+type preservedSourceConfigurationKey struct{}
+
+// WithPreservedSourceConfiguration prevents a metadata-only save from repairing
+// a legacy hold without revalidation. Actual configuration changes still fence
+// old executions independently of this marker.
+func WithPreservedSourceConfiguration(ctx context.Context) context.Context {
+	return context.WithValue(ctx, preservedSourceConfigurationKey{}, true)
+}
+
 // NewDataSourceRepository creates a new data source repository
 func NewDataSourceRepository(db *gorm.DB) interfaces.DataSourceRepository {
 	return &DataSourceRepository{db: db}
@@ -63,7 +72,10 @@ func (r *DataSourceRepository) FindByID(ctx context.Context, id string) (*types.
 }
 
 // FindByKnowledgeBase lists all data sources for a knowledge base
-func (r *DataSourceRepository) FindByKnowledgeBase(ctx context.Context, kbID string) ([]*types.DataSource, error) {
+func (r *DataSourceRepository) FindByKnowledgeBase(
+	ctx context.Context,
+	kbID string,
+) ([]*types.DataSource, error) {
 	if kbID == "" {
 		return nil, errors.New("knowledge base id is empty")
 	}
@@ -92,7 +104,10 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			if err != nil {
 				return err
 			}
-			if legacySourceKind(old.Type) && (old.LegacyAccessState == "hold" || !legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
+			preserve, _ := ctx.Value(preservedSourceConfigurationKey{}).(bool)
+			if legacySourceKind(old.Type) &&
+				((old.LegacyAccessState == "hold" && !preserve) || !legacyConfigEqual(old.Config, ds.Config) || old.
+					Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
@@ -106,13 +121,16 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 					Updates(map[string]any{
 						"status": types.SyncLogStatusCanceled, "execution_claimed": false,
 						"execution_generation": gorm.Expr("execution_generation + 1"),
-						"finished_at":          now, "error_message": "Source configuration changed; start a new sync",
+						"finished_at":          now,
+						"error_message":        "Source configuration changed; start a new sync",
 					}).Error; err != nil {
 					return err
 				}
 				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
-					Updates(map[string]any{"legacy_access_state": "active", "last_sync_cursor": nil,
-						"last_sync_result": nil, "last_sync_at": nil, "error_message": ""}).Error; err != nil {
+					Updates(map[string]any{
+						"legacy_access_state": "active", "last_sync_cursor": nil,
+						"last_sync_result": nil, "last_sync_at": nil, "error_message": "",
+					}).Error; err != nil {
 					return err
 				}
 				old.LegacyAccessState = "active"
@@ -322,7 +340,12 @@ func (r *SyncLogRepository) FindByID(ctx context.Context, id string) (*types.Syn
 }
 
 // FindByDataSource lists sync logs for a data source with pagination
-func (r *SyncLogRepository) FindByDataSource(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+func (r *SyncLogRepository) FindByDataSource(
+	ctx context.Context,
+	dsID string,
+	limit int,
+	offset int,
+) ([]*types.SyncLog, error) {
 	if dsID == "" {
 		return nil, errors.New("data source id is empty")
 	}

@@ -1,0 +1,6 @@
+# Preserve the verified production bytes, including frozen HTTP80 whitespace.
+*.conf -text whitespace=-blank-at-eol
+*.template -text whitespace=-blank-at-eol
+*.yml -text whitespace=cr-at-eol
+*.json -text whitespace=cr-at-eol
+runtime-manifest.json text eol=lf

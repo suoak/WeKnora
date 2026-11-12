@@ -21,7 +21,7 @@ func TestPersonalRegistryNeverInheritsWorkspaceOrFutureWriteTools(t *testing.T) 
 		"http_proxy", "execute_agent", "wiki_create", "chunk_update", "faq_import",
 	} {
 		nextCalls := 0
-		h := s.guard(func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		h := s.enforceGuard(func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 			nextCalls++
 			return mcp.NewToolResultText("unexpected write"), nil
 		})

@@ -194,7 +194,10 @@ func TestWikiDocumentSelectionSkipsUnrelatedInvalidDocuments(t *testing.T) {
 	// Failure of an excluded input cannot invalidate a good sibling's write.
 	require.NoError(
 		t,
-		db.Model(&types.Knowledge{}).Where("id='failed'").Update("description", "changed excluded input").Error,
+		db.Model(&types.Knowledge{}).
+			Where("id='failed'").
+			Update("description", "changed excluded input").
+			Error,
 	)
 	newPage := &types.WikiPage{
 		ID:              "new",
@@ -229,14 +232,20 @@ func TestWikiDocumentSelectionSourceRevocationIsLocalAndStillFenced(t *testing.T
 	require.NoError(
 		t,
 		db.Exec(
-			`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config) VALUES('selected-source',1,'public-two','synthetic','feishu','active','active','{}')`,
+			"INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,"+
+				"type,status,legacy_access_state,config) VALUES('selected-source',"+
+				"1,'public-two','synthetic','feishu','active','active','{}')",
 		).Error,
 	)
 	addWikiSelectionDocument(t, db, "feishu-good", "feishu", "completed", "enabled")
 	require.NoError(
 		t,
 		db.Exec(
-			`INSERT INTO feishu_legacy_resources(id,tenant_id,knowledge_base_id,data_source_id,external_id,knowledge_id,state,active_attempt) VALUES('selected-resource',1,'public-two','selected-source','synthetic','feishu-good','active','published-attempt')`,
+			"INSERT INTO feishu_legacy_resources(id,tenant_id,"+
+				"knowledge_base_id,data_source_id,external_id,knowledge_id,state,"+
+				"active_attempt) VALUES('selected-resource',1,'public-two',"+
+				"'selected-source','synthetic','feishu-good','active',"+
+				"'published-attempt')",
 		).Error,
 	)
 	work, selection, err := repository.BeginWikiDocumentGeneration(ctx, repo, "public-two")
@@ -302,9 +311,23 @@ func TestWikiDocumentSelectionRecheckRestoresAfterPublicationWithoutBusyLoop(t *
 	db := f.DB
 	repo := repository.NewWikiPageRepository(db)
 	ctx := context.Background()
-	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+	require.NoError(
+		t,
+		db.Model(&types.KnowledgeBase{}).
+			Where("id='public-two'").
+			Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).
+			Error,
+	)
 	addWikiSelectionDocument(t, db, "recoverable", "web", "failed", "enabled")
-	op := types.TaskPendingOp{TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two", TaskType: "wiki:ingest", Op: "ingest", DedupKey: "recoverable", Payload: json.RawMessage(`{"op":"ingest","knowledge_id":"recoverable","attempt":3}`)}
+	op := types.TaskPendingOp{
+		TenantID: 1,
+		Scope:    "knowledge_base",
+		ScopeID:  "public-two",
+		TaskType: "wiki:ingest",
+		Op:       "ingest",
+		DedupKey: "recoverable",
+		Payload:  json.RawMessage(`{"op":"ingest","knowledge_id":"recoverable","attempt":3}`),
+	}
 	require.NoError(t, db.Create(&op).Error)
 	work, _, err := repository.BeginWikiDocumentGeneration(ctx, repo, "public-two")
 	require.NoError(t, err)
@@ -313,11 +336,24 @@ func TestWikiDocumentSelectionRecheckRestoresAfterPublicationWithoutBusyLoop(t *
 	targets, err := repository.RecheckWikiSkippedOperations(ctx, db, 32)
 	require.NoError(t, err)
 	require.Empty(t, targets, "fresh skips are not polled repeatedly")
-	require.NoError(t, db.Model(&types.Knowledge{}).Where("id='recoverable'").Update("parse_status", "completed").Error)
-	require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("scope='wiki_document_skip' AND dedup_key='recoverable'").Update("enqueued_at", time.Now().UTC().Add(-time.Hour)).Error)
+	require.NoError(
+		t,
+		db.Model(&types.Knowledge{}).Where("id='recoverable'").Update("parse_status", "completed").Error,
+	)
+	require.NoError(
+		t,
+		db.Model(&types.TaskPendingOp{}).
+			Where("scope='wiki_document_skip' AND dedup_key='recoverable'").
+			Update("enqueued_at", time.Now().UTC().Add(-time.Hour)).
+			Error,
+	)
 	targets, err = repository.RecheckWikiSkippedOperations(ctx, db, 32)
 	require.NoError(t, err)
-	require.Equal(t, []repository.WikiSkipRecheckTarget{{TenantID: 1, KnowledgeBaseID: "public-two"}}, targets)
+	require.Equal(
+		t,
+		[]repository.WikiSkipRecheckTarget{{TenantID: 1, KnowledgeBaseID: "public-two"}},
+		targets,
+	)
 	var saved types.TaskPendingOp
 	require.NoError(t, db.First(&saved, op.ID).Error)
 	require.Equal(t, "knowledge_base", saved.Scope)
@@ -328,7 +364,15 @@ func TestWikiDocumentSelectionRejectsMismatchedPendingIdentity(t *testing.T) {
 	f := prepareWikiSelectionFixture(t)
 	db := f.DB
 	repo := repository.NewWikiPageRepository(db)
-	op := types.TaskPendingOp{TenantID: 1, Scope: "knowledge_base", ScopeID: "public-two", TaskType: "wiki:ingest", Op: "ingest", DedupKey: "public-two-doc", Payload: json.RawMessage(`{"op":"ingest","knowledge_id":"unproved-other-document"}`)}
+	op := types.TaskPendingOp{
+		TenantID: 1,
+		Scope:    "knowledge_base",
+		ScopeID:  "public-two",
+		TaskType: "wiki:ingest",
+		Op:       "ingest",
+		DedupKey: "public-two-doc",
+		Payload:  json.RawMessage(`{"op":"ingest","knowledge_id":"unproved-other-document"}`),
+	}
 	require.NoError(t, db.Create(&op).Error)
 	ctx, _, err := repository.BeginWikiDocumentGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err)
@@ -348,17 +392,41 @@ func TestWikiDocumentSelectionPageReaderUsesSealedInputs(t *testing.T) {
 	repo := repository.NewWikiPageRepository(db)
 	ctx, _, err := repository.BeginWikiDocumentGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err)
-	page := &types.WikiPage{ID: "readable", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/readable", PageType: "concept", Status: "published", Content: "verified page", Version: 1, SourceRefs: types.StringArray{"public-two-doc"}}
+	page := &types.WikiPage{
+		ID:              "readable",
+		TenantID:        1,
+		KnowledgeBaseID: "public-two",
+		Slug:            "concept/readable",
+		PageType:        "concept",
+		Status:          "published",
+		Content:         "verified page",
+		Version:         1,
+		SourceRefs:      types.StringArray{"public-two-doc"},
+	}
 	require.NoError(t, repo.Create(ctx, page))
 	addWikiSelectionDocument(t, db, "unrelated-unproved", "feishu", "completed", "enabled")
 	store := &repository.PersonalWikiStore{DB: db}
 	pages, _, err := store.VerifiedPages(context.Background(), 1, "public-two", []string{"public-two-doc"})
 	require.NoError(t, err)
 	require.Len(t, pages, 1)
-	require.NoError(t, store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages))
-	require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("enable_status", "disabled").Error)
-	require.Error(t, store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages))
-	pages, partial, err := store.VerifiedPages(context.Background(), 1, "public-two", []string{"public-two-doc"})
+	require.NoError(
+		t,
+		store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages),
+	)
+	require.NoError(
+		t,
+		db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("enable_status", "disabled").Error,
+	)
+	require.Error(
+		t,
+		store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages),
+	)
+	pages, partial, err := store.VerifiedPages(
+		context.Background(),
+		1,
+		"public-two",
+		[]string{"public-two-doc"},
+	)
 	require.NoError(t, err)
 	require.True(t, partial)
 	require.Empty(t, pages)
@@ -371,7 +439,14 @@ func TestWikiDocumentSelectionProductionReadGuardsDoNotBlockGoodSibling(t *testi
 	db := types.EnableLegacyReadGuards(f.DB)
 	repo := repository.NewWikiPageRepository(db)
 	// This is the production plugin, including its pre-query Wiki predicate.
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config) VALUES('held-source',1,'public-two','synthetic','feishu','active','hold','{}')`).Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,"+
+				"type,status,legacy_access_state,config) VALUES('held-source',1,"+
+				"'public-two','synthetic','feishu','active','hold','{}')",
+		).Error,
+	)
 	ctx, selected, err := repository.BeginWikiDocumentGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err)
 	require.True(t, selected.Eligible["public-two-doc"])
@@ -380,7 +455,17 @@ func TestWikiDocumentSelectionProductionReadGuardsDoNotBlockGoodSibling(t *testi
 	require.NoError(t, db.WithContext(ctx).First(&good, "id='public-two-doc'").Error)
 	var denied types.Knowledge
 	require.Error(t, db.WithContext(ctx).First(&denied, "id='held-document'").Error)
-	p := &types.WikiPage{ID: "production-guard-page", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/good", PageType: "concept", Status: "published", Content: "current verified content", Version: 1, SourceRefs: types.StringArray{"public-two-doc"}}
+	p := &types.WikiPage{
+		ID:              "production-guard-page",
+		TenantID:        1,
+		KnowledgeBaseID: "public-two",
+		Slug:            "concept/good",
+		PageType:        "concept",
+		Status:          "published",
+		Content:         "current verified content",
+		Version:         1,
+		SourceRefs:      types.StringArray{"public-two-doc"},
+	}
 	require.NoError(t, repo.Create(ctx, p))
 	read, err := repo.GetBySlug(ctx, "public-two", p.Slug)
 	require.NoError(t, err)
@@ -389,8 +474,14 @@ func TestWikiDocumentSelectionProductionReadGuardsDoNotBlockGoodSibling(t *testi
 	pages, _, err := store.VerifiedPages(context.Background(), 1, "public-two", []string{"public-two-doc"})
 	require.NoError(t, err)
 	require.Len(t, pages, 1)
-	require.NoError(t, store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages))
-	require.NoError(t, db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("enable_status", "disabled").Error)
+	require.NoError(
+		t,
+		store.RevalidatePages(context.Background(), 1, "public-two", []string{"public-two-doc"}, pages),
+	)
+	require.NoError(
+		t,
+		db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("enable_status", "disabled").Error,
+	)
 	require.Error(t, db.WithContext(ctx).First(&good, "id='public-two-doc'").Error)
 }
 
@@ -398,7 +489,15 @@ func TestWikiDocumentSelectionPreservesNewPublicationBesideParkedOperation(t *te
 	f := prepareWikiSelectionFixture(t)
 	db := f.DB
 	repo := repository.NewWikiPageRepository(db)
-	old := types.TaskPendingOp{TenantID: 1, Scope: "wiki_skipped_ops", ScopeID: "public-two", TaskType: "wiki:ingest", Op: "ingest", DedupKey: "public-two-doc", Payload: json.RawMessage(`{"op":"ingest","knowledge_id":"public-two-doc","attempt":1}`)}
+	old := types.TaskPendingOp{
+		TenantID: 1,
+		Scope:    "wiki_skipped_ops",
+		ScopeID:  "public-two",
+		TaskType: "wiki:ingest",
+		Op:       "ingest",
+		DedupKey: "public-two-doc",
+		Payload:  json.RawMessage(`{"op":"ingest","knowledge_id":"public-two-doc","attempt":1}`),
+	}
 	require.NoError(t, db.Create(&old).Error)
 	live := old
 	live.ID = 0
@@ -427,7 +526,17 @@ func TestWikiDocumentSelectionPreviewDoesNotModifyPagesOrQueue(t *testing.T) {
 	f := prepareWikiSelectionFixture(t)
 	db := f.DB
 	addWikiSelectionDocument(t, db, "preview-blocked", "feishu", "completed", "enabled")
-	page := &types.WikiPage{ID: "preview-unknown", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/old", PageType: "concept", Status: "published", Content: "historical bytes", Version: 1, SourceRefs: types.StringArray{"public-two-doc", "preview-blocked"}}
+	page := &types.WikiPage{
+		ID:              "preview-unknown",
+		TenantID:        1,
+		KnowledgeBaseID: "public-two",
+		Slug:            "concept/old",
+		PageType:        "concept",
+		Status:          "published",
+		Content:         "historical bytes",
+		Version:         1,
+		SourceRefs:      types.StringArray{"public-two-doc", "preview-blocked"},
+	}
 	require.NoError(t, db.Create(page).Error)
 	var before int64
 	require.NoError(t, db.Model(&types.TaskPendingOp{}).Count(&before).Error)
@@ -456,9 +565,27 @@ func TestWikiDocumentSelectionBrowserKeepsGoodPagesReadableAndFencesOutput(t *te
 	repo := repository.NewWikiPageRepository(db)
 	work, _, err := repository.BeginWikiDocumentGeneration(context.Background(), repo, "public-two")
 	require.NoError(t, err)
-	p := &types.WikiPage{ID: "browser-good", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/browser", PageType: "concept", Status: "published", Content: "verified browser body", Version: 1, SourceRefs: types.StringArray{"public-two-doc"}}
+	p := &types.WikiPage{
+		ID:              "browser-good",
+		TenantID:        1,
+		KnowledgeBaseID: "public-two",
+		Slug:            "concept/browser",
+		PageType:        "concept",
+		Status:          "published",
+		Content:         "verified browser body",
+		Version:         1,
+		SourceRefs:      types.StringArray{"public-two-doc"},
+	}
 	require.NoError(t, repo.Create(work, p))
-	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config) VALUES('browser-held-source',1,'public-two','synthetic','feishu','active','hold','{}')`).Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,"+
+				"type,status,legacy_access_state,config) "+
+				"VALUES('browser-held-source',1,'public-two','synthetic','feishu',"+
+				"'active','hold','{}')",
+		).Error,
+	)
 	unknown := *p
 	unknown.ID = "browser-unknown"
 	unknown.Slug = "concept/unknown"
@@ -481,9 +608,20 @@ func TestWikiDocumentSelectionBrowserKeepsGoodPagesReadableAndFencesOutput(t *te
 	require.EqualValues(t, 1, stats.TotalPages)
 	require.NoError(t, types.CheckLegacyReadScope(db.WithContext(read)))
 	var raw types.Knowledge
-	require.Error(t, db.WithContext(read).First(&raw, "id='public-two-doc'").Error, "page scope does not authorize a raw document body")
+	require.Error(
+		t,
+		db.WithContext(read).First(&raw, "id='public-two-doc'").Error,
+		"page scope does not authorize a raw document body",
+	)
 	_, err = repository.BeginVerifiedWikiBrowserRead(fixture.Key("A", 1, 1, true), repo, "public-two")
 	require.Error(t, err, "API keys cannot obtain a workspace browser capability")
-	require.NoError(t, db.Model(&types.WikiPage{}).Where("id=?", p.ID).Update("content", "raw changed after read").Error)
-	require.Error(t, types.CheckLegacyReadScope(db.WithContext(read)), "final writer rejects concurrent raw page edits")
+	require.NoError(
+		t,
+		db.Model(&types.WikiPage{}).Where("id=?", p.ID).Update("content", "raw changed after read").Error,
+	)
+	require.Error(
+		t,
+		types.CheckLegacyReadScope(db.WithContext(read)),
+		"final writer rejects concurrent raw page edits",
+	)
 }

@@ -1,2 +1,4 @@
 /.codebuddy
 /__pycache__
+/*.egg-info/
+/data/

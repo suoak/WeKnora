@@ -17,7 +17,11 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	r, a, err := s.beginLegacySourceIdentityStrict(ctx, kb, store, ds, item)
 	var fence *repository.LegacyFenceError
 	if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") != "true" || item.CurrentSnapshot == nil ||
-		!errors.As(err, &fence) || (fence.Reason != "source_revision_content_conflict" && fence.Reason != "source_identity_legacy_proof_required") {
+		!errors.As(
+			err,
+			&fence,
+		) || (fence.Reason != "source_revision_content_conflict" && fence.
+		Reason != "source_identity_legacy_proof_required") {
 		return r, a, err
 	}
 	// Capture before the network observation; Begin checks this exact database

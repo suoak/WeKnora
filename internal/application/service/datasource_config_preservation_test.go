@@ -76,7 +76,7 @@ func TestScheduleOnlyEncryptedConfigPreservesAccessP0(t *testing.T) {
 			require.NoError(t, err)
 			saved, err := repo.FindByID(context.Background(), f.ds.ID)
 			require.NoError(t, err)
-			require.Equal(t, "hold", saved.LegacyAccessState, "actual resource changes still require verification")
+			require.Equal(t, "active", saved.LegacyAccessState, "validated config replaces execution ownership")
 			require.Equal(t, 1, connector.validations)
 		})
 	}

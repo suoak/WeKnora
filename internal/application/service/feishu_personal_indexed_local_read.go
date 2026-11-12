@@ -53,7 +53,8 @@ func (p *PersonalRecovery) indexedLocalReadContext(
 	}
 	caller := types.CallerFromContext(ctx)
 	principal, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if !ok || principal.Type != types.PrincipalWebUser || principal.ID == "" || principal.ID != caller.UserID {
+	if !ok || principal.Type != types.PrincipalWebUser || principal.ID == "" ||
+		principal.ID != caller.UserID {
 		return ctx, true, access.ErrUnauthorized
 	}
 	view := types.PersonalExactReceipt{TenantID: header.TenantID, KnowledgeBaseID: header.KnowledgeBaseID}
@@ -195,11 +196,13 @@ LIMIT 2`, personalIndexReceiptScope, id, view.TenantID, view.KnowledgeBaseID, ty
 		return row, nil, errPersonalExactDocument
 	}
 	var bindings []types.ResourceBinding
-	if err = p.service.db.WithContext(ctx).Where("resource_id=?", stored.ID).Limit(2).Find(&bindings).Error; err != nil {
+	if err = p.service.db.WithContext(ctx).Where("resource_id=?", stored.ID).Limit(2).Find(&bindings).
+		Error; err != nil {
 		return row, nil, err
 	}
 	if len(bindings) != 1 || bindings[0].TenantID != view.TenantID || bindings[0].OwnerID != id ||
-		bindings[0].OwnerType != types.ResourceOwnerKnowledge || bindings[0].Relation != types.ResourceRelationSourceFile {
+		bindings[0].OwnerType != types.ResourceOwnerKnowledge || bindings[0].Relation != types.
+		ResourceRelationSourceFile {
 		return row, nil, errPersonalExactDocument
 	}
 	ks, ok := p.service.knowledge.(*knowledgeService)

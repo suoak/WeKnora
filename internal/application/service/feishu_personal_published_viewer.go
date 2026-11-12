@@ -40,7 +40,7 @@ func (p *PersonalRecovery) checkExactPublishedViewer(
 	if err := p.service.db.WithContext(ctx).Where(
 		"user_id=? AND tenant_id=? AND status=? AND deleted_at IS NULL",
 		caller.UserID, caller.TenantID, types.TenantMemberStatusActive,
-	).Take(&member).Error; err != nil && !(administrator && errors.Is(err, gorm.ErrRecordNotFound)) {
+	).Take(&member).Error; err != nil && (!administrator || !errors.Is(err, gorm.ErrRecordNotFound)) {
 		return nil, publishedViewerDenied("membership_lookup", err)
 	}
 	if !administrator && (!member.Role.IsValid() || member.Role != caller.Role) {
@@ -69,7 +69,9 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 		key, err := keys.GetUserMCPAPIKey(ctx, caller.UserID, scope.KeyID)
 		if err != nil || key.OwnerUserID == nil || *key.OwnerUserID != caller.UserID || key.FullAccess ||
 			key.RevokedAt != nil || (key.ExpiresAt != nil && !time.Now().Before(*key.ExpiresAt)) ||
-			!(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(types.APIKeyCapabilityRetrieve) {
+			!(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(
+				types.APIKeyCapabilityRetrieve,
+			) {
 			return nil, access.ErrUnauthorized
 		}
 		live, err := keys.GetUserMCPTenantScope(ctx, key.ID, caller.TenantID)
@@ -106,7 +108,10 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 	return kb, nil
 }
 
-func (p *PersonalRecovery) crossTenantPublishedWebAdministrator(ctx context.Context, caller types.Caller) (bool, error) {
+func (p *PersonalRecovery) crossTenantPublishedWebAdministrator(
+	ctx context.Context,
+	caller types.Caller,
+) (bool, error) {
 	principal, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
 	if !ok || principal.Type != types.PrincipalWebUser || principal.ID != caller.UserID ||
 		caller.UserID == "" || caller.Role != types.TenantRoleAdmin {

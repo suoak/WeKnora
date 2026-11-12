@@ -183,6 +183,11 @@ jobs:
           psql -h localhost -U postgres -d postgres -v ON_ERROR_STOP=1 \
             -c 'CREATE DATABASE migration_upgrade TEMPLATE template0;'
 
+      - name: Reconcile both real 3046 migration lineages
+        env:
+          WEKNORA_MIGRATION_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        run: go test -v ./internal/database -run '^Test(Postgres|SQLite)3046LineagesReconcileWithoutLosingUsage$' -count=1
+
       - name: Validate fresh migration and idempotency
         shell: bash
         run: |

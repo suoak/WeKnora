@@ -1,8 +1,9 @@
 package repository
 
 import (
-	"gorm.io/gorm"
 	"sort"
+
+	"gorm.io/gorm"
 )
 
 func wikiSelectionIDs(selected map[string]bool) []string {

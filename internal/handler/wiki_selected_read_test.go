@@ -18,7 +18,11 @@ type selectedReadKBStub struct {
 }
 
 func (s selectedReadKBStub) GetKnowledgeBaseByID(context.Context, string) (*types.KnowledgeBase, error) {
-	return &types.KnowledgeBase{ID: "reviewed", TenantID: s.tenant, IndexingStrategy: types.IndexingStrategy{WikiEnabled: true}}, nil
+	return &types.KnowledgeBase{
+		ID:               "reviewed",
+		TenantID:         s.tenant,
+		IndexingStrategy: types.IndexingStrategy{WikiEnabled: true},
+	}, nil
 }
 
 type selectedReadWikiStub struct {
@@ -26,7 +30,10 @@ type selectedReadWikiStub struct {
 	calls int
 }
 
-func (s *selectedReadWikiStub) VerifiedWikiBrowserReadContext(ctx context.Context, _ string) (context.Context, error) {
+func (s *selectedReadWikiStub) VerifiedWikiBrowserReadContext(
+	ctx context.Context,
+	_ string,
+) (context.Context, error) {
 	s.calls++
 	return ctx, nil
 }

@@ -10,6 +10,19 @@ export function personalMcpURL(publicURL: string): string {
   return url.toString()
 }
 
+export type PersonalMcpEnvironment = 'intranet' | 'isolated'
+export const ISOLATED_PERSONAL_MCP_URL = 'https://knowhub.ruijie.com.cn:8443/api/v1/mcp/personal'
+
+export function personalMcpEnvironmentURL(publicURL: string, environment: PersonalMcpEnvironment): string {
+  return environment === 'isolated' ? ISOLATED_PERSONAL_MCP_URL : personalMcpURL(publicURL)
+}
+
+// Browser origin policy is independent of MCP reachability from an AI client.
+// Do not retrieve or send a Secret for a browser check that CORS would block.
+export function canCheckPersonalMcpInBrowser(url: string, pageURL: string): boolean {
+  return new URL(url).origin === new URL(pageURL).origin
+}
+
 export function personalMcpConfig(publicURL: string, token: string) {
   return JSON.stringify({ mcpServers: { knowhub: {
     type: 'http', url: personalMcpURL(publicURL), headers: { Authorization: `Bearer ${token}` },

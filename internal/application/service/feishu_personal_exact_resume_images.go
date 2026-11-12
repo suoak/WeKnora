@@ -20,8 +20,15 @@ type exactResumeImageFiles struct {
 	consumer *exactPersonalConsumer
 }
 
-func (f *exactResumeImageFiles) SaveBytes(ctx context.Context, data []byte, tenant uint64, _ string, temp bool) (string, error) {
-	if f.consumer == nil || !f.consumer.resuming || temp || tenant != f.consumer.source.tenant || len(data) == 0 {
+func (f *exactResumeImageFiles) SaveBytes(
+	ctx context.Context,
+	data []byte,
+	tenant uint64,
+	_ string,
+	temp bool,
+) (string, error) {
+	if f.consumer == nil || !f.consumer.resuming || temp || tenant != f.consumer.source.tenant ||
+		len(data) == 0 {
 		return "", errPersonalExactDependencies
 	}
 	proof := f.consumer.source
@@ -46,7 +53,7 @@ AND b.tenant_id=f.tenant_id AND b.owner_type='knowledge' AND b.owner_id=? AND b.
 		if row.ContentHash != "" && row.ContentHash != wanted {
 			continue
 		}
-		reader, err := f.FileService.GetFile(ctx, row.PhysicalPath)
+		reader, err := f.GetFile(ctx, row.PhysicalPath)
 		if err != nil {
 			return "", err
 		}

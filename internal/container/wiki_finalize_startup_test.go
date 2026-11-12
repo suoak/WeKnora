@@ -30,7 +30,10 @@ func TestStartupWikiFinalizeRealRedis(t *testing.T) {
 
 func testStartupWikiFinalize(t *testing.T, addr string) {
 	t.Helper()
-	for _, failure := range []string{service.ErrWikiIngestConcurrent.Error(), "real model failure", "Feishu source access requires verification"} {
+	for _, failure := range []string{
+		service.ErrWikiIngestConcurrent.Error(), "real model failure",
+		"Feishu source access requires verification",
+	} {
 		t.Run(failure, func(t *testing.T) {
 			db := setupResetPendingDB(t)
 			kb := fmt.Sprintf("startup-%d", time.Now().UnixNano())

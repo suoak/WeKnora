@@ -1,0 +1,6 @@
+{
+  "scope": "knowhub-isolated-p1-20261111",
+  "nginx_test": "PASS",
+  "reload": "PASS",
+  "proxy_target": "internal isolated PersonalServer route"
+}
