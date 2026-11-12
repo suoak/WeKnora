@@ -319,21 +319,26 @@ func (k *Knowledge) BeforeCreate(tx *gorm.DB) (err error) {
 
 // ManualKnowledgeMetadata stores metadata for manual Markdown knowledge content.
 type ManualKnowledgeMetadata struct {
-	Content   string `json:"content"`
-	Format    string `json:"format"`
-	Status    string `json:"status"`
-	Version   int    `json:"version"`
-	UpdatedAt string `json:"updated_at"`
+	CreationRequestHash string `json:"creation_request_hash,omitempty"`
+	MCPKeyID            string `json:"mcp_key_id,omitempty"`
+	Content             string `json:"content"`
+	Format              string `json:"format"`
+	Status              string `json:"status"`
+	Version             int    `json:"version"`
+	UpdatedAt           string `json:"updated_at"`
 }
 
 // ManualKnowledgePayload represents the payload for manual knowledge operations.
 type ManualKnowledgePayload struct {
-	Title         string                     `json:"title"`
-	Content       string                     `json:"content"`
-	Status        string                     `json:"status"`
-	TagIDs        []string                   `json:"tag_ids"`
-	Channel       string                     `json:"channel"`
-	ProcessConfig *KnowledgeProcessOverrides `json:"process_config,omitempty"`
+	// Internal admission fields cannot be supplied over REST.
+	CreationID          string                     `json:"-"`
+	CreationRequestHash string                     `json:"-"`
+	Title               string                     `json:"title"`
+	Content             string                     `json:"content"`
+	Status              string                     `json:"status"`
+	TagIDs              []string                   `json:"tag_ids"`
+	Channel             string                     `json:"channel"`
+	ProcessConfig       *KnowledgeProcessOverrides `json:"process_config,omitempty"`
 }
 
 // KnowledgeSearchScope defines a (tenant_id, knowledge_base_id) scope for knowledge search (e.g. own KBs + shared KBs).
@@ -416,6 +421,28 @@ func (k *Knowledge) SetManualMetadata(meta *ManualKnowledgeMetadata) error {
 	old, err := k.Metadata.Map()
 	if err != nil {
 		return err
+	}
+	if hash, ok := old["creation_request_hash"]; ok {
+		fields, err := jsonValue.Map()
+		if err != nil {
+			return err
+		}
+		fields["creation_request_hash"] = hash
+		jsonValue, err = json.Marshal(fields)
+		if err != nil {
+			return err
+		}
+	}
+	if key, ok := old["mcp_key_id"]; ok {
+		fields, err := jsonValue.Map()
+		if err != nil {
+			return err
+		}
+		fields["mcp_key_id"] = key
+		jsonValue, err = json.Marshal(fields)
+		if err != nil {
+			return err
+		}
 	}
 	if state, ok := old[KnowledgeTransferMetadataKey]; ok {
 		fields, err := jsonValue.Map()

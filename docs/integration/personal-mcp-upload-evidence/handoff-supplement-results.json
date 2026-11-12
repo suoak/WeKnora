@@ -1,0 +1,924 @@
+[
+  {
+    "name": "search-keyword",
+    "pass": true,
+    "detail": {
+      "results": [
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "chunk_id": "37076bdb-a4cc-474e-9d00-2df2fde3dec9",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "rank_score": 0.01639344262295082
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "146a6558-2fff-5760-a9d9-5516956babe3",
+          "chunk_id": "a8f92670-832b-44d6-b6a6-35a622609f0b",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:146a6558-2fff-5760-a9d9-5516956babe3",
+          "rank_score": 0.016129032258064516
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "601c6410-62cd-5788-9d58-18039d76f086",
+          "chunk_id": "0064e0f8-4ea5-471f-9427-94c75d33c099",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:601c6410-62cd-5788-9d58-18039d76f086",
+          "rank_score": 0.015873015873015872
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "chunk_id": "6a89a72c-35bf-4a40-a794-25aded9cf21c",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "rank_score": 0.015625
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "chunk_id": "53b8dcc9-680c-4293-b8e0-3581f46ddc26",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "rank_score": 0.015384615384615385
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "chunk_id": "23480774-bf83-45d7-8599-248d50a27a79",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "rank_score": 0.015151515151515152
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "chunk_id": "a282262c-944d-4784-a2de-ac529020513d",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "rank_score": 0.014925373134328358
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "chunk_id": "e3ebf869-9009-4628-bbb3-784e318a6cff",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "rank_score": 0.014705882352941176
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "chunk_id": "e82d386f-5cc1-4999-8249-dc1f3520d00a",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "rank_score": 0.014492753623188406
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "chunk_id": "1210c835-f0a9-4dca-8531-c611df62a8dd",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "rank_score": 0.014285714285714285
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "chunk_id": "0d97f89a-bb53-4c7a-94f2-3c518ac540fe",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "rank_score": 0.014084507042253521
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "chunk_id": "b11821ac-b0a1-458c-ace5-5a78bbdb05dc",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "rank_score": 0.013888888888888888
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "chunk_id": "2c491c89-915c-4707-80e8-4a0ebddb4174",
+          "title": "Codex real MCP client",
+          "content": "KNOWHUB_CODEX_REAL_CLIENT_MARKER synthetic acceptance",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "rank_score": 0.0136986301369863
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "chunk_id": "ba3f6b66-0a44-4944-b0e0-e3553b25040c",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "rank_score": 0.013513513513513514
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "chunk_id": "5acb8c99-8ab5-48e9-87d9-692715402801",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "rank_score": 0.013333333333333334
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "chunk_id": "93345138-eed2-4ec4-9d3f-1bfde4d08a16",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "rank_score": 0.013157894736842105
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "chunk_id": "3e863a07-d688-4bd8-8633-3e136455985c",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "rank_score": 0.012987012987012988
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "chunk_id": "a9b66c05-a280-48a0-be48-938dbfa23054",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "rank_score": 0.01282051282051282
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "chunk_id": "c867ac2a-c215-4ccd-9cf4-6de2be1d4bf6",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "rank_score": 0.012658227848101266
+        }
+      ],
+      "searched_kbs": 1,
+      "failed_kbs": 0,
+      "status": "complete"
+    }
+  },
+  {
+    "name": "search-semantic",
+    "pass": true,
+    "detail": {
+      "results": [
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "chunk_id": "a9b66c05-a280-48a0-be48-938dbfa23054",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "rank_score": 0.01639344262295082
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "chunk_id": "1210c835-f0a9-4dca-8531-c611df62a8dd",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "rank_score": 0.016129032258064516
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "chunk_id": "ba3f6b66-0a44-4944-b0e0-e3553b25040c",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "rank_score": 0.015873015873015872
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "chunk_id": "2c491c89-915c-4707-80e8-4a0ebddb4174",
+          "title": "Codex real MCP client",
+          "content": "KNOWHUB_CODEX_REAL_CLIENT_MARKER synthetic acceptance",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "rank_score": 0.015625
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "ea59e5f0-f1ee-579a-ad72-016e7830ae3c",
+          "chunk_id": "323c3e8e-e4aa-4e00-a979-08c732532d40",
+          "title": "codex.txt",
+          "content": "Codex synthetic file acceptance",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:ea59e5f0-f1ee-579a-ad72-016e7830ae3c",
+          "rank_score": 0.015384615384615385
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "chunk_id": "a282262c-944d-4784-a2de-ac529020513d",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "rank_score": 0.015151515151515152
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "chunk_id": "23480774-bf83-45d7-8599-248d50a27a79",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "rank_score": 0.014925373134328358
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "601c6410-62cd-5788-9d58-18039d76f086",
+          "chunk_id": "0064e0f8-4ea5-471f-9427-94c75d33c099",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:601c6410-62cd-5788-9d58-18039d76f086",
+          "rank_score": 0.014705882352941176
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "chunk_id": "3e863a07-d688-4bd8-8633-3e136455985c",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "rank_score": 0.014492753623188406
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "chunk_id": "0d97f89a-bb53-4c7a-94f2-3c518ac540fe",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "rank_score": 0.014285714285714285
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "chunk_id": "5acb8c99-8ab5-48e9-87d9-692715402801",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "rank_score": 0.014084507042253521
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "chunk_id": "e3ebf869-9009-4628-bbb3-784e318a6cff",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "rank_score": 0.013888888888888888
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "chunk_id": "37076bdb-a4cc-474e-9d00-2df2fde3dec9",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "rank_score": 0.0136986301369863
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "146a6558-2fff-5760-a9d9-5516956babe3",
+          "chunk_id": "a8f92670-832b-44d6-b6a6-35a622609f0b",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:146a6558-2fff-5760-a9d9-5516956babe3",
+          "rank_score": 0.013513513513513514
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "chunk_id": "c867ac2a-c215-4ccd-9cf4-6de2be1d4bf6",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "rank_score": 0.013333333333333334
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "chunk_id": "93345138-eed2-4ec4-9d3f-1bfde4d08a16",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "rank_score": 0.013157894736842105
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "chunk_id": "b11821ac-b0a1-458c-ace5-5a78bbdb05dc",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "rank_score": 0.012987012987012988
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "chunk_id": "53b8dcc9-680c-4293-b8e0-3581f46ddc26",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "rank_score": 0.01282051282051282
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "chunk_id": "6a89a72c-35bf-4a40-a794-25aded9cf21c",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "rank_score": 0.012658227848101266
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "chunk_id": "e82d386f-5cc1-4999-8249-dc1f3520d00a",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "rank_score": 0.0125
+        }
+      ],
+      "searched_kbs": 1,
+      "failed_kbs": 0,
+      "status": "complete"
+    }
+  },
+  {
+    "name": "search-hybrid",
+    "pass": true,
+    "detail": {
+      "results": [
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "601c6410-62cd-5788-9d58-18039d76f086",
+          "chunk_id": "0064e0f8-4ea5-471f-9427-94c75d33c099",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:601c6410-62cd-5788-9d58-18039d76f086",
+          "rank_score": 0.03057889822595705
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "chunk_id": "1210c835-f0a9-4dca-8531-c611df62a8dd",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+          "rank_score": 0.0304147465437788
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "chunk_id": "37076bdb-a4cc-474e-9d00-2df2fde3dec9",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:1b516e8a-bf09-5fa8-90f0-638566e6327e",
+          "rank_score": 0.03009207275993712
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "chunk_id": "23480774-bf83-45d7-8599-248d50a27a79",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+          "rank_score": 0.03007688828584351
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "chunk_id": "a282262c-944d-4784-a2de-ac529020513d",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+          "rank_score": 0.03007688828584351
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "146a6558-2fff-5760-a9d9-5516956babe3",
+          "chunk_id": "a8f92670-832b-44d6-b6a6-35a622609f0b",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:146a6558-2fff-5760-a9d9-5516956babe3",
+          "rank_score": 0.02964254577157803
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "chunk_id": "ba3f6b66-0a44-4944-b0e0-e3553b25040c",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+          "rank_score": 0.029386529386529386
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "chunk_id": "2c491c89-915c-4707-80e8-4a0ebddb4174",
+          "title": "Codex real MCP client",
+          "content": "KNOWHUB_CODEX_REAL_CLIENT_MARKER synthetic acceptance",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+          "rank_score": 0.0293236301369863
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "chunk_id": "a9b66c05-a280-48a0-be48-938dbfa23054",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:18c68315-8d7b-5849-ba3f-39584ab59e95",
+          "rank_score": 0.02921395544346364
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "chunk_id": "e3ebf869-9009-4628-bbb3-784e318a6cff",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4bf53eb6-3550-5657-82a8-a082e6338eaa",
+          "rank_score": 0.028594771241830064
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "chunk_id": "0d97f89a-bb53-4c7a-94f2-3c518ac540fe",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:392cbef0-9c54-5e06-a04f-5df3363c648e",
+          "rank_score": 0.028370221327967807
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "chunk_id": "6a89a72c-35bf-4a40-a794-25aded9cf21c",
+          "title": "synthetic.docx",
+          "content": "KNOWHUB DOCX FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+          "rank_score": 0.028283227848101264
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "chunk_id": "53b8dcc9-680c-4293-b8e0-3581f46ddc26",
+          "title": "synthetic.pdf",
+          "content": "KNOWHUB PDF FILE ACCEPTANCE MARKER",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:d7f4411f-0ab2-51eb-b986-5875fe983760",
+          "rank_score": 0.028205128205128206
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "chunk_id": "3e863a07-d688-4bd8-8633-3e136455985c",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+          "rank_score": 0.027479766610201392
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "chunk_id": "5acb8c99-8ab5-48e9-87d9-692715402801",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:6a4acc7b-bfcc-557d-a712-c511dd55137c",
+          "rank_score": 0.027417840375586856
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "chunk_id": "e82d386f-5cc1-4999-8249-dc1f3520d00a",
+          "title": "synthetic.xlsx",
+          "content": "A: KNOWHUB XLSX FILE ACCEPTANCE MARKER\n",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:fb68d514-820e-5c84-a075-783b7d5ceba0",
+          "rank_score": 0.026992753623188405
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "chunk_id": "b11821ac-b0a1-458c-ace5-5a78bbdb05dc",
+          "title": "synthetic.txt",
+          "content": "KNOWHUB_FILE_ACCEPTANCE_MARKER synthetic uploaded file content.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:0748359f-b2e8-518c-b155-21deefb8f3c4",
+          "rank_score": 0.026875901875901876
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "chunk_id": "93345138-eed2-4ec4-9d3f-1bfde4d08a16",
+          "title": "synthetic.md",
+          "content": "# KNOWHUB_MARKDOWN_FILE_ACCEPTANCE_MARKER\nSynthetic markdown upload",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+          "rank_score": 0.02631578947368421
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "chunk_id": "c867ac2a-c215-4ccd-9cf4-6de2be1d4bf6",
+          "title": "synthetic upload acceptance",
+          "content": "# KNOWHUB_UPLOAD_ACCEPTANCE_MARKER\nSynthetic document for isolated content acceptance.",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+          "rank_score": 0.0259915611814346
+        },
+        {
+          "tenant_id": 1,
+          "space": "Synthetic space 1",
+          "knowledge_base_id": "upload-a-kb",
+          "knowledge_base_name": "upload-a-kb",
+          "knowledge_id": "ea59e5f0-f1ee-579a-ad72-016e7830ae3c",
+          "chunk_id": "323c3e8e-e4aa-4e00-a979-08c732532d40",
+          "title": "codex.txt",
+          "content": "Codex synthetic file acceptance",
+          "reference": "knowhub:tenant:1:kb:upload-a-kb:document:ea59e5f0-f1ee-579a-ad72-016e7830ae3c",
+          "rank_score": 0.015384615384615385
+        }
+      ],
+      "searched_kbs": 1,
+      "failed_kbs": 0,
+      "status": "complete"
+    }
+  },
+  {
+    "name": "all-documents-completed",
+    "pass": true,
+    "detail": [
+      {
+        "id": "601c6410-62cd-5788-9d58-18039d76f086",
+        "type": "pdf",
+        "status": "completed"
+      },
+      {
+        "id": "05fb3971-430b-5497-941f-592ecd4f4b53",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "0748359f-b2e8-518c-b155-21deefb8f3c4",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "fb68d514-820e-5c84-a075-783b7d5ceba0",
+        "type": "xlsx",
+        "status": "completed"
+      },
+      {
+        "id": "3bf2ea50-5fc5-5832-a7fe-02fececee6bc",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "e2e0f383-260d-5ec0-a1d6-fc6a571f7aad",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "f3992c06-d058-5360-93ef-42e6cecce43d",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "e619eec7-f8f1-514b-b5f5-665ba9f40c73",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "406bd09f-73dc-5bbc-9d0d-10bba29794b9",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "146a6558-2fff-5760-a9d9-5516956babe3",
+        "type": "docx",
+        "status": "completed"
+      },
+      {
+        "id": "2685c1bd-22e3-5ecb-9f66-c90c6050d3dc",
+        "type": "md",
+        "status": "completed"
+      },
+      {
+        "id": "392cbef0-9c54-5e06-a04f-5df3363c648e",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "4bf53eb6-3550-5657-82a8-a082e6338eaa",
+        "type": "xlsx",
+        "status": "completed"
+      },
+      {
+        "id": "18c68315-8d7b-5849-ba3f-39584ab59e95",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "6b10797b-191d-558e-813d-224a8effc071",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "f9868059-f6c1-5a54-ae18-97f6035fe5bb",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "68e4032f-d2aa-505a-b657-7dd8cf4d72fa",
+        "type": "md",
+        "status": "completed"
+      },
+      {
+        "id": "5bb6e91f-2db4-505d-a774-5e99ed9c7269",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "d6ae66b5-2616-5e80-a5ad-7fb2103179e7",
+        "type": "xlsx",
+        "status": "completed"
+      },
+      {
+        "id": "cd7951ff-1bde-5d2c-8040-58ea4dca7dcd",
+        "type": "docx",
+        "status": "completed"
+      },
+      {
+        "id": "ea59e5f0-f1ee-579a-ad72-016e7830ae3c",
+        "type": "txt",
+        "status": "completed"
+      },
+      {
+        "id": "cb3f9554-bce8-52c0-8a40-a1b26ee8ceaa",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "8b9d00f5-862e-52bc-963a-54a3b98e59ec",
+        "type": "docx",
+        "status": "completed"
+      },
+      {
+        "id": "d7f4411f-0ab2-51eb-b986-5875fe983760",
+        "type": "pdf",
+        "status": "completed"
+      },
+      {
+        "id": "6a4acc7b-bfcc-557d-a712-c511dd55137c",
+        "type": "md",
+        "status": "completed"
+      },
+      {
+        "id": "1b516e8a-bf09-5fa8-90f0-638566e6327e",
+        "type": "pdf",
+        "status": "completed"
+      },
+      {
+        "id": "857c8ebe-1c00-5fb5-a54c-bba2b0bd445e",
+        "type": "manual",
+        "status": "completed"
+      },
+      {
+        "id": "5e4a5fec-e024-5aee-8eef-f9fe6b361d1c",
+        "type": "manual",
+        "status": "completed"
+      }
+    ]
+  },
+  {
+    "name": "chunk-vector-generated",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "editor-revoked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "key-revoked",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "account-disabled",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-audit-identifiers",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "schema-unchanged3046",
+    "pass": true,
+    "detail": null
+  }
+]

@@ -1,0 +1,143 @@
+[
+  {
+    "name": "schema3046-before",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "external-tools",
+    "pass": true,
+    "detail": [
+      "add_document",
+      "get_document_processing_status",
+      "grep_chunks",
+      "list_documents",
+      "list_knowledge_bases",
+      "list_writable_knowledge_bases",
+      "read_document",
+      "search_knowledge",
+      "upload_document",
+      "wiki_index",
+      "wiki_read_page",
+      "wiki_search"
+    ]
+  },
+  {
+    "name": "isolated-tools",
+    "pass": true,
+    "detail": [
+      "grep_chunks",
+      "list_documents",
+      "list_knowledge_bases",
+      "read_document",
+      "search_knowledge",
+      "wiki_index",
+      "wiki_read_page",
+      "wiki_search"
+    ]
+  },
+  {
+    "name": "isolated-denies-add_document",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "isolated-denies-upload_document",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "isolated-denies-get_document_processing_status",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "isolated-denies-delete_document",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "writable-scope",
+    "pass": true,
+    "detail": [
+      "upload-a-kb",
+      "upload-editor-kb",
+      "upload-private-kb"
+    ]
+  },
+  {
+    "name": "same-space-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "viewer-share-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "retrieve-only-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "fixed-scope-denied",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "text-own",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "text-private",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "text-editor",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-txt",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-concurrent-idempotent",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-payload-conflict",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-md",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-pdf",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-docx",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "upload-xlsx",
+    "pass": true,
+    "detail": null
+  },
+  {
+    "name": "schema3046-after",
+    "pass": true,
+    "detail": null
+  }
+]

@@ -312,7 +312,7 @@ func (h *TenantHandler) GetUserMCPAPIKey(c *gin.Context) {
 		c.Error(errors.NewNotFoundError("MCP API key not found"))
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"success": true, "data": userMCPResponse(row)})
+	c.JSON(http.StatusOK, gin.H{"success": true, "data": h.personalContentDetails(c, row)})
 }
 
 // Reveal is separate from metadata listing. The owner must authenticate with

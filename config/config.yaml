@@ -9,6 +9,8 @@ personal_mcp:
   review_enabled: false
   system_admin_review: false
   exceptions_enabled: false
+  # Operator-controlled ClamAV endpoint (host:port or unix:/path). Optional; empty skips antivirus scanning.
+  upload_scanner_address: ""
   concurrency:
     # Per APP replica; both cloud routes share these pools. Protocol capacity
     # is reserved separately from tool execution. All limits stay bounded.

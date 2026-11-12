@@ -67,3 +67,10 @@ test('empty, public-only, foreign and stale selections cannot become all knowled
   }
   assert.throws(() => personalKnowledgeRangePayload('default', {}, []))
 })
+
+
+test('content creation opt-in preserves personal presentation without becoming generic ingest', () => {
+  assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', client_type: 'generic', capabilities: ['retrieve', 'add_content'] }), true)
+  assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', capabilities: ['retrieve', 'enterprise_retrieve', 'add_content'] }), true)
+  assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', capabilities: ['retrieve', 'ingest'] as any }), false)
+})

@@ -1,0 +1,725 @@
+{
+  "commit": "921d92250",
+  "checks": [
+    {
+      "status": "fulfilled",
+      "value": {
+        "run_id": 43195877191,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Action completed."
+            }
+          ],
+          "structuredContent": {
+            "jobs": [
+              {
+                "id": 131106583632,
+                "name": "linux",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195877191,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Format and build",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Full related package regression",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Content admission race regression",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Vet",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Post Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 13
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 14
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 15
+                  }
+                ]
+              }
+            ]
+          },
+          "isError": false
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "run_id": 43195877004,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Action completed."
+            }
+          ],
+          "structuredContent": {
+            "jobs": [
+              {
+                "id": 131106583442,
+                "name": "M1 Linux backend and MCP compatibility",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195877004,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Install native test dependencies",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Download Go modules",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Run complete internal backend suite",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Run actions/setup-python@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Run Python MCP tests when dependency is available",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Post Run actions/setup-python@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 14
+                  },
+                  {
+                    "name": "Post Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 15
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 16
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 17
+                  }
+                ]
+              },
+              {
+                "id": 131106583779,
+                "name": "Portal contracts, RBAC, race, and branding",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195877004,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Download Go modules",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Run Portal backend contracts",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Validate migration governance manifest and SQLite upgrade paths",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Run access approval race test",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Run actions/setup-node@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Install frontend dependencies",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 9
+                  },
+                  {
+                    "name": "Run Portal, redirect, locale, and KnowHub branding contracts",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 10
+                  },
+                  {
+                    "name": "Reject conflict markers and committed build artifacts",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 11
+                  },
+                  {
+                    "name": "Post Run actions/setup-node@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 20
+                  },
+                  {
+                    "name": "Post Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 21
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 22
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 23
+                  }
+                ]
+              },
+              {
+                "id": 131106583898,
+                "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195877004,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Initialize containers",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Install migration CLI",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Read the governed migration upgrade window",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Create isolated test databases",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Reconcile both real 3046 migration lineages",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Validate fresh migration and idempotency",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 9
+                  },
+                  {
+                    "name": "Validate existing KnowHub upgrade and preserve sentinel data",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 10
+                  },
+                  {
+                    "name": "Compare fresh and upgraded PostgreSQL schema fingerprints",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 11
+                  },
+                  {
+                    "name": "Validate Usage Governance PostgreSQL aggregation",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 12
+                  },
+                  {
+                    "name": "Validate Portal constraints and foreign-key actions",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 13
+                  },
+                  {
+                    "name": "Post Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 24
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 25
+                  },
+                  {
+                    "name": "Stop containers",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 26
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 27
+                  }
+                ]
+              }
+            ]
+          },
+          "isError": false
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "run_id": 43195876968,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Action completed."
+            }
+          ],
+          "structuredContent": {
+            "jobs": [
+              {
+                "id": 131106581683,
+                "name": "Format, vet, test, and build",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195876968,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Download modules",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Verify third-party notices and source bundle",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Check formatting",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Verify generated model catalog",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Verify Git hook test coverage",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Vet and test",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 9
+                  },
+                  {
+                    "name": "Build server",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 10
+                  },
+                  {
+                    "name": "Post Run actions/setup-go@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 19
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 20
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 21
+                  }
+                ]
+              },
+              {
+                "id": 131110695361,
+                "name": "Docker image and production startup smoke",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195876968,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run docker/setup-buildx-action@v4",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Build application image",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Derive source latest and verify complete image migration identity",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Start APP from schema 93 and verify migration and health",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Post Build application image",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 10
+                  },
+                  {
+                    "name": "Post Run docker/setup-buildx-action@v4",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 11
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 12
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 13
+                  }
+                ]
+              }
+            ]
+          },
+          "isError": false
+        }
+      }
+    },
+    {
+      "status": "fulfilled",
+      "value": {
+        "run_id": 43195876810,
+        "result": {
+          "content": [
+            {
+              "type": "text",
+              "text": "Action completed."
+            }
+          ],
+          "structuredContent": {
+            "jobs": [
+              {
+                "id": 131106582345,
+                "name": "Test, type-check, and build",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195876810,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Run actions/setup-node@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Install dependencies",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Run tests",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 5
+                  },
+                  {
+                    "name": "Folder catalog browser regression",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 6
+                  },
+                  {
+                    "name": "Type-check",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 7
+                  },
+                  {
+                    "name": "Build",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Post Run actions/setup-node@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 15
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 16
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 17
+                  }
+                ]
+              },
+              {
+                "id": 131106582664,
+                "name": "Docker multi-stage image",
+                "status": "completed",
+                "conclusion": "success",
+                "run_id": 43195876810,
+                "logs_url": null,
+                "steps": [
+                  {
+                    "name": "Set up job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 1
+                  },
+                  {
+                    "name": "Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 2
+                  },
+                  {
+                    "name": "Build UI image",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 3
+                  },
+                  {
+                    "name": "Test embed and MCP proxy routes",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 4
+                  },
+                  {
+                    "name": "Post Run actions/checkout@v6",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 8
+                  },
+                  {
+                    "name": "Complete job",
+                    "status": "completed",
+                    "conclusion": "success",
+                    "number": 9
+                  }
+                ]
+              }
+            ]
+          },
+          "isError": false
+        }
+      }
+    }
+  ]
+}

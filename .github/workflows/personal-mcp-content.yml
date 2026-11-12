@@ -1,0 +1,40 @@
+name: Personal MCP content validation
+on:
+  push:
+    branches: [feat/personal-mcp-content-write-20261112]
+  pull_request:
+    paths:
+      - internal/application/service/personal_*.go
+      - internal/application/service/knowledge_create.go
+      - internal/application/access/content_create*.go
+      - internal/mcpserver/**
+      - .github/workflows/personal-mcp-content.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: personal-content-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+          cache: true
+      - name: Format and build
+        run: |
+          git diff --check
+          go build -tags sqlite_fts5 -p 2 ./cmd/server
+      - name: Full related package regression
+        run: go test -tags sqlite_fts5 -p 2 -count=1 ./internal/application/access ./internal/mcpserver ./internal/application/service ./internal/application/repository ./internal/handler ./internal/router ./internal/middleware ./internal/config
+      - name: Content admission race regression
+        run: go test -race -tags sqlite_fts5 -p 2 -count=1 ./internal/application/service ./internal/mcpserver -run 'TestPersonalContent|TestPersonalFile|TestClamdScanner|TestIsolatedPersonal'
+      - name: Vet
+        run: go vet -tags sqlite_fts5 -p 2 ./internal/application/access ./internal/mcpserver ./internal/application/service ./internal/handler

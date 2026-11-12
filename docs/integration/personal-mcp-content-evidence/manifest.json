@@ -1,0 +1,15 @@
+{
+  "source_commit": "6ff79c87d",
+  "test_fixture_fix": "explicitly create APIKeyTenantScope and APIKeyKnowledgeBaseScope tables",
+  "host": "172.30.232.42",
+  "remote_directory": "/home/aqyfzx/ai/knowhub-personal-content-6ff79c87d-20261112",
+  "artifacts": {
+    "results.json": "5cbdaf02ed08464bd75bda9f568f76754da5c888bd3a617f8091df201c188bcd",
+    "done.json": "8a7aac8fc5b879985bf3d381cd9e0ae10b40c0db32023562c39927a58768f0c1",
+    "retry-result.json": "124fd50cb6d223cdd18fedc166d00af7254199b6e6dedf9be82f71db87af6d01",
+    "permissions-protocol.log": "cf3e1aded8cfde334762dcd807fcfebc5de0156010e019ee34087825054b81aa",
+    "real-sql-and-creation.log": "ebbdd5ec2188a42bf7ae54b82af4dfb3e76066fc2251dbc467ce334cba4daf1c",
+    "real-sql-retry.log": "00b844f1be463b5f8116f42e152bfb6ac548884c4cb819fc15ed90010c70b868",
+    "compile-wiring.log": "966d37ffb93fa41faeebac220713f2fb70e4313d906950bea73a76da49c67310"
+  }
+}

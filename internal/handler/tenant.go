@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/handler/dto"
@@ -25,14 +26,15 @@ import (
 // Provides functionality for creating, retrieving, updating, and deleting tenants
 // through the REST API endpoints
 type TenantHandler struct {
-	service        interfaces.TenantService
-	apiKeyService  interfaces.TenantAPIKeyService
-	userService    interfaces.UserService
-	memberService  interfaces.TenantMemberService
-	kbService      interfaces.KnowledgeBaseService
-	kbShareService interfaces.KBShareService
-	auditService   interfaces.AuditLogService
-	config         *config.Config
+	personalContent *service.PersonalContent
+	service         interfaces.TenantService
+	apiKeyService   interfaces.TenantAPIKeyService
+	userService     interfaces.UserService
+	memberService   interfaces.TenantMemberService
+	kbService       interfaces.KnowledgeBaseService
+	kbShareService  interfaces.KBShareService
+	auditService    interfaces.AuditLogService
+	config          *config.Config
 	// systemSettingSvc resolves runtime tenant policies and limits.
 	// Reading goes DB > ENV >
 	// in-code default, so a SystemAdmin's UI override applies on the

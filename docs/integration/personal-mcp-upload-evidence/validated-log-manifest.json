@@ -1,0 +1,47 @@
+[
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-mcp.log",
+    "bytes": 301,
+    "sha256": "fbbad6246d2162f12c08ebad36f54e8b7120afc3161e3e815c1236419c88ada6"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-race.log",
+    "bytes": 247,
+    "sha256": "9fb54bfcc559aa6076294ef00feeaceb07b5dcd26f94e4b1f625b29fafa20353"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-build.log",
+    "bytes": 121,
+    "sha256": "97f4a20fa3c62f76c8b1d23f5e39c3d2c70d4b4a16c04081fd2916a9e504d7e5"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-seed.log",
+    "bytes": 121,
+    "sha256": "97f4a20fa3c62f76c8b1d23f5e39c3d2c70d4b4a16c04081fd2916a9e504d7e5"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-lab.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-accept.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/validated-supplement.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/boundary.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "/home/aqyfzx/ai/knowhub-personal-upload-r1-20261112/handoff-supplement.log",
+    "bytes": 0,
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  }
+]

@@ -1,0 +1,66 @@
+{
+  "4c68df99-ca51-57a4-882d-d37a8ffc0ee5": {
+    "document_id": "4c68df99-ca51-57a4-882d-d37a8ffc0ee5",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "406bd09f-73dc-5bbc-9d0d-10bba29794b9": {
+    "document_id": "406bd09f-73dc-5bbc-9d0d-10bba29794b9",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-private-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "f3992c06-d058-5360-93ef-42e6cecce43d": {
+    "document_id": "f3992c06-d058-5360-93ef-42e6cecce43d",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-editor-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "392cbef0-9c54-5e06-a04f-5df3363c648e": {
+    "document_id": "392cbef0-9c54-5e06-a04f-5df3363c648e",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "6a4acc7b-bfcc-557d-a712-c511dd55137c": {
+    "document_id": "6a4acc7b-bfcc-557d-a712-c511dd55137c",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "1b516e8a-bf09-5fa8-90f0-638566e6327e": {
+    "document_id": "1b516e8a-bf09-5fa8-90f0-638566e6327e",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "146a6558-2fff-5760-a9d9-5516956babe3": {
+    "document_id": "146a6558-2fff-5760-a9d9-5516956babe3",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  },
+  "4bf53eb6-3550-5657-82a8-a082e6338eaa": {
+    "document_id": "4bf53eb6-3550-5657-82a8-a082e6338eaa",
+    "failure_reason": "",
+    "knowledge_base_id": "upload-a-kb",
+    "next_step": "Use get_document_processing_status with document_id. Retry admission with the same idempotency_key; do not create a replacement.",
+    "parse_status": "completed",
+    "status": "success"
+  }
+}
