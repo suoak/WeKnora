@@ -16,7 +16,9 @@ type protocolOnlyStore struct {
 	calls int
 }
 
-func (s *protocolOnlyStore) VerifyPortalMCPProtocolCredential(_ context.Context, user string, key, tenant uint64) error {
+func (s *protocolOnlyStore) VerifyPortalMCPProtocolCredential(
+	_ context.Context, user string, key, tenant uint64,
+) error {
 	s.calls++
 	if user != "A" || key != 1 || tenant != 99 {
 		return errors.New("wrong authenticated identity")
@@ -29,7 +31,8 @@ func TestPersonalProtocolDiscoveryDoesNotResolveCorpusOrGrantData(t *testing.T) 
 	store := &protocolOnlyStore{selectedMCPStore: underlying}
 	s.knowledge.Resolver.Store = store
 	for _, method := range []string{"initialize", "tools/list", "resources/list"} {
-		req := httptest.NewRequest("POST", personalPath, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"`+method+`","params":{}}`)).WithContext(ctx)
+		body := `{"jsonrpc":"2.0","id":1,"method":"` + method + `","params":{}}`
+		req := httptest.NewRequest("POST", personalPath, strings.NewReader(body)).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 		req.Header.Set("Accept", "application/json, text/event-stream")
 		out := httptest.NewRecorder()
@@ -40,13 +43,16 @@ func TestPersonalProtocolDiscoveryDoesNotResolveCorpusOrGrantData(t *testing.T) 
 	require.Equal(t, 3, store.calls)
 	// A real tool request still performs the complete authorization and fails
 	// when its corpus cannot be resolved, despite successful discovery.
-	req := httptest.NewRequest("POST", personalPath, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"list_knowledge_bases","arguments":{}}}`)).WithContext(ctx)
+	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +
+		`"params":{"name":"list_knowledge_bases","arguments":{}}}`
+	req := httptest.NewRequest("POST", personalPath, strings.NewReader(body)).WithContext(ctx)
 	out := httptest.NewRecorder()
 	s.Handler().ServeHTTP(out, req)
 	require.Equal(t, 403, out.Code)
 	require.Positive(t, underlying.unrelatedReads)
 	store.err = errors.New("revoked")
-	req = httptest.NewRequest("POST", personalPath, strings.NewReader(`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`)).WithContext(ctx)
+	body = `{"jsonrpc":"2.0","id":1,"method":"tools/list"}`
+	req = httptest.NewRequest("POST", personalPath, strings.NewReader(body)).WithContext(ctx)
 	out = httptest.NewRecorder()
 	s.Handler().ServeHTTP(out, req)
 	require.Equal(t, 403, out.Code, "a later revoked credential must immediately lose protocol access")
@@ -70,7 +76,9 @@ func TestPersonalMetadataShortcutExcludesDataAndFutureMethods(t *testing.T) {
 	for _, method := range []string{"tools/call", "resources/read", "prompts/get", "future/execute", ""} {
 		require.False(t, personalMetadataMethod(method))
 	}
-	for _, method := range []string{"initialize", "ping", "tools/list", "resources/list", "resources/templates/list", "prompts/list"} {
+	for _, method := range []string{
+		"initialize", "ping", "tools/list", "resources/list", "resources/templates/list", "prompts/list",
+	} {
 		require.True(t, personalMetadataMethod(method))
 	}
 }

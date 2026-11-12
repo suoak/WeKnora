@@ -11,7 +11,9 @@ import (
 
 // VerifyPortalMCPProtocolCredential reloads only credential and workspace
 // eligibility. This returns no KB grant and never reads document/chunk data.
-func (r *EnterpriseAccessRepository) VerifyPortalMCPProtocolCredential(ctx context.Context, user string, keyID, tenant uint64) error {
+func (r *EnterpriseAccessRepository) VerifyPortalMCPProtocolCredential(
+	ctx context.Context, user string, keyID, tenant uint64,
+) error {
 	denied := errors.New("personal MCP protocol credential denied")
 	if r == nil || r.db == nil || user == "" || keyID == 0 || tenant == 0 {
 		return denied
