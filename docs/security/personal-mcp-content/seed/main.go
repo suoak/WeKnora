@@ -285,14 +285,14 @@ func run() error {
 		credentials[item.name] = token
 	}
 	private := filepath.Join(dir, "private")
-	if e = os.MkdirAll(private, 0700); e != nil {
+	if e = os.MkdirAll(private, 0o700); e != nil {
 		return e
 	}
 	raw, e := json.Marshal(credentials)
 	if e != nil {
 		return e
 	}
-	if e = os.WriteFile(filepath.Join(private, "clients.json"), raw, 0600); e != nil {
+	if e = os.WriteFile(filepath.Join(private, "clients.json"), raw, 0o600); e != nil {
 		return e
 	}
 	fmt.Println("synthetic schema3046 seed complete; no existing database upgraded")
