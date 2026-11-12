@@ -1,0 +1,42 @@
+name: Feishu Worker Retirement Safety
+
+on:
+  pull_request:
+    paths:
+      - scripts/ops/feishu_worker_retirement.py
+      - scripts/ops/test_feishu_worker_retirement.py
+      - .github/workflows/feishu-worker-retirement.yml
+  push:
+    branches: [main]
+    paths:
+      - scripts/ops/feishu_worker_retirement.py
+      - scripts/ops/test_feishu_worker_retirement.py
+      - .github/workflows/feishu-worker-retirement.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  signed-retirement:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install test signing dependency
+        run: python -m pip install cryptography
+      - name: Verify signed retirement against the owned disposable Redis service
+        env:
+          KNOWHUB_OWNED_RETIREMENT_REDIS: '1'
+          KNOWHUB_RETIREMENT_TEST_REDIS: 127.0.0.1:6379
+        run: python -m unittest discover -s scripts/ops -p test_feishu_worker_retirement.py -v
