@@ -9,10 +9,39 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 
 	"github.com/Tencent/WeKnora/internal/database"
+	"github.com/golang-migrate/migrate/v4/source"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/jackc/pgx/v5/stdlib"
 )
+
+func verifyTargetVersion(directory string, target uint) error {
+	driver, err := source.Open("file://" + filepath.ToSlash(directory))
+	if err != nil {
+		return errors.New("cannot inspect official migration source")
+	}
+	defer func() { _ = driver.Close() }()
+	latest, err := driver.First()
+	if err != nil {
+		return errors.New("official migration source is empty or invalid")
+	}
+	for {
+		next, nextErr := driver.Next(latest)
+		if errors.Is(nextErr, os.ErrNotExist) {
+			break
+		}
+		if nextErr != nil {
+			return errors.New("cannot inspect official migration ordering")
+		}
+		latest = next
+	}
+	if target != latest {
+		return fmt.Errorf("requested target %d differs from source latest %d; no migration started", target, latest)
+	}
+	return nil
+}
 
 func run() error {
 	from := flag.Uint("from", 0, "required clean starting version")
@@ -20,6 +49,11 @@ func run() error {
 	flag.Parse()
 	if *from == 0 || *to <= *from {
 		return errors.New("explicit increasing from/to versions are required")
+	}
+	// RunMigrations applies the complete official source. Reject a stale --to
+	// before opening the database, rather than noticing an overshoot afterwards.
+	if err := verifyTargetVersion("migrations/versioned", *to); err != nil {
+		return err
 	}
 	dsn := os.Getenv("KNOWHUB_MIGRATION_DSN")
 	if dsn == "" {
@@ -32,8 +66,12 @@ func run() error {
 		if port == "" {
 			port = "5432"
 		}
-		u := url.URL{Scheme: "postgres", Host: net.JoinHostPort(os.Getenv("DB_HOST"), port),
-			Path: "/" + os.Getenv("DB_NAME"), User: url.UserPassword(os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD"))}
+		u := url.URL{
+			Scheme: "postgres",
+			Host:   net.JoinHostPort(os.Getenv("DB_HOST"), port),
+			Path:   "/" + os.Getenv("DB_NAME"),
+			User:   url.UserPassword(os.Getenv("DB_USER"), os.Getenv("DB_PASSWORD")),
+		}
 		query := u.Query()
 		sslmode := os.Getenv("DB_SSLMODE")
 		if sslmode == "" {
@@ -47,7 +85,7 @@ func run() error {
 	if err != nil {
 		return errors.New("cannot open migration database")
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	var version uint
 	var dirty bool
 	if err := db.QueryRow("SELECT version,dirty FROM schema_migrations").Scan(&version, &dirty); err != nil {
