@@ -149,7 +149,9 @@ one unique event per call and exactly one concurrency_limited per HTTP429.
 Core, authenticated HTTP tests, admission/usage race tests, middleware/access/
 router regressions passed. The broad application/service run failed
 TestFeishuLegacyRealParserEmbeddingPostgres (four expected-guard failures);
-unchanged-main comparison is pending. It is not claimed as a passing suite.
+the unchanged-main comparison reproduced the same four failures (exit 1,
+57.69s including build). This is an inherited failure and the broad suite is
+not claimed as passing. Relevant middleware/access/router tests did pass.
 The focused concurrency CI job now uses real ParadeDB; accounting CI includes
 admission race tests. Multi-replica cluster quotas are not implemented or
 claimed: production has one APP replica. Increasing replicas multiplies these
@@ -161,7 +163,7 @@ are included here. Production resource depletion was not injected.
 
 ## Release and rollback gate (pending)
 
-PR and CI links, actual deployed SHA and real-Key acceptance will be appended
+PR: https://github.com/suoak/WeKnora/pull/136. CI links, actual deployed SHA and real-Key acceptance will be appended
 after completion. Main includes reconciliation migration 3047 while production
 is clean 3046; this is a required release dependency, not a new P1 migration.
 Do not deploy main against 3046 and claim complete accounting. Before switching:

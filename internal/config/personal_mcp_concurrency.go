@@ -2,7 +2,7 @@ package config
 
 import "fmt"
 
-// Limits are per APP instance. All personal routes share the same scheduler.
+// PersonalMCPConcurrencyConfig limits each APP instance; all personal routes share its scheduler.
 // Protocol capacity is reserved separately so a slow search cannot block discovery.
 type PersonalMCPConcurrencyConfig struct {
 	GlobalLimit       int `yaml:"global_limit" json:"global_limit"`

@@ -28,6 +28,7 @@ const (
 	stageCount
 )
 
+// AdmissionLoad is the numeric global and current-user scheduler snapshot.
 type AdmissionLoad struct {
 	Active     int    `json:"active"`
 	Queued     int    `json:"queued"`
@@ -115,7 +116,9 @@ func Admission(ctx context.Context, class, outcome string, wait time.Duration, l
 	}
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	t.admission = map[string]any{"class": class, "outcome": outcome, "wait_ms": float64(wait.Microseconds()) / 1000, "load": load}
+	t.admission = map[string]any{
+		"class": class, "outcome": outcome, "wait_ms": float64(wait.Microseconds()) / 1000, "load": load,
+	}
 }
 
 // AdmissionReleased records the gauge after this request gives its permit back.
