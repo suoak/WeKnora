@@ -362,7 +362,8 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 			Select("id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_index,chunk_type,context_header,"+
 				"is_enabled,parent_chunk_id,image_info,deleted_at").
 			Where("knowledge_id=? AND chunk_type IN "+
-				"('','text','parent_text','image_ocr','image_caption')", d.ID).Order("id").Find(&inputs).Error; e != nil {
+				"('','text','parent_text','image_ocr','image_caption')", d.ID).
+			Order("id").Find(&inputs).Error; e != nil {
 			return nil, e
 		}
 		if len(inputs) == 0 {
