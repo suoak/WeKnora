@@ -30,7 +30,8 @@ import (
 func resumeNativeDOCX(t *testing.T) []byte {
 	return resumeNativeDOCXWithText(
 		t,
-		"Verified recovery source: independent research index, document provenance, source permissions and current resource identity.",
+		"Verified recovery source: independent research index, document "+
+			"provenance, source permissions and current resource identity.",
 	)
 }
 
@@ -74,11 +75,13 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 		"real": data,
 		"real2": resumeNativeDOCXWithText(
 			t,
-			"Verified recovery source two: published department knowledge remains readable after source disconnect.",
+			"Verified recovery source two: published department knowledge "+
+				"remains readable after source disconnect.",
 		),
 		"real3": resumeNativeDOCXWithText(
 			t,
-			"Verified recovery source three: source synchronization authorization is separate from published knowledge access.",
+			"Verified recovery source three: source synchronization "+
+				"authorization is separate from published knowledge access.",
 		),
 	}
 	var sourceRequests atomic.Int64
@@ -102,15 +105,27 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 				return
 			}
 			_ = json.NewEncoder(w).
-				Encode(map[string]any{"code": 0, "data": map[string]any{"metas": []any{map[string]any{"doc_type": "file", "doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": fmt.Sprint(f.revision.Load())}}}})
-		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/files/") && strings.HasSuffix(r.URL.Path, "/download"):
-			token := strings.TrimSuffix(strings.TrimPrefix(r.URL.Path, "/open-apis/drive/v1/files/"), "/download")
+				Encode(map[string]any{
+					"code": 0,
+					"data": map[string]any{"metas": []any{map[string]any{
+						"doc_type":  "file",
+						"doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": fmt.
+								Sprint(f.revision.Load()),
+					}}},
+				})
+		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/files/") && strings.HasSuffix(r.URL.
+			Path, "/download"):
+			token := strings.TrimSuffix(
+				strings.TrimPrefix(r.URL.Path, "/open-apis/drive/v1/files/"),
+				"/download",
+			)
 			if files[token] == nil {
 				w.WriteHeader(403)
 				return
 			}
 			_, _ = w.Write(files[token])
-		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/permissions/") && strings.HasSuffix(r.URL.Path, "/members/auth"):
+		case strings.HasPrefix(r.URL.Path, "/open-apis/drive/v1/permissions/") && strings.HasSuffix(r.
+			URL.Path, "/members/auth"):
 			_, _ = fmt.Fprint(w, `{"code":0,"data":{"auth_result":true}}`)
 		default:
 			w.WriteHeader(http.StatusNotFound)

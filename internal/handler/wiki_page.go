@@ -55,7 +55,8 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 		return "", 0, errors.NewBadRequestError("Knowledge base ID is required")
 	}
 
-	readSelected := c.Request.Method == http.MethodGet && repository.WikiDocumentSelectionForKB(kbID) && types.WorkspaceWebReadTenant(ctx) != 0
+	readSelected := c.Request.Method == http.MethodGet && repository.WikiDocumentSelectionForKB(kbID) &&
+		types.WorkspaceWebReadTenant(ctx) != 0
 	lookup := ctx
 	if readSelected {
 		lookup = types.WithLegacyKBAdminMetadata(ctx, kbID)
@@ -100,7 +101,8 @@ func getSlugParam(c *gin.Context) string {
 // @Tags         Wiki
 // @Produce      json
 // @Param        kb_id      path      string  true   "Knowledge base ID"
-// @Param        page_type  query     string  false  "Filter by page type; comma-separated for multiple (e.g. entity,concept)"
+// @Param        page_type  query     string  false  "Filter by page type; comma-separated for multiple
+// (e.g. entity,concept)"
 // @Param        status     query     string  false  "Filter by status"
 // @Param        query      query     string  false  "Full-text search"
 // @Param        page       query     int     false  "Page number"
@@ -160,7 +162,8 @@ func (h *WikiPageHandler) ListPages(c *gin.Context) {
 
 // ListFolders godoc
 // @Summary      List wiki folders
-// @Description  Retrieve the direct child folders of a parent folder (parent_id empty = root level), each with its page count and a has-children flag for the directory tree.
+// @Description  Retrieve the direct child folders of a parent folder (parent_id empty = root level), each
+// with its page count and a has-children flag for the directory tree.
 // @Tags         Wiki
 // @Produce      json
 // @Param        kb_id     path   string  true   "Knowledge base ID"
@@ -219,7 +222,13 @@ func (h *WikiPageHandler) CreateFolder(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request body: " + err.Error()})
 		return
 	}
-	folder, err := h.wikiService.CreateFolder(c.Request.Context(), kbID, tenantID, strings.TrimSpace(req.ParentID), req.Name)
+	folder, err := h.wikiService.CreateFolder(
+		c.Request.Context(),
+		kbID,
+		tenantID,
+		strings.TrimSpace(req.ParentID),
+		req.Name,
+	)
 	if err != nil {
 		writeWikiFolderError(c, err)
 		return
@@ -229,7 +238,8 @@ func (h *WikiPageHandler) CreateFolder(c *gin.Context) {
 
 // UpdateFolder godoc
 // @Summary      Rename or move a wiki folder
-// @Description  Rename and/or reparent a folder; the whole subtree's paths and the affected pages' cached paths are recomputed
+// @Description  Rename and/or reparent a folder; the whole subtree's paths and the affected pages' cached
+// paths are recomputed
 // @Tags         Wiki
 // @Accept       json
 // @Produce      json
@@ -298,7 +308,8 @@ func (h *WikiPageHandler) DeleteFolder(c *gin.Context) {
 
 // MovePage godoc
 // @Summary      Move a wiki page into a folder
-// @Description  Relocate a page (identified by slug in the body) into a folder (folder_id empty = root); the page's cached category path is recomputed
+// @Description  Relocate a page (identified by slug in the body) into a folder (folder_id empty = root);
+// the page's cached category path is recomputed
 // @Tags         Wiki
 // @Accept       json
 // @Produce      json
@@ -335,9 +346,11 @@ func (h *WikiPageHandler) MovePage(c *gin.Context) {
 // writeWikiFolderError maps folder/page service errors to HTTP status codes.
 func writeWikiFolderError(c *gin.Context, err error) {
 	switch {
-	case stderrors.Is(err, repository.ErrWikiFolderNotFound), stderrors.Is(err, repository.ErrWikiPageNotFound):
+	case stderrors.Is(err, repository.ErrWikiFolderNotFound),
+		stderrors.Is(err, repository.ErrWikiPageNotFound):
 		c.JSON(http.StatusNotFound, gin.H{"error": err.Error()})
-	case stderrors.Is(err, repository.ErrWikiFolderConflict), stderrors.Is(err, repository.ErrWikiFolderNotEmpty):
+	case stderrors.Is(err, repository.ErrWikiFolderConflict),
+		stderrors.Is(err, repository.ErrWikiFolderNotEmpty):
 		c.JSON(http.StatusConflict, gin.H{"error": err.Error()})
 	default:
 		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
@@ -1040,7 +1053,7 @@ func (h *WikiPageHandler) SearchPages(c *gin.Context) {
 
 // SearchWikiRequest is the body for POST /api/v1/wiki-search.
 type SearchWikiRequest struct {
-	Query            string   `json:"query" binding:"required"`
+	Query            string   `json:"query"              binding:"required"`
 	KnowledgeBaseID  string   `json:"knowledge_base_id"`
 	KnowledgeBaseIDs []string `json:"knowledge_base_ids"`
 	Limit            int      `json:"limit"`

@@ -18,13 +18,17 @@ type settingsReadService struct {
 	projection *types.KnowledgeBase
 }
 
-func (s *settingsReadService) GetKnowledgeBaseAccessMetadata(context.Context, string) (*types.KnowledgeBase, error) {
+func (s *settingsReadService) GetKnowledgeBaseAccessMetadata(
+	context.Context,
+	string,
+) (*types.KnowledgeBase, error) {
 	return s.projection, nil
 }
 
 func TestWorkspaceSettingsReadReloadsPersistedConfigAfterAccessProjection(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	full := &types.KnowledgeBase{ID: "kb", TenantID: 7,
+	full := &types.KnowledgeBase{
+		ID: "kb", TenantID: 7,
 		VLMConfig:             types.VLMConfig{Enabled: true, ModelID: "vision", APIKey: "private-key"},
 		ChunkingConfig:        types.ChunkingConfig{ChunkSize: 900, ChunkOverlap: 0},
 		ImageProcessingConfig: types.ImageProcessingConfig{ImageAttrsEnabled: true},
@@ -35,7 +39,10 @@ func TestWorkspaceSettingsReadReloadsPersistedConfigAfterAccessProjection(t *tes
 	h := &KnowledgeBaseHandler{service: svc}
 	r := gin.New()
 	r.Use(middleware.ErrorHandler(), func(c *gin.Context) {
-		ctx := types.WithCaller(c.Request.Context(), types.Caller{TenantID: 7, UserID: "member", Role: types.TenantRoleViewer})
+		ctx := types.WithCaller(
+			c.Request.Context(),
+			types.Caller{TenantID: 7, UserID: "member", Role: types.TenantRoleViewer},
+		)
 		ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalWebUser, ID: "member"})
 		c.Request = c.Request.WithContext(ctx)
 		c.Set(types.TenantIDContextKey.String(), uint64(7))
