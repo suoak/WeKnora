@@ -76,7 +76,7 @@ func run() error {
 	if e != nil {
 		return e
 	}
-	defer func() { _ = m.Close() }()
+	defer func() { _, _ = m.Close() }()
 	_, _, e = m.Version()
 	if !errors.Is(e, migrate.ErrNilVersion) {
 		return errors.New("refuse to seed or migrate any preexisting database")
