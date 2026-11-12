@@ -252,7 +252,8 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 		}
 		policy = FeishuSyncPublicationPolicy{
 			ID: uuid.NewString(), SourceID: ds.ID, OwnerID: ref.OwnerUserID, KBID: ds.KnowledgeBaseID,
-			TenantID: ds.TenantID, ConnectionID: ref.ConnectionID, AppID: ref.AppID, ConfigVersion: ref.IdentityVersion,
+			TenantID: ds.TenantID, ConnectionID: ref.ConnectionID, AppID: ref.AppID, ConfigVersion: ref.
+					IdentityVersion,
 			ResourceType: imported.ResourceType, ResourceToken: imported.DocumentToken,
 			SourceConfigHash: syncPolicyHash(
 				ds.Config,
@@ -344,7 +345,8 @@ func checkSourcePublicationPolicy(
 		return ErrFeishuSharingApproval
 	}
 	var current types.DataSource
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", ds.ID).First(&current).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", ds.ID).First(&current).
+		Error; err != nil {
 		return err
 	}
 	if current.Status != types.DataSourceStatusActive &&
@@ -396,7 +398,8 @@ func checkSourcePublicationPolicy(
 		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
 			"id = ? AND owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
 				" AND config_version = ? AND state = ?",
-			policy.InitialApprovalID, policy.OwnerID, policy.KBID, policy.AppID, policy.ResourceType, policy.ResourceToken,
+			policy.InitialApprovalID, policy.OwnerID, policy.KBID, policy.AppID, policy.ResourceType,
+			policy.ResourceToken,
 			policy.ConfigVersion, "approved").First(&initial).Error; err != nil {
 			return ErrFeishuSharingApproval
 		}

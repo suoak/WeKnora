@@ -12,6 +12,14 @@
       "source": "/root/knowhub-mcp-page-help-20261112/apply.override.json",
       "sha256": "2f372692339872065503f9cbc2c3a4998ee0f169f23b745a477e339e2426d503"
     },
+    "frontend.style-attempt1.rollback.override.json": {
+      "source": "/root/knowhub-mcp-style-20261112/rollback.override.json",
+      "sha256": "2f372692339872065503f9cbc2c3a4998ee0f169f23b745a477e339e2426d503"
+    },
+    "frontend.style.override.json": {
+      "source": "/root/knowhub-mcp-style-20261112-r2/apply.override.json",
+      "sha256": "ae1be22ec8925bc7828540beb99e7031773d07832d5272755fdd49ec827a8d8b"
+    },
     "http80.conf.template": {
       "source": "/etc/knowhub/mcp-https8443/default.http80.conf.template",
       "sha256": "188cfec0b064551322d91eea1674d33ee348b7f39ce6c1ef649111dcc938476b"
@@ -138,8 +146,8 @@
       ]
     },
     "/WeKnora-frontend": {
-      "image": "sha256:a1b6f5c4613fed59668e4c3ce62fd723732e65dbd4eafe891adf1a21646b988e",
-      "id": "5f9d6e463125e1459fcc79b4ac06b986948ff3442c3c5e361875e43858bd1d20",
+      "image": "sha256:d87b2ddfd12d1df35ecd4d508c7c183e63b8948293fd6ae53a3582091a17be39",
+      "id": "dd780e8a5b3075685204531477307bd721a23415a92563f1ab05f7ca396d965a",
       "compose_files": [
         "/home/aqyfzx/release-package/docker-compose.rc23-rc1.candidate.yml",
         "/home/aqyfzx/release-package/docker-compose.rc24-rc1.override.yml",
@@ -251,9 +259,11 @@
         "/home/aqyfzx/knowhub-production-isolated-dc3-approved-20261111-r2/apply.override.json",
         "/root/knowhub-app-socket-phase1-20261112/app.no-docker-socket.override.yml",
         "/root/knowhub-tls8443-production-20261112/frontend.tls8443.override.yml",
-        "/root/knowhub-mcp-page-help-20261112/apply.override.json"
+        "/root/knowhub-mcp-page-help-20261112/apply.override.json",
+        "/root/knowhub-mcp-style-20261112/rollback.override.json",
+        "/root/knowhub-mcp-style-20261112-r2/apply.override.json"
       ]
     }
   },
-  "frontend_revision": "4b748624eefa55cb46090ecb839d86915aa08b8f"
+  "frontend_revision": "bb6196fcd91a6ace333043ee2552431ccc9e8b81"
 }

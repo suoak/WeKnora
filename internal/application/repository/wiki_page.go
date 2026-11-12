@@ -44,7 +44,9 @@ func (r *wikiPageRepository) wikiCategoryRankOrder() string {
 	if r.db != nil && r.db.Dialector != nil && r.db.Dialector.Name() == "sqlite" {
 		return "CASE WHEN COALESCE(json_array_length(category_path), 0) > 0 THEN 0 ELSE 1 END ASC"
 	}
-	return "CASE WHEN CASE WHEN jsonb_typeof(category_path) = 'array' THEN jsonb_array_length(category_path) ELSE 0 END > 0 THEN 0 ELSE 1 END ASC"
+	return "CASE WHEN CASE WHEN jsonb_typeof(category_path) = 'array' THEN " +
+		"jsonb_array_length(category_path) ELSE 0 END > 0 THEN 0 ELSE 1 " +
+		"END ASC"
 }
 
 // wikiPageListSortColumn maps a caller-supplied sort_by to a quoted identifier.
@@ -360,7 +362,11 @@ func (r *wikiPageRepository) GetByID(ctx context.Context, id string) (*types.Wik
 }
 
 // GetBySlug retrieves a wiki page by slug within a knowledge base
-func (r *wikiPageRepository) GetBySlug(ctx context.Context, kbID string, slug string) (*types.WikiPage, error) {
+func (r *wikiPageRepository) GetBySlug(
+	ctx context.Context,
+	kbID string,
+	slug string,
+) (*types.WikiPage, error) {
 	var page types.WikiPage
 	if err := r.db.WithContext(ctx).
 		Where("knowledge_base_id = ? AND slug = ?", kbID, slug).
@@ -374,7 +380,10 @@ func (r *wikiPageRepository) GetBySlug(ctx context.Context, kbID string, slug st
 }
 
 // List retrieves wiki pages with filtering and pagination
-func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRequest) ([]*types.WikiPage, int64, error) {
+func (r *wikiPageRepository) List(
+	ctx context.Context,
+	req *types.WikiPageListRequest,
+) ([]*types.WikiPage, int64, error) {
 	query := r.db.WithContext(ctx).Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ?", req.KnowledgeBaseID)
 
@@ -389,7 +398,9 @@ func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRe
 	if req.Query != "" {
 		// Use PostgreSQL full-text search + ILIKE for aliases
 		query = query.Where(
-			"(to_tsvector('simple', coalesce(title, '') || ' ' || coalesce(content, '')) @@ plainto_tsquery('simple', ?) OR aliases::text ILIKE ?)",
+			"(to_tsvector('simple', coalesce(title, '') || ' ' || "+
+				"coalesce(content, '')) @@ plainto_tsquery('simple', ?) OR "+
+				"aliases::text ILIKE ?)",
 			req.Query,
 			"%"+req.Query+"%",
 		)
@@ -452,7 +463,11 @@ func (r *wikiPageRepository) List(ctx context.Context, req *types.WikiPageListRe
 }
 
 // ListByType retrieves all wiki pages of a given type within a knowledge base
-func (r *wikiPageRepository) ListByType(ctx context.Context, kbID string, pageType string) ([]*types.WikiPage, error) {
+func (r *wikiPageRepository) ListByType(
+	ctx context.Context,
+	kbID string,
+	pageType string,
+) ([]*types.WikiPage, error) {
 	var pages []*types.WikiPage
 	if err := r.db.WithContext(ctx).
 		Where("knowledge_base_id = ? AND page_type = ?", kbID, pageType).
@@ -519,7 +534,11 @@ func (r *wikiPageRepository) ListByTypeLight(
 
 // ListBySourceRef retrieves all wiki pages that reference a given source knowledge ID.
 // Handles both old format ("knowledgeID") and new format ("knowledgeID|title") in source_refs JSON array.
-func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]*types.WikiPage, error) {
+func (r *wikiPageRepository) ListBySourceRef(
+	ctx context.Context,
+	kbID string,
+	sourceKnowledgeID string,
+) ([]*types.WikiPage, error) {
 	// Build the JSON needle safely so arbitrary IDs cannot break out of the
 	// quoted string (e.g. ids containing quotes or backslashes).
 	needle, err := json.Marshal([]string{sourceKnowledgeID})
@@ -565,7 +584,11 @@ func (r *wikiPageRepository) ListBySourceRef(ctx context.Context, kbID string, s
 // Backed by idx_wiki_pages_source_refs (GIN jsonb_path_ops) for the
 // containment branch and idx_wiki_pages_source_refs_text for the legacy
 // text-LIKE branch — both added in migration 000041.
-func (r *wikiPageRepository) ListSlugsBySourceRef(ctx context.Context, kbID string, sourceKnowledgeID string) ([]string, error) {
+func (r *wikiPageRepository) ListSlugsBySourceRef(
+	ctx context.Context,
+	kbID string,
+	sourceKnowledgeID string,
+) ([]string, error) {
 	needle, err := json.Marshal([]string{sourceKnowledgeID})
 	if err != nil {
 		return nil, fmt.Errorf("marshal source ref needle: %w", err)
@@ -674,7 +697,11 @@ func (r *wikiPageRepository) CreateFolder(ctx context.Context, folder *types.Wik
 	return r.db.WithContext(ctx).Create(folder).Error
 }
 
-func (r *wikiPageRepository) GetFolderByID(ctx context.Context, kbID string, id string) (*types.WikiFolder, error) {
+func (r *wikiPageRepository) GetFolderByID(
+	ctx context.Context,
+	kbID string,
+	id string,
+) (*types.WikiFolder, error) {
 	var folder types.WikiFolder
 	if err := r.db.WithContext(ctx).
 		Where("knowledge_base_id = ? AND id = ?", kbID, id).
@@ -782,7 +809,11 @@ WHERE knowledge_base_id = ? AND id = ? AND deleted_at IS NULL
 	return nil
 }
 
-func (r *wikiPageRepository) CountPagesInFolder(ctx context.Context, kbID string, folderID string) (int64, error) {
+func (r *wikiPageRepository) CountPagesInFolder(
+	ctx context.Context,
+	kbID string,
+	folderID string,
+) (int64, error) {
 	var count int64
 	if err := r.db.WithContext(ctx).
 		Model(&types.WikiPage{}).
@@ -1114,7 +1145,9 @@ func wikiNormalizedTitleSQL(db *gorm.DB) string {
 		// SQLite has no POSIX [[:space:]]. Strip the common separators that
 		// model formatting drift actually produces; callers still re-check
 		// with the Go identity fold so extras cannot leak through.
-		return "lower(replace(replace(replace(replace(replace(replace(title, ' ', ''), char(9), ''), char(10), ''), char(13), ''), char(160), ''), char(12288), ''))"
+		return "lower(replace(replace(replace(replace(replace(replace(title, ' '," +
+			" ''), char(9), ''), char(10), ''), char(13), ''), char(160), '')," +
+			" char(12288), ''))"
 	}
 	return "regexp_replace(lower(title), '[[:space:]]+', '', 'g')"
 }
@@ -1479,7 +1512,12 @@ func (r *wikiPageRepository) CreateIssue(ctx context.Context, issue *types.WikiP
 	return r.db.WithContext(ctx).Create(issue).Error
 }
 
-func (r *wikiPageRepository) ListIssues(ctx context.Context, kbID string, slug string, status string) ([]*types.WikiPageIssue, error) {
+func (r *wikiPageRepository) ListIssues(
+	ctx context.Context,
+	kbID string,
+	slug string,
+	status string,
+) ([]*types.WikiPageIssue, error) {
 	query := r.db.WithContext(ctx).Where("knowledge_base_id = ?", kbID)
 	if slug != "" {
 		query = query.Where("slug = ?", slug)
@@ -1495,7 +1533,12 @@ func (r *wikiPageRepository) ListIssues(ctx context.Context, kbID string, slug s
 	return issues, nil
 }
 
-func (r *wikiPageRepository) UpdateIssueStatus(ctx context.Context, kbID string, issueID string, status string) error {
+func (r *wikiPageRepository) UpdateIssueStatus(
+	ctx context.Context,
+	kbID string,
+	issueID string,
+	status string,
+) error {
 	// Scoped to the knowledge base the caller was authorized for: issue IDs are
 	// listed to readers, so an ID alone must not reach another KB's issue.
 	result := r.db.WithContext(ctx).Model(&types.WikiPageIssue{}).

@@ -37,7 +37,8 @@ func (s *FeishuLegacyStore) SetSourceUncertain(
 		{
 			var unresolved int64
 			if err := tx.Model(&types.FeishuLegacyResource{}).
-				Where("data_source_id=? AND state IN ('hold','revoked')", ds.ID).Count(&unresolved).Error; err != nil {
+				Where("data_source_id=? AND state IN ('hold','revoked')", ds.ID).Count(&unresolved).
+				Error; err != nil {
 				return err
 			}
 			if unresolved != 0 {
@@ -110,7 +111,8 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 			if e != nil {
 				return e
 			}
-			return tx.Model(&r).Where("state NOT IN ?", []string{"revoked", "deleted"}).Update("state", "hold").Error
+			return tx.Model(&r).Where("state NOT IN ?", []string{"revoked", "deleted"}).Update("state",
+				"hold").Error
 		}); err != nil {
 			return false, err
 		}
@@ -226,7 +228,8 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 		}
 		if e = tx.Exec("UPDATE chunks SET "+
 			"content='',source_content='',context_header='',image_info='',source_locators='[]',metadata='{}',"+
-			"is_enabled=false,deleted_at=clock_timestamp() WHERE knowledge_id=? AND tenant_id=? AND deleted_at IS NULL",
+			"is_enabled=false,deleted_at=clock_timestamp() WHERE "+
+			"knowledge_id=? AND tenant_id=? AND deleted_at IS NULL",
 			r.KnowledgeID, r.TenantID,
 		).Error; e != nil {
 			return e
@@ -245,7 +248,11 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 // RestrictDocument commits a document deny before snapshot/redaction. The live
 // source identity stays unchanged, so its signed publication guard still checks
 // the same source. A failed cleanup leaves this document and derived Wiki denied.
-func (s *FeishuLegacyStore) RestrictDocument(ctx context.Context, ds *types.DataSource, external string) error {
+func (s *FeishuLegacyStore) RestrictDocument(
+	ctx context.Context,
+	ds *types.DataSource,
+	external string,
+) error {
 	if external == "" {
 		return legacyFence("restriction_identity_missing")
 	}

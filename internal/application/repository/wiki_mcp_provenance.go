@@ -186,7 +186,11 @@ func wikiPageDigest(p *types.WikiPage) string {
 // including ABA and writes preserving timestamps. Persisted read stamps bind
 // actual model input fields, so finalizing -> completed alone is not content
 // replacement. Current authorization/source state is always checked separately.
-func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) (*wikiGenerationProof, error) {
+func wikiDependencies(
+	db *gorm.DB,
+	kb string,
+	previous ...*wikiGenerationProof,
+) (*wikiGenerationProof, error) {
 	if len(previous) == 1 && previous[0] != nil && previous[0].SelectedSources != nil {
 		return wikiDependenciesSelected(db, kb, nil, previous[0].SelectedSources, previous...)
 	}
@@ -276,7 +280,8 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config").
 				Where(`id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active'
  AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL`,
-					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {
+					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).
+				Error; e != nil {
 				if errors.Is(e, gorm.ErrRecordNotFound) {
 					return nil, types.ErrLegacySourceRestricted
 				}
@@ -309,8 +314,9 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		default:
 			return nil, ErrWikiMCPUnverified
 		}
-		if !(d.ParseStatus == "completed" || d.ParseStatus == "finalizing" ||
-			(d.ParseStatus == "failed" && parsed[d.ID])) || d.EnableStatus != "enabled" {
+		inputReady := d.ParseStatus == "completed" || d.ParseStatus == "finalizing" ||
+			(d.ParseStatus == "failed" && parsed[d.ID])
+		if !inputReady || d.EnableStatus != "enabled" {
 			return nil, ErrWikiMCPUnverified
 		}
 		stamp, found := stamps[d.ID]
@@ -633,7 +639,8 @@ func (s *PersonalWikiStore) VerifiedPages(
 		var pages []*types.WikiPage
 		pageQuery := tx
 		if WikiDocumentSelectionForKB(kb) {
-			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS page_validation_inputs")
+			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
+				Table("wiki_pages AS page_validation_inputs")
 		}
 		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
 			"length(content)<=262144 AND length(title)<=4096 AND "+

@@ -1,14 +1,14 @@
 # Production configuration snapshot — 2026-11-12
 
 This directory records the effective, non-secret KnowHub configuration after the
-MCP environment selector and help-menu release. It is an audit snapshot, not a
+MCP environment selector, help-menu and cloud-address card releases. It is an audit snapshot, not a
 standalone Compose deployment. Do not apply it over an arbitrary or older base.
 
 - APP source: `dc3f11db077a2eb6aef8abf1b8e3616d3f7a3377`.
 - APP image: `sha256:01e12996b9b3ce22ba56455dd415b2955c25469e389783fe1331a6c9831fece1`.
-- Frontend source: `4b748624eefa55cb46090ecb839d86915aa08b8f` (production
-  frontend baseline plus the changes merged in PR #132).
-- Frontend image: `sha256:a1b6f5c4613fed59668e4c3ce62fd723732e65dbd4eafe891adf1a21646b988e`.
+- Frontend source: `bb6196fcd91a6ace333043ee2552431ccc9e8b81` (production
+  frontend baseline plus the changes merged in PRs #132 and #134).
+- Frontend image: `sha256:d87b2ddfd12d1df35ecd4d508c7c183e63b8948293fd6ae53a3582091a17be39`.
 - Database remains PostgreSQL schema **3046 / dirty=false**. This source
   reconciliation does **not** authorize deployment or migration to 3047.
 
@@ -27,7 +27,8 @@ Preserve the following last-overlay order:
    APP configuration, including during a frontend rollback.
 3. `frontend.tls8443.override.yml`: original 80 plus `10.51.134.114:8443`, readonly
    frozen HTTP80, HTTPS8443 configuration and certificate-directory mounts.
-4. `frontend.page.override.json`: current frontend image only.
+4. `frontend.page.override.json` and `frontend.style-attempt1.rollback.override.json`: prior frontend-only image overlays retained in the effective chain.
+5. `frontend.style.override.json`: current cloud-address-card frontend image only.
 
 The TLS override still mounts an unused legacy source-ACL file. The live
 `https8443.conf` does **not** include that file: all reachable sources must
@@ -42,10 +43,10 @@ directory, Git, images or release artifacts. The key remains in the root-owned
 production certificate directory, mounted readonly only by frontend.
 
 Frontend rollback is the existing root-controlled
-`/root/knowhub-mcp-page-help-20261112/rollback.sh`. It uses the saved effective
+`/root/knowhub-mcp-style-20261112-r2/rollback.sh`. It uses the saved effective
 Compose chain and prior image, retaining HTTP80/HTTPS8443 and APP hardening.
 The original image, complete effective Compose backup and script syntax were
-verified; no additional production rollback drill was executed for PR #132.
+verified; the first PR #134 switch automatically rolled back when an order-sensitive mount comparison rejected an equivalent mount set. The second attempt compared mounts by destination and passed, with the same readonly mounts and unchanged HTTP80/HTTPS8443 configuration.
 
 The real isolated-zone TCP/NAT and DNS acceptance remains outstanding. Do not
 represent the source snapshot or controlled internal tests as that acceptance.

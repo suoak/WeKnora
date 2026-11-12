@@ -3,3 +3,4 @@
 *.template -text whitespace=-blank-at-eol
 *.yml -text
 *.json -text
+runtime-manifest.json text eol=lf

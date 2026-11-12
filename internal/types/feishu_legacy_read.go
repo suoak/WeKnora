@@ -192,7 +192,8 @@ WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS 
 	// A connector's health is not a workspace membership decision. Metadata,
 	// settings and deletion admission remain available to local Web members;
 	// document output still goes through its own receipt/ACL boundary.
-	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID && knowledgeID == "" {
+	if WorkspaceWebReadTenant(db.Statement.Context) == valid.TenantID && knowledgeID == "" &&
+		KnowledgeBaseCatalogTenant(db.Statement.Context) == 0 {
 		recordLegacyRead(db.Statement.Context, kbID)
 		return nil
 	}
@@ -209,6 +210,7 @@ WHERE k.id=? AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS 
 		if denied {
 			return ErrLegacySourceRestricted
 		}
+		recordLegacyDocumentRead(db.Statement.Context, knowledgeID, kbID)
 		recordLegacyRead(db.Statement.Context, kbID)
 		return nil
 	}

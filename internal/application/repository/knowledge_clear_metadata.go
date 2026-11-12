@@ -30,7 +30,8 @@ func (r *knowledgeRepository) ListKnowledgeForKBClear(
 	}
 	var ids []string
 	if err := r.db.WithContext(ctx).Table("knowledges").Where(
-		"tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", tenant, kb).Pluck("id", &ids).Error; err != nil {
+		"tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", tenant, kb).Pluck("id", &ids).
+		Error; err != nil {
 		return nil, err
 	}
 	return r.GetKnowledgeDeletionMetadata(ctx, tenant, ids)

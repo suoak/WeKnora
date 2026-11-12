@@ -62,7 +62,8 @@ func BeginWikiDocumentGeneration(
 	var proof *wikiGenerationProof
 	err := r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, kb)).Transaction(func(tx *gorm.DB) error {
 		var anchor types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).
+			Error; err != nil {
 			return err
 		}
 		if err := checkWikiMCPEpochCoverage(tx); err != nil {
@@ -139,7 +140,12 @@ func BeginWikiDocumentGeneration(
 					return err
 				}
 				raw, _ := json.Marshal(
-					map[string]any{"op": "ingest", "knowledge_id": id, "attempt": attempt, "language": "zh-CN"},
+					map[string]any{
+						"op":           "ingest",
+						"knowledge_id": id,
+						"attempt":      attempt,
+						"language":     "zh-CN",
+					},
 				)
 				if err := tx.Create(&types.TaskPendingOp{
 					TenantID: anchor.TenantID,
@@ -228,7 +234,8 @@ func ParkWikiFinalizeWithoutInputs(
 	}
 	return r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, kb)).Transaction(func(tx *gorm.DB) error {
 		var anchor types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).
+			Error; err != nil {
 			return err
 		}
 		result := tx.Model(&types.TaskPendingOp{}).
@@ -264,7 +271,8 @@ func ArchiveWikiSkippedOperations(
 	var archived []int64
 	err := r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, kb)).Transaction(func(tx *gorm.DB) error {
 		var anchor types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("id=?", kb).First(&anchor).
+			Error; err != nil {
 			return err
 		}
 		for _, id := range ids {

@@ -111,7 +111,8 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 					Updates(map[string]any{
 						"status": types.SyncLogStatusCanceled, "execution_claimed": false,
 						"execution_generation": gorm.Expr("execution_generation + 1"),
-						"finished_at":          now, "error_message": "Source configuration changed; start a new sync",
+						"finished_at":          now,
+						"error_message":        "Source configuration changed; start a new sync",
 					}).Error; err != nil {
 					return err
 				}

@@ -238,7 +238,7 @@ type InitializationRequest struct {
 // @Router       /initialization/config/{kbId} [put]
 func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kbId"))
 
 	var req KBModelConfigRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -248,9 +248,9 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	}
 
 	// 获取知识库信息
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil || kb == nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIDStr)})
 		_ = c.Error(errors.NewNotFoundError("知识库不存在"))
 		return
 	}
@@ -264,7 +264,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	if kb.EmbeddingModelID != "" && req.EmbeddingModelID != "" && kb.EmbeddingModelID != req.EmbeddingModelID {
 		// 检查是否已有文件
 		knowledgeList, err := h.knowledgeService.ListPagedKnowledgeByKnowledgeBaseID(ctx,
-			kbIdStr, &types.Pagination{
+			kbIDStr, &types.Pagination{
 				Page:     1,
 				PageSize: 1,
 			}, types.KnowledgeListFilter{})
@@ -379,7 +379,7 @@ func (h *InitializationHandler) UpdateKBConfig(c *gin.Context) {
 	// infrastructure: another workspace can neither see the owner's backends
 	// nor bind the KB to one of its own, so it may only leave them unchanged.
 	if ownWorkspace {
-		if err := h.applyKBStorageBinding(ctx, kb, kbIdStr, &req); err != nil {
+		if err := h.applyKBStorageBinding(ctx, kb, kbIDStr, &req); err != nil {
 			_ = c.Error(err)
 			return
 		}
@@ -563,7 +563,7 @@ func (h *InitializationHandler) applyKBStorageBinding(
 // @Router       /initialization/initialize/{kbId} [post]
 func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kbId"))
 
 	req, err := h.bindInitializationRequest(ctx, c)
 	if err != nil {
@@ -574,11 +574,11 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 	logger.Infof(
 		ctx,
 		"Starting knowledge base configuration update, kbId: %s, request: %s",
-		utils.SanitizeForLog(kbIdStr),
+		utils.SanitizeForLog(kbIDStr),
 		utils.SanitizeForLog(utils.ToJSON(req)),
 	)
 
-	kb, err := h.getKnowledgeBaseForInitialization(ctx, kbIdStr)
+	kb, err := h.getKnowledgeBaseForInitialization(ctx, kbIDStr)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -589,7 +589,7 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 		return
 	}
 
-	processedModels, err := h.processInitializationModels(ctx, kb, kbIdStr, req)
+	processedModels, err := h.processInitializationModels(ctx, kb, kbIDStr, req)
 	if err != nil {
 		_ = c.Error(err)
 		return
@@ -598,7 +598,7 @@ func (h *InitializationHandler) InitializeByKB(c *gin.Context) {
 	h.applyKnowledgeBaseInitialization(kb, req, processedModels)
 
 	if err := h.kbRepository.UpdateKnowledgeBase(ctx, kb); err != nil {
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIDStr)})
 		_ = c.Error(errors.NewInternalServerError("更新知识库配置失败: " + err.Error()))
 		return
 	}
@@ -632,9 +632,9 @@ func (h *InitializationHandler) bindInitializationRequest(
 
 func (h *InitializationHandler) getKnowledgeBaseForInitialization(
 	ctx context.Context,
-	kbIdStr string,
+	kbIDStr string,
 ) (*types.KnowledgeBase, error) {
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil {
 		// The repo's not-found sentinel must surface as 404, not 500.
 		// Without this, every probe of a stale kb id from the
@@ -643,7 +643,7 @@ func (h *InitializationHandler) getKnowledgeBaseForInitialization(
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
 			return nil, errors.NewNotFoundError("知识库不存在")
 		}
-		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIdStr)})
+		logger.ErrorWithFields(ctx, err, map[string]interface{}{"kbId": utils.SanitizeForLog(kbIDStr)})
 		return nil, errors.NewInternalServerError("获取知识库信息失败: " + err.Error())
 	}
 	if kb == nil {
@@ -845,7 +845,7 @@ func buildModelDescriptors(req *InitializationRequest) []modelDescriptor {
 func (h *InitializationHandler) processInitializationModels(
 	ctx context.Context,
 	kb *types.KnowledgeBase,
-	kbIdStr string,
+	kbIDStr string,
 	req *InitializationRequest,
 ) ([]*types.Model, error) {
 	descriptors := buildModelDescriptors(req)
@@ -889,7 +889,7 @@ func (h *InitializationHandler) processInitializationModels(
 			if err := h.modelService.UpdateModel(ctx, existingModel); err != nil {
 				logger.ErrorWithFields(ctx, err, map[string]interface{}{
 					"model_id": model.ID,
-					"kb_id":    kbIdStr,
+					"kb_id":    kbIDStr,
 				})
 				return nil, errors.NewInternalServerError("更新模型失败: " + err.Error())
 			}
@@ -900,7 +900,7 @@ func (h *InitializationHandler) processInitializationModels(
 		if err := h.modelService.CreateModel(ctx, model); err != nil {
 			logger.ErrorWithFields(ctx, err, map[string]interface{}{
 				"model_id": model.ID,
-				"kb_id":    kbIdStr,
+				"kb_id":    kbIDStr,
 			})
 			return nil, errors.NewInternalServerError("创建模型失败: " + err.Error())
 		}
@@ -1505,12 +1505,12 @@ func (h *InitializationHandler) updateTaskStatus(
 // @Router       /initialization/config/{kbId} [get]
 func (h *InitializationHandler) GetCurrentConfigByKB(c *gin.Context) {
 	ctx := c.Request.Context()
-	kbIdStr := utils.SanitizeForLog(c.Param("kbId"))
+	kbIDStr := utils.SanitizeForLog(c.Param("kbId"))
 
 	logger.Info(ctx, "Getting configuration for knowledge base")
 
 	// 获取指定知识库信息
-	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIdStr)
+	kb, err := h.kbService.GetKnowledgeBaseByID(ctx, kbIDStr)
 	if err != nil {
 		// Mirror getKnowledgeBaseForInitialization above: missing /
 		// cross-tenant kb ids are 404, not 500.
@@ -1553,7 +1553,7 @@ func (h *InitializationHandler) GetCurrentConfigByKB(c *gin.Context) {
 
 	// 检查知识库是否有文件
 	knowledgeList, err := h.knowledgeService.ListPagedKnowledgeByKnowledgeBaseID(ctx,
-		kbIdStr, &types.Pagination{
+		kbIDStr, &types.Pagination{
 			Page:     1,
 			PageSize: 1,
 		}, types.KnowledgeListFilter{})

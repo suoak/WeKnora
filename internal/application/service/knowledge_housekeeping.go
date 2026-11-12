@@ -198,7 +198,8 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 		if wikiDocumentSelectionEnabled() {
 			var parked bool
 			if err := h.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
-WHERE tenant_id=? AND scope='wiki_skipped_ops' AND scope_id=? AND task_type='wiki:ingest' AND dedup_key=?)`, row.TenantID, row.KnowledgeBaseID, row.ID).Scan(&parked).Error; err != nil {
+WHERE tenant_id=? AND scope='wiki_skipped_ops' AND scope_id=? AND task_type='wiki:ingest' AND dedup_key=?)`,
+				row.TenantID, row.KnowledgeBaseID, row.ID).Scan(&parked).Error; err != nil {
 				logger.Warnf(ctx, "[Housekeeping] Wiki skip probe failed for %s; recovery deferred", row.ID)
 				continue
 			}
@@ -211,7 +212,11 @@ WHERE tenant_id=? AND scope='wiki_skipped_ops' AND scope_id=? AND task_type='wik
 		// A metadata scan never grants permission to read or mutate protected
 		// content. Personal protocols belong to their own fenced reconciler.
 		if err := types.CheckLegacySourceRead(h.db.WithContext(ctx), row.ID, row.KnowledgeBaseID); err != nil {
-			logger.Warnf(ctx, "[Housekeeping] source verification required for %s; generic recovery deferred", row.ID)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] source verification required for %s; generic recovery deferred",
+				row.ID,
+			)
 			continue
 		}
 		var personal bool
@@ -317,8 +322,9 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 				res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
 					Where("id = ? AND parse_status = ?", k.ID, types.ParseStatusDeleting).
 					Updates(map[string]interface{}{
-						"parse_status":  types.ParseStatusFailed,
-						"error_message": "delete task stranded (no queued/active delete task) > " + threshold.String() + ", recovered by housekeeping",
+						"parse_status": types.ParseStatusFailed,
+						"error_message": "delete task stranded (no queued/active delete task) > " +
+							threshold.String() + ", recovered by housekeeping",
 					})
 				if res.Error != nil {
 					logger.Warnf(ctx, "[Housekeeping] delete sweep update failed for %s: %v", k.ID, res.Error)
@@ -371,9 +377,15 @@ func (h *HousekeepingService) recordStalledWikiHolds(ctx context.Context, expire
 			Where(`EXISTS (SELECT 1 FROM task_pending_ops p WHERE p.tenant_id=?
  AND p.scope=? AND p.scope_id=? AND p.task_type=? AND p.op=? AND p.dedup_key=?
  AND p.claimed_at IS NULL)`, k.TenantID, wikiTaskScope, k.KnowledgeBaseID, wikiTaskType, WikiOpIngest, k.ID).
-			UpdateColumn("error_message", "Wiki task stalled; original operations and parsed indexes retained for reviewed recovery")
+			UpdateColumn("error_message", "Wiki task stalled; original operations and parsed indexes "+
+				"retained for reviewed recovery")
 		if res.Error != nil {
-			logger.Warnf(ctx, "[Housekeeping] failed to report retained Wiki work for %s: %v", k.ID, res.Error)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] failed to report retained Wiki work for %s: %v",
+				k.ID,
+				res.Error,
+			)
 		}
 	}
 }
@@ -484,7 +496,11 @@ func (h *HousekeepingService) filterByLastSpanActivity(
 		// On query failure, fail safe — assume nothing has a
 		// heartbeat (so all candidates are "stuck"). This matches
 		// the previous-version behaviour and never under-recovers.
-		logger.Warnf(ctx, "[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)", err)
+		logger.Warnf(
+			ctx,
+			"[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)",
+			err,
+		)
 		return candidates, nil
 	}
 	heartbeat := make(map[string]time.Time, len(beats))
@@ -571,7 +587,8 @@ type stallSite struct {
 func (h *HousekeepingService) locateStalls(ctx context.Context, ids []string) map[string]*stallSite {
 	var rows []types.KnowledgeProcessingSpan
 	if err := h.db.WithContext(ctx).
-		Select("id", "knowledge_id", "attempt", "span_id", "parent_span_id", "name", "kind", "status", "started_at").
+		Select("id", "knowledge_id", "attempt", "span_id", "parent_span_id", "name", "kind", "status",
+			"started_at").
 		Where("knowledge_id IN ?", ids).
 		Order("id").
 		Find(&rows).Error; err != nil {
@@ -709,7 +726,13 @@ func (h *HousekeepingService) closeStalledSpans(
 				"duration_ms":   durationMs,
 				"updated_at":    now,
 			}).Error; err != nil {
-			logger.Warnf(ctx, "[Housekeeping] close stalled span %s of %s failed: %v", sp.SpanID, knowledgeID, err)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] close stalled span %s of %s failed: %v",
+				sp.SpanID,
+				knowledgeID,
+				err,
+			)
 		}
 	}
 }
@@ -877,7 +900,12 @@ func (h *HousekeepingService) rearmWikiTriggers(
 			triggerCtx = context.WithValue(ctx, types.LanguageContextKey, lang)
 		}
 		if err := enqueueWikiIngestTrigger(triggerCtx, h.task, k.TenantID, k.KnowledgeBaseID); err != nil {
-			logger.Warnf(ctx, "[Housekeeping] re-arm wiki trigger for KB %s failed: %v", k.KnowledgeBaseID, err)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] re-arm wiki trigger for KB %s failed: %v",
+				k.KnowledgeBaseID,
+				err,
+			)
 			continue
 		}
 		h.wikiKicks[k.KnowledgeBaseID] = now

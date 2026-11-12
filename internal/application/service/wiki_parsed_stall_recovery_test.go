@@ -24,7 +24,8 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
  legacy_access_state,config) VALUES('gitlab',1,'public-two','synthetic','gitlab','active','unmanaged','{}')`).Error)
 	require.NoError(t, db.Model(&types.KnowledgeBase{}).Where("id='public-two'").
 		Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
-	originalError := "task stuck in finalizing: no progress since 2026-11-04T20:09:44Z (> 2h10m0s), recovered by housekeeping"
+	originalError := "task stuck in finalizing: no progress since 2026-11-04T20:09:44Z " +
+		"(> 2h10m0s), recovered by housekeeping"
 	require.NoError(
 		t,
 		db.Exec(`UPDATE knowledges SET channel='gitlab',parse_status='failed',summary_status='completed',
@@ -48,7 +49,8 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	for _, name := range []string{"docreader", "chunking", "embedding"} {
 		require.NoError(t, db.Create(&types.KnowledgeProcessingSpan{
 			KnowledgeID: "public-two-doc",
-			Attempt:     7, SpanID: "parsed-" + name, Name: name, Kind: types.SpanKindStage, Status: types.SpanStatusDone,
+			Attempt:     7, SpanID: "parsed-" + name, Name: name, Kind: types.SpanKindStage,
+			Status: types.SpanStatusDone,
 		}).Error)
 	}
 	// A historical crashed attempt is not the current parser. Its span remains
@@ -59,7 +61,8 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	}).Error)
 	op := types.TaskPendingOp{
 		TenantID: 1, TaskType: types.TypeWikiIngest, Scope: types.TaskScopeKnowledgeBase,
-		ScopeID: "public-two", Op: "ingest", DedupKey: "public-two-doc", FailCount: 2, Payload: json.RawMessage(`{"attempt":7}`),
+		ScopeID: "public-two", Op: "ingest", DedupKey: "public-two-doc", FailCount: 2, Payload: json.
+				RawMessage(`{"attempt":7}`),
 	}
 	require.NoError(t, db.Create(&op).Error)
 	preview, err := repository.PrepareWikiParsedStallRecovery(ctx, db, 1, "public-two", "", false)
@@ -73,7 +76,8 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	for _, channel := range []string{"", types.ChannelWeb, types.ChannelAPI, types.ChannelBrowserExtension} {
 		require.ErrorIs(t, db.Transaction(func(tx *gorm.DB) error {
 			require.NoError(t, tx.Exec(`UPDATE knowledges SET channel=?,
- error_message='task stuck in finalizing at postprocess stage (postprocess.wiki.classify): no progress since 2026-11-05T10:16:30Z (> 2h10m0s), recovered by housekeeping'
+ error_message='task stuck in finalizing at postprocess stage (postprocess.wiki.classify): ' ||
+ 'no progress since 2026-11-05T10:16:30Z (> 2h10m0s), recovered by housekeeping'
  WHERE id='public-two-doc'`, channel).Error)
 			local, failure := repository.PrepareWikiParsedStallRecovery(ctx, tx, 1, "public-two", "", false)
 			require.NoError(t, failure, channel)
@@ -118,7 +122,14 @@ func TestWikiParsedStallRecoveryPostgres(t *testing.T) {
 	require.Error(t, err)
 	_, err = repository.PrepareWikiParsedStallRecovery(ctx, db, 99, "public-two", preview.Snapshot, true)
 	require.Error(t, err)
-	applied, err := repository.PrepareWikiParsedStallRecovery(ctx, db, 1, "public-two", preview.Snapshot, true)
+	applied, err := repository.PrepareWikiParsedStallRecovery(
+		ctx,
+		db,
+		1,
+		"public-two",
+		preview.Snapshot,
+		true,
+	)
 	require.NoError(t, err)
 	require.True(t, applied.Applied)
 	row = types.Knowledge{}

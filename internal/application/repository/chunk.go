@@ -140,7 +140,11 @@ func (r *chunkRepository) CreateChunks(ctx context.Context, chunks []*types.Chun
 }
 
 // GetChunkByID retrieves a chunk by its ID and tenant ID
-func (r *chunkRepository) GetChunkByID(ctx context.Context, tenantID uint64, id string) (*types.Chunk, error) {
+func (r *chunkRepository) GetChunkByID(
+	ctx context.Context,
+	tenantID uint64,
+	id string,
+) (*types.Chunk, error) {
 	var chunk types.Chunk
 	query := r.db.WithContext(ctx).Where("tenant_id = ? AND id = ?", tenantID, id)
 	if tenant, knowledge, kb, exact := types.ExactDocumentIdentity(ctx); exact {
@@ -230,7 +234,10 @@ func (r *chunkRepository) ListChunksByIDOnly(ctx context.Context, ids []string) 
 // Batch source checks bracket this SQL read, as for the paged reader. Row
 // hooks keep the same exact identity without repeating remote ACL requests.
 // Every requested row must belong to this document before any body is selected.
-func (r *chunkRepository) listExactPublishedChunks(ctx context.Context, ids []string) ([]*types.Chunk, error) {
+func (r *chunkRepository) listExactPublishedChunks(
+	ctx context.Context,
+	ids []string,
+) ([]*types.Chunk, error) {
 	_, tenant, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if !exact {
 		return nil, types.ErrExactDocumentScope
@@ -942,7 +949,8 @@ func (r *chunkRepository) ListChunkIDsForDeletion(
 	}
 	var ids []string
 	err := r.db.WithContext(ctx).Table("chunks").Where(
-		"tenant_id=? AND knowledge_id=? AND deleted_at IS NULL", tenantID, knowledgeID).Pluck("id", &ids).Error
+		"tenant_id=? AND knowledge_id=? AND deleted_at IS NULL", tenantID, knowledgeID).
+		Pluck("id", &ids).Error
 	return ids, err
 }
 
@@ -1051,7 +1059,8 @@ func (r *chunkRepository) DeleteUnindexedChunks(
 	}
 	if len(chunks) > 0 {
 		if err := r.db.WithContext(ctx).
-			Where("tenant_id = ? AND knowledge_id = ? AND status = ?", tenantID, knowledgeID, types.ChunkStatusStored).
+			Where("tenant_id = ? AND knowledge_id = ? AND status = ?", tenantID, knowledgeID, types.
+				ChunkStatusStored).
 			Delete(&types.Chunk{}).Error; err != nil {
 			return nil, err
 		}
@@ -1074,7 +1083,8 @@ func (r *chunkRepository) ListAllFAQChunksByKnowledgeID(
 		var batchChunks []*types.Chunk
 		if err := r.db.WithContext(ctx).
 			Select("id, content_hash").
-			Where("tenant_id = ? AND knowledge_id = ? AND chunk_type = ?", tenantID, knowledgeID, types.ChunkTypeFAQ).
+			Where("tenant_id = ? AND knowledge_id = ? AND chunk_type = ?", tenantID, knowledgeID, types.
+				ChunkTypeFAQ).
 			Offset(offset).
 			Limit(batchSize).
 			Find(&batchChunks).Error; err != nil {
@@ -1661,7 +1671,8 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 	baseQuery := r.db.WithContext(ctx).
 		Select("id, knowledge_id, knowledge_base_id, chunk_type, metadata, updated_at").
 		Where("tenant_id = ? AND chunk_type = ? AND status IN ? AND is_enabled = ?",
-			tenantID, types.ChunkTypeText, []int{int(types.ChunkStatusIndexed), int(types.ChunkStatusDefault)}, true)
+			tenantID, types.ChunkTypeText, []int{int(types.ChunkStatusIndexed), int(types.
+				ChunkStatusDefault)}, true)
 
 	if len(kbIDs) > 0 && len(knowledgeIDs) > 0 {
 		baseQuery = baseQuery.Where("knowledge_base_id IN ? OR knowledge_id IN ?", kbIDs, knowledgeIDs)
@@ -1699,7 +1710,8 @@ func (r *chunkRepository) ListRecentDocumentChunksWithQuestions(
 		}
 	default: // sqlite
 		if err := baseQuery.
-			Where("metadata IS NOT NULL AND json_array_length(json_extract(metadata, '$.generated_questions')) > 0").
+			Where("metadata IS NOT NULL AND json_array_length(json_extract(metadata," +
+				" '$.generated_questions')) > 0").
 			Order(orderClause).
 			Limit(limit).
 			Find(&chunks).Error; err != nil {

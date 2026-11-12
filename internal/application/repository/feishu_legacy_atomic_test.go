@@ -72,7 +72,12 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	)
 	tenant := &types.Tenant{ID: 809901, Name: "synthetic-feishu-atomic", Status: "active"}
 	require.NoError(t, db.Create(tenant).Error)
-	model := &types.Model{ID: "synthetic-1024", TenantID: tenant.ID, Name: "synthetic", Type: types.ModelTypeEmbedding}
+	model := &types.Model{
+		ID:       "synthetic-1024",
+		TenantID: tenant.ID,
+		Name:     "synthetic",
+		Type:     types.ModelTypeEmbedding,
+	}
 	require.NoError(t, db.Create(model).Error)
 	kb := &types.KnowledgeBase{
 		ID:               uuid.NewString(),
@@ -109,7 +114,9 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	store := NewFeishuLegacyStore(db)
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
 	require.NoError(t, err)
-	boundMetadata, _ := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": "same-cloud-id"})
+	boundMetadata, _ := json.Marshal(
+		map[string]string{"datasource_id": ds.ID, "external_id": "same-cloud-id"},
+	)
 	kid := uuid.NewString()
 	baseline := &types.Knowledge{
 		ID:              kid,
@@ -203,14 +210,21 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		var n int64
 		require.NoError(
 			t,
-			db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| ?", kid, word).Scan(&n).Error,
+			db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content ||| ?", kid, word).
+				Scan(&n).
+				Error,
 		)
 		return n
 	}
 	r, a, m := makeVersion("oldcanary", 1)
 	require.NoError(t, store.Prepare(ctx, ds, a, m, [][]float32{{1, 0, 0}}))
 	require.Zero(t, visible("oldcanary"), "private candidate leaked into public BM25")
-	require.EqualValues(t, 1, visible("rc3baselinecanary"), "existing RC3 index must remain readable during staging")
+	require.EqualValues(
+		t,
+		1,
+		visible("rc3baselinecanary"),
+		"existing RC3 index must remain readable during staging",
+	)
 	var private int64
 	require.NoError(
 		t,
@@ -335,7 +349,9 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	})
 	for _, window := range []string{"prepare", "publish"} {
 		t.Run("process-config-edit-before-"+window, func(t *testing.T) {
-			metadata, e := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": "config-" + window})
+			metadata, e := json.Marshal(
+				map[string]string{"datasource_id": ds.ID, "external_id": "config-" + window},
+			)
 			require.NoError(t, e)
 			old := types.Knowledge{
 				ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
@@ -361,13 +377,16 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			require.NoError(t, e)
 			candidate := old
 			candidate.FileHash = "config-next"
-			metadata, e = json.Marshal(old.GetMetadata()) // Reproduce the staging adapter's string projection.
+			metadata, e = json.Marshal(
+				old.GetMetadata(),
+			) // Reproduce the staging adapter's string projection.
 			require.NoError(t, e)
 			candidate.Metadata = types.JSON(metadata)
 			manifest := types.FeishuLegacyManifest{
 				Knowledge: candidate, Chunks: []*types.Chunk{{
 					ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
-					KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "confignextcanary", IsEnabled: true,
+					KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "confignextcanary",
+					IsEnabled: true,
 				}},
 				EmbeddingModelID: kb.EmbeddingModelID,
 				KBConfigSHA256:   LegacyKBConfigHash(kb),
@@ -377,18 +396,27 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			if window == "publish" {
 				require.NoError(t, store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}))
 			}
-			require.NoError(t, old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &yes}))
+			require.NoError(
+				t,
+				old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &yes}),
+			)
 			// An ordinary editor is already denied by the database's source
 			// ownership fence. Inject a competing write with this live owner's
 			// nonce to exercise the additional configuration comparison without
 			// disabling any trigger or changing the source generation.
-			require.Error(t, db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error)
+			require.Error(
+				t,
+				db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error,
+			)
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
 				if e := tx.Exec(`SELECT set_config('knowhub.feishu_attempt',?,true),
 					set_config('knowhub.feishu_nonce',?,true)`, attempt.ID, attempt.OwnerNonce).Error; e != nil {
 					return e
 				}
-				return tx.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error
+				return tx.Model(&types.Knowledge{}).
+					Where("id=?", old.ID).
+					Update("metadata", old.Metadata).
+					Error
 			}))
 			snapshot := func() string {
 				var state string
@@ -407,7 +435,12 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				_, e = store.Publish(ctx, ds, attempt)
 			}
 			require.ErrorContains(t, e, "knowledge_process_config_changed")
-			require.JSONEq(t, before, snapshot(), "rejected configuration race preserves the current published version")
+			require.JSONEq(
+				t,
+				before,
+				snapshot(),
+				"rejected configuration race preserves the current published version",
+			)
 		})
 	}
 	t.Run("P1-same-high-water-timestamp-change-rejected", func(t *testing.T) {
@@ -458,7 +491,9 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		var watermark string
 		require.NoError(
 			t,
-			db.Raw("SELECT source_revision FROM feishu_legacy_resources WHERE id=?", r.ID).Scan(&watermark).Error,
+			db.Raw("SELECT source_revision FROM feishu_legacy_resources WHERE id=?", r.ID).
+				Scan(&watermark).
+				Error,
 		)
 		require.Equal(t, candidateTime.Format(time.RFC3339Nano), watermark)
 	})
@@ -531,12 +566,16 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		var body string
 		require.NoError(
 			t,
-			reader.QueryRow("SELECT content FROM chunks WHERE knowledge_id=$1 AND deleted_at IS NULL", kid).Scan(&body),
+			reader.QueryRow("SELECT content FROM chunks WHERE knowledge_id=$1 AND deleted_at IS NULL", kid).
+				Scan(&body),
 		)
 		require.Equal(t, "oldcanary", body)
 		_, e = store.Publish(ctx, ds, next)
 		require.NoError(t, e)
-		require.NoError(t, reader.QueryRow("SELECT content FROM embeddings WHERE knowledge_id=$1", kid).Scan(&body))
+		require.NoError(
+			t,
+			reader.QueryRow("SELECT content FROM embeddings WHERE knowledge_id=$1", kid).Scan(&body),
+		)
 		require.True(t, strings.Contains(body, "oldcanary"))
 		require.NoError(t, reader.Rollback())
 		require.Zero(t, visible("oldcanary"))
@@ -573,7 +612,12 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, db.Create(log).Error)
 		otherCtx := types.WithSyncExecution(
 			context.Background(),
-			types.SyncExecution{DataSourceID: other.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
+			types.SyncExecution{
+				DataSourceID: other.ID,
+				SyncLogID:    log.ID,
+				TenantID:     tenant.ID,
+				Generation:   1,
+			},
 		)
 		oldTx := db.Begin()
 		require.NoError(t, oldTx.Error)
@@ -614,7 +658,9 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		}()
 		require.Eventually(t, func() bool {
 			var waiting int64
-			_ = db.Raw("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND NOT granted").Scan(&waiting).Error
+			_ = db.Raw("SELECT count(*) FROM pg_locks WHERE locktype='advisory' AND NOT granted").
+				Scan(&waiting).
+				Error
 			return waiting > 0
 		}, 3*time.Second, 10*time.Millisecond)
 		select {
@@ -697,7 +743,10 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.ErrorIs(t, e, ErrLegacyVersionFence)
 		require.EqualValues(t, 1, visible("takeovercanary"))
 		require.Zero(t, visible("wrongmodelcanary"))
-		require.NoError(t, db.Model(&types.Model{}).Where("id=?", model.ID).UpdateColumn("name", model.Name).Error)
+		require.NoError(
+			t,
+			db.Model(&types.Model{}).Where("id=?", model.ID).UpdateColumn("name", model.Name).Error,
+		)
 		require.NoError(t, store.Abandon(ctx, attempt))
 	})
 	t.Run("quota-failure-preserves-current-publication", func(t *testing.T) {
@@ -705,17 +754,28 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, store.Prepare(ctx, ds, attempt, candidate, [][]float32{{1, 0, 0}}))
 		var before types.Tenant
 		require.NoError(t, db.First(&before, "id=?", tenant.ID).Error)
-		require.NoError(t, db.Model(&types.Tenant{}).Where("id=?", tenant.ID).UpdateColumn("storage_quota", 1).Error)
+		require.NoError(
+			t,
+			db.Model(&types.Tenant{}).Where("id=?", tenant.ID).UpdateColumn("storage_quota", 1).Error,
+		)
 		_, e := store.Publish(ctx, ds, attempt)
 		require.ErrorContains(t, e, "quota")
 		require.EqualValues(t, 1, visible("takeovercanary"))
 		require.Zero(t, visible("muchlongerquotafailurecanarymustnotpublish"))
 		var after types.Tenant
 		require.NoError(t, db.First(&after, "id=?", tenant.ID).Error)
-		require.Equal(t, before.StorageUsed, after.StorageUsed, "failed publication must not alter quota accounting")
+		require.Equal(
+			t,
+			before.StorageUsed,
+			after.StorageUsed,
+			"failed publication must not alter quota accounting",
+		)
 		require.NoError(
 			t,
-			db.Model(&types.Tenant{}).Where("id=?", tenant.ID).UpdateColumn("storage_quota", before.StorageQuota).Error,
+			db.Model(&types.Tenant{}).
+				Where("id=?", tenant.ID).
+				UpdateColumn("storage_quota", before.StorageQuota).
+				Error,
 		)
 		require.NoError(t, store.Abandon(ctx, attempt))
 	})
@@ -753,7 +813,11 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		search(false)
 		require.NoError(t, store.SetSourceUncertain(ctx, ds, true))
 		search(false)
-		require.NoError(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID), "a generic fetch failure does not revoke an existing document")
+		require.NoError(
+			t,
+			types.CheckLegacySourceRead(guardDB, kid, kb.ID),
+			"a generic fetch failure does not revoke an existing document",
+		)
 		var retryableSource types.DataSource
 		require.NoError(t, db.First(&retryableSource, "id=?", ds.ID).Error)
 		require.NotEqual(t, "hold", retryableSource.LegacyAccessState)

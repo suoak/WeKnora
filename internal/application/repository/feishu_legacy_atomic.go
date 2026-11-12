@@ -302,7 +302,8 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 				kid = old[0].ID
 				state = "active"
 			}
-			if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+kid).Error; e != nil {
+			if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+kid).
+				Error; e != nil {
 				return e
 			}
 			*r = types.FeishuLegacyResource{
@@ -1067,7 +1068,8 @@ func (s *FeishuLegacyStore) Receipt(
 			return e
 		}
 		var public []*types.Chunk
-		if e := tx.Where("tenant_id=? AND knowledge_id=?", r.TenantID, r.KnowledgeID).Find(&public).Error; e != nil {
+		if e := tx.Where("tenant_id=? AND knowledge_id=?", r.TenantID, r.KnowledgeID).Find(&public).
+			Error; e != nil {
 			return e
 		}
 		publicIndexed, e := legacyIndexedChunks(public)
@@ -1147,7 +1149,8 @@ func validateLegacyCursorReceipts(tx *gorm.DB, ctx context.Context) error {
 			receipt.ResourceID).Error; err != nil {
 			return err
 		}
-		if r.State != "active" || r.ActiveAttempt != receipt.AttemptID || r.KnowledgeID != receipt.KnowledgeID {
+		if r.State != "active" || r.ActiveAttempt != receipt.AttemptID ||
+			r.KnowledgeID != receipt.KnowledgeID {
 			return legacyFence("cursor_receipt_not_active")
 		}
 		var a types.FeishuLegacyAttempt

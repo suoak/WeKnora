@@ -14,9 +14,9 @@ import (
 func TestKnowledgeBaseCatalogKeepsRestrictedSourcesVisible(t *testing.T) {
 	db := setupKBTestDB(t)
 	require.NoError(t, db.Exec(`CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME);
-CREATE TABLE data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
+CREATE TABLE data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT,deleted_at DATETIME);
 CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT,knowledge_id TEXT);
-CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME,channel TEXT NOT NULL DEFAULT 'web');
+CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME,channel TEXT NOT NULL DEFAULT 'web',metadata JSON NOT NULL DEFAULT '{}');
 CREATE TABLE task_pending_ops(scope TEXT,scope_id TEXT);
 INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 	for _, row := range []struct {
@@ -28,9 +28,9 @@ INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');`).Error)
 		require.NoError(t, db.Exec(`INSERT INTO knowledge_bases(
 id,name,tenant_id,embedding_model_id,summary_model_id,generated_profile)
 VALUES(?,?,?,'embed','summary','{}')`, row.id, row.id, row.tenant).Error)
-		require.NoError(t, db.Exec(`INSERT INTO data_sources VALUES(?,?,'feishu',?)`, row.id, row.id, row.state).Error)
+		require.NoError(t, db.Exec(`INSERT INTO data_sources(id,knowledge_base_id,type,legacy_access_state) VALUES(?,?,'feishu',?)`, row.id, row.id, row.state).Error)
 	}
-	require.NoError(t, db.Exec(`INSERT INTO knowledges(id,knowledge_base_id) VALUES('doc','held')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO knowledges(id,knowledge_base_id,metadata) VALUES('doc','held','{"datasource_id":"held"}')`).Error)
 	guarded := types.EnableLegacyReadGuards(db)
 	r := &knowledgeBaseRepository{db: guarded}
 	ctx := context.Background()
@@ -73,7 +73,9 @@ VALUES(?,?,?,'embed','summary','{}')`, row.id, row.id, row.tenant).Error)
 			"MCP does not inherit browser membership rights")
 		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='revoked' WHERE id='held'`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+		require.NoError(t, err, "source revocation cannot remove workspace metadata")
+		require.ErrorIs(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error,
+			types.ErrLegacySourceRestricted, "a linked document remains denied")
 		require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(web)), types.ErrLegacySourceRestricted,
 			"revocation after read is checked before output")
 		require.NoError(t, db.Exec(`UPDATE data_sources SET legacy_access_state='hold' WHERE id='held'`).Error)
@@ -89,8 +91,9 @@ VALUES('held','hold','not-yet-imported')`).Error)
 		require.NoError(t, db.Exec(`UPDATE feishu_legacy_resources
 SET knowledge_id='doc' WHERE knowledge_base_id='held'`).Error)
 		_, err = r.GetKnowledgeBaseByID(web, "held")
-		require.ErrorIs(t, err, types.ErrLegacySourceRestricted,
-			"document quarantine is independent of source sync hold")
+		require.NoError(t, err, "quarantined documents cannot remove workspace metadata")
+		require.ErrorIs(t, guarded.WithContext(web).First(&stored, "id=?", "doc").Error,
+			types.ErrLegacySourceRestricted, "document quarantine remains independent of metadata access")
 	})
 }
 
@@ -109,9 +112,9 @@ func TestKnowledgeBaseCatalogRevokedPrivateSourcePostgres(t *testing.T) {
 func testKnowledgeBaseCatalogRevokedPrivateSource(t *testing.T, db *gorm.DB) {
 	t.Helper()
 	ddl := `CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME);
-CREATE TABLE IF NOT EXISTS data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT);
+CREATE TABLE IF NOT EXISTS data_sources(id TEXT,knowledge_base_id TEXT,type TEXT,legacy_access_state TEXT,deleted_at DATETIME);
 CREATE TABLE feishu_legacy_resources(knowledge_base_id TEXT,state TEXT,knowledge_id TEXT);
-CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME,channel TEXT NOT NULL DEFAULT 'web');
+CREATE TABLE knowledges(id TEXT,knowledge_base_id TEXT,deleted_at DATETIME,channel TEXT NOT NULL DEFAULT 'web',metadata JSON NOT NULL DEFAULT '{}');
 CREATE TABLE task_pending_ops(scope TEXT,scope_id TEXT);
 CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT);
 INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active');
@@ -121,7 +124,7 @@ VALUES('private','private',1,'embed','summary','{}'),('healthy','healthy',1,'emb
 INSERT INTO feishu_private_kbs VALUES('private','owner'),('foreign','owner');
 INSERT INTO data_sources(id,knowledge_base_id,type,legacy_access_state)
 VALUES('removed','private','feishu','revoked'),('other','foreign','feishu','revoked');
-INSERT INTO knowledges(id,knowledge_base_id) VALUES('private-doc','private');`
+INSERT INTO knowledges(id,knowledge_base_id,metadata) VALUES('private-doc','private','{"datasource_id":"removed"}');`
 	if db.Name() == "postgres" {
 		ddl = strings.ReplaceAll(ddl, "DATETIME", "TIMESTAMPTZ")
 	}
