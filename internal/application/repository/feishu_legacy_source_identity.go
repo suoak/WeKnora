@@ -169,8 +169,9 @@ func legacyIdentityValid(identity *types.FeishuLegacySourceIdentity) bool {
 		return true
 	}
 	_, err := hex.DecodeString(identity.Digest)
-	return (legacyDOCXIdentityAlgorithmValid(identity.Algorithm) || identity.Algorithm == legacyXLSXIdentityAlgorithm) &&
-		len(identity.Digest) == 64 && err == nil
+	algorithmValid := legacyDOCXIdentityAlgorithmValid(identity.Algorithm) ||
+		identity.Algorithm == legacyXLSXIdentityAlgorithm
+	return algorithmValid && len(identity.Digest) == 64 && err == nil
 }
 
 func legacyDOCXIdentityAlgorithmValid(algorithm string) bool {
