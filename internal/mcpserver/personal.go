@@ -22,11 +22,14 @@ import (
 // PersonalServer uses the existing Go MCP library/tool schemas, but never the
 // workspace machine principal, endpoint scope, ask or write tool handlers.
 type PersonalServer struct {
-	usage     usageRecorder
-	enabled   bool
-	knowledge *service.PortalMCPKnowledge
-	handler   http.Handler
-	slots     chan struct{}
+	usage           usageRecorder
+	enabled         bool
+	knowledge       *service.PortalMCPKnowledge
+	handler         http.Handler
+	slots           chan struct{}
+	content         *service.PersonalContent
+	writeSlots      chan struct{}
+	externalHandler http.Handler
 }
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
@@ -35,7 +38,7 @@ func (s *PersonalServer) Enabled() bool          { return s != nil && s.enabled 
 func NewPersonalServer(enabled bool, knowledge *service.PortalMCPKnowledge) *PersonalServer {
 	s := &PersonalServer{enabled: enabled, knowledge: knowledge, slots: make(chan struct{}, 8)}
 	m := server.NewMCPServer("knowhub-personal", "0.1.0", server.WithToolCapabilities(false), server.WithRecovery(), server.WithToolHandlerMiddleware(s.guard))
-	for _, tool := range []mcp.Tool{listKnowledgeBasesTool(), searchKnowledgeTool(), grepChunksTool(), listDocumentsTool(), readDocumentTool(), wikiSearchTool(), wikiReadPageTool(), wikiIndexTool()} {
+	for _, tool := range s.readTools() {
 		if tool.Name == "wiki_search" {
 			tool.InputSchema.Properties["knowledge_base_ids"] = map[string]any{"type": "array", "items": map[string]any{"type": "string"}, "description": "Optional exact authorized KB IDs; omit to search all personal wikis."}
 			tool.Description = "Search verified published Wiki pages across the current personal knowledge scope using bounded literal text. Unknown or revoked sources are omitted with a partial warning."
@@ -61,6 +64,9 @@ func (s *PersonalServer) Handler() http.Handler {
 	h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s == nil || !s.enabled || s.knowledge == nil {
 			http.Error(w, "personal MCP disabled", http.StatusForbidden)
+			return
+		}
+		if s.routeContent(w, r) {
 			return
 		}
 		select {
@@ -100,7 +106,11 @@ func (s *PersonalServer) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
-		s.handler.ServeHTTP(w, r)
+		if s.externalHandler != nil && !logger.IsolatedPersonalPayload(r.Context()) {
+			s.externalHandler.ServeHTTP(w, r)
+		} else {
+			s.handler.ServeHTTP(w, r)
+		}
 	}))
 	return h
 }
@@ -294,4 +304,8 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		return personalJSON(ctx, rows)
 	}
 	return fail()
+}
+
+func (s *PersonalServer) readTools() []mcp.Tool {
+	return []mcp.Tool{listKnowledgeBasesTool(), searchKnowledgeTool(), grepChunksTool(), listDocumentsTool(), readDocumentTool(), wikiSearchTool(), wikiReadPageTool(), wikiIndexTool()}
 }

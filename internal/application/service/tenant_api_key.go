@@ -382,7 +382,7 @@ func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArr
 	}
 	for _, capability := range normalized {
 		switch types.APIKeyCapability(capability) {
-		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents, types.APIKeyCapabilityEnterpriseRetrieve:
+		case types.APIKeyCapabilityRetrieve, types.APIKeyCapabilityChat, types.APIKeyCapabilityReadAgents, types.APIKeyCapabilityEnterpriseRetrieve, types.APIKeyCapabilityAddContent:
 		default:
 			return nil, errors.New("unsupported user_mcp capability")
 		}

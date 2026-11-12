@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
@@ -83,6 +84,10 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 	// FAQ knowledge bases should not accept file uploads — use the FAQ import API instead
 	if kb.Type == types.KnowledgeBaseTypeFAQ {
 		return nil, werrors.NewBadRequestError("FAQ 知识库不支持文件上传，请使用 FAQ 导入功能")
+	}
+
+	if err := access.RequireKBContentCreate(ctx, kb); err != nil {
+		return nil, err
 	}
 
 	if err := s.checkStorageEngineConfigured(ctx, kb); err != nil {
@@ -946,6 +951,10 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 		return nil, err
 	}
 
+	if err := access.RequireKBContentCreate(ctx, kb); err != nil {
+		return nil, err
+	}
+
 	if err := s.checkStorageEngineConfigured(ctx, kb); err != nil {
 		return nil, err
 	}
@@ -959,8 +968,10 @@ func (s *knowledgeService) CreateKnowledgeFromManual(ctx context.Context,
 
 	fileName := ensureManualFileName(title)
 	meta := types.NewManualKnowledgeMetadata(cleanContent, status, 1)
+	meta.CreationRequestHash = payload.CreationRequestHash
 
 	knowledge := &types.Knowledge{
+		ID:               payload.CreationID,
 		TenantID:         tenantID,
 		KnowledgeBaseID:  kbID,
 		Type:             types.KnowledgeTypeManual,

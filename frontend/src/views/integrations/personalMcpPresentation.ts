@@ -4,7 +4,7 @@ import type { MCPAccessKey, MCPKBRef, MCPKeyPayload, MCPScopeOption, MCPTenantSc
 export function isUnifiedPersonalKey(key: Pick<MCPAccessKey, 'scope_type' | 'capabilities'> & Partial<Pick<MCPAccessKey, 'client_type'>>): boolean {
   return key.scope_type === 'user_mcp' && Array.isArray(key.capabilities)
     && key.capabilities.includes('retrieve') && (key.capabilities.includes('enterprise_retrieve') || key.client_type === 'generic')
-    && key.capabilities.every(value => value === 'retrieve' || value === 'enterprise_retrieve')
+    && key.capabilities.every(value => value === 'retrieve' || value === 'enterprise_retrieve' || value === 'add_content')
 }
 
 export type PersonalKnowledgeRange = 'default' | 'selected'
