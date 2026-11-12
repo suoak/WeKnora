@@ -1,0 +1,27 @@
+{
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "users": {
+    "a": "291aa764-107b-5ce4-8787-edac9fdba015",
+    "b": "a0ed321d-717c-52c6-8e92-fe59ebef33a3"
+  },
+  "knowledge_bases": {
+    "own": "ee1f81f9-2a6a-591f-abe2-a5f354f8a860",
+    "private": "32bccace-209f-5e5e-9e7e-0023f82a6c40",
+    "same_space_b": "2e77b2bd-0985-558e-9ccb-38990599810e",
+    "private_b": "26dc98fe-51ef-5272-bcc6-70fdacf7d60a",
+    "editor": "a884e9a0-2455-5444-b8d6-3227d4894d6f",
+    "viewer": "62caf708-8ac5-531b-91dd-027855e5395a",
+    "portal_only": "c3e2d032-a288-5884-ad91-83e6b078d46e"
+  },
+  "key_ids": {
+    "a": 108,
+    "b": 109,
+    "fixed": 110
+  },
+  "shares": {
+    "editor": "35886cdd-f721-5350-a50d-e7b58a8ad099",
+    "viewer": "a2f2c441-7b06-5b9c-af51-119679ccbb04"
+  },
+  "organization": "b37e76fc-9675-5e4b-872f-920d4bd6b7a9",
+  "secrets_exported": false
+}

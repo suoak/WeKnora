@@ -1,0 +1,160 @@
+{
+  "commit": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "runs": [
+    {
+      "id": 43322901576,
+      "name": "Build and Push Docker Image",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43322901576",
+      "jobs": [
+        {
+          "id": 131547884921,
+          "name": "build-sandbox",
+          "status": "completed",
+          "conclusion": "skipped",
+          "current_step": null
+        },
+        {
+          "id": 131547885430,
+          "name": "build-ui",
+          "status": "completed",
+          "conclusion": "skipped",
+          "current_step": null
+        },
+        {
+          "id": 131547886770,
+          "name": "merge",
+          "status": "completed",
+          "conclusion": "skipped",
+          "current_step": null
+        },
+        {
+          "id": 131547934766,
+          "name": "build-app",
+          "status": "completed",
+          "conclusion": "skipped",
+          "current_step": null
+        },
+        {
+          "id": 131547947437,
+          "name": "build-docreader",
+          "status": "completed",
+          "conclusion": "skipped",
+          "current_step": null
+        }
+      ]
+    },
+    {
+      "id": 43322901397,
+      "name": "MCP usage accounting",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43322901397",
+      "jobs": [
+        {
+          "id": 131547880997,
+          "name": "Personal MCP authenticated concurrency and SSE isolation",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131547881324,
+          "name": "accounting",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        }
+      ]
+    },
+    {
+      "id": 43322901430,
+      "name": "Go Lint Cache",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43322901430",
+      "jobs": [
+        {
+          "id": 131547881778,
+          "name": "warm lint cache (.)",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131547882121,
+          "name": "warm lint cache (client)",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131547882263,
+          "name": "warm lint cache (cli)",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        }
+      ]
+    },
+    {
+      "id": 43322901404,
+      "name": "App",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43322901404",
+      "jobs": [
+        {
+          "id": 131547881474,
+          "name": "Format, vet, test, and build",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131550554865,
+          "name": "Docker image and production startup smoke",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        }
+      ]
+    },
+    {
+      "id": 43322901407,
+      "name": "Portal Final Gate",
+      "event": "push",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43322901407",
+      "jobs": [
+        {
+          "id": 131547881575,
+          "name": "M1 Linux backend and MCP compatibility",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131547881991,
+          "name": "Portal contracts, RBAC, race, and branding",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        },
+        {
+          "id": 131547882064,
+          "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+          "status": "completed",
+          "conclusion": "success",
+          "current_step": null
+        }
+      ]
+    }
+  ]
+}

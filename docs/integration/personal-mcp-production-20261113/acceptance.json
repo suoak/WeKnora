@@ -1,0 +1,353 @@
+{
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "observed_utc": "2026-11-12T23:11:54.936251+00:00",
+  "target": "actual corporate domain HTTP80 and verified TLS8443",
+  "checks": [
+    {
+      "name": "database-clean3047-before",
+      "pass": true
+    },
+    {
+      "name": "http80-twelve-tools",
+      "pass": true
+    },
+    {
+      "name": "tls8443-eight-read-tools",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-add_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-upload_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-get_document_processing_status",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-update_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-delete_document",
+      "pass": true
+    },
+    {
+      "name": "writable-discovery-call",
+      "pass": true
+    },
+    {
+      "name": "writable-list-ownership-private-editor",
+      "pass": true
+    },
+    {
+      "name": "deny-same-space-other-owner",
+      "pass": true
+    },
+    {
+      "name": "file-deny-same-space-other-owner",
+      "pass": true
+    },
+    {
+      "name": "deny-other-private",
+      "pass": true
+    },
+    {
+      "name": "file-deny-other-private",
+      "pass": true
+    },
+    {
+      "name": "deny-viewer-share",
+      "pass": true
+    },
+    {
+      "name": "file-deny-viewer-share",
+      "pass": true
+    },
+    {
+      "name": "deny-portal-read-only",
+      "pass": true
+    },
+    {
+      "name": "file-deny-portal-read-only",
+      "pass": true
+    },
+    {
+      "name": "deny-fixed-scope",
+      "pass": true
+    },
+    {
+      "name": "file-deny-fixed-scope",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-write-other-owner-20",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-open-8443-21",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-write-other-owner-22",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-open-8443-23",
+      "pass": true
+    },
+    {
+      "name": "reject-forged-tenant-body",
+      "pass": true
+    },
+    {
+      "name": "reject-url-import",
+      "pass": true
+    },
+    {
+      "name": "text-own",
+      "pass": true
+    },
+    {
+      "name": "text-private",
+      "pass": true
+    },
+    {
+      "name": "text-editor",
+      "pass": true
+    },
+    {
+      "name": "text-public-b",
+      "pass": true
+    },
+    {
+      "name": "different-key-processing-status-denied",
+      "pass": true
+    },
+    {
+      "name": "retrieve-only-owner-denied",
+      "pass": true
+    },
+    {
+      "name": "file-md",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-md",
+      "pass": true
+    },
+    {
+      "name": "file-pdf",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-pdf",
+      "pass": true
+    },
+    {
+      "name": "file-docx",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-docx",
+      "pass": true
+    },
+    {
+      "name": "file-xlsx",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-xlsx",
+      "pass": true
+    },
+    {
+      "name": "file-txt",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-txt",
+      "pass": true
+    },
+    {
+      "name": "concurrent-file-idempotency",
+      "pass": true
+    },
+    {
+      "name": "idempotency-payload-conflict-denied",
+      "pass": true
+    },
+    {
+      "name": "file-private",
+      "pass": true
+    },
+    {
+      "name": "file-editor",
+      "pass": true
+    },
+    {
+      "name": "editor-grant-revoked-immediately",
+      "pass": true
+    },
+    {
+      "name": "revoked-grant-replay-denied",
+      "pass": true
+    },
+    {
+      "name": "revoked-editor-file-replay-denied",
+      "pass": true
+    },
+    {
+      "name": "key-revoked-immediately",
+      "pass": true
+    },
+    {
+      "name": "local-account-disabled-immediately",
+      "pass": true
+    },
+    {
+      "name": "all-text-and-five-files-parsed",
+      "pass": true
+    },
+    {
+      "name": "portal-other-owner-public-content-readable",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-keyword",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-semantic",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-hybrid",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-pdf",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-docx",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-xlsx",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-txt",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-md",
+      "pass": true
+    },
+    {
+      "name": "database-real-chunks-and-vectors",
+      "pass": true
+    },
+    {
+      "name": "write-audit-records",
+      "pass": true
+    },
+    {
+      "name": "database-clean3047-after",
+      "pass": true
+    }
+  ],
+  "database_document_rows": [
+    {
+      "id": "efdfa208-a8be-5bbb-840c-fb740af0463d",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "62071f36-7ef6-5525-aefa-94d0ef8088ee",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "88186f11-ed30-5090-a3fb-b282f7f42a9e",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "bad8b0d5-4868-51c2-bdd7-df9a940e6b09",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "8305205c-b8a9-5855-8a70-eb945ebb85c7",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "afc659dd-6662-5dfa-b86f-98a691d31ce2",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "ccfc632d-4670-58f9-b777-490866d81d1c",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "cc5363c3-f4e5-5c31-814b-387251b03de8",
+      "parse_status": "completed",
+      "chunks": 4,
+      "vectors": 4
+    },
+    {
+      "id": "4a2a9005-2ca3-54a7-a4b2-3300fee12f07",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "61d464ba-555d-5112-983c-cd97e041afb8",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "a83c43ab-81b3-5d24-b689-1fa1992395d8",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "383474a7-993d-5093-a4a7-29c0d9bc2d63",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    },
+    {
+      "id": "5662ecca-cc70-5273-9b0b-0a4bc5f60226",
+      "parse_status": "completed",
+      "chunks": 2,
+      "vectors": 2
+    }
+  ],
+  "audit_actions": [
+    {
+      "action": "mcp.content_added",
+      "count": 5
+    },
+    {
+      "action": "mcp.file_added",
+      "count": 18
+    }
+  ]
+}

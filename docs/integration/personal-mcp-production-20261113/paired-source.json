@@ -1,0 +1,34 @@
+{
+  "version": 1,
+  "checked_at": "2026-11-12T23:08:45.976007+00:00",
+  "main_sha": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "paired_source_sha": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "images": {
+    "app": {
+      "source_sha": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+      "registry_digests": [
+        "knowhub-personal-main/app@sha256:453b855d2a97052a7ac593fb05991e570c6fd505e927d3e80df6f6f9c0d6c97b"
+      ],
+      "contains_main": true,
+      "engine_image_id": "sha256:453b855d2a97052a7ac593fb05991e570c6fd505e927d3e80df6f6f9c0d6c97b",
+      "image_config_digest": "sha256:df8222b1336d02d236a4e1a30ed2758e55377a9003cbd96510790d9829e592a8",
+      "manifest_digest": "sha256:453b855d2a97052a7ac593fb05991e570c6fd505e927d3e80df6f6f9c0d6c97b",
+      "byte_verification": true
+    },
+    "frontend": {
+      "source_sha": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+      "registry_digests": [
+        "knowhub-personal-main/frontend@sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370"
+      ],
+      "contains_main": true,
+      "engine_image_id": "sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370",
+      "image_config_digest": "sha256:70cb56062143ef97eed745eea52bae3d63836f15f7cfd5160622dd244d5e66cd",
+      "manifest_digest": "sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370",
+      "byte_verification": true
+    }
+  },
+  "authentication_exported": false,
+  "production_changes": false,
+  "image_bytes_and_business_acceptance_required_separately": true,
+  "digest_type_note": "Containerd inspect Id is manifest digest; raw OCI config digest independently verified."
+}

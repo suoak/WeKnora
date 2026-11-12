@@ -1,0 +1,62 @@
+{
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "client": "actual Codex app-server",
+  "model_generation": false,
+  "inventory": {
+    "knowhub_external": [
+      "add_document",
+      "get_document_processing_status",
+      "grep_chunks",
+      "list_documents",
+      "list_knowledge_bases",
+      "list_writable_knowledge_bases",
+      "read_document",
+      "search_knowledge",
+      "upload_document",
+      "wiki_index",
+      "wiki_read_page",
+      "wiki_search"
+    ],
+    "knowhub_isolated": [
+      "grep_chunks",
+      "list_documents",
+      "list_knowledge_bases",
+      "read_document",
+      "search_knowledge",
+      "wiki_index",
+      "wiki_read_page",
+      "wiki_search"
+    ]
+  },
+  "calls": [
+    {
+      "server": "knowhub_external",
+      "tool": "list_writable_knowledge_bases",
+      "success": true,
+      "returned_items": 4
+    },
+    {
+      "server": "knowhub_isolated",
+      "tool": "list_knowledge_bases",
+      "success": true,
+      "returned_items": 80
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "add_document",
+      "success": true,
+      "document_id": "bad8b0d5-4868-51c2-bdd7-df9a940e6b09",
+      "knowledge_base_id": "ee1f81f9-2a6a-591f-abe2-a5f354f8a860",
+      "status": "processing"
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "upload_document",
+      "success": true,
+      "document_id": "efdfa208-a8be-5bbb-840c-fb740af0463d",
+      "knowledge_base_id": "ee1f81f9-2a6a-591f-abe2-a5f354f8a860",
+      "status": "processing"
+    }
+  ],
+  "company_kb_names_and_document_content_omitted": true
+}

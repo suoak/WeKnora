@@ -1,0 +1,194 @@
+{
+  "before": {
+    "observed_utc": "2026-11-12T22:49:08.451858+00:00",
+    "queues": [
+      {
+        "queue": "approved_sync",
+        "paused": true,
+        "pending": 4,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 89,
+        "completed": 0
+      },
+      {
+        "queue": "default",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 15,
+        "completed": 0
+      },
+      {
+        "queue": "low",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "multimodal",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "postprocess",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "question",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "summary",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 182,
+        "completed": 0
+      },
+      {
+        "queue": "sync",
+        "paused": true,
+        "pending": 3,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "wiki",
+        "paused": false,
+        "pending": 0,
+        "active": 2,
+        "scheduled": 0,
+        "retry": 42,
+        "archived": 655,
+        "completed": 0
+      }
+    ]
+  },
+  "after": {
+    "observed_utc": "2026-11-12T23:12:01.088016+00:00",
+    "queues": [
+      {
+        "queue": "approved_sync",
+        "paused": true,
+        "pending": 4,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 89,
+        "completed": 0
+      },
+      {
+        "queue": "default",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 15,
+        "completed": 0
+      },
+      {
+        "queue": "low",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "multimodal",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "postprocess",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "question",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "summary",
+        "paused": false,
+        "pending": 0,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 182,
+        "completed": 0
+      },
+      {
+        "queue": "sync",
+        "paused": true,
+        "pending": 3,
+        "active": 0,
+        "scheduled": 0,
+        "retry": 0,
+        "archived": 0,
+        "completed": 0
+      },
+      {
+        "queue": "wiki",
+        "paused": false,
+        "pending": 0,
+        "active": 1,
+        "scheduled": 1,
+        "retry": 5,
+        "archived": 665,
+        "completed": 0
+      }
+    ]
+  },
+  "queues_cleared": false,
+  "safety_locks_released": false
+}

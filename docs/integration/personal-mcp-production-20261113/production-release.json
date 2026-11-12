@@ -1,0 +1,47 @@
+{
+  "pass": true,
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "runtime": {
+    "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+    "services": {
+      "app": {
+        "id": "772cc113adbb6875b1132ca0f26db4362106eb26ef3f174928ea7b99c1e1a794",
+        "image": "sha256:453b855d2a97052a7ac593fb05991e570c6fd505e927d3e80df6f6f9c0d6c97b",
+        "started": "2026-11-12T23:09:05.90661182Z",
+        "restart_count": 0
+      },
+      "frontend": {
+        "id": "7096dc96d267a1a133a7482540c565440d3f4f131cbc24cc1d3b0b42db4e1314",
+        "image": "sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370",
+        "started": "2026-11-12T23:10:10.100192281Z",
+        "restart_count": 0
+      }
+    },
+    "database": {
+      "version": 3047,
+      "dirty": false,
+      "fence": "00bd6b7bbbb4ea41d51c0e7b2906e304"
+    },
+    "app_binary_sha256": "f0888966924a76605ebf321409d0779ebea5336e121e05bd22fbaaf52fc39244",
+    "runtime_controls_preserved": true,
+    "rollback_executed": false,
+    "rollback_scope": "current_attempt"
+  },
+  "enabled_current_keys": 80,
+  "qa_retired": true,
+  "actual_dual_entry_calls": true,
+  "production_schema": 3047,
+  "production_migration_executed": false,
+  "safety_locks_and_paused_sync_preserved": true,
+  "employee_external_status": "deferred by user",
+  "clamav": "deferred by user",
+  "attempt": 3,
+  "rollback_executed": true,
+  "current_attempt_rollback_executed": false,
+  "prior_controlled_rollbacks": 2,
+  "prior_rollback_receipts": [
+    "production-rollback-attempt1-static403.json",
+    "production-rollback-attempt2-protocol403.json"
+  ],
+  "observed_utc": "2026-11-12T23:12:01.234963+00:00"
+}

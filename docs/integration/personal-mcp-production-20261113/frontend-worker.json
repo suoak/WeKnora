@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "image": "sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370",
+  "actual_nginx_worker_http": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "sha256": "833e2939a40960c2ffff83fd3206c62c84b832d4635928ede4e006ac76cc14b4"
+    },
+    {
+      "path": "assets/index-DiHnyEFa.js",
+      "status": 200,
+      "sha256": "2816e34af7e7d77cb7507766d9f5f30aa8eb8f15ec421eb7541d91be6dd2a379"
+    }
+  ],
+  "network": "none",
+  "ports_published": false,
+  "production_services_changed": false,
+  "observed_utc": "2026-11-12T23:01:37.404186+00:00"
+}

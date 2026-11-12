@@ -1,0 +1,48 @@
+{
+  "observed_utc": "2026-11-12T23:11:57.995534+00:00",
+  "phase": "after",
+  "dns": [
+    "10.51.134.114"
+  ],
+  "tls_hostname_verified": true,
+  "tls_certificate_validation": true,
+  "proxy_used": false,
+  "entries": [
+    {
+      "entry": "external",
+      "url": "http://knowhub.ruijie.com.cn/api/v1/mcp/personal",
+      "http_status": 200,
+      "tools": [
+        "add_document",
+        "get_document_processing_status",
+        "grep_chunks",
+        "list_documents",
+        "list_knowledge_bases",
+        "list_writable_knowledge_bases",
+        "read_document",
+        "search_knowledge",
+        "upload_document",
+        "wiki_index",
+        "wiki_read_page",
+        "wiki_search"
+      ],
+      "key_id": 34
+    },
+    {
+      "entry": "isolated",
+      "url": "https://knowhub.ruijie.com.cn:8443/api/v1/mcp/personal",
+      "http_status": 200,
+      "tools": [
+        "grep_chunks",
+        "list_documents",
+        "list_knowledge_bases",
+        "read_document",
+        "search_knowledge",
+        "wiki_index",
+        "wiki_read_page",
+        "wiki_search"
+      ],
+      "key_id": 34
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "main": "474feec9b6e10f5b9f42a9ecc94e667c6e7493f5",
+  "updated": 80,
+  "scope_expansion": false,
+  "full_access_enabled": false,
+  "machine_keys_unchanged": true,
+  "new_key_default": "off",
+  "cloud_internal_readonly": true,
+  "journal_sha256": "32a02cc6e4d0e322e97c6199008b80dc557d31fd63945bc98c6048740e478a0a",
+  "observed_utc": "2026-11-12T23:11:57.624549+00:00"
+}
