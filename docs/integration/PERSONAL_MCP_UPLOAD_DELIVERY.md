@@ -65,6 +65,6 @@ PR 触发的增量 lint 首次发现本次代码的行宽、导出注释和资�
 
 交接补验：合并后且统一工具定义的 APP、验收 seed 均真实编译成功，access/MCP/config 全套及 service/MCP 定向 race 均 exit 0。远端 APP 使用源码与 `f0aa03cc0` 的 3349 个 internal/cmd/config/module 文件逐项比对，规范化 CRLF 后无差异，摘要见 `validated-source-manifest.json`。仅切换本任务 APP 到 `WeKnora-validated`，没有替换其他服务。
 
-`validated-*` 记录合并版两入口工具发现、三类 KB 的文本创建、五种文件、并发回执、状态及检索。额外 `boundary-*` 真实 HTTP 检查文件上传的同空间拒绝、Viewer、只读 Key、固定范围、路径/URL/伪装文件类型、额外 tenant 字段、伪造身份 Header、私人 KB、跨空间 Editor、其他 Key 文档状态拒绝、共享撤销和 Key 新增能力撤销，共 22 项通过。撤销新增能力后云外也只发现 8 个读工具。再次使用真实 Codex app-server 连接两个入口：12/8 工具、列表、文本、TXT 调用均成功，见 `validated-codex-client-results.json`。
+`validated-*` 记录合并版两入口工具发现、三类 KB 的文本创建、五种文件、并发回执、状态及检索。额外 `boundary-*` 真实 HTTP 检查文件上传的同空间拒绝、Viewer、只读 Key、固定范围、路径/URL/伪装文件类型、额外 tenant 字段、伪造身份 Header、私人 KB、跨空间 Editor、其他 Key 文档状态拒绝、共享撤销和 Key 新增能力撤销，共 20 项通过。撤销新增能力后云外也只发现 8 个读工具。再次使用真实 Codex app-server 连接两个入口：12/8 工具、列表、文本、TXT 调用均成功，见 `validated-codex-client-results.json`。
 
 最终 `handoff-supplement-*` 检查 29 份合成文档全部 completed，Chunk 和向量记录数均不少于文档数，三种检索、撤权和审计再次通过，schema 仍为 3046。此后提交只补充交接文档和证据；外部员工状态、杀毒和实际生产 8443 映射验收仍按上述边界处理。
