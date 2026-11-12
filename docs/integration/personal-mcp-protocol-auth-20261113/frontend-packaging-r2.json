@@ -1,0 +1,54 @@
+{
+  "main": "66976ce6fec4907044377659cbca86c4cb82c0ff",
+  "app_unchanged": true,
+  "frontend": {
+    "tag": "knowhub-personal-main/frontend:66976ce6fec4-static-modes-r2",
+    "id": "sha256:07dffd8ed6f69140a231d83d503ab57f3131f51bf6b0cdd9b05e34ff47de5d17",
+    "registry_digests": [
+      "knowhub-personal-main/frontend@sha256:07dffd8ed6f69140a231d83d503ab57f3131f51bf6b0cdd9b05e34ff47de5d17"
+    ]
+  },
+  "normalized_directories": "0755 root:root",
+  "normalized_files": "0644 root:root",
+  "asset_bytes_verified": 246,
+  "worker_http_probes": [
+    {
+      "candidate": "r1",
+      "image": "sha256:9a2f28f55f9af11548d52ef444140a0bb63ba4003be9f817d4c720f1d901ebc2",
+      "network": "none",
+      "ports_published": false,
+      "checks": [
+        {
+          "path": "index.html",
+          "result": "HTTP200 and main bytes match",
+          "sha256": "b3cd5d6506551d56d0b91a3f8d8e460e6558fd65f7987caf263a65bc327457ea"
+        },
+        {
+          "path": "assets/index-DxDX1Ii3.js",
+          "result": "403 reproduced"
+        }
+      ]
+    },
+    {
+      "candidate": "r2",
+      "image": "sha256:07dffd8ed6f69140a231d83d503ab57f3131f51bf6b0cdd9b05e34ff47de5d17",
+      "network": "none",
+      "ports_published": false,
+      "checks": [
+        {
+          "path": "index.html",
+          "result": "HTTP200 and main bytes match",
+          "sha256": "b3cd5d6506551d56d0b91a3f8d8e460e6558fd65f7987caf263a65bc327457ea"
+        },
+        {
+          "path": "assets/index-DxDX1Ii3.js",
+          "result": "HTTP200 and main bytes match",
+          "sha256": "8fd34a8718bffdd018fc606528abe0d53173f8c4faddb29a629d128c590f91ad"
+        }
+      ]
+    }
+  ],
+  "production_services_changed": false,
+  "production_configs_changed": false,
+  "observed_utc": "2026-11-12T16:26:01.987449+00:00"
+}
