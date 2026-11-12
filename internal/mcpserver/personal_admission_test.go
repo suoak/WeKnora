@@ -141,6 +141,18 @@ func TestPersonalAdmissionTimeoutAndOverload(t *testing.T) {
 	require.Zero(t, a.snapshot("C").Queued)
 }
 
+func TestPersonalAdmissionFourIndependentProtocolRequests(t *testing.T) {
+	c, err := (config.PersonalMCPConcurrencyConfig{}).Resolve()
+	require.NoError(t, err)
+	a := newPersonalAdmission(c, true)
+	for i := 0; i < 4; i++ {
+		release, err := a.acquire(context.Background(), "owner")
+		require.NoError(t, err)
+		defer release()
+	}
+	require.Equal(t, 4, a.snapshot("owner").Active)
+}
+
 func TestPersonalAdmissionHTTPIdentityProtocolIsolationAndUsage(t *testing.T) {
 	s := NewPersonalServer(true, &service.PortalMCPKnowledge{})
 	s.admission.wait = time.Millisecond

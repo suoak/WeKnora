@@ -28,7 +28,7 @@ func (c PersonalMCPConcurrencyConfig) Resolve() (PersonalMCPConcurrencyConfig, e
 		{&c.UserQueueLimit, 8, 256},
 		{&c.WaitTimeoutMs, 1500, 5000},
 		{&c.ProtocolLimit, 8, 64},
-		{&c.ProtocolUserLimit, 2, 16},
+		{&c.ProtocolUserLimit, 4, 16},
 		{&c.StreamLimit, 8, 64},
 		{&c.StreamUserLimit, 2, 16},
 	}

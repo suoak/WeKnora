@@ -86,7 +86,7 @@ All limits are per APP instance and the same pool objects serve both routes.
 | global_limit / user_limit (all tools) | 16 / 4 |
 | queue_limit / user_queue_limit (per pool) | 64 / 8 |
 | wait_timeout_ms | 1500 |
-| protocol_limit / protocol_user_limit | 8 / 2 |
+| protocol_limit / protocol_user_limit | 8 / 4 |
 | stream_limit / stream_user_limit (SSE GET) | 8 / 2 |
 
 Tools, short protocol operations and GET listeners have separate bounded pools.
