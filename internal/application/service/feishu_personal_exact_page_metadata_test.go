@@ -11,6 +11,14 @@ import (
 )
 
 func TestPersonalRecoveryExactPageMetadataKeepsAllFilesWithoutContent(t *testing.T) {
+	for _, historical := range []bool{false, true} {
+		t.Run(fmt.Sprintf("historical_without_receipts=%v", historical), func(t *testing.T) {
+			testPersonalCatalogMetadata(t, historical)
+		})
+	}
+}
+
+func testPersonalCatalogMetadata(t *testing.T, historical bool) {
 	f := newMVPFixture(t)
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}, &types.DataSource{}))
@@ -24,18 +32,28 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 		id := fmt.Sprintf("doc-%02d", i)
 		require.NoError(t, f.db.Create(&types.Knowledge{
 			ID: id, TenantID: 1, KnowledgeBaseID: "kb", FileName: id + ".docx",
+			Channel:  "feishu_personal",
 			FileType: "docx", Type: "file", FolderPath: "visits", ParseStatus: types.ParseStatusPending,
 			Title: "private-title-needle", Description: "private-description-marker",
 			Source: "https://private.invalid/secret", FilePath: "local://private-path-marker",
 			Metadata: types.JSON(`{"private":"private-metadata-marker"}`),
 		}).Error)
 	}
-	for i, op := range []string{"published", "staging"} {
-		require.NoError(t, f.db.Create(&types.TaskPendingOp{
-			Scope: types.PersonalExactReceiptScope, ScopeID: fmt.Sprintf("doc-%02d", i), TenantID: 1,
-			DedupKey: fmt.Sprintf("receipt-%d", i), Op: op, EnqueuedAt: time.Now(),
-			Payload: json.RawMessage(`{"knowledge_base_id":"kb"}`),
+	if historical {
+		require.NoError(t, f.db.Create(&types.FeishuPersonalImport{
+			ID: "historical-app-import", UserID: "A", AppID: "cli_test", ApplicationID: "cli_test", KBID: "kb",
+			KnowledgeID: "doc-00", AuthMode: string(types.FeishuApplicationGrant),
+			Status: "needs_attention", DocumentToken: "historical", ResourceType: "bitable",
+			URL: "https://tenant.feishu.cn/base/historical",
 		}).Error)
+	} else {
+		for i, op := range []string{"published", "staging"} {
+			require.NoError(t, f.db.Create(&types.TaskPendingOp{
+				Scope: types.PersonalExactReceiptScope, ScopeID: fmt.Sprintf("doc-%02d", i), TenantID: 1,
+				DedupKey: fmt.Sprintf("receipt-%d", i), Op: op, EnqueuedAt: time.Now(),
+				Payload: json.RawMessage(`{"knowledge_base_id":"kb"}`),
+			}).Error)
+		}
 	}
 	require.NoError(t, f.db.Exec("UPDATE tenant_members SET role='viewer' WHERE user_id='B'").Error)
 	types.EnableLegacyReadGuards(f.db)
@@ -111,4 +129,23 @@ id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,st
 	require.Error(t, err, "revoked membership closes metadata access too")
 	_, err = f.ks.GetKnowledgeBatchWithSharedAccess(catalog, 1, []string{"doc-00", "doc-01"})
 	require.Error(t, err, "status polling must honor live membership revocation")
+
+	// Platform administration authorizes the catalog through canonical KB
+	// access even without a membership row in the selected workspace.
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=true,tenant_id=2 WHERE id='B'").Error)
+	admin := types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "B", Role: types.TenantRoleAdmin})
+	result, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+	require.NoError(t, err)
+	require.EqualValues(t, 24, result.Total)
+	for _, row := range result.Data.([]*types.Knowledge) {
+		require.True(t, row.MetadataOnly)
+		require.Empty(t, row.Description)
+	}
+	_, err = f.ks.GetKnowledgeByID(admin, "doc-01")
+	require.Error(t, err, "administrator catalog access does not publish unfinished content")
+	require.NoError(t, f.db.Exec("UPDATE users SET can_access_all_tenants=false WHERE id='B'").Error)
+	_, err = f.ks.ListPagedKnowledgeByKnowledgeBaseID(admin, "kb",
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+	require.Error(t, err, "administrator revocation must close metadata access immediately")
 }

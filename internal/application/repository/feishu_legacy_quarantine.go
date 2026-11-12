@@ -13,10 +13,14 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-// Source uncertainty is durable and independent of the ingestion feature flag.
-// Only a successful full reconciliation may release it, and document holds
-// remain authoritative even then. Ordinary datasource edits cannot write it.
-func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.DataSource, uncertain bool) error {
+// SetSourceUncertain fences uncertain source publication while retaining local snapshots.
+// Still fence the reporting execution; exact document withdrawals are handled
+// independently below, without changing the source's admission fingerprint.
+func (s *FeishuLegacyStore) SetSourceUncertain(
+	ctx context.Context,
+	ds *types.DataSource,
+	uncertain bool,
+) error {
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var err error
 		if uncertain {
@@ -27,18 +31,24 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 		if err != nil {
 			return err
 		}
-		state := "hold"
-		if !uncertain {
+		if uncertain {
+			return nil
+		}
+		{
 			var unresolved int64
-			if err := tx.Model(&types.FeishuLegacyResource{}).Where("data_source_id=? AND state IN ('hold','revoked')", ds.ID).Count(&unresolved).Error; err != nil {
+			if err := tx.Model(&types.FeishuLegacyResource{}).
+				Where("data_source_id=? AND state IN ('hold','revoked')", ds.ID).Count(&unresolved).
+				Error; err != nil {
 				return err
 			}
 			if unresolved != 0 {
 				return types.ErrLegacySourceRestricted
 			}
-			state = "active"
 		}
-		return tx.Model(&types.DataSource{}).Where("id=? AND tenant_id=? AND legacy_access_state <> 'revoked'", ds.ID, ds.TenantID).Update("legacy_access_state", state).Error
+		return tx.Model(&types.DataSource{}).
+			Where("id=? AND tenant_id=? AND legacy_access_state <> 'revoked'", ds.ID, ds.TenantID).
+			Update("legacy_access_state", "active").
+			Error
 	})
 }
 
@@ -46,7 +56,12 @@ func (s *FeishuLegacyStore) SetSourceUncertain(ctx context.Context, ds *types.Da
 // without asserting permanent cloud deletion. confirmed is reserved for a
 // trusted server-side withdrawal event; never sourced from request headers or
 // connector absence alone. The returned bool reports a durable terminal deny.
-func (s *FeishuLegacyStore) RestrictSource(ctx context.Context, ds *types.DataSource, external string, confirmed bool) (terminal bool, err error) {
+func (s *FeishuLegacyStore) RestrictSource(
+	ctx context.Context,
+	ds *types.DataSource,
+	external string,
+	confirmed bool,
+) (terminal bool, err error) {
 	return s.restrictSourceResource(ctx, ds, external, confirmed, true)
 }
 
@@ -59,7 +74,46 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 	// Deny commits before redaction/cleanup. A failed snapshot, trigger or
 	// projection write must not roll the access restriction back to readable.
 	if sourceWide {
-		if err = s.SetSourceUncertain(ctx, ds, true); err != nil {
+		// Commit the exact document deny before redaction, so a cleanup failure
+		// cannot leave that document readable. Keep sibling sync admission live.
+		if err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			if e := s.executionFence(ctx, tx, ds); e != nil {
+				return e
+			}
+			identity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, external)
+			if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", identity).Error; e != nil {
+				return e
+			}
+			id := legacyResourceID(ds, external)
+			var r types.FeishuLegacyResource
+			e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&r, "id=?", id).Error
+			if errors.Is(e, gorm.ErrRecordNotFound) {
+				var rows []types.Knowledge
+				if e = tx.Where("tenant_id=? AND knowledge_base_id=? AND "+
+					"metadata->>'datasource_id'=? AND metadata->>'external_id'=?", ds.TenantID, ds.
+					KnowledgeBaseID, ds.ID, external).Limit(2).Find(&rows).Error; e != nil {
+					return e
+				}
+				if len(rows) == 0 {
+					return nil
+				}
+				if len(rows) != 1 {
+					return legacyFence("restriction_identity_ambiguous")
+				}
+				k := rows[0]
+				r = types.FeishuLegacyResource{
+					ID: id, TenantID: ds.TenantID, KnowledgeBaseID: ds.
+						KnowledgeBaseID, DataSourceID: ds.ID, ExternalID: external, KnowledgeID: k.ID,
+					OriginalFilePath: k.FilePath, State: "hold", QuarantineSnapshot: json.RawMessage(`{}`),
+				}
+				return tx.Create(&r).Error
+			}
+			if e != nil {
+				return e
+			}
+			return tx.Model(&r).Where("state NOT IN ?", []string{"revoked", "deleted"}).Update("state",
+				"hold").Error
+		}); err != nil {
 			return false, err
 		}
 	}
@@ -76,7 +130,9 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 		e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&r, "id=?", id).Error
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			var rows []types.Knowledge
-			if e = tx.Where("tenant_id=? AND knowledge_base_id=? AND metadata->>'datasource_id'=? AND metadata->>'external_id'=?", ds.TenantID, ds.KnowledgeBaseID, ds.ID, external).Limit(2).Find(&rows).Error; e != nil {
+			if e = tx.Where("tenant_id=? AND knowledge_base_id=? AND "+
+				"metadata->>'datasource_id'=? AND metadata->>'external_id'=?", ds.TenantID, ds.
+				KnowledgeBaseID, ds.ID, external).Limit(2).Find(&rows).Error; e != nil {
 				return e
 			}
 			if len(rows) == 0 {
@@ -87,21 +143,32 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 				return legacyFence("restriction_identity_ambiguous")
 			}
 			k := rows[0]
-			r = types.FeishuLegacyResource{ID: id, TenantID: ds.TenantID, KnowledgeBaseID: ds.KnowledgeBaseID, DataSourceID: ds.ID, ExternalID: external, KnowledgeID: k.ID, OriginalFilePath: k.FilePath, State: "active", QuarantineSnapshot: json.RawMessage(`{}`)}
+			r = types.FeishuLegacyResource{
+				ID:                 id,
+				TenantID:           ds.TenantID,
+				KnowledgeBaseID:    ds.KnowledgeBaseID,
+				DataSourceID:       ds.ID,
+				ExternalID:         external,
+				KnowledgeID:        k.ID,
+				OriginalFilePath:   k.FilePath,
+				State:              "active",
+				QuarantineSnapshot: json.RawMessage(`{}`),
+			}
 			if e = tx.Create(&r).Error; e != nil {
 				return e
 			}
 		} else if e != nil {
 			return e
 		}
-		if r.State == "revoked" {
+		if r.State == "revoked" || r.State == "deleted" {
 			terminal = true
 			return nil
 		}
 		if r.State == "hold" && !confirmed && len(r.QuarantineSnapshot) > 2 {
 			return nil
 		}
-		if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+r.KnowledgeID).Error; e != nil {
+		if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+r.
+			KnowledgeID).Error; e != nil {
 			return e
 		}
 		// Preserve the effective version privately BEFORE any public projection
@@ -120,32 +187,60 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 			r.State = "revoked"
 			terminal = true
 		}
-		a := types.FeishuLegacyAttempt{ID: r.CurrentAttempt, ResourceID: r.ID, Generation: r.Generation, OwnerNonce: uuid.NewString(), Status: "ready", Revision: r.SourceRevision, SourceHash: "withdrawal", Manifest: json.RawMessage(`{}`), Receipt: json.RawMessage(`{}`)}
+		a := types.FeishuLegacyAttempt{
+			ID:         r.CurrentAttempt,
+			ResourceID: r.ID,
+			Generation: r.Generation,
+			OwnerNonce: uuid.NewString(),
+			Status:     "ready",
+			Revision:   r.SourceRevision,
+			SourceHash: "withdrawal",
+			Manifest:   json.RawMessage(`{}`),
+			Receipt:    json.RawMessage(`{}`),
+		}
 		if e = tx.Raw("SELECT clock_timestamp()+interval '2 minutes'").Scan(&a.LeaseUntil).Error; e != nil {
 			return e
 		}
-		if e = tx.Model(&r).Updates(map[string]any{"generation": r.Generation, "current_attempt": r.CurrentAttempt, "state": r.State}).Error; e != nil {
+		if e = tx.Model(&r).Updates(map[string]any{"generation": r.Generation, "current_attempt": r.
+			CurrentAttempt, "state": r.State}).Error; e != nil {
 			return e
 		}
 		if e = tx.Create(&a).Error; e != nil {
 			return e
 		}
-		if e = tx.Exec("SELECT set_config('knowhub.feishu_attempt',?,true),set_config('knowhub.feishu_nonce',?,true)", a.ID, a.OwnerNonce).Error; e != nil {
+		if e = tx.Exec(
+			"SELECT set_config('knowhub.feishu_attempt',?,true),set_config('knowhub.feishu_nonce',?,true)",
+			a.ID, a.OwnerNonce,
+		).Error; e != nil {
 			return e
 		}
 		// A persistent logical deny and public redaction commit together. There
 		// is NO physical file deletion; private snapshots remain recoverable.
 		metadata, _ := json.Marshal(map[string]string{"datasource_id": ds.ID, "external_id": external})
-		if e = tx.Model(&types.Knowledge{}).Where("id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Updates(map[string]any{"enable_status": "disabled", "title": "Source access restricted", "description": "", "profile": nil, "source": "", "file_name": "", "file_path": "", "metadata": types.JSON(metadata), "error_message": "Source access requires verification", "updated_at": time.Now().UTC()}).Error; e != nil {
+		if e = tx.Model(&types.Knowledge{}).Where("id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).
+			Updates(map[string]any{
+				"enable_status": "disabled", "title": "Source access restricted",
+				"description": "", "profile": nil, "source": "", "file_name": "", "file_path": "",
+				"metadata": types.JSON(metadata), "error_message": "Source access requires verification",
+				"updated_at": time.Now().UTC(),
+			}).Error; e != nil {
 			return e
 		}
-		if e = tx.Exec("UPDATE chunks SET content='',source_content='',context_header='',image_info='',source_locators='[]',metadata='{}',is_enabled=false,deleted_at=clock_timestamp() WHERE knowledge_id=? AND tenant_id=? AND deleted_at IS NULL", r.KnowledgeID, r.TenantID).Error; e != nil {
+		if e = tx.Exec("UPDATE chunks SET "+
+			"content='',source_content='',context_header='',image_info='',source_locators='[]',metadata='{}',"+
+			"is_enabled=false,deleted_at=clock_timestamp() WHERE "+
+			"knowledge_id=? AND tenant_id=? AND deleted_at IS NULL",
+			r.KnowledgeID, r.TenantID,
+		).Error; e != nil {
 			return e
 		}
-		if e = tx.Exec("UPDATE embeddings SET content='',is_enabled=false WHERE knowledge_id=? AND knowledge_base_id=?", r.KnowledgeID, r.KnowledgeBaseID).Error; e != nil {
+		if e = tx.Exec("UPDATE embeddings SET content='',is_enabled=false WHERE "+
+			"knowledge_id=? AND knowledge_base_id=?", r.KnowledgeID, r.KnowledgeBaseID).Error; e != nil {
 			return e
 		}
-		return tx.Model(&a).Updates(map[string]any{"status": "published", "receipt": json.RawMessage(`{"restricted":true}`)}).Error
+		return tx.Model(&a).
+			Updates(map[string]any{"status": "published", "receipt": json.RawMessage(`{"restricted":true}`)}).
+			Error
 	})
 	return
 }
@@ -153,7 +248,11 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 // RestrictDocument commits a document deny before snapshot/redaction. The live
 // source identity stays unchanged, so its signed publication guard still checks
 // the same source. A failed cleanup leaves this document and derived Wiki denied.
-func (s *FeishuLegacyStore) RestrictDocument(ctx context.Context, ds *types.DataSource, external string) error {
+func (s *FeishuLegacyStore) RestrictDocument(
+	ctx context.Context,
+	ds *types.DataSource,
+	external string,
+) error {
 	if external == "" {
 		return legacyFence("restriction_identity_missing")
 	}

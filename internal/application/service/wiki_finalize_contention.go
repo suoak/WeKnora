@@ -6,8 +6,23 @@ import (
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
 )
+
+// RearmWikiFinalize uses the same bounded recovery as the ingest tail. Startup
+// must not mistake an archived TaskID conflict for a live delivery. Original
+// archives remain intact; only the existing contention-only successor is used.
+func RearmWikiFinalize(ctx context.Context, task interfaces.TaskEnqueuer,
+	pending interfaces.TaskPendingOpsRepository, rc *redis.Client, payload WikiIngestPayload,
+) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	s := &wikiIngestService{task: task, pendingRepo: pending, redisClient: rc}
+	return s.rearmFinalize(ctx, payload)
+}
 
 // Keep both archives intact. Only a historical lease-contention failure gets
 // one replacement, still bounded by the durable head. Source/model failures

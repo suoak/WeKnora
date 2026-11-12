@@ -29,14 +29,21 @@ func (p *PersonalRecovery) checkExactPublishedViewer(
 	receipt types.PersonalExactReceipt,
 ) (*types.KnowledgeBase, error) {
 	caller := types.CallerFromContext(ctx)
+	// Match authentication's existing cross-workspace administrator role.
+	// It is a live account property and never creates a membership or widens
+	// an API key. A private KB and the canonical KB grant are still checked.
+	administrator, err := p.crossTenantPublishedWebAdministrator(ctx, caller)
+	if err != nil {
+		return nil, publishedViewerDenied("administrator_lookup", err)
+	}
 	var member types.TenantMember
 	if err := p.service.db.WithContext(ctx).Where(
 		"user_id=? AND tenant_id=? AND status=? AND deleted_at IS NULL",
 		caller.UserID, caller.TenantID, types.TenantMemberStatusActive,
-	).Take(&member).Error; err != nil {
+	).Take(&member).Error; err != nil && (!administrator || !errors.Is(err, gorm.ErrRecordNotFound)) {
 		return nil, publishedViewerDenied("membership_lookup", err)
 	}
-	if !member.Role.IsValid() || member.Role != caller.Role {
+	if !administrator && (!member.Role.IsValid() || member.Role != caller.Role) {
 		return nil, publishedViewerDenied("membership_role", nil)
 	}
 	var active bool
@@ -62,7 +69,9 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 		key, err := keys.GetUserMCPAPIKey(ctx, caller.UserID, scope.KeyID)
 		if err != nil || key.OwnerUserID == nil || *key.OwnerUserID != caller.UserID || key.FullAccess ||
 			key.RevokedAt != nil || (key.ExpiresAt != nil && !time.Now().Before(*key.ExpiresAt)) ||
-			!(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(types.APIKeyCapabilityRetrieve) {
+			!(types.TenantAPIKeyScope{Capabilities: key.Capabilities}).HasCapability(
+				types.APIKeyCapabilityRetrieve,
+			) {
 			return nil, access.ErrUnauthorized
 		}
 		live, err := keys.GetUserMCPTenantScope(ctx, key.ID, caller.TenantID)
@@ -97,4 +106,23 @@ EXISTS(SELECT 1 FROM tenants WHERE id=? AND status='active' AND deleted_at IS NU
 		return nil, err
 	}
 	return kb, nil
+}
+
+func (p *PersonalRecovery) crossTenantPublishedWebAdministrator(
+	ctx context.Context,
+	caller types.Caller,
+) (bool, error) {
+	principal, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
+	if !ok || principal.Type != types.PrincipalWebUser || principal.ID != caller.UserID ||
+		caller.UserID == "" || caller.Role != types.TenantRoleAdmin {
+		return false, nil
+	}
+	if _, keyed := types.TenantAPIKeyScopeFromContext(ctx); keyed {
+		return false, nil
+	}
+	var allowed bool
+	err := p.service.db.WithContext(ctx).Raw(`SELECT EXISTS(
+SELECT 1 FROM users WHERE id=? AND is_active AND deleted_at IS NULL
+AND can_access_all_tenants AND tenant_id<>?)`, caller.UserID, caller.TenantID).Scan(&allowed).Error
+	return allowed, err
 }

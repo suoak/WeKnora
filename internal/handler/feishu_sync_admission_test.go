@@ -46,7 +46,7 @@ func TestSteadyManualSyncErrorsAreSpecificAndNeverExposeProviderDetails(t *testi
 
 func TestProtectedSourceRecoveryInstructionsPreserveErrorCode(t *testing.T) {
 	for _, tc := range []struct{ state, action, message string }{
-		{"hold", "reconcile_source", "数据源已保存"},
+		{"hold", "save_source_configuration", "重新保存数据源配置"},
 		{"revoked", "reauthorize_source", "来源授权已撤销"},
 	} {
 		t.Run(tc.state, func(t *testing.T) {

@@ -184,6 +184,14 @@
             }) }}</span>
           </div>
           <!-- Global Issues -->
+		  <details v-if="stats && (stats.skipped_documents || 0) > 0" class="wiki-queue-status wiki-skipped-status">
+		    <summary>{{ $t('knowledgeEditor.wikiBrowser.skippedStatus', { count: stats.skipped_documents }) }}</summary>
+		    <ul>
+		      <li v-for="(count, reason) in stats.skipped_by_reason" :key="reason">
+		        {{ $t('knowledgeEditor.wikiBrowser.skipReasons.' + reason) }}：{{ count }}
+		      </li>
+		    </ul>
+		  </details>
           <div v-if="stats && stats.pending_issues > 0" class="wiki-global-issues-status"
             @click="showGlobalIssuesDrawer = true">
             <t-icon name="error-circle" style="color: var(--td-warning-color);" />
@@ -4976,6 +4984,12 @@ onUnmounted(() => {
     line-height: 1.2;
     font-weight: 500;
   }
+}
+
+.wiki-skipped-status {
+  display: block;
+  summary { cursor: pointer; }
+  ul { margin: 8px 0 0; padding-left: 18px; }
 }
 
 .wiki-page-list {

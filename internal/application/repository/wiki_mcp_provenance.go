@@ -37,6 +37,7 @@ type (
 		WikiGeneration   int64
 		WikiIncarnation  string
 		InputStamps      map[string]string
+		SelectedSources  map[string]bool
 	}
 )
 
@@ -66,14 +67,17 @@ func checkWikiMCPEpochCoverage(db *gorm.DB) error {
 	var n int64
 	switch db.Name() {
 	case "postgres":
-		if e := db.Raw("SELECT count(*) FROM pg_trigger WHERE tgrelid='wiki_pages'::regclass AND NOT tgisinternal AND tgenabled='O' AND tgname='wiki_mcp_mutation'").Scan(&n).Error; e != nil {
+		if e := db.Raw("SELECT count(*) FROM pg_trigger WHERE " +
+			"tgrelid='wiki_pages'::regclass AND NOT tgisinternal AND " +
+			"tgenabled='O' AND tgname='wiki_mcp_mutation'").Scan(&n).Error; e != nil {
 			return e
 		}
 		if n == 1 {
 			return nil
 		}
 	case "sqlite":
-		if e := db.Raw("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN ('wiki_mcp_insert','wiki_mcp_update','wiki_mcp_delete')").Scan(&n).Error; e != nil {
+		if e := db.Raw("SELECT count(*) FROM sqlite_master WHERE type='trigger' AND name IN " +
+			"('wiki_mcp_insert','wiki_mcp_update','wiki_mcp_delete')").Scan(&n).Error; e != nil {
 			return e
 		}
 		if n == 3 {
@@ -157,7 +161,24 @@ func wikiDigest(v any) string {
 }
 
 func wikiPageDigest(p *types.WikiPage) string {
-	return wikiDigest([]any{p.ID, p.TenantID, p.KnowledgeBaseID, p.Slug, p.Title, p.Content, p.Summary, p.Status, p.PageType, p.Aliases, p.SourceRefs, p.ChunkRefs, p.OutLinks, p.PageMetadata})
+	return wikiDigest(
+		[]any{
+			p.ID,
+			p.TenantID,
+			p.KnowledgeBaseID,
+			p.Slug,
+			p.Title,
+			p.Content,
+			p.Summary,
+			p.Status,
+			p.PageType,
+			p.Aliases,
+			p.SourceRefs,
+			p.ChunkRefs,
+			p.OutLinks,
+			p.PageMetadata,
+		},
+	)
 }
 
 // The conservative closure is the ENTIRE input KB, not citations selected by
@@ -165,9 +186,35 @@ func wikiPageDigest(p *types.WikiPage) string {
 // including ABA and writes preserving timestamps. Persisted read stamps bind
 // actual model input fields, so finalizing -> completed alone is not content
 // replacement. Current authorization/source state is always checked separately.
-func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) (*wikiGenerationProof, error) {
+func wikiDependencies(
+	db *gorm.DB,
+	kb string,
+	previous ...*wikiGenerationProof,
+) (*wikiGenerationProof, error) {
+	if len(previous) == 1 && previous[0] != nil && previous[0].SelectedSources != nil {
+		return wikiDependenciesSelected(db, kb, nil, previous[0].SelectedSources, previous...)
+	}
+	return wikiDependenciesWithParsedRecovery(db, kb, nil, previous...)
+}
+
+// The operator recovery preview can admit only independently validated parsed
+// stalls. Ordinary generation and serving always pass a nil recovery set.
+func wikiDependenciesWithParsedRecovery(db *gorm.DB, kb string, parsed map[string]bool,
+	previous ...*wikiGenerationProof,
+) (*wikiGenerationProof, error) {
+	return wikiDependenciesSelected(db, kb, parsed, nil, previous...)
+}
+
+// A non-nil selection is issued by the worker after document-level preflight.
+// Every selected document still passes the original content and epoch fences.
+func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, selected map[string]bool,
+	previous ...*wikiGenerationProof,
+) (*wikiGenerationProof, error) {
 	var anchor struct{ TenantID uint64 }
-	if e := db.Table("knowledge_bases kb").Select("kb.tenant_id").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND kb.is_temporary=false", kb).Take(&anchor).Error; e != nil {
+	if e := db.Table("knowledge_bases kb").Select("kb.tenant_id").
+		Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND "+
+			"t.status='active'").Where("kb.id=? AND kb.deleted_at IS NULL AND kb.type='document' AND "+
+		"kb.is_temporary=false", kb).Take(&anchor).Error; e != nil {
 		return nil, e
 	}
 	var denied bool
@@ -180,7 +227,7 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		return nil, e
 	}
 
-	if denied {
+	if denied && selected == nil {
 		return nil, types.ErrLegacySourceRestricted
 	}
 	var docs []struct {
@@ -190,23 +237,31 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		Channel      string
 		Metadata     types.JSON
 	}
-	if e := db.Table("knowledges").Select("id,parse_status,enable_status,channel,metadata").
-		Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID).
+	documentQuery := db.Table("knowledges").Select("id,parse_status,enable_status,channel,metadata").
+		Where("knowledge_base_id=? AND tenant_id=? AND deleted_at IS NULL", kb, anchor.TenantID)
+	if selected != nil {
+		documentQuery = documentQuery.Where("id IN ?", wikiSelectionIDs(selected))
+	}
+	if e := documentQuery.
 		Order("id").Limit(2049).Find(&docs).Error; e != nil {
 		return nil, e
 	}
 	if len(docs) == 0 || len(docs) > 2048 {
 		return nil, ErrWikiMCPUnverified
 	}
-	stamps, err := wikiDocumentInputStamps(db, kb, anchor.TenantID)
+	stamps, err := wikiSelectedDocumentInputStamps(db, kb, anchor.TenantID, selected)
 	if err != nil {
 		return nil, err
 	}
 	p := &wikiGenerationProof{
 		Tenant: anchor.TenantID, KB: kb, Sources: map[string]string{}, Epochs: map[string]string{},
-		InputStamps: map[string]string{},
+		InputStamps:     map[string]string{},
+		SelectedSources: selected,
 	}
 	for _, d := range docs {
+		if selected != nil && !selected[d.ID] {
+			continue
+		}
 		var connectorProof string
 		switch d.Channel {
 		case "", types.ChannelWeb, types.ChannelAPI, types.ChannelBrowserExtension:
@@ -225,7 +280,8 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config").
 				Where(`id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active'
  AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL`,
-					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).Error; e != nil {
+					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).
+				Error; e != nil {
 				if errors.Is(e, gorm.ErrRecordNotFound) {
 					return nil, types.ErrLegacySourceRestricted
 				}
@@ -238,7 +294,18 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 			return nil, types.ErrLegacySourceRestricted
 		case types.ChannelFeishu, types.ChannelFeishuDrive, types.ChannelLarkDrive, "lark":
 			var verified int64
-			if e := db.Table("feishu_legacy_resources").Where("knowledge_id=? AND knowledge_base_id=? AND tenant_id=? AND state='active' AND active_attempt<>''", d.ID, kb, p.Tenant).Count(&verified).Error; e != nil {
+			query := db.Table("feishu_legacy_resources").
+				Where("knowledge_id=? AND knowledge_base_id=? AND tenant_id=? AND "+
+					"state='active' AND active_attempt<>''", d.ID, kb, p.Tenant)
+			if selected != nil {
+				query = query.Where(
+					`EXISTS(SELECT 1 FROM data_sources ds WHERE ds.id=feishu_legacy_resources.data_source_id
+ AND ds.tenant_id=feishu_legacy_resources.tenant_id AND ds.knowledge_base_id=feishu_legacy_resources.knowledge_base_id
+ AND ds.deleted_at IS NULL AND ds.legacy_access_state IN ('active','unmanaged')
+ AND ds.type IN ('feishu','feishu_drive','lark','lark_drive'))`,
+				)
+			}
+			if e := query.Count(&verified).Error; e != nil {
 				return nil, e
 			}
 			if verified != 1 {
@@ -247,7 +314,9 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		default:
 			return nil, ErrWikiMCPUnverified
 		}
-		if (d.ParseStatus != "completed" && d.ParseStatus != "finalizing") || d.EnableStatus != "enabled" {
+		inputReady := d.ParseStatus == "completed" || d.ParseStatus == "finalizing" ||
+			(d.ParseStatus == "failed" && parsed[d.ID])
+		if !inputReady || d.EnableStatus != "enabled" {
 			return nil, ErrWikiMCPUnverified
 		}
 		stamp, found := stamps[d.ID]
@@ -283,7 +352,11 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		}
 		p.Epochs[d.ID] = version
 		var identity map[string]interface{}
-		if e = db.Table("knowledges").Select("id,tenant_id,knowledge_base_id,type,title,description,source,channel,enable_status,file_name,file_type,file_hash,file_path,embedding_model_id").Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", d.ID, p.Tenant, kb).Take(&identity).Error; e != nil {
+		if e = db.Table("knowledges").
+			Select("id,tenant_id,knowledge_base_id,type,title,description,source,channel,enable_status,"+
+				"file_name,file_type,file_hash,file_path,embedding_model_id").
+			Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", d.ID, p.Tenant, kb).
+			Take(&identity).Error; e != nil {
 			return nil, e
 		}
 		if connectorProof != "" {
@@ -291,7 +364,12 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 			identity["connector_metadata"] = string(d.Metadata)
 		}
 		var inputs []map[string]interface{}
-		if e = db.Table("chunks").Select("id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_index,chunk_type,context_header,is_enabled,parent_chunk_id,image_info,deleted_at").Where("knowledge_id=? AND chunk_type IN ('','text','parent_text','image_ocr','image_caption')", d.ID).Order("id").Find(&inputs).Error; e != nil {
+		if e = db.Table("chunks").
+			Select("id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_index,chunk_type,context_header,"+
+				"is_enabled,parent_chunk_id,image_info,deleted_at").
+			Where("knowledge_id=? AND chunk_type IN "+
+				"('','text','parent_text','image_ocr','image_caption')", d.ID).
+			Order("id").Find(&inputs).Error; e != nil {
 			return nil, e
 		}
 		if len(inputs) == 0 {
@@ -310,7 +388,10 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 		}
 		p.Sources[d.ID] = wikiDigest([]any{identity, inputs})
 	}
-	after, err := wikiDocumentInputStamps(db, kb, anchor.TenantID)
+	if selected != nil && len(p.Sources) != len(selected) {
+		return nil, ErrWikiMCPInputsChanged
+	}
+	after, err := wikiSelectedDocumentInputStamps(db, kb, anchor.TenantID, selected)
 	if err != nil {
 		return nil, err
 	}
@@ -324,7 +405,11 @@ func wikiDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) 
 // Only the server generation worker calls this before assembling ANY prompts.
 // Unsealed historical pages may contain unknown sources: they are not certified
 // by reading their current timestamps or by copying SourceRefs after generation.
-func BeginWikiMCPGeneration(ctx context.Context, repo interfaces.WikiPageRepository, kb string) (context.Context, error) {
+func BeginWikiMCPGeneration(
+	ctx context.Context,
+	repo interfaces.WikiPageRepository,
+	kb string,
+) (context.Context, error) {
 	r, ok := repo.(*wikiPageRepository)
 	if !ok {
 		return ctx, ErrWikiMCPUnverified
@@ -398,27 +483,48 @@ func sealWikiMCPMutation(db *gorm.DB, ctx context.Context, page *types.WikiPage)
 	if e != nil {
 		return e
 	}
-	row := WikiMCPProvenance{PageID: page.ID, TenantID: p.Tenant, KnowledgeBaseID: p.KB, PageSHA256: wikiPageDigest(page), DependencySHA256: p.DependencySHA256, SourceVersions: string(b)}
+	row := WikiMCPProvenance{
+		PageID:           page.ID,
+		TenantID:         p.Tenant,
+		KnowledgeBaseID:  p.KB,
+		PageSHA256:       wikiPageDigest(page),
+		DependencySHA256: p.DependencySHA256,
+		SourceVersions:   string(b),
+	}
 	epoch, e := readWikiMCPEpoch(db, p.KB)
 	if e != nil {
 		return e
 	}
-	if epoch.Generation != p.WikiGeneration+1 || len(epoch.Incarnation) != 32 || p.WikiIncarnation != "" && epoch.Incarnation != p.WikiIncarnation {
+	if epoch.Generation != p.WikiGeneration+1 || len(epoch.Incarnation) != 32 ||
+		p.WikiIncarnation != "" && epoch.Incarnation != p.WikiIncarnation {
 		return ErrWikiMCPUnverified
 	}
-	if e = db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "page_id"}}, DoUpdates: clause.AssignmentColumns([]string{"tenant_id", "knowledge_base_id", "page_sha256", "dependency_sha256", "source_versions"})}).Create(&row).Error; e != nil {
+	if e = db.Clauses(clause.OnConflict{Columns: []clause.Column{{Name: "page_id"}}, DoUpdates: clause.
+		AssignmentColumns([]string{
+			"tenant_id", "knowledge_base_id", "page_sha256", "dependency_sha256",
+			"source_versions",
+		})}).Create(&row).Error; e != nil {
 		return e
 	}
 	p.WikiGeneration, p.WikiIncarnation = epoch.Generation, epoch.Incarnation
 	return nil
 }
 
-func verifyWikiProof(db *gorm.DB, page *types.WikiPage, p *wikiGenerationProof, published bool, allowed map[string]bool) error {
-	if page == nil || page.DeletedAt.Valid || page.KnowledgeBaseID != p.KB || page.TenantID != p.Tenant || (len(page.SourceRefs) == 0 && page.PageType != types.WikiPageTypeIndex) || published && page.Status != types.WikiPageStatusPublished {
+func verifyWikiProof(
+	db *gorm.DB,
+	page *types.WikiPage,
+	p *wikiGenerationProof,
+	published bool,
+	allowed map[string]bool,
+) error {
+	if page == nil || page.DeletedAt.Valid || page.KnowledgeBaseID != p.KB || page.TenantID != p.Tenant ||
+		(len(page.SourceRefs) == 0 && page.PageType != types.WikiPageTypeIndex) ||
+		published && page.Status != types.WikiPageStatusPublished {
 		return ErrWikiMCPUnverified
 	}
 	var seal WikiMCPProvenance
-	if e := db.Where("page_id=? AND tenant_id=? AND knowledge_base_id=?", page.ID, p.Tenant, p.KB).Take(&seal).Error; e != nil {
+	if e := db.Where("page_id=? AND tenant_id=? AND knowledge_base_id=?", page.ID, p.Tenant, p.KB).
+		Take(&seal).Error; e != nil {
 		if errors.Is(e, gorm.ErrRecordNotFound) {
 			return ErrWikiMCPUnverified
 		}
@@ -428,7 +534,8 @@ func verifyWikiProof(db *gorm.DB, page *types.WikiPage, p *wikiGenerationProof, 
 		return ErrWikiMCPUnverified
 	}
 	var sources map[string]string
-	if json.Unmarshal([]byte(seal.SourceVersions), &sources) != nil || len(sources) == 0 || wikiDigest(sources) != seal.DependencySHA256 {
+	if json.Unmarshal([]byte(seal.SourceVersions), &sources) != nil || len(sources) == 0 ||
+		wikiDigest(sources) != seal.DependencySHA256 {
 		return ErrWikiMCPUnverified
 	}
 	for id, version := range sources {
@@ -449,7 +556,13 @@ type PersonalWikiStore struct{ DB *gorm.DB }
 
 // Recheck page status, exact body proof and every source at the output boundary.
 // A document-only grant cannot detect a concurrent Wiki archive or raw edit.
-func (s *PersonalWikiStore) RevalidatePages(ctx context.Context, tenant uint64, kb string, authorized []string, read []*types.WikiPage) error {
+func (s *PersonalWikiStore) RevalidatePages(
+	ctx context.Context,
+	tenant uint64,
+	kb string,
+	authorized []string,
+	read []*types.WikiPage,
+) error {
 	if len(read) > 200 {
 		return ErrWikiMCPUnverified
 	}
@@ -458,7 +571,7 @@ func (s *PersonalWikiStore) RevalidatePages(ctx context.Context, tenant uint64, 
 		allowed[id] = true
 	}
 	return s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		proof, e := wikiDependencies(tx, kb)
+		proof, e := wikiPageReadProof(tx, kb, nil)
 		if e != nil {
 			return e
 		}
@@ -470,11 +583,23 @@ func (s *PersonalWikiStore) RevalidatePages(ctx context.Context, tenant uint64, 
 				return ErrWikiMCPUnverified
 			}
 			var current types.WikiPage
-			if e = tx.Where("id=? AND tenant_id=? AND knowledge_base_id=?", previous.ID, tenant, kb).First(&current).Error; e != nil {
+			pageQuery := tx
+			if WikiDocumentSelectionForKB(kb) {
+				pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
+					Table("wiki_pages AS page_validation_inputs")
+			}
+			if e = pageQuery.Where("id=? AND tenant_id=? AND knowledge_base_id=?", previous.ID, tenant,
+				kb).First(&current).Error; e != nil {
 				return e
 			}
 			if wikiPageDigest(&current) != wikiPageDigest(previous) {
 				return ErrWikiMCPUnverified
+			}
+			if WikiDocumentSelectionForKB(kb) {
+				proof, e = wikiPageReadProof(tx, kb, &current)
+				if e != nil {
+					return e
+				}
 			}
 			if e = verifyWikiProof(tx, &current, proof, true, allowed); e != nil {
 				return e
@@ -484,7 +609,13 @@ func (s *PersonalWikiStore) RevalidatePages(ctx context.Context, tenant uint64, 
 	})
 }
 
-func (s *PersonalWikiStore) VerifiedPages(ctx context.Context, tenant uint64, kb string, authorized []string) ([]*types.WikiPage, bool, error) {
+// VerifiedPages returns only pages with verified document provenance.
+func (s *PersonalWikiStore) VerifiedPages(
+	ctx context.Context,
+	tenant uint64,
+	kb string,
+	authorized []string,
+) ([]*types.WikiPage, bool, error) {
 	allowed := map[string]bool{}
 	for _, id := range authorized {
 		allowed[id] = true
@@ -492,7 +623,7 @@ func (s *PersonalWikiStore) VerifiedPages(ctx context.Context, tenant uint64, kb
 	var result []*types.WikiPage
 	partial := false
 	e := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		p, e := wikiDependencies(tx, kb)
+		p, e := wikiPageReadProof(tx, kb, nil)
 		if e != nil {
 			return e
 		}
@@ -501,11 +632,22 @@ func (s *PersonalWikiStore) VerifiedPages(ctx context.Context, tenant uint64, kb
 		}
 
 		var total int64
-		if e = tx.Model(&types.WikiPage{}).Where("tenant_id=? AND knowledge_base_id=? AND status=?", tenant, kb, types.WikiPageStatusPublished).Count(&total).Error; e != nil {
+		if e = tx.Model(&types.WikiPage{}).Where("tenant_id=? AND knowledge_base_id=? AND status=?",
+			tenant, kb, types.WikiPageStatusPublished).Count(&total).Error; e != nil {
 			return e
 		}
 		var pages []*types.WikiPage
-		if e = tx.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND length(content)<=262144 AND length(title)<=4096 AND length(summary)<=32768 AND length(COALESCE(CAST(source_refs AS TEXT),''))<=65536 AND length(COALESCE(CAST(page_metadata AS TEXT),''))<=65536", tenant, kb, types.WikiPageStatusPublished).Order("slug,id").Limit(201).Find(&pages).Error; e != nil {
+		pageQuery := tx
+		if WikiDocumentSelectionForKB(kb) {
+			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
+				Table("wiki_pages AS page_validation_inputs")
+		}
+		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
+			"length(content)<=262144 AND length(title)<=4096 AND "+
+			"length(summary)<=32768 AND length(COALESCE(CAST(source_refs AS "+
+			"TEXT),''))<=65536 AND length(COALESCE(CAST(page_metadata AS "+
+			"TEXT),''))<=65536", tenant, kb, types.WikiPageStatusPublished).Order("slug,id").Limit(201).
+			Find(&pages).Error; e != nil {
 			return e
 		}
 		if total > int64(len(pages)) {
@@ -516,6 +658,18 @@ func (s *PersonalWikiStore) VerifiedPages(ctx context.Context, tenant uint64, kb
 			partial = true
 		}
 		for _, page := range pages {
+			if WikiDocumentSelectionForKB(kb) {
+				p, e = wikiPageReadProof(tx, kb, page)
+				if e != nil {
+					if errors.Is(e, ErrWikiMCPUnverified) || errors.Is(e, ErrWikiMCPInputsChanged) ||
+						errors.Is(e, types.ErrLegacySourceRestricted) ||
+						errors.Is(e, gorm.ErrRecordNotFound) {
+						partial = true
+						continue
+					}
+					return e
+				}
+			}
 			if e = verifyWikiProof(tx, page, p, true, allowed); e != nil {
 				if errors.Is(e, ErrWikiMCPUnverified) {
 					partial = true

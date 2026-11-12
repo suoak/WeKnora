@@ -231,6 +231,18 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 	ctx context.Context, ds *types.DataSource, item *types.FetchedItem, sourceHash string,
 	identity *types.FeishuLegacySourceIdentity, proof *LegacySourceIdentityProof,
 ) (r *types.FeishuLegacyResource, a *types.FeishuLegacyAttempt, err error) {
+	return s.beginWithSourceIdentity(ctx, ds, item, sourceHash, identity, proof, nil)
+}
+
+func (s *FeishuLegacyStore) beginWithSourceIdentity(
+	ctx context.Context,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+	sourceHash string,
+	identity *types.FeishuLegacySourceIdentity,
+	proof *LegacySourceIdentityProof,
+	latest *LegacyLatestSnapshotProof,
+) (r *types.FeishuLegacyResource, a *types.FeishuLegacyAttempt, err error) {
 	if item.ExternalID == "" || item.UpdatedAt.IsZero() || len(sourceHash) != 64 {
 		return nil, nil, legacyFence("invalid_source_revision")
 	}
@@ -290,7 +302,8 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 				kid = old[0].ID
 				state = "active"
 			}
-			if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+kid).Error; e != nil {
+			if e = tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", "feishu-kid:"+kid).
+				Error; e != nil {
 				return e
 			}
 			*r = types.FeishuLegacyResource{
@@ -312,8 +325,19 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 		} else if e != nil {
 			return e
 		}
+		var userDeletion struct {
+			Deleted bool `json:"deleted_by_user"`
+		}
+		if json.Unmarshal(r.QuarantineSnapshot, &userDeletion) == nil && userDeletion.Deleted {
+			return legacyFence("resource_deleted_by_user")
+		}
 		if r.State == "revoked" {
 			return legacyFence("resource_revoked")
+		}
+		if latest != nil {
+			if e = latest.check(ctx, r, ds, item, sourceHash); e != nil {
+				return e
+			}
 		}
 		if r.SourceRevision != "" {
 			previous, parse := time.Parse(time.RFC3339Nano, r.SourceRevision)
@@ -365,11 +389,18 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 					return legacyFence("source_revision_hash_unconfirmed")
 				}
 				if expectedHash != sourceHash {
-					matched, matchErr := legacyAttemptSourceMatches(tx, r, expectedAttempt, sourceHash, identity, proof)
+					matched, matchErr := legacyAttemptSourceMatches(
+						tx,
+						r,
+						expectedAttempt,
+						sourceHash,
+						identity,
+						proof,
+					)
 					if matchErr != nil {
 						return matchErr
 					}
-					if !matched {
+					if !matched && latest == nil {
 						if identity != nil && proof == nil {
 							var priorManifest types.FeishuLegacyManifest
 							if json.Unmarshal(expectedAttempt.Manifest, &priorManifest) == nil &&
@@ -378,6 +409,11 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 							}
 						}
 						return legacyFence("source_revision_content_conflict")
+					}
+					if !matched && latest != nil {
+						if err := latest.check(ctx, r, ds, item, sourceHash); err != nil {
+							return err
+						}
 					}
 				}
 			}
@@ -440,7 +476,19 @@ func (s *FeishuLegacyStore) BeginWithSourceIdentity(
 		r.CurrentAttempt = uuid.NewString()
 		r.UpdatedAt = time.Now().UTC()
 		initial := types.FeishuLegacyManifest{SourceIdentity: identity}
-		if identity != nil {
+		if latest != nil {
+			var previous types.FeishuLegacyAttempt
+			if e := tx.Where("id=?", latest.baseline.resource.CurrentAttempt).First(&previous).Error; e != nil {
+				return e
+			}
+			initial.LatestSnapshot = &types.FeishuLatestSnapshotAudit{
+				PreviousAttempt:    previous.ID,
+				PreviousGeneration: latest.baseline.resource.Generation,
+				PreviousHash:       previous.SourceHash,
+				CurrentHash:        sourceHash,
+			}
+		}
+		if identity != nil || latest != nil {
 			initial.SHA256, e = LegacyManifestHash(initial)
 			if e != nil {
 				return e
@@ -559,7 +607,7 @@ func (s *FeishuLegacyStore) Prepare(
 		if e = json.Unmarshal(a.Manifest, &initial); e != nil {
 			return e
 		}
-		if initial.SourceIdentity != nil {
+		if initial.SourceIdentity != nil || initial.LatestSnapshot != nil {
 			hash, hashErr := LegacyManifestHash(initial)
 			if hashErr != nil || hash != initial.SHA256 {
 				return legacyFence("source_identity_manifest_unconfirmed")
@@ -568,7 +616,12 @@ func (s *FeishuLegacyStore) Prepare(
 		if m.SourceIdentity != nil && !legacyIdentityEqual(m.SourceIdentity, initial.SourceIdentity) {
 			return legacyFence("source_identity_manifest_changed")
 		}
+		if m.LatestSnapshot != nil &&
+			(initial.LatestSnapshot == nil || *m.LatestSnapshot != *initial.LatestSnapshot) {
+			return legacyFence("latest_source_manifest_changed")
+		}
 		m.SourceIdentity = initial.SourceIdentity
+		m.LatestSnapshot = initial.LatestSnapshot
 		var previous types.Knowledge
 		loadErr := tx.Clauses(clause.Locking{Strength: "SHARE"}).
 			First(&previous, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).Error
@@ -1015,7 +1068,8 @@ func (s *FeishuLegacyStore) Receipt(
 			return e
 		}
 		var public []*types.Chunk
-		if e := tx.Where("tenant_id=? AND knowledge_id=?", r.TenantID, r.KnowledgeID).Find(&public).Error; e != nil {
+		if e := tx.Where("tenant_id=? AND knowledge_id=?", r.TenantID, r.KnowledgeID).Find(&public).
+			Error; e != nil {
 			return e
 		}
 		publicIndexed, e := legacyIndexedChunks(public)
@@ -1039,7 +1093,9 @@ func (s *FeishuLegacyStore) Receipt(
 		}
 		if out.Chunks != int64(len(manifest.Chunks)) || out.Chunks != out.ParentChunks+out.IndexedChunks ||
 			out.ParentChunks != parents || out.IndexedChunks != indexedCount ||
-			int64(len(publicIndexed)) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
+			int64(
+				len(publicIndexed),
+			) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
 			return legacyFence("receipt_graph_count_mismatch")
 		}
 		manifestByID := make(map[string]*types.Chunk, len(manifest.Chunks))
@@ -1048,7 +1104,8 @@ func (s *FeishuLegacyStore) Receipt(
 		}
 		for _, chunk := range public {
 			owned := manifestByID[chunk.ID]
-			if owned == nil || owned.ChunkType != chunk.ChunkType || owned.ParentChunkID != chunk.ParentChunkID {
+			if owned == nil || owned.ChunkType != chunk.ChunkType ||
+				owned.ParentChunkID != chunk.ParentChunkID {
 				return legacyFence("receipt_public_graph_mismatch")
 			}
 		}
@@ -1092,7 +1149,8 @@ func validateLegacyCursorReceipts(tx *gorm.DB, ctx context.Context) error {
 			receipt.ResourceID).Error; err != nil {
 			return err
 		}
-		if r.State != "active" || r.ActiveAttempt != receipt.AttemptID || r.KnowledgeID != receipt.KnowledgeID {
+		if r.State != "active" || r.ActiveAttempt != receipt.AttemptID ||
+			r.KnowledgeID != receipt.KnowledgeID {
 			return legacyFence("cursor_receipt_not_active")
 		}
 		var a types.FeishuLegacyAttempt

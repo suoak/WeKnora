@@ -657,7 +657,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	// lost across a process restart (always in Lite mode, and in Redis mode if
 	// persistence succeeded immediately before trigger enqueue failed). Re-arm
 	// them only after the matching handlers are ready.
-	must(container.Invoke(recoverPendingWikiTasks))
+	must(container.Invoke(recoverPendingWikiTasksWithRedis))
 	must(container.Invoke(recoverKnowledgeDispatches))
 
 	// BrowserSkill is registered when its manager is constructed, which is

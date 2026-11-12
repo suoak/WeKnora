@@ -19,7 +19,6 @@ import {
 import SettingDrawer from '@/components/settings/SettingDrawer.vue'
 import DataSourceTypeIcon from './DataSourceTypeIcon.vue'
 import { getDatasourceIconUrl } from './datasourceIcons'
-import { useAuthStore } from '@/stores/auth'
 
 const props = defineProps<{
   kbId: string
@@ -29,7 +28,6 @@ const props = defineProps<{
 const visible = defineModel<boolean>('visible', { default: false })
 const emit = defineEmits<{ saved: [] }>()
 const { t } = useI18n()
-const authStore = useAuthStore()
 
 const isEdit = computed(() => !!props.dataSource)
 const step = ref(0)
@@ -733,8 +731,7 @@ const connectorDefs = computed<ConnectorDef[]>(() => {
     ],
   },
   ]
-  return definitions.filter(def => authStore.hasRole('admin') ||
-    ['feishu', 'feishu_drive', 'lark', 'lark_drive'].includes(def.type))
+  return definitions
 })
 
 

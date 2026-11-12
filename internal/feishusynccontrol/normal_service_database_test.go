@@ -102,7 +102,7 @@ func TestNormalSourcePostgresCurrentWritersClaimsAndPublicationRevocation(t *tes
 	}
 	viewerCtx := context.WithValue(context.Background(), types.UserIDContextKey, viewer.ID)
 	_, err = feishusynccontrol.NormalSourceFromDatabase(viewerCtx, db, nil, source.ID, config)
-	require.Error(t, err)
+	require.NoError(t, err, "every active workspace member may manage a source")
 	cross := types.WithCaller(ctx, types.Caller{
 		TenantID: tenant.ID + 999, UserID: writer.ID, Role: types.TenantRoleOwner,
 	})

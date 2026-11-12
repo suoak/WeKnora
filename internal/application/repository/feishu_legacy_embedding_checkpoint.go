@@ -199,13 +199,9 @@ WHERE old.resource_id=? AND old.status IN ('staging','ready','obsolete')
 AND old.receipt->'embedding_checkpoint_v1'->>'model_stamp'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'model_id'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'kb_config_sha256'=?
-AND old.revision=? AND old.expected_hash=?
-AND (old.source_hash=? OR (old.manifest->'source_identity' IS NOT NULL
-AND old.manifest->'source_identity'=?::jsonb))
 ORDER BY (SELECT count(*) FROM feishu_legacy_index_candidates i WHERE i.attempt_id=old.id) DESC,
 old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
-			current.KBConfigSHA256, a.Revision, a.ExpectedHash, a.SourceHash,
-			jsonIdentity(initial.SourceIdentity)).Scan(&candidates).Error; err != nil {
+			current.KBConfigSHA256).Scan(&candidates).Error; err != nil {
 			return err
 		}
 		candidates = append(candidates, *a)
@@ -250,13 +246,13 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 			} else {
 				c, e := embeddingCheckpoint(&previous)
 				if e != nil || c.ModelID != current.ModelID || c.ModelStamp != current.ModelStamp ||
-					c.KBConfigSHA256 != current.KBConfigSHA256 || c.Dimension != current.Dimension ||
-					previous.Revision != a.Revision || previous.ExpectedHash != a.ExpectedHash ||
-					(previous.SourceHash != a.SourceHash &&
-						(initial.SourceIdentity == nil ||
-							!legacyIdentityEqual(initial.SourceIdentity, m.SourceIdentity))) {
+					c.KBConfigSHA256 != current.KBConfigSHA256 || c.Dimension != current.Dimension {
 					continue
 				}
+				// A changed spreadsheet revision must not discard identical model work.
+				// These are private typed model-response checkpoints for this same resource,
+				// not publication receipts. Only hashes freshly registered by the current
+				// authorized execution can be returned below; old bodies are never reused.
 				for _, input := range c.Inputs {
 					expected[input.ChunkID] = input.SHA256
 				}
@@ -281,15 +277,6 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 		return nil
 	})
 	return out, err
-}
-
-func jsonIdentity(identity *types.FeishuLegacySourceIdentity) string {
-	if identity == nil {
-		// SQL NULL cannot establish equivalence with an unknown source identity.
-		return `{}`
-	}
-	b, _ := json.Marshal(identity)
-	return string(b)
 }
 
 func validateEmbeddingCheckpointForPrepare(

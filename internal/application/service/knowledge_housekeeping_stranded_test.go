@@ -42,9 +42,30 @@ func TestHousekeepingRecoverStalledFailsUnfinishedSummary(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	svc := newHousekeepingSvcForTest(db)
 	stale := time.Now().Add(-3 * time.Hour)
-	insertKnowledgeWithSummary(t, db, "k-pending", types.ParseStatusFinalizing, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-running", types.ParseStatusFinalizing, types.SummaryStatusProcessing, stale)
-	insertKnowledgeWithSummary(t, db, "k-done", types.ParseStatusFinalizing, types.SummaryStatusCompleted, stale)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-pending",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusPending,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-running",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusProcessing,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-done",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusCompleted,
+		stale,
+	)
 
 	svc.runSweep(context.Background())
 
@@ -74,8 +95,22 @@ func TestHousekeepingRecoversStrandedPendingSummaries(t *testing.T) {
 		insertKnowledgeWithSummary(t, db, "k-"+status, status, types.SummaryStatusPending, stale)
 	}
 	insertKnowledgeWithSummary(t, db, "k-queued", types.ParseStatusCompleted, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-finalizing", types.ParseStatusFinalizing, types.SummaryStatusPending, stale)
-	insertKnowledgeWithSummary(t, db, "k-recent", types.ParseStatusCompleted, types.SummaryStatusPending, time.Now())
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-finalizing",
+		types.ParseStatusFinalizing,
+		types.SummaryStatusPending,
+		stale,
+	)
+	insertKnowledgeWithSummary(
+		t,
+		db,
+		"k-recent",
+		types.ParseStatusCompleted,
+		types.SummaryStatusPending,
+		time.Now(),
+	)
 
 	svc.recoverStrandedPendingSummaries(context.Background(), cutoff)
 
@@ -166,9 +201,9 @@ func TestHousekeepingSummarySweepDoesNotOverwriteConcurrentProgress(t *testing.T
 
 // A durable wiki op protects its row only up to wikiHoldLimit: a consumer that
 // fails before claiming never consumes the op, and the row would otherwise sit
-// in "finalizing" forever. Past the limit the row is failed and its op
-// dropped; a younger hold is still honoured.
-func TestHousekeepingFailsRowsHeldByWikiPastHoldLimit(t *testing.T) {
+// in "finalizing" forever. Past the limit metadata reports the stall, but
+// original work and parsed indexes remain; a younger hold still re-arms.
+func TestHousekeepingRetainsRowsHeldByWikiPastHoldLimit(t *testing.T) {
 	db := setupHousekeepingDB(t)
 	queue := &wikiGuardTaskQueue{}
 	svc := newHousekeepingSvcForTest(db)
@@ -183,14 +218,15 @@ func TestHousekeepingFailsRowsHeldByWikiPastHoldLimit(t *testing.T) {
 			 VALUES (?, 7, ?, ?, ?)`, id, kbID, types.ParseStatusFinalizing, updatedAt,
 		).Error)
 		insertWikiPendingOp(t, db, kbID, id)
+		require.NoError(t, db.Exec("UPDATE task_pending_ops SET tenant_id=7 WHERE dedup_key=?", id).Error)
 	}
 
 	svc.runSweep(context.Background())
 
 	status, msg := readKnowledgeStatus(t, db, "k-expired")
-	assert.Equal(t, types.ParseStatusFailed, status)
+	assert.Equal(t, types.ParseStatusFinalizing, status)
 	assert.NotEmpty(t, msg)
-	assert.Zero(t, countWikiOps(t, db, "k-expired"), "the expired op is dropped with its row")
+	assert.Equal(t, int64(1), countWikiOps(t, db, "k-expired"), "original work must remain intact")
 
 	status, _ = readKnowledgeStatus(t, db, "k-held")
 	assert.Equal(t, types.ParseStatusFinalizing, status)
@@ -220,4 +256,58 @@ func TestSplitExpiredWikiHoldsUsesLatestActivity(t *testing.T) {
 	require.Len(t, kept, 2)
 	assert.Equal(t, "row-old-recent-beat", kept[0].ID)
 	assert.Equal(t, "row-recent", kept[1].ID)
+}
+
+func TestStalledWikiReportCannotOverwriteProgressOrClaimedWork(t *testing.T) {
+	for _, mutation := range []string{
+		"", "UPDATE knowledges SET updated_at=CURRENT_TIMESTAMP",
+		"UPDATE knowledges SET parse_status='completed'",
+		"UPDATE knowledges SET error_message='original model failure'",
+		"UPDATE task_pending_ops SET claimed_at=CURRENT_TIMESTAMP",
+		"UPDATE task_pending_ops SET tenant_id=8",
+		"UPDATE task_pending_ops SET scope='archive'",
+	} {
+		t.Run(mutation, func(t *testing.T) {
+			db := setupHousekeepingDB(t)
+			stale := time.Now().Add(-wikiHoldLimit - time.Hour)
+			require.NoError(t, db.Exec(`INSERT INTO knowledges
+ (id,tenant_id,knowledge_base_id,parse_status,updated_at) VALUES ('k',7,'kb','finalizing',?)`, stale).Error)
+			insertWikiPendingOp(t, db, "kb", "k")
+			require.NoError(t, db.Exec("UPDATE task_pending_ops SET tenant_id=7,fail_count=3").Error)
+			if mutation != "" {
+				require.NoError(t, db.Exec(mutation).Error)
+			}
+			// SQLite stores this fixture's JSON as TEXT. Compare the raw row,
+			// including its exact payload, without a production JSONB scanner.
+			type pendingMetadata struct {
+				ID, TenantID                                    uint64
+				TaskType, Scope, ScopeID, Op, DedupKey, Payload string
+				FailCount                                       int
+				EnqueuedAt                                      time.Time
+				ClaimedAt                                       *time.Time
+			}
+			var before, after pendingMetadata
+			require.NoError(t, db.Table("task_pending_ops").First(&before).Error)
+			svc := newHousekeepingSvcForTest(db)
+			svc.recordStalledWikiHolds(context.Background(), []types.Knowledge{{
+				ID: "k", TenantID: 7, KnowledgeBaseID: "kb", UpdatedAt: stale,
+			}})
+			status, message := readKnowledgeStatus(t, db, "k")
+			switch mutation {
+			case "":
+				assert.Contains(t, message, "retained for reviewed recovery")
+			case "UPDATE knowledges SET error_message='original model failure'":
+				assert.Equal(t, "original model failure", message)
+			default:
+				assert.Empty(t, message)
+			}
+			if mutation == "UPDATE knowledges SET parse_status='completed'" {
+				assert.Equal(t, types.ParseStatusCompleted, status)
+			} else {
+				assert.Equal(t, types.ParseStatusFinalizing, status)
+			}
+			require.NoError(t, db.Table("task_pending_ops").First(&after).Error)
+			assert.Equal(t, before, after, "all original task metadata and payload must remain unchanged")
+		})
+	}
 }

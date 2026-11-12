@@ -326,7 +326,7 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 	// Validate and check permission for knowledge base access
 	_, id, effectiveTenantID, _, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -334,7 +334,7 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 	var req types.SearchParams
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	precomputedVectorOnly := len(req.QueryEmbedding) > 0 && req.DisableKeywordsMatch && !req.DisableVectorMatch
@@ -381,11 +381,11 @@ func (h *KnowledgeBaseHandler) HybridSearch(c *gin.Context) {
 		// downgraded to InternalServerError. Mirrors the pattern used in
 		// CreateKnowledgeBase.
 		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -422,22 +422,22 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 	var req types.KnowledgeBase
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if err := validateExtractConfig(req.ExtractConfig); err != nil {
 		logger.Error(ctx, "Invalid extract configuration", err)
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	types.NormalizeKnowledgeBasePromptInstructions(&req)
 	if err := validateKnowledgeBasePromptInstructions(&req); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	provider := strings.ToLower(strings.TrimSpace(req.GetStorageProvider()))
 	if provider != "" && !isStorageProviderAllowed(provider) {
-		c.Error(apperrors.NewBadRequestError("Storage provider is not allowed by STORAGE_ALLOW_LIST"))
+		_ = c.Error(apperrors.NewBadRequestError("Storage provider is not allowed by STORAGE_ALLOW_LIST"))
 		return
 	}
 
@@ -452,11 +452,11 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 		// HTTP status verbatim. Falls through to 500 only for raw infra
 		// errors that the service did not classify.
 		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -471,7 +471,8 @@ func (h *KnowledgeBaseHandler) CreateKnowledgeBase(c *gin.Context) {
 
 // validateAndGetKnowledgeBase validates request parameters and retrieves the knowledge base.
 // Enforces per-API-key KB scope before tenant/share/agent resolution.
-// Returns the knowledge base, knowledge base ID, effective tenant ID for embedding, permission level, and any errors encountered
+// Returns the knowledge base, knowledge base ID, effective tenant ID for embedding, permission level, and
+// any errors encountered
 // For owned KBs, effectiveTenantID is the caller's tenant ID
 // For shared KBs, effectiveTenantID is the source tenant ID (owner's tenant)
 func (h *KnowledgeBaseHandler) validateAndGetKnowledgeBase(
@@ -503,8 +504,25 @@ func (h *KnowledgeBaseHandler) GetKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	kb, _, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
+	}
+	// The authorization grant may contain only access metadata. A local
+	// workspace editor needs the persisted settings, not zero-value configs
+	// from that projection (which would disable VLM on the next save).
+	if types.WorkspaceWebReadTenant(c.Request.Context()) == kb.TenantID {
+		full, loadErr := h.service.GetKnowledgeBaseByID(
+			types.WithLegacyKBAdminMetadata(c.Request.Context(), kb.ID), kb.ID,
+		)
+		if loadErr != nil {
+			_ = c.Error(loadErr)
+			return
+		}
+		if full == nil || full.ID != kb.ID || full.TenantID != kb.TenantID {
+			_ = c.Error(apperrors.NewForbiddenError("Knowledge base binding changed"))
+			return
+		}
+		kb = full
 	}
 	// Fill counts (knowledge_count, chunk_count, is_processing) so hover/detail shows correct numbers
 	if fillErr := h.service.FillKnowledgeBaseCounts(c.Request.Context(), kb); fillErr != nil {
@@ -551,7 +569,7 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 		kbs, err := h.service.ListKnowledgeBasesByTenantID(ctx, agent.TenantID)
 		if err != nil {
 			logger.ErrorWithFields(ctx, err, nil)
-			c.Error(apperrors.NewInternalServerError(err.Error()))
+			_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 			return
 		}
 		kbs = filterKnowledgeBasesForSharedAgent(kbs, agent)
@@ -571,7 +589,7 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 	kbs, err := h.service.ListKnowledgeBases(listCtx)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -633,7 +651,10 @@ func (h *KnowledgeBaseHandler) ListKnowledgeBases(c *gin.Context) {
 	})
 }
 
-func filterKnowledgeBasesForAPIKeyScope(ctx context.Context, kbs []*types.KnowledgeBase) []*types.KnowledgeBase {
+func filterKnowledgeBasesForAPIKeyScope(
+	ctx context.Context,
+	kbs []*types.KnowledgeBase,
+) []*types.KnowledgeBase {
 	scope, ok := types.TenantAPIKeyScopeFromContext(ctx)
 	if !ok || !scope.IsKnowledgeBaseRestricted() {
 		return kbs
@@ -713,18 +734,18 @@ func (h *KnowledgeBaseHandler) TogglePinKnowledgeBase(c *gin.Context) {
 	ctx := c.Request.Context()
 	id := c.Param("id")
 	if id == "" {
-		c.Error(apperrors.NewBadRequestError("knowledge base ID is required"))
+		_ = c.Error(apperrors.NewBadRequestError("knowledge base ID is required"))
 		return
 	}
 
 	kb, err := h.service.TogglePinKnowledgeBase(ctx, id)
 	if err != nil {
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(apperrors.NewNotFoundError("knowledge base not found"))
+			_ = c.Error(apperrors.NewNotFoundError("knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -762,13 +783,13 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	_, id, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// Only admin/editor can update knowledge base
 	if permission != types.OrgRoleAdmin && permission != types.OrgRoleEditor {
-		c.Error(apperrors.NewForbiddenError("No permission to update knowledge base"))
+		_ = c.Error(apperrors.NewForbiddenError("No permission to update knowledge base"))
 		return
 	}
 
@@ -776,7 +797,7 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 	var req UpdateKnowledgeBaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 	if req.Config != nil {
@@ -789,7 +810,7 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 			probe.ImageProcessingConfig = *req.Config.ImageProcessingConfig
 		}
 		if err := validateKnowledgeBasePromptInstructions(probe); err != nil {
-			c.Error(err)
+			_ = c.Error(err)
 			return
 		}
 	}
@@ -801,7 +822,7 @@ func (h *KnowledgeBaseHandler) UpdateKnowledgeBase(c *gin.Context) {
 	kb, err := h.service.UpdateKnowledgeBase(ctx, id, req.Name, req.Description, req.Config)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -881,14 +902,14 @@ func (h *KnowledgeBaseHandler) DeleteKnowledgeBase(c *gin.Context) {
 	// Validate and get the knowledge base
 	kb, id, _, permission, err := h.validateAndGetKnowledgeBase(c)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	// Only owner (admin with matching tenant) can delete knowledge base
 	tenantID, _ := c.Get(types.TenantIDContextKey.String())
 	if kb.TenantID != tenantID.(uint64) || permission != types.OrgRoleAdmin {
-		c.Error(apperrors.NewForbiddenError("Only knowledge base owner can delete"))
+		_ = c.Error(apperrors.NewForbiddenError("Only knowledge base owner can delete"))
 		return
 	}
 
@@ -898,7 +919,7 @@ func (h *KnowledgeBaseHandler) DeleteKnowledgeBase(c *gin.Context) {
 	// Delete the knowledge base
 	if err := h.service.DeleteKnowledgeBase(ctx, id); err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(apperrors.NewInternalServerError(err.Error()))
+		_ = c.Error(apperrors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -948,7 +969,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	var req CopyKnowledgeBaseRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		logger.Error(ctx, "Failed to parse request parameters", err)
-		c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
+		_ = c.Error(apperrors.NewBadRequestError("Invalid request parameters").WithDetails(err.Error()))
 		return
 	}
 
@@ -960,7 +981,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	tenantID := caller.TenantID
 	sourceGrant, err := resolveHandlerKBAccessFor(c, req.SourceID, h.service, nil, nil, types.OrgRoleViewer)
 	if err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 	sourceKB := sourceGrant.KnowledgeBase
@@ -989,7 +1010,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 		}
 		targetKB = targetGrant.KnowledgeBase
 		if targetKB.TenantID != caller.TenantID {
-			c.Error(errors.NewForbiddenError("No permission to copy to this knowledge base"))
+			_ = c.Error(errors.NewForbiddenError("No permission to copy to this knowledge base"))
 			return
 		}
 		if err := middleware.EvaluateOwnershipOrRole(c.Request.Context(),
@@ -1014,7 +1035,14 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 			return
 		}
 	}
-	ctx, err = access.WithKBTransfer(c.Request.Context(), sourceKB, targetKB, access.KBTransferClone, taskID, create)
+	ctx, err = access.WithKBTransfer(
+		c.Request.Context(),
+		sourceKB,
+		targetKB,
+		access.KBTransferClone,
+		taskID,
+		create,
+	)
 	if err != nil {
 		_ = c.Error(kbAccessHTTPError(err))
 		return
@@ -1038,7 +1066,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to marshal KB clone payload: %v", err)
-		c.Error(apperrors.NewInternalServerError("Failed to create task"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to create task"))
 		return
 	}
 
@@ -1049,7 +1077,7 @@ func (h *KnowledgeBaseHandler) CopyKnowledgeBase(c *gin.Context) {
 	info, err := h.asynqClient.Enqueue(task)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to enqueue KB clone task: %v", err)
-		c.Error(apperrors.NewInternalServerError("Failed to enqueue task"))
+		_ = c.Error(apperrors.NewInternalServerError("Failed to enqueue task"))
 		return
 	}
 
@@ -1098,7 +1126,7 @@ func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
 	ctx := c.Request.Context()
 	sourceID := c.Param("id")
 	if sourceID == "" {
-		c.Error(apperrors.NewBadRequestError("Knowledge base ID cannot be empty"))
+		_ = c.Error(apperrors.NewBadRequestError("Knowledge base ID cannot be empty"))
 		return
 	}
 
@@ -1106,33 +1134,38 @@ func (h *KnowledgeBaseHandler) DuplicateKnowledgeBase(c *gin.Context) {
 	sourceKB, err := h.service.GetKnowledgeBaseByID(ctx, sourceID)
 	if err != nil {
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	if sourceKB.TenantID != callerTenantID {
-		logger.Warnf(ctx,
-			"Knowledge base duplicate rejected: source belongs to another tenant, source_id: %s, caller_tenant: %d, kb_tenant: %d",
-			secutils.SanitizeForLog(sourceID), callerTenantID, sourceKB.TenantID)
-		c.Error(errors.NewForbiddenError("No permission to duplicate this knowledge base"))
+		logger.Warnf(
+			ctx,
+			"Knowledge base duplicate rejected: source belongs to another "+
+				"tenant, source_id: %s, caller_tenant: %d, kb_tenant: %d",
+			secutils.SanitizeForLog(sourceID),
+			callerTenantID,
+			sourceKB.TenantID,
+		)
+		_ = c.Error(errors.NewForbiddenError("No permission to duplicate this knowledge base"))
 		return
 	}
 
 	targetKB, err := h.service.DuplicateKnowledgeBase(ctx, sourceID)
 	if err != nil {
 		if appErr, ok := apperrors.IsAppError(err); ok {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 
@@ -1167,18 +1200,18 @@ func (h *KnowledgeBaseHandler) GetKBCloneProgress(c *gin.Context) {
 	taskID := c.Param("task_id")
 	if taskID == "" {
 		logger.Error(ctx, "Task ID is empty")
-		c.Error(apperrors.NewBadRequestError("Task ID cannot be empty"))
+		_ = c.Error(apperrors.NewBadRequestError("Task ID cannot be empty"))
 		return
 	}
 	if err := requireTaskProgressTenant(ctx, taskID); err != nil {
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
 	progress, err := h.knowledgeService.GetKBCloneProgress(ctx, taskID)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
-		c.Error(err)
+		_ = c.Error(err)
 		return
 	}
 
@@ -1281,13 +1314,13 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 
 	sourceKBID := c.Param("id")
 	if sourceKBID == "" {
-		c.Error(apperrors.NewBadRequestError("Knowledge base ID is required"))
+		_ = c.Error(apperrors.NewBadRequestError("Knowledge base ID is required"))
 		return
 	}
 
 	tenantID, exists := c.Get(types.TenantIDContextKey.String())
 	if !exists {
-		c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
+		_ = c.Error(apperrors.NewUnauthorizedError("Unauthorized"))
 		return
 	}
 
@@ -1295,21 +1328,21 @@ func (h *KnowledgeBaseHandler) ListMoveTargets(c *gin.Context) {
 	sourceKB, err := h.service.GetKnowledgeBaseByID(ctx, sourceKBID)
 	if err != nil {
 		if stderrors.Is(err, repository.ErrKnowledgeBaseNotFound) {
-			c.Error(errors.NewNotFoundError("Source knowledge base not found"))
+			_ = c.Error(errors.NewNotFoundError("Source knowledge base not found"))
 			return
 		}
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 	if sourceKB.TenantID != tenantID.(uint64) {
-		c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
+		_ = c.Error(errors.NewForbiddenError("No permission to access this knowledge base"))
 		return
 	}
 
 	// Get all knowledge bases
 	allKBs, err := h.service.ListKnowledgeBases(ctx)
 	if err != nil {
-		c.Error(errors.NewInternalServerError(err.Error()))
+		_ = c.Error(errors.NewInternalServerError(err.Error()))
 		return
 	}
 

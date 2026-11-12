@@ -17,12 +17,17 @@ func (s *wikiIngestService) personalWikiProofContext(ctx context.Context, kb str
 	if !ok {
 		return nil, repository.ErrWikiMCPUnverified
 	}
+	if repository.WikiDocumentSelectionForKB(kb) {
+		fresh, _, err := repository.BeginWikiDocumentGeneration(ctx, pages.repo, kb)
+		return fresh, err
+	}
 	return pages.personalWikiGenerationContext(ctx, kb)
 }
 
 func (s *wikiIngestService) personalWikiProofEnabled() bool {
 	knowledge, ok := s.knowledgeSvc.(*knowledgeService)
-	return ok && knowledge.config != nil && knowledge.config.PersonalMCP != nil && knowledge.config.PersonalMCP.Enabled
+	return ok && knowledge.config != nil && knowledge.config.PersonalMCP != nil &&
+		knowledge.config.PersonalMCP.Enabled
 }
 
 // Historical queue text has no generation-input proof. Retraction can contain
@@ -32,7 +37,8 @@ func (s *wikiIngestService) checkPersonalWikiPending(ops []WikiPendingOp) error 
 		return nil
 	}
 	for _, op := range ops {
-		if op.Op != WikiOpIngest || op.DocSummary != "" || op.DocTitle != "" || len(op.PageSlugs) != 0 || len(op.FolderIDs) != 0 {
+		if op.Op != WikiOpIngest || op.DocSummary != "" || op.DocTitle != "" || len(op.PageSlugs) != 0 ||
+			len(op.FolderIDs) != 0 {
 			return repository.ErrWikiMCPUnverified
 		}
 	}

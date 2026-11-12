@@ -4344,8 +4344,12 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 			return err
 		}
 		var imageErr error
+		imageFiles := s.resolveFileService(ctx, kb)
+		if consumer.resuming {
+			imageFiles = &exactResumeImageFiles{FileService: imageFiles, consumer: consumer}
+		}
 		storedImages, imageErr = docparser.ResolveCandidateImages(
-			ctx, convertResult, s.resolveFileService(ctx, kb), consumer.source.tenant,
+			ctx, convertResult, imageFiles, consumer.source.tenant,
 		)
 		if imageErr != nil {
 			return imageErr

@@ -24,6 +24,27 @@ type mutationAdmissionKnowledge struct {
 	writeGrant bool
 }
 
+type mutationAdmissionRepository struct {
+	interfaces.KnowledgeRepository
+	service *mutationAdmissionKnowledge
+}
+
+func (s *mutationAdmissionKnowledge) GetRepository() interfaces.KnowledgeRepository {
+	return &mutationAdmissionRepository{service: s}
+}
+
+func (r *mutationAdmissionRepository) GetKnowledgeDeletionMetadata(
+	ctx context.Context, tenant uint64, ids []string,
+) ([]*types.Knowledge, error) {
+	return r.service.GetKnowledgeBatch(ctx, tenant, ids)
+}
+
+func (r *mutationAdmissionRepository) ListKnowledgeForKBClear(
+	ctx context.Context, _ uint64, kb string,
+) ([]*types.Knowledge, error) {
+	return r.service.ListKnowledgeByKnowledgeBaseID(ctx, kb)
+}
+
 func (s *mutationAdmissionKnowledge) GetKnowledgeByIDOnly(context.Context, string) (*types.Knowledge, error) {
 	return s.rows[0], nil
 }

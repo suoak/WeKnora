@@ -3,7 +3,10 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"net/url"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -18,6 +21,20 @@ import (
 
 func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	dsn := feishulegacy.PrivateDSN(t)
+	parsedDSN, err := url.Parse(dsn)
+	require.NoError(t, err)
+	name := strings.TrimPrefix(parsedDSN.Path, "/")
+	require.True(t, strings.HasPrefix(name, "feishu_atomic_test_"))
+	_, err = uuid.Parse(strings.TrimPrefix(name, "feishu_atomic_test_"))
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		admin, openErr := gorm.Open(postgres.Open(os.Getenv("FEISHU_LEGACY_TEST_DSN")), &gorm.Config{})
+		require.NoError(t, openErr)
+		conn, poolErr := admin.DB()
+		require.NoError(t, poolErr)
+		defer func() { require.NoError(t, conn.Close()) }()
+		require.NoError(t, admin.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error)
+	})
 	root, err := filepath.Abs("../../..")
 	require.NoError(t, err)
 	t.Chdir(root)
@@ -31,7 +48,12 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	tenant := &types.Tenant{ID: 809936, Name: "checkpoint-private", Status: "active"}
 	require.NoError(t, db.Create(tenant).Error)
-	model := &types.Model{ID: uuid.NewString(), TenantID: tenant.ID, Name: "checkpoint", Type: types.ModelTypeEmbedding}
+	model := &types.Model{
+		ID:       uuid.NewString(),
+		TenantID: tenant.ID,
+		Name:     "checkpoint",
+		Type:     types.ModelTypeEmbedding,
+	}
 	require.NoError(t, db.Create(model).Error)
 	kb := &types.KnowledgeBase{
 		ID: uuid.NewString(), TenantID: tenant.ID, Name: "checkpoint", Type: "document", EmbeddingModelID: model.ID,
@@ -57,7 +79,12 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 		ExternalID: "same-sheet", FileName: "sheet.md", Title: "sheet",
 		Content: []byte("first and second"), UpdatedAt: time.Date(2026, 11, 8, 0, 0, 0, 0, time.UTC),
 	}
-	resource, first, err := store.Begin(ctx, ds, item, LegacySourceHash(item.Content, item.FileName, item.Title))
+	resource, first, err := store.Begin(
+		ctx,
+		ds,
+		item,
+		LegacySourceHash(item.Content, item.FileName, item.Title),
+	)
 	require.NoError(t, err)
 	makeManifest := func(bodies ...string) (
 		types.FeishuLegacyManifest, types.FeishuLegacyEmbeddingCheckpoint, []string,
@@ -94,7 +121,10 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	require.NoError(t, store.SaveEmbeddingCheckpoint(ctx, ds, first, inputs[:1], [][]float32{{1, 0, 0}}))
 	count := func(attempt string) int64 {
 		var n int64
-		require.NoError(t, db.Table("feishu_legacy_index_candidates").Where("attempt_id=?", attempt).Count(&n).Error)
+		require.NoError(
+			t,
+			db.Table("feishu_legacy_index_candidates").Where("attempt_id=?", attempt).Count(&n).Error,
+		)
 		return n
 	}
 	require.EqualValues(t, 1, count(first.ID))
@@ -131,7 +161,12 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	require.NoError(t, store.SaveEmbeddingCheckpoint(ctx, ds, next, inputs[1:], [][]float32{{0, 1, 0}}))
 	require.EqualValues(t, 2, count(next.ID))
 	require.Error(t, store.Prepare(ctx, ds, next, m, [][]float32{{1, 0, 0}, {1}}))
-	require.EqualValues(t, 2, count(next.ID), "failed finalization must roll back and keep completed checkpoints")
+	require.EqualValues(
+		t,
+		2,
+		count(next.ID),
+		"failed finalization must roll back and keep completed checkpoints",
+	)
 	require.NoError(t, store.Prepare(ctx, ds, next, m, [][]float32{{1, 0, 0}, {0, 1, 0}}))
 	receipt, err := store.Publish(ctx, ds, next)
 	require.NoError(t, err)
@@ -157,7 +192,12 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	// Even identical content cannot borrow vectors from another source resource.
 	other := *item
 	other.ExternalID = "another-sheet"
-	_, foreign, err := store.Begin(ctx, ds, &other, LegacySourceHash(other.Content, other.FileName, other.Title))
+	_, foreign, err := store.Begin(
+		ctx,
+		ds,
+		&other,
+		LegacySourceHash(other.Content, other.FileName, other.Title),
+	)
 	require.NoError(t, err)
 	duplicateHeader := header
 	duplicateHeader.Inputs = []types.FeishuLegacyEmbeddingInput{
@@ -170,4 +210,25 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 	require.Empty(t, cache)
 	require.NoError(t, store.SaveEmbeddingCheckpoint(ctx, ds, foreign, inputs[:1], [][]float32{{1, 0, 0}}))
 	require.EqualValues(t, 2, count(foreign.ID), "identical inputs keep distinct original chunk identities")
+	// An interrupted, unpublished revision is also useful when a live sheet
+	// changes between runs. Only the exact current model input may be reused.
+	require.NoError(t, store.SaveEmbeddingCheckpoint(ctx, ds, third, inputs[1:], [][]float32{{0, 0, 1}}))
+	require.NoError(t, store.Abandon(ctx, third))
+	item.Content = []byte("third and fourth")
+	item.UpdatedAt = item.UpdatedAt.Add(time.Second)
+	_, fourth, err := store.Begin(ctx, ds, item, LegacySourceHash(item.Content, item.FileName, item.Title))
+	require.NoError(t, err)
+	require.NotEqual(t, third.SourceHash, fourth.SourceHash)
+	_, header, inputs = makeManifest("third", "fourth")
+	require.NoError(t, store.StartEmbeddingCheckpoint(ctx, ds, fourth, header))
+	cache, err = store.ReusableEmbeddingCheckpoint(ctx, ds, fourth)
+	require.NoError(t, err)
+	require.Equal(t, []float32{0, 0, 1}, cache[LegacyEmbeddingInputHash(inputs[0])])
+	require.NotContains(
+		t,
+		cache,
+		LegacyEmbeddingInputHash(inputs[1]),
+		"changed inputs still require a model call",
+	)
+	require.Len(t, cache, 1, "unrequested historical inputs are never returned")
 }

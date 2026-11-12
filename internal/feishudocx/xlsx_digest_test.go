@@ -11,8 +11,14 @@ import (
 func xlsxIdentityFixture(t *testing.T, columns, cell, asset, relationship string, reverse bool) []byte {
 	t.Helper()
 	parts := [][2]string{
-		{"[Content_Types].xml", `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>`},
-		{"_rels/.rels", `<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`},
+		{
+			"[Content_Types].xml",
+			`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"/>`,
+		},
+		{
+			"_rels/.rels",
+			`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"/>`,
+		},
 		{"xl/workbook.xml", `<workbook xmlns="` + spreadsheetNS + `"><sheets/></workbook>`},
 		{"xl/worksheets/sheet1.xml", `<worksheet xmlns="` + spreadsheetNS + `">` +
 			`<cols>` + columns + `</cols><sheetData><row r="1"><c r="A1">` + cell +
@@ -74,13 +80,59 @@ func TestFeishuXLSXIdentityProtectsContents(t *testing.T) {
 func TestFeishuXLSXIdentityRejectsAmbiguousColumns(t *testing.T) {
 	for _, columns := range []string{
 		`<col min="1" max="2" width="NaN"/>`,
+		`<col min="1" max="2" width="Inf"/>`,
+		`<col min="1" max="2" width="-1"/>`,
+		`<col min="1" max="2" width="1e309"/>`,
 		`<col min="1" max="16385" width="1"/>`,
 		`<col min="2" max="1" width="1"/>`,
-		`<col min="1" max="2"/><col min="2" max="3"/>`,
+		`<col min="1" max="16384"/><col min="1" max="16384"/><col min="1" max="16384"/>`,
 		`<col min="1" max="2"><v>unsupported</v></col>`,
 		`<unknown/>`,
 	} {
 		_, _, err := CanonicalXLSXDigest(xlsxIdentityFixture(t, columns, `<v>1</v>`, "asset", "", false))
 		require.ErrorIs(t, err, ErrInvalidXLSXPackage)
+	}
+}
+
+func TestFeishuXLSXWideExportColumnsKeepExistingIdentity(t *testing.T) {
+	want, algorithm, err := CanonicalXLSXDigest(xlsxIdentityFixture(t,
+		`<col min="1" max="2" width="10" customWidth="1" style="3"/>`, `<v>1</v>`, "asset", "", false))
+	require.NoError(t, err)
+	for _, width := range []string{"255", "256", "512.25", "4096", "1e6"} {
+		t.Run(width, func(t *testing.T) {
+			cols := `<col min="1" max="2" width="` + width + `" customWidth="1" style="3"/>`
+			digest, nextAlgorithm, e := CanonicalXLSXDigest(
+				xlsxIdentityFixture(t, cols, `<v>1</v>`, "asset", "", false),
+			)
+			require.NoError(t, e)
+			require.Equal(t, algorithm, nextAlgorithm)
+			require.Equal(t, want, digest, "ignored layout width must not change source identity")
+			changed, _, e := CanonicalXLSXDigest(xlsxIdentityFixture(t, cols, `<v>2</v>`, "asset", "", false))
+			require.NoError(t, e)
+			require.NotEqual(t, want, changed, "wide columns cannot hide a changed cell")
+		})
+	}
+}
+
+func TestFeishuXLSXOverlappingColumnsPreserveEveryOrderedProperty(t *testing.T) {
+	base := `<col min="1" max="3" width="10" style="1"/><col min="2" max="4" width="12" style="2"/>`
+	split := `<col min="1" max="1" width="8" style="1"/><col min="2" max="3" width="9" style="1"/>` +
+		`<col min="2" max="2" width="11" style="2"/><col min="3" max="4" width="13" style="2"/>`
+	digest := func(cols string) string {
+		t.Helper()
+		value, _, err := CanonicalXLSXDigest(xlsxIdentityFixture(t, cols, `<v>1</v>`, "asset", "", false))
+		require.NoError(t, err)
+		return value
+	}
+	want := digest(base)
+	require.Equal(t, want, digest(split), "range packaging and width do not change an ordered property stack")
+	for _, changed := range []string{
+		`<col min="2" max="4" width="12" style="2"/><col min="1" max="3" width="10" style="1"/>`,
+		`<col min="1" max="3" width="10" style="3"/><col min="2" max="4" width="12" style="2"/>`,
+		`<col min="1" max="3" width="10" style="1" hidden="1"/><col min="2" max="4" style="2"/>`,
+		`<col min="1" max="3" width="10" style="1"/>`,
+		`<col min="2" max="4" width="12" style="2"/>`,
+	} {
+		require.NotEqual(t, want, digest(changed), "neither an earlier nor a later definition may be dropped")
 	}
 }

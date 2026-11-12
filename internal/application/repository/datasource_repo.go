@@ -16,6 +16,15 @@ type DataSourceRepository struct {
 	db *gorm.DB
 }
 
+type preservedSourceConfigurationKey struct{}
+
+// WithPreservedSourceConfiguration prevents a metadata-only save from repairing
+// a legacy hold without revalidation. Actual configuration changes still fence
+// old executions independently of this marker.
+func WithPreservedSourceConfiguration(ctx context.Context) context.Context {
+	return context.WithValue(ctx, preservedSourceConfigurationKey{}, true)
+}
+
 // NewDataSourceRepository creates a new data source repository
 func NewDataSourceRepository(db *gorm.DB) interfaces.DataSourceRepository {
 	return &DataSourceRepository{db: db}
@@ -63,7 +72,10 @@ func (r *DataSourceRepository) FindByID(ctx context.Context, id string) (*types.
 }
 
 // FindByKnowledgeBase lists all data sources for a knowledge base
-func (r *DataSourceRepository) FindByKnowledgeBase(ctx context.Context, kbID string) ([]*types.DataSource, error) {
+func (r *DataSourceRepository) FindByKnowledgeBase(
+	ctx context.Context,
+	kbID string,
+) ([]*types.DataSource, error) {
 	if kbID == "" {
 		return nil, errors.New("knowledge base id is empty")
 	}
@@ -92,20 +104,39 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 			if err != nil {
 				return err
 			}
-			if legacySourceKind(old.Type) && (!legacyConfigEqual(old.Config, ds.Config) || old.Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
+			preserve, _ := ctx.Value(preservedSourceConfigurationKey{}).(bool)
+			if legacySourceKind(old.Type) &&
+				((old.LegacyAccessState == "hold" && !preserve) || !legacyConfigEqual(old.Config, ds.Config) || old.
+					Type != ds.Type || old.KnowledgeBaseID != ds.KnowledgeBaseID) {
 				if old.TenantID != ds.TenantID || old.KnowledgeBaseID != ds.KnowledgeBaseID {
 					return legacyFence("source_tenant_or_kb_rebind_denied")
 				}
-				unused, err := unusedLegacySourceDraft(tx, old)
-				if err != nil {
+				// Configuration changes replace the execution, not the member's
+				// permission. Fence old messages under the source lock so the next
+				// manual sync can immediately use the newly validated config.
+				now := time.Now().UTC()
+				if err := tx.Model(&types.SyncLog{}).
+					Where("data_source_id=? AND (status IN ? OR execution_claimed=?)",
+						ds.ID, []string{"running", "pending"}, true).
+					Updates(map[string]any{
+						"status": types.SyncLogStatusCanceled, "execution_claimed": false,
+						"execution_generation": gorm.Expr("execution_generation + 1"),
+						"finished_at":          now,
+						"error_message":        "Source configuration changed; start a new sync",
+					}).Error; err != nil {
 					return err
 				}
-				if !unused && old.LegacyAccessState != "revoked" {
-					if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
-						Update("legacy_access_state", "hold").Error; err != nil {
-						return err
-					}
-					old.LegacyAccessState = "hold"
+				if err := tx.Model(&types.DataSource{}).Where("id=?", ds.ID).
+					Updates(map[string]any{
+						"legacy_access_state": "active", "last_sync_cursor": nil,
+						"last_sync_result": nil, "last_sync_at": nil, "error_message": "",
+					}).Error; err != nil {
+					return err
+				}
+				old.LegacyAccessState = "active"
+				ds.LastSyncCursor, ds.LastSyncResult, ds.LastSyncAt, ds.ErrorMessage = nil, nil, nil, ""
+				if ds.Status == types.DataSourceStatusError {
+					ds.Status = types.DataSourceStatusActive
 				}
 			}
 			ds.LegacyAccessState = old.LegacyAccessState
@@ -124,23 +155,28 @@ func (r *DataSourceRepository) Update(ctx context.Context, ds *types.DataSource)
 	})
 }
 
-// Resource discovery persists a paused draft before the user selects resources.
-// Completing that unused draft does not invalidate any historical publication.
+// Initial setup may persist a paused draft or an enabled source before the user
+// finishes selecting resources or credentials. Scheduler status alone does not
+// prove that the source has run or published content.
 // The source row is already locked, matching sync admission's lock order; even
 // failed executions and deleted documents permanently disqualify this exception.
 // This grants no sync permit: ordinary signed admission still checks the final
 // source configuration, managing actor, current authority and safety controller.
 func unusedLegacySourceDraft(tx *gorm.DB, source *types.DataSource) (bool, error) {
-	if source.LegacyAccessState != "unmanaged" || source.Status != types.DataSourceStatusPaused ||
-		source.LastSyncAt != nil {
+	if (source.LegacyAccessState != "unmanaged" && source.LegacyAccessState != "active") ||
+		(source.Status != types.DataSourceStatusPaused && source.Status != types.DataSourceStatusActive) ||
+		source.LastSyncAt != nil || len(source.LastSyncCursor) != 0 || len(source.LastSyncResult) != 0 {
 		return false, nil
 	}
 	var used bool
+	if err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM sync_logs WHERE data_source_id=?)`,
+		source.ID).Scan(&used).Error; err != nil || used {
+		return false, err
+	}
 	err := tx.Raw(`SELECT
- EXISTS(SELECT 1 FROM sync_logs WHERE data_source_id=?) OR
  EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE data_source_id=?) OR
  EXISTS(SELECT 1 FROM knowledges WHERE metadata->>'datasource_id'=?)`,
-		source.ID, source.ID, source.ID).Scan(&used).Error
+		source.ID, source.ID).Scan(&used).Error
 	return !used, err
 }
 
@@ -304,7 +340,12 @@ func (r *SyncLogRepository) FindByID(ctx context.Context, id string) (*types.Syn
 }
 
 // FindByDataSource lists sync logs for a data source with pagination
-func (r *SyncLogRepository) FindByDataSource(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+func (r *SyncLogRepository) FindByDataSource(
+	ctx context.Context,
+	dsID string,
+	limit int,
+	offset int,
+) ([]*types.SyncLog, error) {
 	if dsID == "" {
 		return nil, errors.New("data source id is empty")
 	}

@@ -1,6 +1,7 @@
 package types
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"strings"
@@ -332,6 +333,9 @@ type Resource struct {
 
 // FetchedItem represents a single document/content item fetched from external source
 type FetchedItem struct {
+	// CurrentSnapshot is issued only by the live connector. It cannot be supplied
+	// through JSON, a task payload, or historical connector metadata.
+	CurrentSnapshot func(context.Context) (*FetchedItem, error) `json:"-"`
 	// Unique ID in the external system
 	ExternalID string `json:"external_id"`
 

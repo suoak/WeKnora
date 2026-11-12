@@ -151,8 +151,8 @@ func (s *knowledgeService) planKnowledgeDelete(ctx context.Context, ids []string
 			}
 			if liveActor, _ := ctx.Value(knowledgeDeleteActorKey{}).(bool); liveActor {
 				caller := types.CallerFromContext(ctx)
-				if !caller.Role.HasPermission(types.TenantRoleAdmin) && kb.CreatorID != caller.UserID {
-					return nil, apperrors.NewForbiddenError("Deletion actor no longer owns this knowledge base")
+				if !caller.Role.IsValid() || caller.TenantID != kb.TenantID {
+					return nil, apperrors.NewForbiddenError("Deletion actor is no longer a workspace member")
 				}
 			}
 			if !isCleanup {

@@ -140,6 +140,17 @@ func (h *HousekeepingService) StopWithin(timeout time.Duration) {
 // runSweep is exported on the type for testability — tests can drive a
 // single sweep without waiting for the cron tick.
 func (h *HousekeepingService) runSweep(ctx context.Context) {
+	if wikiDocumentSelectionEnabled() && h.task != nil {
+		targets, err := apprepo.RecheckWikiSkippedOperations(ctx, h.db, 32)
+		if err != nil {
+			logger.Warnf(ctx, "[Housekeeping] Wiki skipped-document recheck failed: %v", err)
+		}
+		for _, target := range targets {
+			if err := enqueueWikiIngestTrigger(ctx, h.task, target.TenantID, target.KnowledgeBaseID); err != nil {
+				logger.Warnf(ctx, "[Housekeeping] Wiki skip recovery trigger failed: %v", err)
+			}
+		}
+	}
 	threshold := h.staleThreshold()
 	cutoff := time.Now().Add(-threshold)
 
@@ -184,10 +195,28 @@ func (h *HousekeepingService) runSweep(ctx context.Context) {
 	}
 	var candidates []types.Knowledge
 	for _, row := range metadata {
+		if wikiDocumentSelectionEnabled() {
+			var parked bool
+			if err := h.db.WithContext(ctx).Raw(`SELECT EXISTS(SELECT 1 FROM task_pending_ops
+WHERE tenant_id=? AND scope='wiki_skipped_ops' AND scope_id=? AND task_type='wiki:ingest' AND dedup_key=?)`,
+				row.TenantID, row.KnowledgeBaseID, row.ID).Scan(&parked).Error; err != nil {
+				logger.Warnf(ctx, "[Housekeeping] Wiki skip probe failed for %s; recovery deferred", row.ID)
+				continue
+			}
+			// A deliberate skip is not an orphaned parser. Its original
+			// finalizing slot belongs to the bounded recovery lane above.
+			if parked {
+				continue
+			}
+		}
 		// A metadata scan never grants permission to read or mutate protected
 		// content. Personal protocols belong to their own fenced reconciler.
 		if err := types.CheckLegacySourceRead(h.db.WithContext(ctx), row.ID, row.KnowledgeBaseID); err != nil {
-			logger.Warnf(ctx, "[Housekeeping] source verification required for %s; generic recovery deferred", row.ID)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] source verification required for %s; generic recovery deferred",
+				row.ID,
+			)
 			continue
 		}
 		var personal bool
@@ -217,44 +246,11 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 	// that still has a queued/active task referencing it; only rows with
 	// nothing left in the queue are treated as genuinely orphaned.
 	stuck, queueSkipped, wikiHeld := h.filterOutQueued(ctx, stuck)
-	// A Wiki op protects its row only for so long. Re-arming covers a lost
-	// trigger, but a consumer that fails before claiming anything never
-	// consumes the op, and the row would sit in "finalizing" forever.
+	// Age is evidence of stalled Wiki work, not a failed parser. Retain the
+	// original lane and indexed document; do not grant an unbounded new model
+	// retry budget. Younger holds retain their existing trigger recovery.
 	wikiHeld, wikiExpired := splitExpiredWikiHolds(wikiHeld, heartbeat, time.Now().Add(-wikiHoldLimit))
-	if h.cfg != nil && h.cfg.PersonalMCP != nil && h.cfg.PersonalMCP.Enabled {
-		// Expiring a generation-proof refusal is not evidence of a failed
-		// parser. Keep indexed source documents and durable Wiki operations
-		// intact for reviewed regeneration, rather than deleting their lane.
-		proofErrors := map[string]error{}
-		var genuinelyExpired []types.Knowledge
-		for _, k := range wikiExpired {
-			err, checked := proofErrors[k.KnowledgeBaseID]
-			if !checked {
-				_, err = apprepo.BeginWikiMCPGeneration(ctx, apprepo.NewWikiPageRepository(h.db), k.KnowledgeBaseID)
-				proofErrors[k.KnowledgeBaseID] = err
-			}
-			if err != nil {
-				logger.Warnf(ctx,
-					"[Housekeeping] Wiki provenance recovery required for %s; durable operation retained", k.ID)
-				// Error text is an operational status only, never source content
-				// or an execution grant. CAS protects an already-finished row.
-				res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
-					Where("id=? AND parse_status=? AND updated_at=? AND pending_subtasks_count=1",
-						k.ID, types.ParseStatusFinalizing, k.UpdatedAt).
-					Where("error_message='' OR error_message IS NULL").
-					UpdateColumn("error_message", apprepo.WikiRegenerationRequiredMessage)
-				if res.Error != nil {
-					logger.Warnf(ctx, "[Housekeeping] failed to record Wiki block for %s: %v", k.ID, res.Error)
-				}
-				continue
-			}
-			genuinelyExpired = append(genuinelyExpired, k)
-		}
-		queueSkipped -= len(wikiExpired) - len(genuinelyExpired)
-		wikiExpired = genuinelyExpired
-	}
-	queueSkipped -= len(wikiExpired)
-	stuck = append(stuck, wikiExpired...)
+	h.recordStalledWikiHolds(ctx, wikiExpired)
 	h.rearmWikiTriggers(ctx, wikiHeld, threshold)
 
 	if len(stuck) > 0 {
@@ -263,7 +259,6 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 				recovered, threshold)
 		}
 	}
-	h.dropExpiredWikiOps(ctx, wikiExpired)
 	if spanSkipped > 0 {
 		// Visibility into "we considered killing N rows but their
 		// span tree showed they're still progressing". Ops can grep
@@ -327,8 +322,9 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 				res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
 					Where("id = ? AND parse_status = ?", k.ID, types.ParseStatusDeleting).
 					Updates(map[string]interface{}{
-						"parse_status":  types.ParseStatusFailed,
-						"error_message": "delete task stranded (no queued/active delete task) > " + threshold.String() + ", recovered by housekeeping",
+						"parse_status": types.ParseStatusFailed,
+						"error_message": "delete task stranded (no queued/active delete task) > " +
+							threshold.String() + ", recovered by housekeeping",
 					})
 				if res.Error != nil {
 					logger.Warnf(ctx, "[Housekeeping] delete sweep update failed for %s: %v", k.ID, res.Error)
@@ -346,8 +342,8 @@ WHERE scope=? AND scope_id=?)`, types.KnowledgeDispatchScope, row.ID).Scan(&pers
 }
 
 // wikiHoldLimit bounds how long a durable Wiki ingest op keeps its row out of
-// the stuck sweep. It is far above any healthy Wiki backlog wait; past it the
-// op is treated as one its consumer will never take.
+// the stuck sweep. Older holds require reviewed recovery; their original
+// operations and parsed document state must remain intact.
 const wikiHoldLimit = 48 * time.Hour
 
 // splitExpiredWikiHolds separates Wiki-held rows whose last progress (row
@@ -369,29 +365,28 @@ func splitExpiredWikiHolds(
 	return kept, expired
 }
 
-// dropExpiredWikiOps deletes the Wiki ingest ops of rows the sweep just failed
-// past wikiHoldLimit, so the consumer does not later spend a model call on a
-// document that is no longer waiting for it.
-func (h *HousekeepingService) dropExpiredWikiOps(ctx context.Context, expired []types.Knowledge) {
-	if len(expired) == 0 {
-		return
-	}
-	ids := make([]string, 0, len(expired))
+// recordStalledWikiHolds changes only metadata on the same still-waiting
+// document. A late sweep cannot overwrite progress, a fresh claim, an existing
+// error, another tenant's row, or a document whose original work has settled.
+func (h *HousekeepingService) recordStalledWikiHolds(ctx context.Context, expired []types.Knowledge) {
 	for _, k := range expired {
-		ids = append(ids, k.ID)
-	}
-	res := h.db.WithContext(ctx).
-		Where("task_type = ? AND scope = ? AND op = ? AND dedup_key IN ?",
-			wikiTaskType, wikiTaskScope, WikiOpIngest, ids).
-		Where("dedup_key IN (?)", h.db.Model(&types.Knowledge{}).Select("id").
-			Where("id IN ? AND parse_status = ?", ids, types.ParseStatusFailed)).
-		Delete(&types.TaskPendingOp{})
-	if res.Error != nil {
-		logger.Warnf(ctx, "[Housekeeping] dropping expired wiki ops failed: %v", res.Error)
-		return
-	}
-	if res.RowsAffected > 0 {
-		logger.Infof(ctx, "[Housekeeping] dropped %d wiki ingest op(s) held past %s", res.RowsAffected, wikiHoldLimit)
+		res := h.db.WithContext(ctx).Model(&types.Knowledge{}).
+			Where("id=? AND tenant_id=? AND knowledge_base_id=? AND parse_status=? AND updated_at=?",
+				k.ID, k.TenantID, k.KnowledgeBaseID, types.ParseStatusFinalizing, k.UpdatedAt).
+			Where("error_message='' OR error_message IS NULL").
+			Where(`EXISTS (SELECT 1 FROM task_pending_ops p WHERE p.tenant_id=?
+ AND p.scope=? AND p.scope_id=? AND p.task_type=? AND p.op=? AND p.dedup_key=?
+ AND p.claimed_at IS NULL)`, k.TenantID, wikiTaskScope, k.KnowledgeBaseID, wikiTaskType, WikiOpIngest, k.ID).
+			UpdateColumn("error_message", "Wiki task stalled; original operations and parsed indexes "+
+				"retained for reviewed recovery")
+		if res.Error != nil {
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] failed to report retained Wiki work for %s: %v",
+				k.ID,
+				res.Error,
+			)
+		}
 	}
 }
 
@@ -501,7 +496,11 @@ func (h *HousekeepingService) filterByLastSpanActivity(
 		// On query failure, fail safe — assume nothing has a
 		// heartbeat (so all candidates are "stuck"). This matches
 		// the previous-version behaviour and never under-recovers.
-		logger.Warnf(ctx, "[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)", err)
+		logger.Warnf(
+			ctx,
+			"[Housekeeping] span heartbeat query failed: %v (will fail safe and recover all candidates)",
+			err,
+		)
 		return candidates, nil
 	}
 	heartbeat := make(map[string]time.Time, len(beats))
@@ -588,7 +587,8 @@ type stallSite struct {
 func (h *HousekeepingService) locateStalls(ctx context.Context, ids []string) map[string]*stallSite {
 	var rows []types.KnowledgeProcessingSpan
 	if err := h.db.WithContext(ctx).
-		Select("id", "knowledge_id", "attempt", "span_id", "parent_span_id", "name", "kind", "status", "started_at").
+		Select("id", "knowledge_id", "attempt", "span_id", "parent_span_id", "name", "kind", "status",
+			"started_at").
 		Where("knowledge_id IN ?", ids).
 		Order("id").
 		Find(&rows).Error; err != nil {
@@ -726,7 +726,13 @@ func (h *HousekeepingService) closeStalledSpans(
 				"duration_ms":   durationMs,
 				"updated_at":    now,
 			}).Error; err != nil {
-			logger.Warnf(ctx, "[Housekeeping] close stalled span %s of %s failed: %v", sp.SpanID, knowledgeID, err)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] close stalled span %s of %s failed: %v",
+				sp.SpanID,
+				knowledgeID,
+				err,
+			)
 		}
 	}
 }
@@ -894,7 +900,12 @@ func (h *HousekeepingService) rearmWikiTriggers(
 			triggerCtx = context.WithValue(ctx, types.LanguageContextKey, lang)
 		}
 		if err := enqueueWikiIngestTrigger(triggerCtx, h.task, k.TenantID, k.KnowledgeBaseID); err != nil {
-			logger.Warnf(ctx, "[Housekeeping] re-arm wiki trigger for KB %s failed: %v", k.KnowledgeBaseID, err)
+			logger.Warnf(
+				ctx,
+				"[Housekeeping] re-arm wiki trigger for KB %s failed: %v",
+				k.KnowledgeBaseID,
+				err,
+			)
 			continue
 		}
 		h.wikiKicks[k.KnowledgeBaseID] = now

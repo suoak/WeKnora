@@ -42,10 +42,19 @@ func TestFeishuV2PrivateSourceRestrictionRetainsExecutionFenceWithoutCredential(
 		DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: 1, Generation: 1,
 	})
 	store := NewFeishuLegacyStore(db)
-	require.NoError(t, store.SetSourceUncertain(ctx, ds, true), "a withdrawn credential must not prevent a restriction")
+	require.NoError(
+		t,
+		store.SetSourceUncertain(ctx, ds, true),
+		"a fetch failure must remain reportable without live credentials",
+	)
 	var current types.DataSource
 	require.NoError(t, db.Where("id = ?", ds.ID).First(&current).Error)
-	require.Equal(t, "hold", current.LegacyAccessState)
+	require.Equal(
+		t,
+		ds.LegacyAccessState,
+		current.LegacyAccessState,
+		"a failed fetch must not freeze future sync admission",
+	)
 	require.JSONEq(t, string(ds.LastSyncCursor), string(current.LastSyncCursor))
 	var currentLog types.SyncLog
 	require.NoError(t, db.Where("id = ?", log.ID).First(&currentLog).Error)

@@ -26,18 +26,30 @@ func run() error {
 	kb := flag.String("kb", "", "knowledge base UUID")
 	apply := flag.Bool("apply", false, "apply the reviewed snapshot and queue generation")
 	snapshot := flag.String("snapshot", "", "snapshot from the preview; required with -apply")
+	deadline := flag.Duration("timeout", 2*time.Minute, "bounded operator deadline between 1m and 10m")
 	resume := flag.Bool("resume-pending-ingest", false,
 		"replace only unclaimed Wiki-only finalizing operations from verified inputs")
 	retireEmpty := flag.Bool("retire-empty-retractions", false,
 		"preview/apply archival of deleted-source retractions with no queued or current Wiki targets")
 	isolatePages := flag.Bool("isolate-unverified-pages", false,
 		"preserve valid pages and original operations; isolate only pages failing current proof")
+	restoreParsed := flag.Bool("restore-parsed-stalls", false,
+		"preview/apply verified native parsed documents misclassified by housekeeping; preserve old work")
+	documentPreview := flag.Bool("preview-document-selection", false,
+		"read-only preview of independently verified documents and affected historical pages")
 	flag.Parse()
-	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) {
+	if *documentPreview && (*apply || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
+		return errors.New("document selection preview is read-only and cannot combine recovery modes")
+	}
+	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) ||
+		*restoreParsed && (*resume || *retireEmpty || *isolatePages) {
 		return errors.New("choose one recovery mode")
 	}
 	if *tenant == 0 || *kb == "" {
 		return errors.New("-tenant and -kb required")
+	}
+	if *deadline < time.Minute || *deadline > 10*time.Minute {
+		return errors.New("operator deadline must be between 1m and 10m")
 	}
 	dsn := os.Getenv("WIKI_REGEN_POSTGRES_DSN")
 	if dsn == "" {
@@ -52,6 +64,15 @@ func run() error {
 		return err
 	}
 	defer func() { _ = pool.Close() }()
+	if *documentPreview {
+		ctx, cancel := context.WithTimeout(context.Background(), *deadline)
+		defer cancel()
+		plan, err := repository.PreviewWikiDocumentSelection(ctx, db, *tenant, *kb)
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if os.Getenv("REDIS_ADDR") == "" {
 		return errors.New("REDIS_ADDR required; offline Lite maintenance is not supported by this command")
 	}
@@ -59,11 +80,27 @@ func run() error {
 	if err != nil && os.Getenv("REDIS_DB") != "" {
 		return errors.New("invalid REDIS_DB")
 	}
-	opts := asynq.RedisClientOpt{Addr: os.Getenv("REDIS_ADDR"), Password: os.Getenv("REDIS_PASSWORD"), DB: redisDB}
+	opts := asynq.RedisClientOpt{
+		Addr:     os.Getenv("REDIS_ADDR"),
+		Password: os.Getenv("REDIS_PASSWORD"),
+		DB:       redisDB,
+	}
 	rc := redis.NewClient(&redis.Options{Addr: opts.Addr, Password: opts.Password, DB: opts.DB})
 	defer func() { _ = rc.Close() }()
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
+	if *restoreParsed {
+		var plan *repository.WikiParsedStallPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiParsedStallRecovery(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if *retireEmpty {
 		var plan *repository.WikiEmptyRetractionPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
@@ -117,7 +154,9 @@ func enqueueGeneration(ctx context.Context, opts asynq.RedisClientOpt, tenant ui
 	// this trigger if Redis is unavailable; rerunning apply cannot duplicate ops.
 	client := asynq.NewClient(opts)
 	defer func() { _ = client.Close() }()
-	payload, err := json.Marshal(map[string]any{"tenant_id": tenant, "knowledge_base_id": kb, "language": "zh-CN"})
+	payload, err := json.Marshal(
+		map[string]any{"tenant_id": tenant, "knowledge_base_id": kb, "language": "zh-CN"},
+	)
 	if err != nil {
 		return err
 	}

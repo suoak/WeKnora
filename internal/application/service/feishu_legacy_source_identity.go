@@ -4,12 +4,54 @@ import (
 	"context"
 	"errors"
 	"io"
+	"os"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
 func (s *knowledgeService) beginLegacySourceIdentity(
+	ctx context.Context, kb *types.KnowledgeBase, store *repository.FeishuLegacyStore,
+	ds *types.DataSource, item *types.FetchedItem,
+) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
+	r, a, err := s.beginLegacySourceIdentityStrict(ctx, kb, store, ds, item)
+	var fence *repository.LegacyFenceError
+	if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") != "true" || item.CurrentSnapshot == nil ||
+		!errors.As(
+			err,
+			&fence,
+		) || (fence.Reason != "source_revision_content_conflict" && fence.
+		Reason != "source_identity_legacy_proof_required") {
+		return r, a, err
+	}
+	// Capture before the network observation; Begin checks this exact database
+	// generation under its write lock. A concurrent publication invalidates it.
+	baseline, err := store.LatestSnapshotBaseline(ctx, ds, item.ExternalID)
+	if err != nil {
+		return nil, nil, err
+	}
+	fresh, err := item.CurrentSnapshot(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	proof, err := baseline.ProveCurrent(item, fresh)
+	if err != nil {
+		return nil, nil, err
+	}
+	var identity *types.FeishuLegacySourceIdentity
+	if legacyDOCXExport(item) {
+		identity, err = repository.LegacyDOCXSourceIdentity(item.Content, item.FileName, item.Title)
+	} else if legacyXLSXExport(item) {
+		identity, err = repository.LegacyXLSXSourceIdentity(item.Content, item.FileName, item.Title)
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+	return store.BeginLatestSourceSnapshot(ctx, ds, item,
+		repository.LegacySourceHash(item.Content, item.FileName, item.Title), identity, proof)
+}
+
+func (s *knowledgeService) beginLegacySourceIdentityStrict(
 	ctx context.Context, kb *types.KnowledgeBase, store *repository.FeishuLegacyStore,
 	ds *types.DataSource, item *types.FetchedItem,
 ) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
@@ -29,6 +71,11 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	r, a, err := store.BeginWithSourceIdentity(ctx, ds, item, raw, identity, nil)
 	var fence *repository.LegacyFenceError
 	if !errors.As(err, &fence) || fence.Reason != "source_identity_legacy_proof_required" {
+		return r, a, err
+	}
+	if os.Getenv("KNOWHUB_FEISHU_LATEST_CONTENT") == "true" && item.CurrentSnapshot != nil {
+		// Current full-source proof supersedes an unavailable historical
+		// archive. It does not certify the old bytes or publish them again.
 		return r, a, err
 	}
 	baseline, err := store.SourceIdentityBaseline(ctx, ds, item.ExternalID)

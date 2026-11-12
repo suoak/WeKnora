@@ -29,6 +29,7 @@ type FeishuSyncPublicationPolicy struct {
 	GrantEpoch                                                      string
 	ReconciliationLogID                                             string
 	ReconciliationExpiresAt                                         time.Time
+	ImportDestinationConsent                                        bool
 	TenantID                                                        uint64
 	CreatedAt, ExpiresAt                                            time.Time
 }
@@ -232,16 +233,18 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			return err
 		}
 		var initial types.FeishuSharingApproval
-		initialQuery := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
-			"owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
-				" AND config_version = ? AND state = ?",
-			ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, imported.ResourceType, imported.DocumentToken,
-			ref.IdentityVersion, "approved")
 		if reconciliationLog == "" {
-			initialQuery = initialQuery.Where("expires_at > ?", time.Now())
-		}
-		if err = initialQuery.Order("created_at DESC").First(&initial).Error; err != nil {
-			return ErrFeishuSharingApproval
+			// Retain the old optional continuing-policy contract. Held-source
+			// recovery instead uses the existing import's destination authority,
+			// matching ordinary imports and updates; it needs no second consent.
+			initialQuery := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+				"owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
+					" AND config_version = ? AND state = ? AND expires_at > ?",
+				ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, imported.ResourceType, imported.DocumentToken,
+				ref.IdentityVersion, "approved", time.Now())
+			if err = initialQuery.Order("created_at DESC").First(&initial).Error; err != nil {
+				return ErrFeishuSharingApproval
+			}
 		}
 		audience, err := syncPolicyAudience(tx, ds.KnowledgeBaseID)
 		if err != nil {
@@ -249,7 +252,8 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 		}
 		policy = FeishuSyncPublicationPolicy{
 			ID: uuid.NewString(), SourceID: ds.ID, OwnerID: ref.OwnerUserID, KBID: ds.KnowledgeBaseID,
-			TenantID: ds.TenantID, ConnectionID: ref.ConnectionID, AppID: ref.AppID, ConfigVersion: ref.IdentityVersion,
+			TenantID: ds.TenantID, ConnectionID: ref.ConnectionID, AppID: ref.AppID, ConfigVersion: ref.
+					IdentityVersion,
 			ResourceType: imported.ResourceType, ResourceToken: imported.DocumentToken,
 			SourceConfigHash: syncPolicyHash(
 				ds.Config,
@@ -257,6 +261,7 @@ func (s *FeishuPersonalService) approveSourceUpdates(
 			GrantEpoch:       epoch.Epoch,
 			AuthorizationRef: authorizationRef, Operator: operator, State: "approved",
 			CreatedAt: time.Now(), ExpiresAt: expires,
+			ImportDestinationConsent: reconciliationLog != "",
 		}
 		if reconciliationLog != "" {
 			var running int64
@@ -340,7 +345,8 @@ func checkSourcePublicationPolicy(
 		return ErrFeishuSharingApproval
 	}
 	var current types.DataSource
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", ds.ID).First(&current).Error; err != nil {
+	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where("id = ?", ds.ID).First(&current).
+		Error; err != nil {
 		return err
 	}
 	if current.Status != types.DataSourceStatusActive &&
@@ -368,13 +374,35 @@ func checkSourcePublicationPolicy(
 		Where("user_id = ? AND epoch = ?", policy.OwnerID, policy.GrantEpoch).First(&epoch).Error; err != nil {
 		return ErrFeishuSharingApproval
 	}
-	var initial types.FeishuSharingApproval
-	if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
-		"id = ? AND owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
-			" AND config_version = ? AND state = ?",
-		policy.InitialApprovalID, policy.OwnerID, policy.KBID, policy.AppID, policy.ResourceType, policy.ResourceToken,
-		policy.ConfigVersion, "approved").First(&initial).Error; err != nil {
-		return ErrFeishuSharingApproval
+	if policy.ImportDestinationConsent {
+		// This mode belongs only to one existing, claimed recovery run. It
+		// cannot approve a quick import, move a source, or outlive protection.
+		if policy.InitialApprovalID != "" || policy.ReconciliationLogID == "" ||
+			current.LegacyAccessState != "hold" {
+			return ErrFeishuSharingApproval
+		}
+		var imported types.FeishuPersonalImport
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+			"id=? AND user_id=? AND kb_id=? AND app_id=? AND auth_mode=? AND resource_type=? AND document_token=?",
+			ds.ID, policy.OwnerID, policy.KBID, policy.AppID, types.FeishuUserOAuth,
+			policy.ResourceType, policy.ResourceToken).First(&imported).Error; err != nil {
+			return ErrFeishuSharingApproval
+		}
+		if err := lockBatchPublicationAuthority(tx, &types.FeishuBatch{
+			OwnerID: policy.OwnerID, TenantID: policy.TenantID, KBID: policy.KBID,
+		}); err != nil {
+			return err
+		}
+	} else {
+		var initial types.FeishuSharingApproval
+		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Where(
+			"id = ? AND owner_id = ? AND kb_id = ? AND app_id = ? AND resource_type = ? AND resource_token = ?"+
+				" AND config_version = ? AND state = ?",
+			policy.InitialApprovalID, policy.OwnerID, policy.KBID, policy.AppID, policy.ResourceType,
+			policy.ResourceToken,
+			policy.ConfigVersion, "approved").First(&initial).Error; err != nil {
+			return ErrFeishuSharingApproval
+		}
 	}
 	// Policy duration is its own explicit grant; revoking the initial approval
 	// still invalidates it. The original approval is never extended or rewritten.
@@ -400,7 +428,11 @@ func (s *FeishuPersonalService) checkHeldSourceReconciliation(
 	})
 }
 
-func checkHeldSourceReconciliationBound(tx *gorm.DB, ds *types.DataSource, ref *types.FeishuSourceReference) error {
+func checkHeldSourceReconciliationBound(
+	tx *gorm.DB,
+	ds *types.DataSource,
+	ref *types.FeishuSourceReference,
+) error {
 	var imported types.FeishuPersonalImport
 	if err := tx.Where("id = ? AND user_id = ? AND kb_id = ? AND app_id = ? AND auth_mode = ?",
 		ds.ID, ref.OwnerUserID, ds.KnowledgeBaseID, ref.AppID, types.FeishuUserOAuth).

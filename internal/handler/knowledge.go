@@ -1796,15 +1796,11 @@ func (h *KnowledgeHandler) BatchDeleteKnowledge(c *gin.Context) {
 		c.Error(errors.NewForbiddenError("No permission to delete knowledge"))
 		return
 	}
-	if err := h.requireKBOwnershipOrAdmin(c, kbID); err != nil {
-		c.Error(err)
-		return
-	}
 	ctx = types.WithExecutionTenant(c.Request.Context(), effectiveTenantID)
 
 	// Single batch fetch to validate that every id exists and belongs to the
 	// requested KB before admitting a task with that exact KB scope.
-	knowledgeList, err := h.kgService.GetKnowledgeBatch(ctx, effectiveTenantID, ids)
+	knowledgeList, err := h.kgService.GetRepository().GetKnowledgeDeletionMetadata(ctx, effectiveTenantID, ids)
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(errors.NewInternalServerError(err.Error()))
@@ -1870,7 +1866,8 @@ func (h *KnowledgeHandler) ClearKnowledgeBaseContents(c *gin.Context) {
 		return
 	}
 
-	// Only owner (admin with matching tenant) can clear knowledge base contents
+	// Workspace members may clear local content; cross-workspace shares retain
+	// their explicit management permission.
 	tenantID := c.GetUint64(types.TenantIDContextKey.String())
 	if kb.TenantID != tenantID || permission != types.OrgRoleAdmin {
 		c.Error(errors.NewForbiddenError("Only knowledge base owner can clear contents"))
@@ -1879,7 +1876,14 @@ func (h *KnowledgeHandler) ClearKnowledgeBaseContents(c *gin.Context) {
 
 	ctx = types.WithExecutionTenant(c.Request.Context(), effectiveTenantID)
 
-	knowledgeList, err := h.kgService.ListKnowledgeByKnowledgeBaseID(ctx, kbID)
+	var knowledgeList []*types.Knowledge
+	if repo, ok := h.kgService.GetRepository().(interface {
+		ListKnowledgeForKBClear(context.Context, uint64, string) ([]*types.Knowledge, error)
+	}); ok {
+		knowledgeList, err = repo.ListKnowledgeForKBClear(ctx, effectiveTenantID, kbID)
+	} else {
+		knowledgeList, err = h.kgService.ListKnowledgeByKnowledgeBaseID(ctx, kbID)
+	}
 	if err != nil {
 		logger.ErrorWithFields(ctx, err, nil)
 		c.Error(errors.NewInternalServerError("Failed to list knowledge entries").WithDetails(err.Error()))

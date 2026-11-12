@@ -99,7 +99,7 @@ func NormalSourceFromDatabase(
  JOIN tenants t ON t.id=m.tenant_id AND t.status='active' AND t.deleted_at IS NULL
  JOIN knowledge_bases k ON k.id=? AND k.tenant_id=t.id AND k.deleted_at IS NULL
  WHERE m.user_id=? AND m.tenant_id=? AND m.status='active' AND m.deleted_at IS NULL
- AND m.role IN ('owner','admin','contributor')`
+ AND m.role IN ('owner','admin','contributor','viewer')`
 	if publication != nil {
 		query += " FOR SHARE OF m,u,t,k"
 	}

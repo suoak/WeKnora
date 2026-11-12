@@ -44,8 +44,10 @@ description='restricted-description',generated_profile='{"summary":"restricted-p
 	require.NotContains(t, string(data), "restricted-profile")
 	require.NotContains(t, string(data), "secret-marker")
 	var protected types.KnowledgeBase
-	require.ErrorIs(t, f.db.WithContext(ctx).Where("id='kb'").First(&protected).Error,
-		types.ErrLegacySourceRestricted)
+	require.NoError(t, f.db.WithContext(ctx).Where("id='kb'").First(&protected).Error,
+		"workspace metadata stays available during source recovery")
+	require.ErrorIs(t, types.CheckLegacySourceRead(f.db.WithContext(ctx), "exact", "kb"),
+		types.ErrLegacySourceRestricted, "metadata access does not authorize an unfinished document")
 	foreign := types.WithCaller(ctx, types.Caller{TenantID: 2, UserID: "B", Role: types.TenantRoleViewer})
 	_, err = svc.GetKnowledgeBaseAccessMetadata(foreign, "kb")
 	require.Error(t, err)

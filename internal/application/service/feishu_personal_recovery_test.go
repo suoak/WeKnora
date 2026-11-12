@@ -46,6 +46,9 @@ type personalRecoveryFixture struct {
 
 func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
+	// These source-acquisition/fencing fixtures retain the legacy live-source
+	// policy. Workspace snapshot tests explicitly exercise the product default.
+	t.Setenv("FEISHU_PERSONAL_WORKSPACE_IMPORT_SNAPSHOTS", "0")
 	t.Setenv("SYSTEM_AES_KEY", "01234567890123456789012345678901")
 	t.Setenv("SSRF_WHITELIST", "127.0.0.1,localhost,open.feishu.cn")
 	utils.ResetSSRFWhitelistForTest()
@@ -53,7 +56,8 @@ func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 	db := syncdb.Open(t, "postgres")
 	for _, ddl := range []string{
 		"CREATE TABLE users(id varchar(36) PRIMARY KEY,is_active boolean," +
-			"deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false)",
+			"deleted_at timestamptz,is_system_admin boolean NOT NULL DEFAULT false," +
+			"tenant_id bigint NOT NULL DEFAULT 1,can_access_all_tenants boolean NOT NULL DEFAULT false)",
 		"CREATE TABLE tenants(id bigint PRIMARY KEY,status text,deleted_at " +
 			"timestamptz)",
 		"CREATE TABLE tenant_members(id bigserial PRIMARY KEY,user_id " +

@@ -17,6 +17,8 @@ import (
 // changing channels, receipts, source states or document data.
 func TestSourceHandoffChineseFolderCatalogPostgres(t *testing.T) {
 	f := newMVPFixture(t)
+	require.NoError(t, f.db.Exec(`CREATE TABLE embeddings (
+knowledge_id text,knowledge_base_id text,chunk_id text,is_enabled boolean,embedding text,dimension int)`).Error)
 	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeBase{}, &types.DataSource{}, &types.FeishuLegacyResource{}))
 	for i := range 24 {
 		id := fmt.Sprintf("visit-%02d", i)

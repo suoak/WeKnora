@@ -10,11 +10,12 @@ import (
 type (
 	legacyReadScopeKey struct{}
 	legacyReadScope    struct {
-		mu       sync.Mutex
-		kb       map[string]bool
-		metadata map[string]bool
-		handoffs map[string]string
-		excluded bool
+		mu        sync.Mutex
+		kb        map[string]bool
+		metadata  map[string]bool
+		handoffs  map[string]string
+		documents map[string]string
+		excluded  bool
 	}
 )
 
@@ -45,6 +46,7 @@ func DiscardLegacyReadAttempt(ctx context.Context) {
 		scope.kb = map[string]bool{}
 		scope.metadata = map[string]bool{}
 		scope.handoffs = map[string]string{}
+		scope.documents = map[string]string{}
 		scope.excluded = true
 		scope.mu.Unlock()
 	}
@@ -61,6 +63,19 @@ func recordLegacyRead(ctx context.Context, kb string) {
 		scope.mu.Lock()
 		scope.kb[kb] = true
 		scope.mu.Unlock()
+	}
+}
+
+// Workspace metadata availability cannot authorize a document after its source
+// or resource is revoked before the response is written.
+func recordLegacyDocumentRead(ctx context.Context, id, kb string) {
+	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && id != "" {
+		scope.mu.Lock()
+		defer scope.mu.Unlock()
+		if scope.documents == nil {
+			scope.documents = map[string]string{}
+		}
+		scope.documents[id] = kb
 	}
 }
 
@@ -114,6 +129,12 @@ func MergeLegacyReadScope(dst, src context.Context) {
 	for id, kb := range from.handoffs {
 		to.handoffs[id] = kb
 	}
+	if to.documents == nil {
+		to.documents = map[string]string{}
+	}
+	for id, kb := range from.documents {
+		to.documents[id] = kb
+	}
 	to.excluded = to.excluded || from.excluded
 }
 
@@ -143,6 +164,10 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	}
 	if scope, ok := db.Statement.Context.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
 		scope.mu.Lock()
+		documents := make(map[string]string, len(scope.documents))
+		for id, kb := range scope.documents {
+			documents[id] = kb
+		}
 		handoffs := make(map[string]string, len(scope.handoffs))
 		for id, kb := range scope.handoffs {
 			handoffs[id] = kb
@@ -152,6 +177,12 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 			metadata = append(metadata, kb)
 		}
 		scope.mu.Unlock()
+		for id, kb := range documents {
+			check := db.WithContext(WithLegacyReadScope(db.Statement.Context))
+			if err := CheckLegacySourceRead(check, id, kb); err != nil {
+				return err
+			}
+		}
 		for id, kb := range handoffs {
 			valid, err := VerifiedSourceHandoff(db, id, kb)
 			if err != nil {

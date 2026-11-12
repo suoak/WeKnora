@@ -103,7 +103,7 @@ func TestPersonalRecoveryExactPreflightPreservesPending(t *testing.T) {
 			}
 			before := exactPendingSnapshot(t, f, a.ID)
 			ready, err := f.p.firstCreateDispatchable(context.Background(), intent)
-			if change == "valid" {
+			if change == "valid" || change == "revision" {
 				require.NoError(t, err)
 				require.True(t, ready)
 			} else {
@@ -164,12 +164,12 @@ func TestPersonalRecoveryExactPreflightClaimCAS(t *testing.T) {
 			require.Equal(t, a.Fence+1, owner.Fence)
 			require.NotEmpty(t, owner.OwnerNonce)
 			require.NotNil(t, owner.LeaseUntil)
-			// Remote revision can change after any successful preflight: the
-			// retained post-Claim proof must still reject execution/publication.
+			// A remote edit after admission does not change the retained snapshot.
+			// Its bytes and original revision remain bound to this claim.
 			exactPreflightRemote(t, f, "2", true)
 			proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
-			require.Error(t, err)
-			require.Nil(t, proof)
+			require.NoError(t, err)
+			require.Equal(t, a.Revision, proof.revision)
 		})
 	}
 }
