@@ -121,8 +121,8 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 	}
 	extraction := feishusafety.Scoped(ctx)
 	if extraction {
-		// Background extraction needs visible OCR/caption output within its
-		// existing budget. The catalog maps this switch to each vendor's
+		// Background extraction needs visible OCR/caption output. The initial
+		// request keeps the ordinary budget; the catalog maps this switch to each vendor's
 		// supported dialect; no shared model or online chat setting changes.
 		thinking := false
 		opts.Thinking = &thinking

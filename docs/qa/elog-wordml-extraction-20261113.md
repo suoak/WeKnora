@@ -5,12 +5,13 @@ published with 61 chunks/vectors; the remaining technical failures include a
 Word 2003 XML file named .doc and an image OCR response exceeding 5000 tokens.
 
 For scoped Feishu .doc requests with the exact Word 2003 XML root, use the
-existing private DocReader and its installed LibreOffice to produce a DOCX.
+existing private DocReader and its installed python-docx to build a DOCX from
+the closed paragraph/run model, including literal list labels and hyperlinks.
 Refuse unsupported body structures, active/external dependencies, ambiguous
 image references and malformed or oversized input. Compare the converted
 package's ordered text/image events, complete image bytes and hyperlink targets
 against the source. Run splitting and inserted layout spaces are normalized;
-every non-whitespace character and image placement remains bound. Native DOCX
+every non-whitespace character, image order and anchor paragraph remains bound. Native DOCX
 parsing and the ordinary candidate image checks still run after conversion.
 The original fetched XML remains the source snapshot. No source permission,
 publication or checkpoint guard is relaxed. Conversion payloads stay inside
