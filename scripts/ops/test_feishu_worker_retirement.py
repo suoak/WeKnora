@@ -202,7 +202,8 @@ class RetirementTests(unittest.TestCase):
 
     def reapprove_current_snapshot(self):
         snap = self.snapshot()
-        tool.validate_snapshot(snap, self.old, self.current, "1-0", "feishu_headers_io_failure")
+        tool.validate_snapshot(snap, self.old, self.current, "1-0", "feishu_headers_io_failure",
+                               getattr(self.args, "allow_expired_frozen", False))
         del snap["audit"]; del snap["inflight"]
         self.plan["snapshot"] = snap
         self.plan["created_ms"] = snap["now"]
@@ -266,6 +267,57 @@ class RetirementTests(unittest.TestCase):
         self.reapprove_current_snapshot()
         self.redis.cmd("SET", self.prefix + "recovery",
                        json.dumps({"phase": "awaiting_review", "expires_ms": self.now - 2000}))
+        self.assertRaises(ValueError, self.execute)
+        self.untouched()
+
+    def frozen_state(self):
+        return dict(version=1, phase="frozen", expires_ms=self.now - 1000,
+                    worker_id=self.old, run_id="", generation=0,
+                    controller_fingerprint="old-fingerprint", incarnation="old-incarnation")
+
+    def test_expired_target_frozen_requires_signed_opt_in_and_is_preserved(self):
+        self.redis.cmd("SET", self.prefix + "recovery", json.dumps(self.frozen_state()))
+        self.assertRaises(ValueError, tool.validate_snapshot, self.snapshot(), self.old, self.current,
+                          "1-0", "feishu_headers_io_failure")
+        self.args.allow_expired_frozen = True
+        self.plan["allow_expired_frozen"] = True
+        self.reapprove_current_snapshot()
+        before = self.snapshot()
+        self.execute()
+        after = self.snapshot()
+        self.assertEqual(set(after["workers"]), {self.current})
+        for key in ("trip", "permit", "pause", "ids", "tasks", "servers", "audit", "recovery"):
+            self.assertEqual(before[key], after[key], key)
+
+    def test_frozen_opt_in_cannot_be_added_to_an_existing_signature(self):
+        self.args.allow_expired_frozen = True
+        self.assertRaises(ValueError, self.execute)
+        self.untouched()
+        self.plan["allow_expired_frozen"] = True
+        self.assertRaises(ValueError, self.execute)
+        self.untouched()
+
+    def test_live_started_or_unrelated_frozen_state_stays_closed(self):
+        changes = [dict(expires_ms=self.now + 60000), dict(worker_id=self.current),
+                   dict(run_id="started"), dict(generation=1), dict(generation=True),
+                   dict(version=2), dict(version=True), dict(phase="running"), dict(phase="admit"),
+                   dict(incarnation="wrong"), dict(controller_fingerprint="wrong"),
+                   dict(expires_ms=True), dict(expires_ms=0)]
+        for change in changes:
+            with self.subTest(change=change):
+                self.redis.cmd("SET", self.prefix + "recovery", json.dumps(dict(self.frozen_state(), **change)))
+                self.assertRaises(ValueError, tool.validate_snapshot, self.snapshot(), self.old, self.current,
+                                  "1-0", "feishu_headers_io_failure", True)
+                self.untouched()
+
+    def test_frozen_record_cannot_change_after_approval(self):
+        state = self.frozen_state()
+        self.redis.cmd("SET", self.prefix + "recovery", json.dumps(state))
+        self.args.allow_expired_frozen = True
+        self.plan["allow_expired_frozen"] = True
+        self.reapprove_current_snapshot()
+        state["expires_ms"] -= 1000
+        self.redis.cmd("SET", self.prefix + "recovery", json.dumps(state))
         self.assertRaises(ValueError, self.execute)
         self.untouched()
 

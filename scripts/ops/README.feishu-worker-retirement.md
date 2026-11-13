@@ -23,6 +23,13 @@ The tool requires:
   signed and compared in Redis. Their count is not hard-coded to one old incident.
 - Any retained recovery state must be expired and in `awaiting_review`; it is
   compared and preserved. Running or unexpired recovery cannot be retired.
+  A separately reviewed `--allow-expired-frozen` plan can also retain an expired
+  version-1 `frozen` record belonging exactly to the dead target's registered
+  fingerprint/incarnation, with empty run ID and generation zero. The flag is
+  signed; an existing approval cannot acquire it. Current-worker, running,
+  admitted, started or unexpired recovery remains rejected. The recovery bytes,
+  trip, Permit and shared queues are preserved; Reset and Canary still need
+  their own new approvals after retirement.
 - Other independent worker pools, such as Wiki, may remain active. Every current
   maintenance/sync consumer must be idle; any live consumer of an expired member
   rejects retirement.
