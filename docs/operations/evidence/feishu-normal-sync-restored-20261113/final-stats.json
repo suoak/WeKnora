@@ -1,0 +1,394 @@
+{
+  "observed_utc": "2026-11-13T06:13:53.878156+00:00",
+  "application_container": "38e16cc788681d0499953a81063eb50bd8b6dc378eb6a8b0044f532f39a8a41a",
+  "app_image": "sha256:be78f5a3a2780fbee9561e7fcb9dc40b6444fcc53600b9376982a9914b6de551",
+  "production_changes": false,
+  "source_counts": [
+    {
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "count": 19
+    },
+    {
+      "status": "error",
+      "legacy_access_state": "active",
+      "count": 13
+    },
+    {
+      "status": "error",
+      "legacy_access_state": "unmanaged",
+      "count": 2
+    },
+    {
+      "status": "active",
+      "legacy_access_state": "active",
+      "count": 7
+    },
+    {
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "count": 24
+    }
+  ],
+  "source_runs": [
+    {
+      "data_source_id": "003342b2-284d-4dae-88f5-eaf59913e136",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:08.672504"
+    },
+    {
+      "data_source_id": "11be9d7b-c09a-4c90-9f38-639a4d62844b",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:35.949506"
+    },
+    {
+      "data_source_id": "127bad2d-0a2c-467e-8c2a-6644e06bdec5",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:40.900131"
+    },
+    {
+      "data_source_id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+      "source_status": "active",
+      "legacy_access_state": "active",
+      "runs": 6,
+      "successes": 6,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:41.40871"
+    },
+    {
+      "data_source_id": "3533009d-0437-4f92-8fc0-6ab8528b3747",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:31.451976"
+    },
+    {
+      "data_source_id": "3a500644-f88c-41f3-bd17-255283f3fa23",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:31.076186"
+    },
+    {
+      "data_source_id": "410f2c5c-90a3-4227-bad3-4f08feaec4dd",
+      "source_status": "active",
+      "legacy_access_state": "active",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:24.369752"
+    },
+    {
+      "data_source_id": "4bd38449-b09a-4641-bae4-6682428f170c",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:02.449927"
+    },
+    {
+      "data_source_id": "51203ad8-38d0-491c-8a1f-ac458ac58bdf",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:03.591113"
+    },
+    {
+      "data_source_id": "81cf0854-af78-4282-97cc-0f0b6ee37ad4",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:31.322299"
+    },
+    {
+      "data_source_id": "86377ceb-1305-4c61-a5dd-5cb025115af7",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:07.413735"
+    },
+    {
+      "data_source_id": "89a7d9f8-6865-4889-8079-ec6c4bb1a4f6",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:06.982457"
+    },
+    {
+      "data_source_id": "999e9bcf-08cc-418d-9f9e-e9369fab2457",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:35.713942"
+    },
+    {
+      "data_source_id": "9bd24ff4-ff93-4ad2-b432-c23f3762b427",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:19.573218"
+    },
+    {
+      "data_source_id": "9e0c998c-8395-4046-9af4-236ec469d353",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:19.925192"
+    },
+    {
+      "data_source_id": "a2da8769-c881-410c-9514-f20cdc054bd9",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:02.969213"
+    },
+    {
+      "data_source_id": "aaed3efb-dbce-449f-86f7-8c64fd97a60f",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:19.15836"
+    },
+    {
+      "data_source_id": "adcaa559-c723-448a-a195-1987fcfdb23e",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:06.027636"
+    },
+    {
+      "data_source_id": "afce6f58-c24b-463b-aacb-0c3265d5a964",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:24.004567"
+    },
+    {
+      "data_source_id": "b4b6d83e-fedf-483f-8674-8fcb57e5532e",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:36.076385"
+    },
+    {
+      "data_source_id": "bcbf5148-5388-4e00-8b69-7372410bc67d",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:15.266432"
+    },
+    {
+      "data_source_id": "d05bf500-b3c0-400e-a183-8f8377d90c8b",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:04.448883"
+    },
+    {
+      "data_source_id": "dd8f8981-644f-4769-a122-baea6afc3a1b",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:24.715592"
+    },
+    {
+      "data_source_id": "e0f506e2-3921-4939-90ff-68b9fe5ffd68",
+      "source_status": "active",
+      "legacy_access_state": "unmanaged",
+      "runs": 5,
+      "successes": 5,
+      "running": 0,
+      "other_results": 0,
+      "created": 0,
+      "updated": 0,
+      "failed_items": 0,
+      "last_finished": "2026-11-13T06:00:24.50136"
+    }
+  ],
+  "cycles": [
+    {
+      "minute": "2026-11-13T05:00:00",
+      "runs": 24,
+      "successes": 24,
+      "running": 0,
+      "created": 0,
+      "updated": 0
+    },
+    {
+      "minute": "2026-11-13T05:15:00",
+      "runs": 24,
+      "successes": 24,
+      "running": 0,
+      "created": 0,
+      "updated": 0
+    },
+    {
+      "minute": "2026-11-13T05:30:00",
+      "runs": 24,
+      "successes": 24,
+      "running": 0,
+      "created": 0,
+      "updated": 0
+    },
+    {
+      "minute": "2026-11-13T05:45:00",
+      "runs": 24,
+      "successes": 24,
+      "running": 0,
+      "created": 0,
+      "updated": 0
+    },
+    {
+      "minute": "2026-11-13T06:00:00",
+      "runs": 24,
+      "successes": 24,
+      "running": 0,
+      "created": 0,
+      "updated": 0
+    }
+  ],
+  "terminal_pending_still_canceled": 4,
+  "schema": {
+    "version": 3047,
+    "dirty": false
+  }
+}

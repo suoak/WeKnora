@@ -1,0 +1,61 @@
+{
+  "main": "825752a2bbae13767783c096ecd3e9acf09e9b82",
+  "pr": 143,
+  "app_image_source_unchanged": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "checks": [
+    {
+      "name": "Complete resilience race (${{ matrix.repetition }})",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585294/job/131689153079"
+    },
+    {
+      "name": "postgres",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585294/job/131689097114"
+    },
+    {
+      "name": "verify",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585294/job/131689096201"
+    },
+    {
+      "name": "M1 Linux backend and MCP compatibility",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585346/job/131689095615"
+    },
+    {
+      "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585346/job/131689095555"
+    },
+    {
+      "name": "Portal contracts, RBAC, race, and branding",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585346/job/131689095301"
+    },
+    {
+      "name": "Personal MCP authenticated concurrency and SSE isolation",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585307/job/131689095009"
+    },
+    {
+      "name": "accounting",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585307/job/131689094824"
+    },
+    {
+      "name": "signed-retirement",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43365585265/job/131689094815"
+    }
+  ]
+}

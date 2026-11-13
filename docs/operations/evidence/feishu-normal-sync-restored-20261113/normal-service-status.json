@@ -1,0 +1,28 @@
+{
+  "http": 200,
+  "body": {
+    "permit_ready": true,
+    "permit_ttl_ms": 729,
+    "shared_queue_reconciled": false,
+    "state": {
+      "runtime_sha": "718c443c21085e4d30308b86563219b274843603",
+      "worker_id": "38e16cc78868:1",
+      "incarnation": "efa7a77c-fc36-4dea-b695-2f1bc22d1c50",
+      "controller_fingerprint": "43da66f8d33dbae86803a4602a543ab5c4b16a9a3ee628a7bf35872ddee0b9c7",
+      "membership_revision": "308",
+      "version": 1,
+      "plan_id": "57b8646c-c0ed-4299-8db2-d52b86420bec",
+      "plan_sha256": "6990b53d6af69c8e5de7caca5c2bd21c6d68764cc7cfc68b439bb38603e5ddb5",
+      "source_id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+      "config_sha256": "ac346ded5503a98eb51e9e832b9104bd0765fe5429de08fe6bc4677cbadcd249",
+      "facts_sha256": "f03d7c29fa0dc2fca138217a0758545546e0a97079afa0615e06b3dd5a500140",
+      "phase": "frozen",
+      "run_id": "",
+      "generation": 0,
+      "expires_ms": 1794546511323
+    },
+    "steady_policy_revision": 0,
+    "sync_paused": true,
+    "trip_latched": false
+  }
+}

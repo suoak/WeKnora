@@ -1,0 +1,7 @@
+{
+  "http": 200,
+  "body": {
+    "operation": "reset",
+    "sync_queue_kept_paused": true
+  }
+}

@@ -1,0 +1,147 @@
+{
+  "pending_logs": [
+    {
+      "id": "22749c14-096b-4601-8d1b-8288ac7eee97",
+      "data_source_id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+      "status": "canceled",
+      "execution_claimed": false,
+      "execution_generation": 2,
+      "started_at": "2026-11-12T10:30:00.088786",
+      "finished_at": "2026-11-12T10:44:10.533129"
+    },
+    {
+      "id": "760bb634-080f-4820-b4f2-4fe99984f136",
+      "data_source_id": "64260405-b95f-4265-8b68-4a0277c0a64c",
+      "status": "running",
+      "execution_claimed": false,
+      "execution_generation": 0,
+      "started_at": "2026-11-11T10:00:00.127182",
+      "finished_at": null
+    },
+    {
+      "id": "870bd41b-9e03-419e-a1b8-8db92a52a782",
+      "data_source_id": "33452fdf-45c4-49d8-b1c7-df467ddd3067",
+      "status": "canceled",
+      "execution_claimed": false,
+      "execution_generation": 3,
+      "started_at": "2026-11-12T10:00:00.173002",
+      "finished_at": "2026-11-12T10:44:10.535623"
+    },
+    {
+      "id": "b0a11144-c946-4dd3-b137-e68d32059065",
+      "data_source_id": "d6d1338a-2612-42e4-be39-e59db0149bcb",
+      "status": "running",
+      "execution_claimed": false,
+      "execution_generation": 0,
+      "started_at": "2026-11-11T10:00:00.130327",
+      "finished_at": null
+    },
+    {
+      "id": "dc0c67bd-084f-4888-b963-547cfc8d20e4",
+      "data_source_id": "6a40e468-f985-40b0-a5e1-43274c2d785c",
+      "status": "canceled",
+      "execution_claimed": false,
+      "execution_generation": 2,
+      "started_at": "2026-11-12T10:00:00.139357",
+      "finished_at": "2026-11-12T10:44:10.537062"
+    },
+    {
+      "id": "dfadc205-0316-41df-9cf6-afe6f9368269",
+      "data_source_id": "aaed3efb-dbce-449f-86f7-8c64fd97a60f",
+      "status": "canceled",
+      "execution_claimed": false,
+      "execution_generation": 2,
+      "started_at": "2026-11-12T10:30:00.088502",
+      "finished_at": "2026-11-12T10:44:10.538271"
+    },
+    {
+      "id": "e966e6e9-3da8-4ae1-82db-778e57af25c7",
+      "data_source_id": "756abd45-ad95-4795-b516-fa5ab3540b82",
+      "status": "running",
+      "execution_claimed": false,
+      "execution_generation": 0,
+      "started_at": "2026-11-11T10:00:00.352645",
+      "finished_at": null
+    }
+  ],
+  "source_error_groups": [
+    {
+      "count": 1,
+      "category": "unclassified",
+      "safe_message": "Fetch failed: document deferral identity or audit record unconfirmed"
+    },
+    {
+      "count": 1,
+      "category": "unclassified",
+      "safe_message": "Item admission failed; checkpoint retained"
+    },
+    {
+      "count": 1,
+      "category": "unclassified",
+      "safe_message": "Item admission failed; retrying from accepted checkpoint"
+    },
+    {
+      "count": 12,
+      "category": "unclassified",
+      "safe_message": "Sync execution interrupted"
+    }
+  ],
+  "task_sources": [
+    {
+      "id": "6a40e468-f985-40b0-a5e1-43274c2d785c",
+      "tenant_id": 10014,
+      "type": "feishu_drive",
+      "status": "error",
+      "legacy_access_state": "revoked",
+      "deleted_at": "2026-11-12T11:43:07.488145"
+    },
+    {
+      "id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+      "tenant_id": 10000,
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "deleted_at": null
+    },
+    {
+      "id": "d6d1338a-2612-42e4-be39-e59db0149bcb",
+      "tenant_id": 10011,
+      "type": "gitlab",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "deleted_at": null
+    },
+    {
+      "id": "756abd45-ad95-4795-b516-fa5ab3540b82",
+      "tenant_id": 10009,
+      "type": "gitlab",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "deleted_at": null
+    },
+    {
+      "id": "aaed3efb-dbce-449f-86f7-8c64fd97a60f",
+      "tenant_id": 10005,
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "deleted_at": null
+    },
+    {
+      "id": "64260405-b95f-4265-8b68-4a0277c0a64c",
+      "tenant_id": 10011,
+      "type": "gitlab",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "deleted_at": null
+    },
+    {
+      "id": "33452fdf-45c4-49d8-b1c7-df467ddd3067",
+      "tenant_id": 10005,
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "deleted_at": null
+    }
+  ]
+}

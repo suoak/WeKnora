@@ -1,0 +1,32 @@
+{
+  "observed_utc": "2026-11-13T06:13:25.947136+00:00",
+  "application_container": "38e16cc788681d0499953a81063eb50bd8b6dc378eb6a8b0044f532f39a8a41a",
+  "inspection": {
+    "trip": "",
+    "permit_ttl_ms": 739,
+    "workers_count": 1,
+    "normal_source_count": 52,
+    "normal_service": {
+      "active": true,
+      "purpose": "normal_feishu_sync",
+      "source_policy": "current_authorized_sources_v1",
+      "validity": "until_revoked"
+    },
+    "queues": {
+      "sync": {
+        "pause": "feishu_safety_stop",
+        "pending": 3,
+        "active": 0,
+        "retry": 0,
+        "archived": 0
+      },
+      "approved_sync": {
+        "pause": "",
+        "pending": 0,
+        "active": 0,
+        "retry": 0,
+        "archived": 89
+      }
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "retired_worker": "7c5dbab8e5cc:1",
+  "current_worker_unchanged": "38e16cc78868:1",
+  "audit_id": "1794545140294-0",
+  "membership_revision": "305",
+  "trip_or_permit_changed": false,
+  "shared_queue_changed": false,
+  "plan_sha256": "1dd9b008c16512c872a81b1f1edf9ed45725d30bb8593f6fa6ec4f39c2077edb"
+}

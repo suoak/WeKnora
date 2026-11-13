@@ -1,0 +1,14 @@
+{
+  "retirement": "independently signed; only proven-dead worker removed; trip/Permit/queue retained",
+  "first_reset": "applied; response journaling failed after HTTP; exact live plan/nonce/Permit reconciled; reset not repeated",
+  "first_canary": "denied before SyncLog creation because personal OAuth belongs to another employee; no ownership/ACL changes",
+  "owner_canary": "SQL run 56f2914a-47b2-4796-9117-76f95cb0ccb8 succeeded but controller finalization rejected and guard tripped; not reported as successful Canary",
+  "normal_service_recovery": "fresh signed Reset under existing until_revoked normal service authorization; existing controller health auto-resumed approved_sync",
+  "manual_run": "fda897d8-20ae-4838-995d-bbedf22aaba3 succeeded via ordinary queue",
+  "canary_finalization_issue_resolved": false,
+  "application_restarted": false,
+  "database_migrated": false,
+  "SafetyGuard_disabled": false,
+  "manual_Redis_lock_delete": false,
+  "new_source_content_change_verified": false
+}

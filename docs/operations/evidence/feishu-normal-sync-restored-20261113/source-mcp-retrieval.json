@@ -1,0 +1,23 @@
+{
+  "pass": true,
+  "source_id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+  "current_normal_sync_success": true,
+  "document_previously_published": true,
+  "new_source_content_change_verified": false,
+  "chunks": 15,
+  "vectors": 15,
+  "actual_mcp": [
+    {
+      "entry": "external80",
+      "document_id": "ed56b0c0-3ee8-45a8-aa98-1d8333c34ad4",
+      "matching_results": 15,
+      "tls_verified": false
+    },
+    {
+      "entry": "isolated8443",
+      "document_id": "ed56b0c0-3ee8-45a8-aa98-1d8333c34ad4",
+      "matching_results": 15,
+      "tls_verified": true
+    }
+  ]
+}

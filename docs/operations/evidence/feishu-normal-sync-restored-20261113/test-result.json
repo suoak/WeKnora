@@ -1,0 +1,8 @@
+{
+  "pass": true,
+  "real_disposable_redis": true,
+  "tests": 17,
+  "network": "none",
+  "host_ports": false,
+  "production_credentials_used": false
+}

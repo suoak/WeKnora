@@ -1,0 +1,933 @@
+{
+  "observed_utc": "2026-11-13T04:29:53.614167+00:00",
+  "sources": [
+    {
+      "id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+      "tenant_id": 10000,
+      "knowledge_base_id": "9f0a5229-2e0c-4038-a71b-d9273740e5d9",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:15:35.952064",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "5a118f37-79e0-40a4-b184-d990a3c83bb3",
+      "tenant_id": 10000,
+      "knowledge_base_id": "725d4f07-f0da-4158-8aff-9683559bce09",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "14433cdb-fddc-4d6c-a979-ef11c05b61bf",
+      "tenant_id": 10002,
+      "knowledge_base_id": "54b0a305-1ab4-4fab-9937-778fd71c3a74",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 2 * * *",
+      "last_sync_at": null,
+      "error_sha256": "7eccb71e0f824dd4d02852da02b27902eac752268607e47d53e3989b61efaf3b",
+      "error_category": "other"
+    },
+    {
+      "id": "7253a38b-f30b-4dfd-9fa5-8f03d6191620",
+      "tenant_id": 10002,
+      "knowledge_base_id": "d780d0f7-2de0-4498-8d00-0326f106179f",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "2af739b0645518e9277e95c32ace321ebb599d1d58b783509dead6c90d42dc00",
+      "error_category": "other"
+    },
+    {
+      "id": "867e5798-1c2b-4547-921d-d43132e3f275",
+      "tenant_id": 10002,
+      "knowledge_base_id": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "type": "feishu_drive",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 2 * * *",
+      "last_sync_at": "2026-10-10T06:17:13.433587",
+      "error_sha256": "87b778140d99be5542dd116d41a44e0d3233b8c0561d8b0b798bcae36b06ca8c",
+      "error_category": "other"
+    },
+    {
+      "id": "a87cb2ee-d215-45bb-a0e7-08186f285767",
+      "tenant_id": 10002,
+      "knowledge_base_id": "8ca41885-69e1-4d43-8bfd-ffc8670900fe",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "ca46a8c9-0146-4963-a98f-0d8f784e3ae4",
+      "tenant_id": 10002,
+      "knowledge_base_id": "8a46fc42-a3ad-4da8-ad6e-8e9007d1e311",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-11-12T10:15:48.018213",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "d2e26fae-988d-4740-81f4-0cc1b799e980",
+      "tenant_id": 10002,
+      "knowledge_base_id": "4cbaecc3-a713-4341-8e43-c907b4cfa8fd",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "311bfe01-3d44-4194-a702-4dc13c01aa1a",
+      "tenant_id": 10004,
+      "knowledge_base_id": "70a07827-1b81-42b8-be29-b881d451a441",
+      "type": "feishu_drive",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 2 * * *",
+      "last_sync_at": "2026-09-19T18:00:06.883628",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "7362fdef-d8f4-4145-8534-8b376e82c20f",
+      "tenant_id": 10004,
+      "knowledge_base_id": "ea99bfb7-7847-436a-9c8e-1701578bd969",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 2 * * *",
+      "last_sync_at": "2026-09-19T18:00:08.593946",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "003342b2-284d-4dae-88f5-eaf59913e136",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:09.572601",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "07ba00b5-5445-43a2-ba84-6f42b7554e48",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "0fdc2319-5fa3-475c-8a83-c35bf34f7dcc",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "11be9d7b-c09a-4c90-9f38-639a4d62844b",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:55.958804",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "127bad2d-0a2c-467e-8c2a-6644e06bdec5",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:36.673216",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "33452fdf-45c4-49d8-b1c7-df467ddd3067",
+      "tenant_id": 10005,
+      "knowledge_base_id": "cf0a1849-af06-4dbc-b93c-bd9d32197797",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "5a0a7a8a2146c88ee047fdb33f6833fb404ab0717cd9b0088373200c2e7fe991",
+      "error_category": "other"
+    },
+    {
+      "id": "3533009d-0437-4f92-8fc0-6ab8528b3747",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:38:27.154132",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "390410cc-35bd-4ab3-946a-195b85b3326f",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "3a500644-f88c-41f3-bd17-255283f3fa23",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:05.765667",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "3c794579-26cd-41ed-8fcc-5bd81e4892fc",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "3c8096b1-cca7-4373-b423-d7f346623c24",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "46a98f70-3402-4ffc-a012-f3919f26b67e",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "4bd38449-b09a-4641-bae4-6682428f170c",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:41.530393",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "51203ad8-38d0-491c-8a1f-ac458ac58bdf",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:55.0671",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "5c7bc873-0ba3-43c7-90a0-32c23e6bd529",
+      "tenant_id": 10005,
+      "knowledge_base_id": "6dcae886-fc03-446d-9523-ee6f4e5009c9",
+      "type": "feishu_drive",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-11-12T10:15:38.50728",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "5edcab81-c58e-4eec-9ab0-c22a0ba75c77",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "6471091a-c30b-4dd7-b490-434c137518c4",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "743f7b11-cb75-49a5-a016-441f590f2a9b",
+      "tenant_id": 10005,
+      "knowledge_base_id": "226bcd83-1f4f-4eba-a1b1-46676ba26874",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "81cf0854-af78-4282-97cc-0f0b6ee37ad4",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:46.031068",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "86377ceb-1305-4c61-a5dd-5cb025115af7",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:35.194071",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "89a7d9f8-6865-4889-8079-ec6c4bb1a4f6",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:01.393964",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "8f1f02c7-8597-4b8a-a125-5b0b3a7bd404",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "94ac8343-34ac-4af0-b62f-4e73872ebd94",
+      "tenant_id": 10005,
+      "knowledge_base_id": "7d61bef0-1081-4f26-80f0-4a5ea02e4d01",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "999e9bcf-08cc-418d-9f9e-e9369fab2457",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:42.239211",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "9bd24ff4-ff93-4ad2-b432-c23f3762b427",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:30:13.178518",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "9e0c998c-8395-4046-9af4-236ec469d353",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:09.784818",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "9f030a18-bb65-435e-996d-f73ecd8c053d",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "a2da8769-c881-410c-9514-f20cdc054bd9",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:05.22744",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "a90e045d-05d0-4415-916d-5290d297fb9b",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "aaed3efb-dbce-449f-86f7-8c64fd97a60f",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:20:46.175639",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "adcaa559-c723-448a-a195-1987fcfdb23e",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:41:41.759697",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "af022ac6-af49-405b-8227-00f8a48b2afd",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "afce6f58-c24b-463b-aacb-0c3265d5a964",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:00.478533",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "b4b6d83e-fedf-483f-8674-8fcb57e5532e",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:26.758736",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "bcbf5148-5388-4e00-8b69-7372410bc67d",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:05.033656",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "d05bf500-b3c0-400e-a183-8f8377d90c8b",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:35.665965",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "d2a4ca8e-b8dd-4d58-8a7c-af23e008e40c",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "d637ed2a-dcda-4adc-8247-498b7a58ed52",
+      "tenant_id": 10005,
+      "knowledge_base_id": "665fffd3-4090-4be8-8fd1-39bfe8502848",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "d84f93bb-e9ac-45b8-9018-7f14f066d09f",
+      "tenant_id": 10005,
+      "knowledge_base_id": "141e3aa3-df71-468e-a64d-a43f9be231a2",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "dc90b040-1e29-41aa-8310-e99804aaf537",
+      "tenant_id": 10005,
+      "knowledge_base_id": "0e158686-5413-40b1-b86e-71997d7e1135",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "dd8f8981-644f-4769-a122-baea6afc3a1b",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:42:00.769331",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "e0f506e2-3921-4939-90ff-68b9fe5ffd68",
+      "tenant_id": 10005,
+      "knowledge_base_id": "f8163ac5-b5d1-47bb-a931-93abb38ab9ac",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:34.969014",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "e48c7577-beaf-49e2-bbd6-29d07d1c0868",
+      "tenant_id": 10005,
+      "knowledge_base_id": "0c5287c8-96a4-4713-ac91-f5e4ca474448",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "eea7e329-708a-4c4b-bc77-b34a254db471",
+      "tenant_id": 10005,
+      "knowledge_base_id": "d14eb0c0-1ade-46f9-890e-84fa823b335d",
+      "type": "feishu_drive",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-10-12T06:04:09.838192",
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "0c43dc69-f9b7-4047-b94c-cc42a92a0e1a",
+      "tenant_id": 10006,
+      "knowledge_base_id": "c9969ba9-f034-44bc-8788-2fadaed21d51",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "6a434b81-09be-42ab-bd7c-1fb104f164a6",
+      "tenant_id": 10006,
+      "knowledge_base_id": "c9969ba9-f034-44bc-8788-2fadaed21d51",
+      "type": "feishu",
+      "status": "paused",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": null,
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "0612c94b-00a4-4468-8968-9b0fe7888bcd",
+      "tenant_id": 10011,
+      "knowledge_base_id": "fe530e96-d1e0-42be-afdf-8ebf68a77cbe",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "be5a806a-8ff0-4352-9478-0d9063f7ca95",
+      "tenant_id": 10014,
+      "knowledge_base_id": "a01317cc-fcda-4dfd-b9c5-2086d7c0cf7a",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-10-20T10:05:08.457077",
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "410f2c5c-90a3-4227-bad3-4f08feaec4dd",
+      "tenant_id": 10017,
+      "knowledge_base_id": "f7389b16-d215-4ff9-b9d8-81941f305ff2",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 */15 * * * *",
+      "last_sync_at": "2026-11-12T10:34:22.234165",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "8a5e2f6f-b646-4f4e-8b8e-3eb021730182",
+      "tenant_id": 10018,
+      "knowledge_base_id": "0d13271c-89ef-43b2-a296-13489f33e68c",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "unmanaged",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-10-09T16:20:16.435654",
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "53e7a89c-a384-4b78-a201-7c74c370ec13",
+      "tenant_id": 10019,
+      "knowledge_base_id": "0944913a-c708-408b-bb07-7ed695831faa",
+      "type": "feishu",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-10-12T04:05:45.467056",
+      "error_sha256": "233ffdec62a87eb2d9197674ac1aee476a666a12d7bc5bd4b2e1d57eacaec22c",
+      "error_category": "other"
+    },
+    {
+      "id": "92650a5d-362c-4d20-93bd-8233446cdd74",
+      "tenant_id": 10020,
+      "knowledge_base_id": "a5932cbc-434e-4a0d-a897-485ed263bb25",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": "2026-11-10T22:00:04.874748",
+      "error_sha256": null,
+      "error_category": null
+    },
+    {
+      "id": "d70dd052-030e-4f0b-895e-1934d5a807b4",
+      "tenant_id": 10021,
+      "knowledge_base_id": "817c2313-1418-4a3b-8f5c-931994a8a745",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 0 */6 * * *",
+      "last_sync_at": null,
+      "error_sha256": "2af739b0645518e9277e95c32ace321ebb599d1d58b783509dead6c90d42dc00",
+      "error_category": "other"
+    },
+    {
+      "id": "8b7f1dcd-c84e-43a7-99fd-85191bbd7d7f",
+      "tenant_id": 10022,
+      "knowledge_base_id": "4a4ddac4-6411-4b0f-97c2-85914fc324a4",
+      "type": "feishu_drive",
+      "status": "error",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 */2 * * * *",
+      "last_sync_at": null,
+      "error_sha256": "9df3a31279c6eb5b51d41379fe52a02df499c59ea6b30795b5be8f15e16a73c2",
+      "error_category": "other"
+    },
+    {
+      "id": "8f2fb586-928e-457f-9b2d-55f0e561cc31",
+      "tenant_id": 10022,
+      "knowledge_base_id": "a893b86c-c0f0-4a5b-8586-acaa60568e50",
+      "type": "feishu",
+      "status": "active",
+      "legacy_access_state": "active",
+      "sync_schedule": "0 */2 * * * *",
+      "last_sync_at": "2026-11-10T11:12:03.248356",
+      "error_sha256": null,
+      "error_category": null
+    }
+  ],
+  "queues": [
+    {
+      "queue": "sync",
+      "pause": "feishu_safety_stop",
+      "pending": [
+        {
+          "id": "dssync:756abd45-ad95-4795-b516-fa5ab3540b82:202611111000",
+          "message_sha256": "319d33b16135730ab3609b0500e6410c9680777b78c84186e9effbed7b847864",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "756abd45-ad95-4795-b516-fa5ab3540b82",
+            "tenant_id": 10009,
+            "sync_log_id": "e966e6e9-3da8-4ae1-82db-778e57af25c7"
+          }
+        },
+        {
+          "id": "dssync:d6d1338a-2612-42e4-be39-e59db0149bcb:202611111000",
+          "message_sha256": "e9bb8f0a922f01b6636050c09089219f4a5c609bf918257f9ba9de071c771c42",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "d6d1338a-2612-42e4-be39-e59db0149bcb",
+            "tenant_id": 10011,
+            "sync_log_id": "b0a11144-c946-4dd3-b137-e68d32059065"
+          }
+        },
+        {
+          "id": "dssync:64260405-b95f-4265-8b68-4a0277c0a64c:202611111000",
+          "message_sha256": "86e649bdcb5b746502bc796d116266d3dbc75971a4d300175147569ef2375df5",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "64260405-b95f-4265-8b68-4a0277c0a64c",
+            "tenant_id": 10011,
+            "sync_log_id": "760bb634-080f-4820-b4f2-4fe99984f136"
+          }
+        }
+      ],
+      "active": 0,
+      "retry": 0,
+      "scheduled": 0,
+      "archived": 0
+    },
+    {
+      "queue": "approved_sync",
+      "pause": "feishu_safety_stop",
+      "pending": [
+        {
+          "id": "dssync:33452fdf-45c4-49d8-b1c7-df467ddd3067:202611121000",
+          "message_sha256": "085ff08190ccddb3aadd077862c7353f23fe7344ac3a0c9942b0544506734d5e",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "33452fdf-45c4-49d8-b1c7-df467ddd3067",
+            "tenant_id": 10005,
+            "sync_log_id": "870bd41b-9e03-419e-a1b8-8db92a52a782"
+          }
+        },
+        {
+          "id": "dssync:6a40e468-f985-40b0-a5e1-43274c2d785c:202611121000",
+          "message_sha256": "80d9c226c72e4128fe7e5276d830306f36bd7f9c717f5bf8d9f3404aa390631a",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "6a40e468-f985-40b0-a5e1-43274c2d785c",
+            "tenant_id": 10014,
+            "sync_log_id": "dc0c67bd-084f-4888-b963-547cfc8d20e4"
+          }
+        },
+        {
+          "id": "dssync:25f16e72-0803-47e4-9e6e-adf6b904b51a:202611121030",
+          "message_sha256": "f46410d984ada827ca999dda6a07ceaa4fbee0c142c54ec1ddbb14844188f4ed",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "25f16e72-0803-47e4-9e6e-adf6b904b51a",
+            "tenant_id": 10000,
+            "sync_log_id": "22749c14-096b-4601-8d1b-8288ac7eee97"
+          }
+        },
+        {
+          "id": "dssync:aaed3efb-dbce-449f-86f7-8c64fd97a60f:202611121030",
+          "message_sha256": "931afcc87923182829b021cb7b6eb3b355defbaef78e0ef9ac1d7cf053bba7c1",
+          "type": "datasource:sync",
+          "payload_fields": [
+            "initiator",
+            "trigger",
+            "data_source_id",
+            "tenant_id",
+            "sync_log_id",
+            "force_full"
+          ],
+          "identity": {
+            "data_source_id": "aaed3efb-dbce-449f-86f7-8c64fd97a60f",
+            "tenant_id": 10005,
+            "sync_log_id": "dfadc205-0316-41df-9cf6-afe6f9368269"
+          }
+        }
+      ],
+      "active": 0,
+      "retry": 0,
+      "scheduled": 0,
+      "archived": 89
+    }
+  ]
+}

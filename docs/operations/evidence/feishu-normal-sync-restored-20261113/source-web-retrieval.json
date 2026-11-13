@@ -1,0 +1,9 @@
+{
+  "pass": true,
+  "actual_web_api_http": 200,
+  "document_detail_http": 200,
+  "knowledge_id": "ed56b0c0-3ee8-45a8-aa98-1d8333c34ad4",
+  "matching_chunks": 15,
+  "credentials_exported": false,
+  "document_content_logged": false
+}
