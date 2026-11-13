@@ -273,7 +273,7 @@ def _protobuf(data):
     return result
 
 
-def validate_snapshot(snap, old, current, incident, trip):
+def validate_snapshot(snap, old, current, incident, trip, allow_expired_frozen=False):
     members = set(snap["workers"])
     if old == current or not 2 <= len(members) <= 64 or not {old, current} <= members or set(snap["leases"]) != members:
         raise ValueError("bounded matching registry with old and current workers required")
@@ -294,7 +294,20 @@ def validate_snapshot(snap, old, current, incident, trip):
         raise ValueError("unexpected incident")
     if snap["recovery"]:
         previous = json.loads(snap["recovery"])
-        if previous.get("phase") != "awaiting_review" or not isinstance(previous.get("expires_ms"), int) or previous["expires_ms"] > snap["now"]:
+        expired = (type(previous.get("expires_ms")) is int and
+                   0 < previous["expires_ms"] <= snap["now"])
+        frozen_target = (
+            allow_expired_frozen is True and previous.get("phase") == "frozen" and
+            type(previous.get("version")) is int and previous["version"] == 1 and
+            previous.get("worker_id") == old and
+            previous.get("run_id") == "" and type(previous.get("generation")) is int and
+            previous["generation"] == 0 and
+            isinstance(previous.get("incarnation"), str) and bool(previous["incarnation"]) and
+            isinstance(previous.get("controller_fingerprint"), str) and
+            bool(previous["controller_fingerprint"]) and
+            snap["workers"][old] == previous["controller_fingerprint"] + ":" + previous["incarnation"]
+        )
+        if not expired or (previous.get("phase") != "awaiting_review" and not frozen_target):
             raise ValueError("previous recovery is not an expired review state")
     if snap["admitted"].get(old) not in (None, snap["workers"][old]):
         raise ValueError("old admitted identity is inconsistent")
@@ -367,7 +380,8 @@ def collect(args):
     prefix = "feishu:safety:{" + args.namespace + "}:"
     snap = snapshot_rows(redis_app("print(json.dumps(enc(cmd('EVAL_RO'," + repr(SNAPSHOT_LUA) +
                                    ",0," + repr(prefix) + "))))"))
-    validate_snapshot(snap, args.old_worker, args.current_worker, args.incident, args.trip)
+    validate_snapshot(snap, args.old_worker, args.current_worker, args.incident, args.trip,
+                      getattr(args, "allow_expired_frozen", False))
     sql = """BEGIN READ ONLY; SET LOCAL statement_timeout='5s';
 SELECT json_build_object('claimed',(SELECT count(*) FROM sync_logs WHERE execution_claimed),
 'publication_leases',(SELECT count(*) FROM feishu_legacy_attempts a JOIN feishu_legacy_resources r
@@ -421,6 +435,10 @@ def sign(plan, private, reference):
 
 def execute(args, plan, approval):
     snap, proof, path = collect(args)
+    allow_frozen = getattr(args, "allow_expired_frozen", False)
+    if type(allow_frozen) is not bool or plan.get("allow_expired_frozen", False) is not allow_frozen:
+        raise ValueError("signed recovery-state policy changed")
+    validate_snapshot(snap, args.old_worker, args.current_worker, args.incident, args.trip, allow_frozen)
     key, key_id = public_key(path)
     actor = "ssh:" + str(os.getuid())
     for name in ("namespace", "runtime_sha", "old_worker", "current_worker", "incident", "trip"):
@@ -462,6 +480,8 @@ def main():
         parser.add_argument("--" + key, required=True)
     parser.add_argument("--plan-file"); parser.add_argument("--approval-file")
     parser.add_argument("--approval-key-file"); parser.add_argument("--reference")
+    parser.add_argument("--allow-expired-frozen", action="store_true",
+                        help="Explicitly approve an expired, unstarted frozen state bound to the dead target")
     args = parser.parse_args()
     if (not re.fullmatch(r"[A-Za-z0-9_.-]{1,100}", args.namespace) or
             not re.fullmatch(r"[0-9a-f]{40}", args.runtime_sha) or
@@ -472,6 +492,8 @@ def main():
         snap, proof, keypath = collect(args)
         _, key_id = public_key(keypath)
         plan = {k: getattr(args, k) for k in ("namespace", "runtime_sha", "old_worker", "current_worker", "incident", "trip")}
+        if args.allow_expired_frozen:
+            plan["allow_expired_frozen"] = True
         # Audit bytes are checked during collection; only its immutable ID is needed in Lua.
         del snap["audit"]; del snap["inflight"]
         plan.update(domain=DOMAIN, id=str(uuid.uuid4()), actor="ssh:" + str(os.getuid()),
