@@ -44,3 +44,10 @@ identities retain their existing behavior. Real consecutive exports compare
 equal; changed targets, placements, labels and tooltips still change the digest.
 Cell values, formulas, styles, assets and source authority/revision fences stay
 covered by the existing package and repository tests.
+
+Go 1.26.11 CI rejects LLVM metadata in Rust static archives before tests run.
+Prepare the copied Linux archive by removing its .llvm* sections with objcopy,
+retaining native code/symbols; tool failures stop the build. This follows the
+reported [upstream build issue](https://github.com/Tencent/WeKnora/issues/5399).
+Do not downgrade Go or disable its cgo validation. Production rendering and
+native parsing still use the existing validated dependencies.
