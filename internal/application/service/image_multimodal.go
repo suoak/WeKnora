@@ -509,7 +509,7 @@ func (s *ImageMultimodalService) runImageOCR(
 		out["ocr_prompt"] = "default"
 	}
 
-	ocrText, ocrErr := vlmModel.Predict(ctx, [][]byte{imgBytes}, prompt)
+	ocrText, ocrErr := vlmModel.Predict(vlm.WithOCRExtraction(ctx), [][]byte{imgBytes}, prompt)
 	if ocrErr != nil {
 		logger.Warnf(ctx, "[ImageMultimodal] OCR failed for %s: %v", payload.ImageURL, ocrErr)
 		out["ocr_error"] = ocrErr.Error()
