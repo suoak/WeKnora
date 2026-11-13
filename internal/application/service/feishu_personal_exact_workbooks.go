@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"image/png"
 	"io"
+	"net/url"
 	"os"
 	"path"
 	"sort"
@@ -84,6 +85,9 @@ func prepareExactEmbeddedWorkbooks(data []byte) ([]exactEmbeddedWorkbook, error)
 	}
 	packages := map[string][]byte{}
 	if err := checkExactDOCXGraph(data, packages); err != nil {
+		return nil, err
+	}
+	if err := checkExactWorkbookExpansionBudget(packages); err != nil {
 		return nil, err
 	}
 	if len(packages) > 0 {
@@ -271,7 +275,7 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			// These dependencies carry data that this bounded reader cannot
 			// completely represent. Preserve pending instead of omitting it.
 			switch start.Name.Local {
-			case "f", "formula", "hyperlink", "drawing", "legacyDrawing",
+			case "f", "formula", "drawing", "legacyDrawing",
 				"oleObject", "control", "externalReference", "AlternateContent":
 				return nil, errExactWorkbookUnsupported
 			}
@@ -283,6 +287,16 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 				a[attr.Name.Local] = attr.Value
 			}
 			target := a["Target"]
+			if a["TargetMode"] == "External" && a["Type"] == exactWorkbookHyperlinkType {
+				u, parseErr := url.Parse(target)
+				if !strings.HasPrefix(name, "xl/worksheets/_rels/") || a["Id"] == "" || ids[a["Id"]] ||
+					parseErr != nil || u.User != nil || u.Hostname() == "" ||
+					(u.Scheme != "https" && u.Scheme != "http") || strings.ContainsAny(target, "\x00\r\n") {
+					return nil, errExactWorkbookUnsupported
+				}
+				ids[a["Id"]] = true
+				continue
+			}
 			if a["Id"] == "" || ids[a["Id"]] || a["TargetMode"] != "" && a["TargetMode"] != "Internal" ||
 				target == "" || strings.ContainsAny(target, "\\:%?#\x00") || strings.HasPrefix(target, "//") ||
 				strings.HasSuffix(a["Type"], "/package") || strings.HasSuffix(a["Type"], "/oleObject") {
@@ -298,6 +312,9 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 				return nil, errExactWorkbookUnsupported
 			}
 		}
+	}
+	if _, err := exactWorkbookHyperlinkNotes(parts); err != nil {
+		return nil, err
 	}
 	return parts, nil
 }
@@ -482,6 +499,11 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 	if err != nil {
 		return nil, err
 	}
+	notes, err := exactWorkbookHyperlinkNotes(parts)
+	if err != nil {
+		return nil, err
+	}
+	grid += notes[worksheetParts[0]]
 	native, err := anydoc.Convert(data, anydoc.Options{Format: "xlsx", WithAssets: true})
 	if err != nil || native == nil || native.AssetsError != nil || strings.TrimSpace(native.Markdown) == "" {
 		return nil, errExactWorkbookUnsupported

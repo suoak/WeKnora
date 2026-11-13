@@ -28,6 +28,7 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		available[strings.ToLower(entry.Name)] = true
 	}
 	var expanded uint64
+	var embeddedBytes uint64
 	packageReferences := map[string]int{}
 	literalHyperlinks := map[string]bool{}
 	for _, entry := range archive.File {
@@ -45,9 +46,11 @@ func checkExactDOCXGraph(data []byte, packages map[string][]byte) error {
 		expanded += entry.UncompressedSize64
 		if strings.HasPrefix(name, "word/embeddings/") {
 			if packages == nil || !strings.HasSuffix(name, ".xlsx") ||
-				len(packages) >= 16 || entry.UncompressedSize64 > 8<<20 {
+				len(packages) >= 64 || entry.UncompressedSize64 > 8<<20 ||
+				embeddedBytes+entry.UncompressedSize64 > 32<<20 {
 				return errPersonalExactDocument
 			}
+			embeddedBytes += entry.UncompressedSize64
 			reader, err := entry.Open()
 			if err != nil {
 				return errPersonalExactDocument

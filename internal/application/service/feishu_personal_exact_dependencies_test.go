@@ -11,7 +11,7 @@ import (
 )
 
 func TestExactDOCXEmbeddedWorkbookCountBound(t *testing.T) {
-	for _, count := range []int{5, 16, 17} {
+	for _, count := range []int{5, 16, 17, 50, 64, 65} {
 		var buffer bytes.Buffer
 		writer := zip.NewWriter(&buffer)
 		var relationships strings.Builder
@@ -33,7 +33,7 @@ func TestExactDOCXEmbeddedWorkbookCountBound(t *testing.T) {
 		require.NoError(t, writer.Close())
 		packages := map[string][]byte{}
 		err = checkExactDOCXGraph(buffer.Bytes(), packages)
-		if count <= 16 {
+		if count <= 64 {
 			require.NoError(t, err)
 			require.Len(t, packages, count)
 		} else {
