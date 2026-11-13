@@ -4,20 +4,20 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/stretchr/testify/require"
 )
 
-func TestManualSyncRejectsExistingRunningLogBeforeEnqueue(t *testing.T) {
+func TestManualSyncReturnsExistingRunningLogBeforeEnqueue(t *testing.T) {
 	// Exercise DB admission independently of the separately tested egress gate.
 	// This fixture has no Redis/controller or outbound connector dependency.
 	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	f := newSQLiteDataSourceDeleteFixture(t)
-	// No queue dependency is needed: a rejected admission must never enqueue.
+	// No queue dependency is needed: a repeated request must never enqueue.
 	svc := &DataSourceService{dsRepo: f.dsRepo, syncLogRepo: f.syncLogRepo}
 	log, err := svc.ManualSync(context.Background(), f.ds.ID)
-	require.ErrorIs(t, err, datasource.ErrSyncAlreadyRunning)
-	require.Nil(t, log)
+	require.NoError(t, err)
+	require.NotNil(t, log)
+	require.Equal(t, f.runningLog.ID, log.ID)
 	logs, err := f.syncLogRepo.FindByDataSource(context.Background(), f.ds.ID, 100, 0)
 	require.NoError(t, err)
 	require.Len(t, logs, 2, "fixture's pending and running logs must be unchanged")
