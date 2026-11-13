@@ -669,7 +669,10 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 	})
 	writeChunks := func() error {
 		if consumer, exact := exactPersonalConsumerFrom(ctx); exact && consumer.resuming {
-			return consumer.reproveResumeChunks(ctx, insertChunks)
+			err := consumer.reproveResumeChunks(ctx, insertChunks)
+			if !errors.Is(err, errExactResumeEmptyOutput) {
+				return err
+			}
 		}
 		return s.chunkRepo.CreateChunks(ctx, insertChunks)
 	}

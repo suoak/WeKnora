@@ -127,6 +127,47 @@ func TestPersonalExactResumeRefusesRevokedOrCorruptedSource(t *testing.T) {
 	}
 }
 
+func TestPersonalExactResumeMissingReceiptRequiresZeroOutput(t *testing.T) {
+	for _, output := range []string{"none", "chunk", "vector"} {
+		t.Run(output, func(t *testing.T) {
+			f, observed := closedExactResumeFixture(t)
+			require.NoError(t, f.db.Exec("DELETE FROM task_pending_ops WHERE scope=? AND scope_id=?",
+				types.PersonalExactReceiptScope, observed.LogicalKnowledgeID).Error)
+			if output == "chunk" {
+				require.NoError(t, f.db.Create(&types.Chunk{ID: "unknown", TenantID: 1,
+					KnowledgeID: observed.LogicalKnowledgeID, KnowledgeBaseID: "kb", ChunkType: types.ChunkTypeText}).Error)
+			}
+			if output == "vector" {
+				require.NoError(t, f.db.Exec("INSERT INTO embeddings(knowledge_id,is_enabled) VALUES(?,false)",
+					observed.LogicalKnowledgeID).Error)
+			}
+			check := &personalExactPreflight{observed: observed, closed: true}
+			_, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
+			require.NoError(t, err)
+			err = f.p.repo.QueueExactResume(context.Background(), observed, exactSourceReceipt(check.source), check.validate)
+			var receipts int64
+			require.NoError(t, f.db.Model(&types.TaskPendingOp{}).Where("scope=? AND scope_id=?",
+				types.PersonalExactReceiptScope, observed.LogicalKnowledgeID).Count(&receipts).Error)
+			if output != "none" {
+				require.Error(t, err)
+				require.Zero(t, receipts)
+				return
+			}
+			require.NoError(t, err)
+			require.EqualValues(t, 1, receipts)
+			var receipt types.TaskPendingOp
+			require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope,
+				observed.LogicalKnowledgeID).Take(&receipt).Error)
+			require.Equal(t, "resuming", receipt.Op)
+			var audit types.TaskDeadLetter
+			require.NoError(t, f.db.Where("task_type=?", "knowledge:exact_resume_audit").Take(&audit).Error)
+			var fields map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(audit.Payload, &fields))
+			require.JSONEq(t, "true", string(fields["receipt_missing_before_resume"]))
+		})
+	}
+}
+
 func TestPersonalExactResumeUsesImportedSnapshotAfterRemoteEdit(t *testing.T) {
 	f, observed := closedExactResumeFixture(t)
 	exactPreflightRemote(t, f, "2", true)

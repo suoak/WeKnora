@@ -3,12 +3,17 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
+
+// This internal result permits only the ordinary fenced CreateChunks path.
+// No old chunk/vector exists to adopt or overwrite.
+var errExactResumeEmptyOutput = errors.New("personal_exact_resume_empty_output")
 
 type exactResumeChunkKey struct {
 	Kind  string
@@ -38,6 +43,16 @@ func (c *exactPersonalConsumer) reproveResumeChunks(
 	if err := db.Table("chunks").Select("id,chunk_type,chunk_index").
 		Where("knowledge_id=?", c.source.knowledge).Limit(2049).Scan(&existing).Error; err != nil {
 		return err
+	}
+	if len(existing) == 0 {
+		var vectors int64
+		if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).Count(&vectors).Error; err != nil {
+			return err
+		}
+		if vectors != 0 {
+			return errPersonalExactDocument
+		}
+		return errExactResumeEmptyOutput
 	}
 	if len(existing) != len(generated) || len(existing) > 2048 {
 		return errPersonalExactDocument

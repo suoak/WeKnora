@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"reflect"
 	"time"
 
@@ -61,10 +63,45 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			return err
 		}
 		var receipt, dispatch types.TaskPendingOp
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
+		receiptErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
 			"scope=? AND scope_id=? AND tenant_id=?", types.PersonalExactReceiptScope,
-			source.KnowledgeID, source.TenantID).Take(&receipt).Error; err != nil {
-			return err
+			source.KnowledgeID, source.TenantID).Take(&receipt).Error
+		missingReceipt := errors.Is(receiptErr, gorm.ErrRecordNotFound)
+		if missingReceipt {
+			// Claim can stop before staging is established. Only a freshly
+			// verified source with absolutely no output may create its first
+			// receipt here. Never infer ownership of retained partial output.
+			var count int64
+			for _, table := range []string{"chunks", "embeddings"} {
+				if err := tx.Table(table).Where("knowledge_id=?", source.KnowledgeID).Count(&count).Error; err != nil {
+					return err
+				}
+				if count != 0 {
+					return ErrPersonalIdentity
+				}
+			}
+			if err := exactResumeEmptyDerived(tx, source); err != nil {
+				return err
+			}
+			if err := tx.Model(&types.TaskPendingOp{}).Where("scope=? AND scope_id=?",
+				types.PersonalExactReceiptScope, source.KnowledgeID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 0 {
+				return ErrPersonalIdentity
+			}
+			body, err := json.Marshal(source)
+			if err != nil {
+				return err
+			}
+			receipt = types.TaskPendingOp{TenantID: source.TenantID, Scope: types.PersonalExactReceiptScope,
+				ScopeID: source.KnowledgeID, TaskType: "knowledge:exact_receipt", Op: "staging",
+				DedupKey: fmt.Sprintf("exact-%s-%d", source.AttemptID, source.Generation), Payload: body, EnqueuedAt: now}
+			if err := tx.Create(&receipt).Error; err != nil {
+				return err
+			}
+		} else if receiptErr != nil {
+			return receiptErr
 		}
 		var previous types.PersonalExactReceipt
 		if (receipt.Op != "staging" && receipt.Op != "resuming") ||
@@ -95,15 +132,20 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 		}
 		audit, err := json.Marshal(map[string]any{
 			"attempt": attempt, "resource": resource, "receipt": receipt, "dispatch": dispatch,
+			"receipt_missing_before_resume": missingReceipt,
 		})
 		if err != nil {
 			return err
+		}
+		auditReason := "original_staging_retained_before_reviewed_resume"
+		if missingReceipt {
+			auditReason = "source_reproved_before_first_staging_resume"
 		}
 		if err := tx.Create(&types.TaskDeadLetter{
 			TenantID: source.TenantID, TaskType: "knowledge:exact_resume_audit",
 			Scope: types.TaskScopeKnowledge, ScopeID: source.KnowledgeID,
 			RelatedID: attempt.ID, Payload: audit, FailedAt: now,
-			LastError: "original_staging_retained_before_reviewed_resume",
+			LastError: auditReason,
 			FailCount: attempt.RetryCount,
 		}).Error; err != nil {
 			return err

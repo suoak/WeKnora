@@ -9,6 +9,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPersonalExactResumeEmptyOutputDoesNotAdoptOrphanVectors(t *testing.T) {
+	db := syncdb.Open(t, "postgres")
+	require.NoError(t, db.AutoMigrate(&types.Chunk{}))
+	require.NoError(t, db.Exec("CREATE TABLE embeddings(knowledge_id text)").Error)
+	c := &exactPersonalConsumer{recovery: &PersonalRecovery{service: &FeishuPersonalService{db: db}},
+		source: &personalExactDocument{knowledge: "doc", kb: "kb", tenant: 1}, parsed: &personalExactParsedDocument{}, resuming: true}
+	generated := []*types.Chunk{{ID: "new", KnowledgeID: "doc", KnowledgeBaseID: "kb", TenantID: 1, ChunkType: types.ChunkTypeText}}
+	require.ErrorIs(t, c.reproveResumeChunks(context.Background(), generated), errExactResumeEmptyOutput)
+	require.Equal(t, "new", generated[0].ID)
+	require.NoError(t, db.Exec("INSERT INTO embeddings VALUES('doc')").Error)
+	err := c.reproveResumeChunks(context.Background(), generated)
+	require.Error(t, err)
+	require.NotErrorIs(t, err, errExactResumeEmptyOutput)
+	var count int64
+	require.NoError(t, db.Table("chunks").Count(&count).Error)
+	require.Zero(t, count)
+}
+
 func TestPersonalExactResumeReprovesAllChunkFieldsBeforeAdoption(t *testing.T) {
 	for _, change := range []string{
 		"valid", "body", "header", "enabled", "unknown_chunk", "missing_vector", "extra_vector", "legacy_video",
