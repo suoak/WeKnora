@@ -41,6 +41,12 @@ func TestExactSearchSkipsDeletedIMReceipts(t *testing.T) {
 		require.False(t, handled, "a deleted personal import must leave ordinary search routing intact")
 		require.Nil(t, rows, "this routing check grants no document read")
 	}
+	pageService := &knowledgeService{personalRecovery: p}
+	page, handled, err := pageService.exactPublicKnowledgePage(ctx, "kb",
+		&types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{})
+	require.NoError(t, err)
+	require.False(t, handled, "deleted receipts must also leave ordinary catalog counting intact")
+	require.Nil(t, page)
 	// A live receipt still selects the exact path. Missing authorization data
 	// in this minimal fixture must refuse it, never fall back to ordinary reads.
 	require.NoError(t, p.service.db.Exec(`INSERT INTO task_pending_ops VALUES(
