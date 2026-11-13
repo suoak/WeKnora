@@ -2,7 +2,11 @@
 
 2026-11-12, Asia/Shanghai. This report distinguishes production observations from
 isolated synthetic load tests. No credentials, queries, document bodies or peer
-addresses are included. Release/production acceptance remains pending below.
+addresses are included. Production deployment and real-Key acceptance completed
+on 2026-11-12. See [the final capacity and release report](personal-mcp-100-developer-capacity-20261112.md)
+for the deployed main revision, production overrides, 100-user results and
+remaining slow-query limits. The original pre-release checklist below is retained
+as the record of required release checks.
 
 ## Production evidence before changes
 
@@ -161,11 +165,12 @@ Private raw receipts and scripts: `E:/AIData/Codex/mcp-p1-*`; isolated execution
 directory `/home/aqyfzx/ai/mcp-concurrency-p1-20261112`. Only numeric summaries
 are included here. Production resource depletion was not injected.
 
-## Release and rollback gate (pending)
+## Original release and rollback checklist (completed; see final report)
 
-PR: https://github.com/suoak/WeKnora/pull/136. CI links, actual deployed SHA and real-Key acceptance will be appended
-after completion. Main includes reconciliation migration 3047 while production
-is clean 3046; this is a required release dependency, not a new P1 migration.
+PR: https://github.com/suoak/WeKnora/pull/136. Final CI, deployed SHA and real-Key
+acceptance are recorded in the linked final report. Before this release, main
+included reconciliation migration 3047 while production was clean 3046; this
+was a required release dependency, not a new P1 migration.
 Do not deploy main against 3046 and claim complete accounting. Before switching:
 
 1. Verify CI, exact candidate binary/image provenance, native parser archive,
