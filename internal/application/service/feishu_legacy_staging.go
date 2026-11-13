@@ -318,6 +318,9 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	if err := feishuDocumentParserRefusal(parsed, fileType); err != nil {
 		return nil, err
 	}
+	if err := expandLegacyWorkbooks(parsed, fileType); err != nil {
+		return nil, &feishuStagingRefusal{reason: "embedded_workbook_unsupported"}
+	}
 	if parsed.IsAudio {
 		return nil, &feishuStagingRefusal{reason: "audio_not_supported"}
 	}

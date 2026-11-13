@@ -39,6 +39,17 @@ type partDigest struct{ Name, SHA256 string }
 // v2, which also ignores their ZIP packing while binding every extracted byte.
 // Packages without embedded XLSX retain the existing v1 identity.
 func CanonicalDOCXDigest(content []byte) (string, string, error) {
+	return canonicalDOCXDigest(content, false)
+}
+
+// CanonicalDOCXSnapshotDigest compares fresh exports while preserving stored
+// v1/v2 identities. Only unique embedded content-type declaration order is
+// additionally normalized; cells, widths and all other embedded bytes bind.
+func CanonicalDOCXSnapshotDigest(content []byte) (string, string, error) {
+	return canonicalDOCXDigest(content, true)
+}
+
+func canonicalDOCXDigest(content []byte, snapshot bool) (string, string, error) {
 	if len(content) > maxArchive {
 		return "", "", ErrInvalidPackage
 	}
@@ -139,7 +150,7 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 			}
 		}
 		if strings.HasPrefix(name, "word/embeddings/") && strings.EqualFold(path.Ext(name), ".xlsx") {
-			body, err = embeddedXLSXIdentity(body, &expanded)
+			body, err = embeddedXLSXSnapshotIdentity(body, &expanded, snapshot)
 			if err != nil {
 				return "", "", ErrInvalidPackage
 			}
@@ -157,6 +168,9 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 		}
 	}
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Name < parts[j].Name })
+	if snapshot {
+		identityAlgorithm = "feishu-docx-snapshot-v1"
+	}
 	identity, _ := json.Marshal(struct {
 		Algorithm string
 		Parts     []partDigest
