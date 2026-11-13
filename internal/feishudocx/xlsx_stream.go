@@ -17,6 +17,8 @@ type xlsxXMLStream struct {
 	tokens       int
 	columnTokens int
 	columnStart  int64
+	snapshot     bool
+	links        map[string]string
 }
 
 func (s *xlsxXMLStream) next() (xml.Token, error) {
@@ -52,11 +54,32 @@ func xlsxAttrs(t xml.StartElement) ([]xml.Attr, error) {
 	return a, nil
 }
 
+func (s *xlsxXMLStream) attrs(t xml.StartElement) ([]xml.Attr, error) {
+	attrs, err := xlsxAttrs(t)
+	if err != nil || !s.snapshot {
+		return attrs, err
+	}
+	for i, attr := range attrs {
+		alias, mapped := s.links[attr.Value]
+		isLink := t.Name == (xml.Name{Space: spreadsheetNS, Local: "hyperlink"}) &&
+			attr.Name == (xml.Name{Space: hyperlinkRelNS, Local: "id"})
+		if mapped {
+			if !isLink {
+				return nil, ErrInvalidXLSXPackage
+			}
+			attrs[i].Value = alias
+		} else if isLink {
+			return nil, ErrInvalidXLSXPackage
+		}
+	}
+	return attrs, nil
+}
+
 func (s *xlsxXMLStream) columns(t xml.StartElement, depth int) (*node, error) {
 	if depth >= 128 {
 		return nil, ErrInvalidXLSXPackage
 	}
-	a, err := xlsxAttrs(t)
+	a, err := s.attrs(t)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +114,7 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 	if depth >= 128 {
 		return ErrInvalidXLSXPackage
 	}
-	a, err := xlsxAttrs(t)
+	a, err := s.attrs(t)
 	if err != nil {
 		return err
 	}
@@ -134,6 +157,19 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 				}
 				b, _ := json.Marshal(piece{Kind: "element", Node: n})
 				s.write(string(b))
+			} else if s.snapshot && depth == 0 && t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) &&
+				v.Name == (xml.Name{Space: spreadsheetNS, Local: "hyperlinks"}) {
+				s.columnStart = s.d.InputOffset()
+				n, err := s.columns(v, depth+1)
+				s.columnStart = 0
+				if err != nil {
+					return err
+				}
+				if err := normalizeSnapshotHyperlinks(n); err != nil {
+					return err
+				}
+				body, _ := json.Marshal(piece{Kind: "element", Node: n})
+				s.write(string(body))
 			} else {
 				s.write(`{"Kind":"element","Node":`)
 				if e := s.element(v, depth+1); e != nil {
@@ -163,7 +199,11 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 }
 
 func streamXLSXXML(r io.Reader, w io.Writer, required xml.Name) error {
-	s := &xlsxXMLStream{d: xml.NewDecoder(r), w: w}
+	return streamSnapshotXLSXXML(r, w, required, false, nil)
+}
+
+func streamSnapshotXLSXXML(r io.Reader, w io.Writer, required xml.Name, snapshot bool, links map[string]string) error {
+	s := &xlsxXMLStream{d: xml.NewDecoder(r), w: w, snapshot: snapshot, links: links}
 	root, declaration := false, false
 	for {
 		v, err := s.next()

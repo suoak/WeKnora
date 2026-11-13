@@ -153,7 +153,7 @@ def _build_default_registry() -> ParserEngineRegistry:
     reg = ParserEngineRegistry()
 
     _image_types = {
-        ext: ImageParser for ext in ("jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp")
+        ext: ImageParser for ext in ("jpg", "jpeg", "png", "gif", "bmp", "tiff", "webp", "emf")
     }
 
     reg.register(

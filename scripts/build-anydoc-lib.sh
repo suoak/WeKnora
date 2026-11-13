@@ -133,5 +133,20 @@ dest="$crate_dir/lib/$lib_dir"
 mkdir -p "$dest"
 cp "$crate_dir/target/$target/release/$lib_name" "$dest/$lib_name"
 
+# cgo's native ELF link does not consume Rust's embedded LLVM bitcode/commands.
+# Recent Go toolchains reject these sections in static archives. Remove only
+# LLVM sections from the copied Linux artifact; retain native code and symbols.
+# See upstream issue https://github.com/Tencent/WeKnora/issues/5399.
+case "$target" in
+  *-unknown-linux-*)
+    objcopy_tool=${OBJCOPY:-objcopy}
+    if ! command -v "$objcopy_tool" >/dev/null 2>&1; then
+      echo "error: objcopy is required to prepare the Linux anydoc archive for cgo." >&2
+      exit 1
+    fi
+    "$objcopy_tool" --remove-section='.llvm*' "$dest/$lib_name"
+    ;;
+esac
+
 echo "Wrote $dest/$lib_name"
 echo "Build WeKnora with the archive: go build -tags anydoc ./cmd/server"
