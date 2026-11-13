@@ -28,6 +28,11 @@ func feishuFailureResponse(c *gin.Context, err error) {
 	// Service errors from storage/ingestion can contain internal details. Stable
 	// client errors carry no provider-controlled error bodies or credentials.
 	if err != nil {
+		if errors.Is(err, service.ErrFeishuBatchNotRetryable) {
+			c.JSON(http.StatusConflict, gin.H{"error": "feishu_batch_not_retryable",
+				"message": "当前任务无需重复导入或需要受控恢复，请刷新进度查看具体原因"})
+			return
+		}
 		if errors.Is(err, types.ErrPrivateKnowledgeBase) {
 			c.JSON(http.StatusForbidden, gin.H{"error": "private_knowledge_base_forbidden"})
 			return

@@ -27,6 +27,17 @@ type FeishuBatchView struct {
 	CanContinuePublication bool                    `json:"can_continue_publication"`
 }
 
+// ErrFeishuBatchNotRetryable means no original admission can be safely retried.
+var ErrFeishuBatchNotRetryable = errors.New("feishu_batch_not_retryable")
+
+// Admission retry never resets an existing execution or a source identity.
+func canRetryFeishuBatchItem(item types.FeishuBatchItem) bool {
+	return (item.Status == "failed" || item.Status == "blocked") && item.RetryCount < 3 &&
+		item.ErrorCategory != "source_identity_conflict" &&
+		(item.ImportID == "" || item.ErrorCategory == "sharing_approval_required" ||
+			item.ErrorCategory == "publication_confirmation_expired")
+}
+
 // ListBatches recovers the owner's batch handles after a page or worker restart.
 // Progress is read separately so listing history never replays an admission.
 func (s *FeishuPersonalService) ListBatches(
@@ -103,9 +114,11 @@ func (s *FeishuPersonalService) batchHistorySummaries(
 			Title       string
 			Status      string
 			IndexStatus string
+			ImportID    string
+			ParseStatus string
 		}
 		if err := s.db.WithContext(ctx).Table("feishu_import_batch_items AS bi").
-			Select("k.title, bi.status, CASE WHEN k.parse_status = 'completed'"+
+			Select("k.title, bi.status, pi.id AS import_id,k.parse_status, CASE WHEN k.parse_status = 'completed'"+
 				" AND pi.status IN ('synced','completed','source_managed')"+
 				" AND EXISTS (SELECT 1 FROM task_pending_ops AS receipt WHERE receipt.scope = 'personal_index_receipt'"+
 				" AND receipt.scope_id = pi.knowledge_id AND receipt.op = 'verified')"+
@@ -117,8 +130,24 @@ func (s *FeishuPersonalService) batchHistorySummaries(
 			Where("bi.batch_id = ?", batch.ID).Order("bi.ordinal").Limit(100).Scan(&items).Error; err != nil {
 			return nil, err
 		}
+		importIDs := make([]string, 0, len(items))
+		for _, item := range items {
+			if item.ImportID != "" {
+				importIDs = append(importIDs, item.ImportID)
+			}
+		}
+		published, err := s.exactBatchHistoryStates(grant.Context(ctx), batch, importIDs)
+		if err != nil {
+			return nil, err
+		}
 		batch.TargetName, batch.Status = kb.Name, "succeeded"
 		for _, item := range items {
+			if state := published[item.ImportID]; state != "" && item.ParseStatus == types.ParseStatusCompleted {
+				item.Status = state
+				if state == "succeeded" {
+					item.IndexStatus = "verified"
+				}
+			}
 			if item.Title != "" {
 				batch.DocumentNames = append(batch.DocumentNames, item.Title)
 			}
@@ -345,6 +374,7 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		if err := s.batchItemProgress(ctx, item, current, view.Batch.CreatedAt, queue); err != nil {
 			return nil, err
 		}
+		item.CanRetry = canRetryFeishuBatchItem(*item)
 		view.Counts[item.Status]++
 		if item.Status == "blocked" && item.ErrorCategory == "sharing_approval_required" &&
 			item.ImportID == "" && item.SharingApprovalID == nil && item.RetryCount < 3 &&
@@ -396,13 +426,19 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 				"protected_source.id = feishu_import_batch_items.import_id)",
 		)
 	}
-	return retry.Updates(map[string]any{
+	result := retry.Updates(map[string]any{
 		"status":         "pending",
 		"error_category": "",
 		"retry_count":    gorm.Expr("retry_count + 1"),
 		"updated_at":     time.Now(),
-	}).
-		Error
+	})
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return ErrFeishuBatchNotRetryable
+	}
+	return nil
 }
 
 func (s *FeishuPersonalService) batchContext(

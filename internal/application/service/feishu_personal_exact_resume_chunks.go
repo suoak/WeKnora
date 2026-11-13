@@ -124,7 +124,7 @@ AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=
 			textIDs = append(textIDs, chunk.ID)
 		}
 	}
-	var matching, total int64
+	var matching, total, identities int64
 	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).
 		Count(&total).Error; err != nil {
 		return err
@@ -134,7 +134,14 @@ AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=
 		c.source.knowledge, c.source.kb, textIDs).Count(&matching).Error; err != nil {
 		return err
 	}
-	if matching != int64(len(textIDs)) || matching != total {
+	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).
+		Distinct("source_id").Count(&identities).Error; err != nil {
+		return err
+	}
+	// A failed index batch may have written only a subset. Every retained row
+	// must still belong uniquely to the newly proved text chunks. The ordinary
+	// indexer regenerates all vectors below; completeness is checked at publish.
+	if matching > int64(len(textIDs)) || matching != total || identities != total {
 		return errPersonalExactDocument
 	}
 	// No old vector is trusted here. The normal indexer obtains fresh model

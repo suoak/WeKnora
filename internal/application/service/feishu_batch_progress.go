@@ -173,6 +173,18 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 			item.Status, item.Stage, item.ErrorCategory = "failed", "needs_attention", failureCategory
 		}
 	}
+	// A pre-Claim refusal is actionable metadata, not a live parser. Keep the
+	// durable attempt untouched; the source reconciler owns any later recovery.
+	if a.Status == "index_pending" && a.LastErrorCategory != "" {
+		if a.LastErrorCategory == "preflight_transient" {
+			item.Stage = "retry_wait"
+		} else {
+			item.Status, item.Stage = "blocked", "needs_attention"
+		}
+	}
+	if a.Status == "needs_attention" || m.Status == "needs_attention" {
+		item.Status, item.Stage = "failed", "needs_attention"
+	}
 	// Success is a verified index receipt plus completed publication/Wiki.
 	if item.IndexVerified && item.ParseStatus == types.ParseStatusCompleted &&
 		(m.Status == "synced" || m.Status == "completed" || m.Status == "source_managed") {

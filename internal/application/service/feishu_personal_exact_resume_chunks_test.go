@@ -12,6 +12,7 @@ import (
 func TestPersonalExactResumeReprovesAllChunkFieldsBeforeAdoption(t *testing.T) {
 	for _, change := range []string{
 		"valid", "body", "header", "enabled", "unknown_chunk", "missing_vector", "extra_vector", "legacy_video",
+		"duplicate_vector", "wrong_vector_kb", "wrong_vector_chunk",
 	} {
 		t.Run(change, func(t *testing.T) {
 			db := syncdb.Open(t, "postgres")
@@ -57,6 +58,12 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			case "extra_vector":
 				err := db.Exec("INSERT INTO embeddings VALUES ('doc','kb','unknown','unknown')").Error
 				require.NoError(t, err)
+			case "duplicate_vector":
+				require.NoError(t, db.Exec(insertVector).Error)
+			case "wrong_vector_kb":
+				require.NoError(t, db.Exec("UPDATE embeddings SET knowledge_base_id='other'").Error)
+			case "wrong_vector_chunk":
+				require.NoError(t, db.Exec("UPDATE embeddings SET chunk_id='other'").Error)
 			}
 			consumer := &exactPersonalConsumer{
 				recovery: &PersonalRecovery{service: &FeishuPersonalService{db: db}},
@@ -68,7 +75,7 @@ knowledge_id text,knowledge_base_id text,source_id text,chunk_id text)`).Error)
 			require.NoError(t, db.Raw(snapshot).Scan(&before).Error)
 			err := consumer.reproveResumeChunks(context.Background(),
 				[]*types.Chunk{&expectedParent, &expectedText})
-			if change == "valid" {
+			if change == "valid" || change == "missing_vector" {
 				require.NoError(t, err)
 				require.Equal(t, "stored-parent", expectedParent.ID)
 				require.Equal(t, "stored-text", expectedText.ID)
