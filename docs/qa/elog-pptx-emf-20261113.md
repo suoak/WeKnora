@@ -1,4 +1,4 @@
-# ELOG PPTX embedded EMF ingestion
+# ELOG PPTX images and XLSX export snapshots
 
 Production baseline: merged main 43c2b7cf22, schema 3047. The two branch
 documents now publish with 70/60 chunks and vectors. A later source attachment,
@@ -33,3 +33,14 @@ preserve source checkpoints and retain both previous images for rollback.
 
 The separate Zhejiang branch export returns Feishu HTTP403/code1069902 and
 requires resource permission correction by its owner/administrator.
+
+The security/gateway worksheet also produced different hyperlink relationship
+IDs and declaration/link order on consecutive exports of the same revision.
+Fresh XLSX snapshot v2 binds complete hyperlink targets, modes and attributes
+while comparing declarations and uniquely placed links without exporter order.
+Other relationship IDs remain unchanged. Unknown uses of a remapped ID,
+dangling links and duplicate placements fail closed. Persisted package v1
+identities retain their existing behavior. Real consecutive exports compare
+equal; changed targets, placements, labels and tooltips still change the digest.
+Cell values, formulas, styles, assets and source authority/revision fences stay
+covered by the existing package and repository tests.

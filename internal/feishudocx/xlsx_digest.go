@@ -48,7 +48,7 @@ func CanonicalXLSXSnapshotDigest(content []byte) (string, string, error) {
 func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) {
 	algorithm := "feishu-xlsx-package-v1"
 	if snapshot {
-		algorithm = "feishu-xlsx-snapshot-v1"
+		algorithm = "feishu-xlsx-snapshot-v2"
 	}
 	if len(content) > maxArchive {
 		return "", "", ErrInvalidXLSXPackage
@@ -56,6 +56,14 @@ func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) 
 	z, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil || len(z.File) == 0 || len(z.File) > 4096 {
 		return "", "", ErrInvalidXLSXPackage
+	}
+	var canonicalLinks map[string][]byte
+	var linkOwners map[string]map[string]string
+	if snapshot {
+		canonicalLinks, linkOwners, err = snapshotHyperlinkParts(z)
+		if err != nil {
+			return "", "", err
+		}
 	}
 	seen := map[string]bool{}
 	var parts []partDigest
@@ -88,7 +96,10 @@ func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) 
 		hash := sha256.New()
 		bounded := &io.LimitedReader{R: reader, N: maxXLSXPart + 1}
 		var readErr error
-		if snapshot && name == "[Content_Types].xml" {
+		if body, ok := canonicalLinks[name]; ok {
+			_, readErr = io.Copy(io.Discard, bounded)
+			_, _ = hash.Write(body)
+		} else if snapshot && name == "[Content_Types].xml" {
 			readErr = writeSnapshotContentTypes(bounded, hash)
 		} else if strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels") {
 			var required xml.Name
@@ -104,7 +115,12 @@ func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) 
 			case "xl/workbook.xml":
 				required = xml.Name{Space: spreadsheetNS, Local: "workbook"}
 			}
-			readErr = streamXLSXXML(bounded, hash, required)
+			if snapshot && strings.HasPrefix(name, "xl/worksheets/") && !strings.Contains(name, "/_rels/") {
+				required = xml.Name{Space: spreadsheetNS, Local: "worksheet"}
+				readErr = streamSnapshotXLSXXML(bounded, hash, required, true, linkOwners[name])
+			} else {
+				readErr = streamXLSXXML(bounded, hash, required)
+			}
 		} else {
 			_, readErr = io.Copy(hash, bounded)
 		}

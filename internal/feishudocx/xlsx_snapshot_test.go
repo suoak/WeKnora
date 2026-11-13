@@ -35,7 +35,7 @@ func TestXLSXSnapshotContentTypeOrder(t *testing.T) {
 	require.NoError(t, err)
 	two, _, err := CanonicalXLSXSnapshotDigest(b)
 	require.NoError(t, err)
-	require.Equal(t, "feishu-xlsx-snapshot-v1", algorithm)
+	require.Equal(t, "feishu-xlsx-snapshot-v2", algorithm)
 	require.Equal(t, one, two)
 	changed, _, err := CanonicalXLSXSnapshotDigest(pack(second+first, true))
 	require.NoError(t, err)
