@@ -85,7 +85,7 @@ type KnowledgeBaseInfo struct {
 	Name        string
 	Type        string // Knowledge base type: "document" or "faq"
 	Description string
-	DocCount    int
+	DocCount    int // Negative means the authorized catalog could not be read.
 	// Capabilities lists the retrieval surfaces this KB exposes. Any subset of
 	// {"wiki", "chunks"}. "chunks" is present when the KB has vector and/or
 	// keyword (BM25) indexing enabled. This is the *deterministic* source of
@@ -140,9 +140,17 @@ func formatKnowledgeBaseList(kbInfos []*KnowledgeBaseInfo) string {
 		if kbType == "" {
 			kbType = "document"
 		}
-		fmt.Fprintf(&b, "<knowledge_base id=\"%s\" name=\"%s\" type=\"%s\" doc_count=\"%d\" capabilities=\"%s\">\n",
-			escapeXMLAttr(kb.ID), escapeXMLAttr(formatDocSummary(kb.Name, 160)), escapeXMLAttr(kbType), kb.DocCount,
+		count := fmt.Sprint(kb.DocCount)
+		if kb.DocCount < 0 {
+			count = "unknown"
+		}
+		fmt.Fprintf(&b, "<knowledge_base id=\"%s\" name=\"%s\" type=\"%s\" doc_count=\"%s\" capabilities=\"%s\">\n",
+			escapeXMLAttr(kb.ID), escapeXMLAttr(formatDocSummary(kb.Name, 160)), escapeXMLAttr(kbType), count,
 			escapeXMLAttr(strings.Join(kb.Capabilities, ",")))
+		if kb.DocCount < 0 {
+			b.WriteString("<catalog_status>unavailable; document count is unknown. " +
+				"This does not mean the knowledge base is empty; use successful retrieval results.</catalog_status>\n")
+		}
 		if kb.Description != "" {
 			fmt.Fprintf(&b, "<description>%s</description>\n", escapeXMLAttr(formatDocSummary(kb.Description, 240)))
 		}

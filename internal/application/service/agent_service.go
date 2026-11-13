@@ -404,7 +404,7 @@ func (s *agentService) resolveKBAndDocInfos(
 				ID:          kbID,
 				Name:        kbID,
 				Description: "",
-				DocCount:    0,
+				DocCount:    -1,
 			})
 		}
 	}
@@ -1419,7 +1419,7 @@ func (s *agentService) getKnowledgeBaseInfos(ctx context.Context, kbIDs []string
 		}
 
 		// Get document count and recent documents
-		docCount := 0
+		docCount := -1 // Unknown until an authorized listing succeeds; never invent an empty KB.
 		recentDocs := []agent.RecentDocInfo{}
 
 		if kb.Type == types.KnowledgeBaseTypeFAQ {
