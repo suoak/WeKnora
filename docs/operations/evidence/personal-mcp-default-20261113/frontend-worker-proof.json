@@ -1,0 +1,21 @@
+{
+  "pass": true,
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "image": "sha256:e2db8fa066c3147340c210de3420b667934bce1616f61f2dc2db87c9d7aed31e",
+  "actual_nginx_worker_http": [
+    {
+      "path": "index.html",
+      "status": 200,
+      "sha256": "4a56952ac5a2b22e6ef5ee07d1b60b28f62057a485825e21ef0d0ed8d47b1591"
+    },
+    {
+      "path": "assets/index-BwqqWo-G.js",
+      "status": 200,
+      "sha256": "d69e40028494b9ed2acf582bc21ace464e368705d53cabb5785e156f586ce7a6"
+    }
+  ],
+  "network": "none",
+  "ports_published": false,
+  "production_services_changed": false,
+  "observed_utc": "2026-11-13T02:03:43.211231+00:00"
+}

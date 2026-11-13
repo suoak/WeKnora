@@ -1,0 +1,47 @@
+{
+  "scope": "six retired October offline image archives only",
+  "database_backups_deleted": false,
+  "live_configuration_changed": false,
+  "before_df": "Filesystem                        1B-blocks         Used  Available Use% Mounted on\n/dev/mapper/data--vg-data--lv0 527190720512 512140423168 9665859584  99% /mnt/sata0\n",
+  "files": [
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/r65-catalog-1824f4946-disabled-20261031/image.tar",
+      "bytes": 8765931520,
+      "verified_image_archive": true,
+      "deleted": true
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/r65-catalog-c8d3733b3-disabled-20261031/image.tar",
+      "bytes": 8766033920,
+      "verified_image_archive": true,
+      "deleted": true
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/r65-catalog-96090bb85-disabled-20261031/image.tar",
+      "bytes": 8765859840,
+      "verified_image_archive": true,
+      "deleted": true
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/r65-catalog-b27958d98-disabled-20261031/image.tar",
+      "bytes": 8765952000,
+      "verified_image_archive": true,
+      "deleted": true
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/feishu-integrated-release-20261024/image-df1fc531a21d/image.tar",
+      "bytes": 7334051840,
+      "verified_image_archive": true,
+      "deleted": true
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/feishu-integrated-release-20261024/image-fd853d0027e5/image.tar",
+      "bytes": 7333928960,
+      "verified_image_archive": true,
+      "deleted": true
+    }
+  ],
+  "deleted_bytes": 49731758080,
+  "after_df": "Filesystem                        1B-blocks         Used   Available Use% Mounted on\n/dev/mapper/data--vg-data--lv0 527190720512 462408654848 59397627904  89% /mnt/sata0\n",
+  "observed_utc": "2026-11-13T00:36:03.288027+00:00"
+}

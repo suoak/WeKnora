@@ -1,0 +1,110 @@
+{
+  "sha": "81183a44da3800c0917ea7b2c39e2d58d228af04",
+  "checks": [
+    {
+      "name": "Docker image and production startup smoke",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339865116/job/131609169298"
+    },
+    {
+      "name": "Docker image and production startup smoke",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871958/job/131607978260"
+    },
+    {
+      "name": "Portal contracts, RBAC, race, and branding",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872022/job/131605312071"
+    },
+    {
+      "name": "M1 Linux backend and MCP compatibility",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872022/job/131605311967"
+    },
+    {
+      "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872022/job/131605311736"
+    },
+    {
+      "name": "golangci-lint (.)",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872072/job/131605303961"
+    },
+    {
+      "name": "Portal contracts, RBAC, race, and branding",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339865195/job/131605303096"
+    },
+    {
+      "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339865195/job/131605302987"
+    },
+    {
+      "name": "M1 Linux backend and MCP compatibility",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339865195/job/131605302608"
+    },
+    {
+      "name": "Format, vet, test, and build",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339865116/job/131605297074"
+    },
+    {
+      "name": "verify",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872068/job/131605271817"
+    },
+    {
+      "name": "Complete resilience race (${{ matrix.repetition }})",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872068/job/131605207354"
+    },
+    {
+      "name": "postgres",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872068/job/131605206031"
+    },
+    {
+      "name": "detect lint modules",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339872072/job/131605204219"
+    },
+    {
+      "name": "Test, type-check, and build",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871912/job/131605203751"
+    },
+    {
+      "name": "postgres-proof-and-race",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871917/job/131605203699"
+    },
+    {
+      "name": "Format, vet, test, and build",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871958/job/131605203632"
+    },
+    {
+      "name": "accounting",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871978/job/131605203543"
+    },
+    {
+      "name": "Docker multi-stage image",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871912/job/131605203479"
+    },
+    {
+      "name": "linux",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871970/job/131605203429"
+    },
+    {
+      "name": "Personal MCP authenticated concurrency and SSE isolation",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43339871978/job/131605203218"
+    }
+  ]
+}

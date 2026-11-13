@@ -1,0 +1,45 @@
+{
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "images": [
+    {
+      "service": "app",
+      "engine_image_id": "sha256:be78f5a3a2780fbee9561e7fcb9dc40b6444fcc53600b9376982a9914b6de551",
+      "raw_manifest_digest": "sha256:be78f5a3a2780fbee9561e7fcb9dc40b6444fcc53600b9376982a9914b6de551",
+      "raw_config_digest": "sha256:ab648e7dc5c20e42bb63888ef2039a76dd3a8c6554935eab44d00a32c54b8755",
+      "new_layer_bytes_verified": [
+        {
+          "descriptor": "sha256:704291dba3063b058a0a0a80d68b8ba4798d1e6f5ca91c9fa3dde4904b6275c2",
+          "diff_id": "sha256:f8f3030dc01540b6a6f5f8b3895918d4dd5df5829ec55d96f3f523b79d0f68dc"
+        },
+        {
+          "descriptor": "sha256:027d3a3630548bad1c3102a674a127de2264da7cb91c94e5b303ef02174e1a49",
+          "diff_id": "sha256:445c81997f4fed547e273a44cc14f2cb2ec8f50d4868707b0f8607f62753737a"
+        }
+      ],
+      "raw_config_verified": true,
+      "parent_layers_retained": true,
+      "runtime_configuration_retained": true,
+      "layers": 125,
+      "new_layers": 2
+    },
+    {
+      "service": "frontend",
+      "engine_image_id": "sha256:e2db8fa066c3147340c210de3420b667934bce1616f61f2dc2db87c9d7aed31e",
+      "raw_manifest_digest": "sha256:e2db8fa066c3147340c210de3420b667934bce1616f61f2dc2db87c9d7aed31e",
+      "raw_config_digest": "sha256:468759d2d1f9eb95915dc4f87a545f2ca2a51672817e6f270f718155862d583e",
+      "new_layer_bytes_verified": [
+        {
+          "descriptor": "sha256:ab3bf9684d4b159a9b1449c6f047f8af7e48a48c06defd39787232515b19d23d",
+          "diff_id": "sha256:a9063ff76224ec651005f6bda7076a81b5df8e4096fa36ba4d4b2649b21732c8"
+        }
+      ],
+      "raw_config_verified": true,
+      "parent_layers_retained": true,
+      "runtime_configuration_retained": true,
+      "layers": 22,
+      "new_layers": 1
+    }
+  ],
+  "registry_push_performed": false,
+  "production_switched": false
+}

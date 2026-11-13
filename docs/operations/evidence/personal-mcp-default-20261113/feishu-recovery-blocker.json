@@ -1,0 +1,19 @@
+{
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "trip": "automatic_permit_worker_lost",
+  "permit_present": false,
+  "workers": [
+    "38e16cc78868:1",
+    "7c5dbab8e5cc:1"
+  ],
+  "recovery": {
+    "phase": "frozen",
+    "worker_id": "7c5dbab8e5cc:1",
+    "expires_ms": 1794469981091,
+    "source_id": "867e5798-1c2b-4547-921d-d43132e3f275"
+  },
+  "formal_retirement_plan_rejected": "previous recovery is not an expired review state",
+  "retirement_executed": false,
+  "locks_removed": false,
+  "safety_guard_disabled": false
+}

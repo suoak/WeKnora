@@ -1,0 +1,31 @@
+{
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "client": "actual Codex app-server",
+  "model_generation": false,
+  "inventory": {
+    "knowhub_external": 12,
+    "knowhub_isolated": 8
+  },
+  "calls": [
+    {
+      "server": "knowhub_external",
+      "tool": "list_writable_knowledge_bases",
+      "success": true
+    },
+    {
+      "server": "knowhub_isolated",
+      "tool": "list_knowledge_bases",
+      "success": true
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "add_document",
+      "success": true
+    },
+    {
+      "server": "knowhub_external",
+      "tool": "upload_document",
+      "success": true
+    }
+  ]
+}

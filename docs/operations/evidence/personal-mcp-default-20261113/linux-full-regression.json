@@ -1,0 +1,6 @@
+{
+  "source": "81183a44da3800c0917ea7b2c39e2d58d228af04",
+  "exit": 0,
+  "test_network": "bridge",
+  "reason": "existing outbound URL validation tests require real public DNS; no SSRF validation bypass"
+}

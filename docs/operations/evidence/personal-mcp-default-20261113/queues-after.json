@@ -1,0 +1,119 @@
+{
+  "observed_utc": "2026-11-13T02:14:14.182992+00:00",
+  "production_changes": false,
+  "redis_database": "0",
+  "queues": [
+    {
+      "queue": "approved_sync",
+      "paused": true,
+      "pending": 4,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 89,
+      "completed": 0
+    },
+    {
+      "queue": "default",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 15,
+      "completed": 0
+    },
+    {
+      "queue": "low",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 0,
+      "completed": 0
+    },
+    {
+      "queue": "multimodal",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 0,
+      "completed": 0
+    },
+    {
+      "queue": "postprocess",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 0,
+      "completed": 0
+    },
+    {
+      "queue": "question",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 0,
+      "completed": 0
+    },
+    {
+      "queue": "summary",
+      "paused": false,
+      "pending": 0,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 1,
+      "archived": 182,
+      "completed": 0
+    },
+    {
+      "queue": "sync",
+      "paused": true,
+      "pending": 3,
+      "active": 0,
+      "scheduled": 0,
+      "retry": 0,
+      "archived": 0,
+      "completed": 0
+    },
+    {
+      "queue": "wiki",
+      "paused": false,
+      "pending": 0,
+      "active": 1,
+      "scheduled": 0,
+      "retry": 17,
+      "archived": 749,
+      "completed": 0
+    }
+  ],
+  "worker_servers": [
+    "asynq:servers:{38e16cc78868:1:0d8dbffa-84b7-4693-a93d-b994d07cda4b}",
+    "asynq:servers:{38e16cc78868:1:3d27cb47-141a-461a-a106-e90fde70adf0}",
+    "asynq:servers:{38e16cc78868:1:62eaec1c-ec47-4107-877f-fd8fd728f045}",
+    "asynq:servers:{38e16cc78868:1:78b0aadf-3883-4b41-9e79-e199d63012f5}",
+    "asynq:servers:{38e16cc78868:1:89358df8-4b1b-4428-ae99-c0b92a14aa8e}",
+    "asynq:servers:{38e16cc78868:1:92007c9e-c5a6-4403-b86a-0df6227a49af}"
+  ],
+  "wiki_states": [
+    {
+      "status": "archived",
+      "count": 395
+    },
+    {
+      "status": "draft",
+      "count": 557
+    },
+    {
+      "status": "published",
+      "count": 101157
+    }
+  ]
+}

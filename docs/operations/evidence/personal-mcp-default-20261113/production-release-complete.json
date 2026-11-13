@@ -1,0 +1,44 @@
+{
+  "pass": true,
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "runtime": {
+    "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+    "services": {
+      "app": {
+        "id": "38e16cc788681d0499953a81063eb50bd8b6dc378eb6a8b0044f532f39a8a41a",
+        "image": "sha256:be78f5a3a2780fbee9561e7fcb9dc40b6444fcc53600b9376982a9914b6de551",
+        "started": "2026-11-13T02:05:56.092425428Z",
+        "restart_count": 0
+      },
+      "frontend": {
+        "id": "680a57492433e3ad96513b8792ec3ee2321af6231b73d82a359f5b4c2df2d292",
+        "image": "sha256:e2db8fa066c3147340c210de3420b667934bce1616f61f2dc2db87c9d7aed31e",
+        "started": "2026-11-13T02:06:40.076912528Z",
+        "restart_count": 0
+      }
+    },
+    "database": {
+      "version": 3047,
+      "dirty": false,
+      "fence": "00bd6b7bbbb4ea41d51c0e7b2906e304"
+    },
+    "app_binary_sha256": "0c993cc57b5fb59aafe022488a8d118a405ec797ba5ae9e7e907d71565f5e7cd",
+    "runtime_controls_preserved": true,
+    "rollback_executed": false,
+    "rollback_scope": "current_attempt"
+  },
+  "enabled_current_keys": 0,
+  "qa_retired": true,
+  "actual_dual_entry_calls": true,
+  "production_schema": 3047,
+  "production_migration_executed": false,
+  "safety_locks_and_paused_sync_preserved": true,
+  "employee_external_status": "deferred by user",
+  "clamav": "deferred by user",
+  "attempt": 5,
+  "rollback_executed": false,
+  "current_attempt_rollback_executed": false,
+  "prior_controlled_rollbacks": 4,
+  "prior_rollback_reason": "harness scopes/names/retirement corrected; async retrieval readiness now bounded and verified",
+  "observed_utc": "2026-11-13T02:14:14.319523+00:00"
+}

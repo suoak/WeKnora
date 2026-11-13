@@ -1,0 +1,316 @@
+{
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "observed_utc": "2026-11-13T02:14:06.865616+00:00",
+  "checks": [
+    {
+      "name": "database-clean3047-before",
+      "pass": true
+    },
+    {
+      "name": "http80-twelve-tools",
+      "pass": true
+    },
+    {
+      "name": "tls8443-eight-read-tools",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-add_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-upload_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-get_document_processing_status",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-update_document",
+      "pass": true
+    },
+    {
+      "name": "8443-denies-delete_document",
+      "pass": true
+    },
+    {
+      "name": "writable-discovery-call",
+      "pass": true
+    },
+    {
+      "name": "writable-list-ownership-private-editor",
+      "pass": true
+    },
+    {
+      "name": "deny-same-space-other-owner",
+      "pass": true
+    },
+    {
+      "name": "file-deny-same-space-other-owner",
+      "pass": true
+    },
+    {
+      "name": "deny-other-private",
+      "pass": true
+    },
+    {
+      "name": "file-deny-other-private",
+      "pass": true
+    },
+    {
+      "name": "deny-viewer-share",
+      "pass": true
+    },
+    {
+      "name": "file-deny-viewer-share",
+      "pass": true
+    },
+    {
+      "name": "deny-portal-read-only",
+      "pass": true
+    },
+    {
+      "name": "file-deny-portal-read-only",
+      "pass": true
+    },
+    {
+      "name": "deny-fixed-scope",
+      "pass": true
+    },
+    {
+      "name": "file-deny-fixed-scope",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-write-other-owner-20",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-open-8443-21",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-write-other-owner-22",
+      "pass": true
+    },
+    {
+      "name": "forged-headers-cannot-open-8443-23",
+      "pass": true
+    },
+    {
+      "name": "reject-forged-tenant-body",
+      "pass": true
+    },
+    {
+      "name": "reject-url-import",
+      "pass": true
+    },
+    {
+      "name": "text-own",
+      "pass": true
+    },
+    {
+      "name": "text-private",
+      "pass": true
+    },
+    {
+      "name": "text-editor",
+      "pass": true
+    },
+    {
+      "name": "text-public-b",
+      "pass": true
+    },
+    {
+      "name": "different-key-processing-status-denied",
+      "pass": true
+    },
+    {
+      "name": "retrieve-only-owner-denied",
+      "pass": true
+    },
+    {
+      "name": "file-md",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-md",
+      "pass": true
+    },
+    {
+      "name": "file-pdf",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-pdf",
+      "pass": true
+    },
+    {
+      "name": "file-docx",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-docx",
+      "pass": true
+    },
+    {
+      "name": "file-xlsx",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-xlsx",
+      "pass": true
+    },
+    {
+      "name": "file-txt",
+      "pass": true
+    },
+    {
+      "name": "file-idempotent-txt",
+      "pass": true
+    },
+    {
+      "name": "concurrent-file-idempotency",
+      "pass": true
+    },
+    {
+      "name": "idempotency-payload-conflict-denied",
+      "pass": true
+    },
+    {
+      "name": "file-private",
+      "pass": true
+    },
+    {
+      "name": "file-editor",
+      "pass": true
+    },
+    {
+      "name": "editor-grant-revoked-immediately",
+      "pass": true
+    },
+    {
+      "name": "revoked-grant-replay-denied",
+      "pass": true
+    },
+    {
+      "name": "revoked-editor-file-replay-denied",
+      "pass": true
+    },
+    {
+      "name": "key-revoked-immediately",
+      "pass": true
+    },
+    {
+      "name": "local-account-disabled-immediately",
+      "pass": true
+    },
+    {
+      "name": "all-text-and-five-files-parsed",
+      "pass": true
+    },
+    {
+      "name": "portal-other-owner-public-content-readable",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-keyword",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-semantic",
+      "pass": true
+    },
+    {
+      "name": "real-mcp-search-hybrid",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-pdf",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-docx",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-xlsx",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-txt",
+      "pass": true
+    },
+    {
+      "name": "uploaded-file-searchable-md",
+      "pass": true
+    },
+    {
+      "name": "database-real-chunks-and-vectors",
+      "pass": true
+    },
+    {
+      "name": "write-audit-records",
+      "pass": true
+    },
+    {
+      "name": "database-clean3047-after",
+      "pass": true
+    }
+  ],
+  "documents": [
+    {
+      "id": "d624b46a-c1cc-535f-97df-a61a4fc3ebda",
+      "kind": "codex-add_document"
+    },
+    {
+      "id": "2c754e28-42b3-5cc9-b89b-2ce879dd5337",
+      "kind": "codex-upload_document"
+    },
+    {
+      "id": "0bab0675-78db-5304-aff8-7df44191b646",
+      "kind": "text-own"
+    },
+    {
+      "id": "7b0b7fc8-d762-5e0b-a4b0-acbd9099b477",
+      "kind": "text-private"
+    },
+    {
+      "id": "5e17ce45-6273-50d1-9cd4-93306f9f3ad5",
+      "kind": "text-editor"
+    },
+    {
+      "id": "5b493a34-1fdd-57c2-8caa-67a14b3fedfe",
+      "kind": "text-public-b"
+    },
+    {
+      "id": "6691b204-684c-5f4e-8916-1f4ff98d449e",
+      "kind": "file-md"
+    },
+    {
+      "id": "8ac82387-bfd5-5db0-94bf-9a4df28afa9a",
+      "kind": "file-pdf"
+    },
+    {
+      "id": "082247a5-f9e6-5077-ae78-1ea57cc0b5ca",
+      "kind": "file-docx"
+    },
+    {
+      "id": "0627e422-3b4d-593d-8b47-9bbf7f1cce0e",
+      "kind": "file-xlsx"
+    },
+    {
+      "id": "06fcadef-5910-5269-91cb-7d953536f22d",
+      "kind": "file-txt"
+    },
+    {
+      "id": "37d4a911-5c77-5227-9fe1-07e87c02b75e",
+      "kind": "file-private"
+    },
+    {
+      "id": "063510f2-3dbf-5795-b4a3-4e718d16ef60",
+      "kind": "file-editor"
+    }
+  ]
+}

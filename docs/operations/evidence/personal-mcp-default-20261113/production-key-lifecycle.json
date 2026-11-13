@@ -1,0 +1,169 @@
+{
+  "pass": true,
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "checks": [
+    {
+      "name": "real-operator-session",
+      "pass": true
+    },
+    {
+      "name": "create-omitted",
+      "pass": true,
+      "http_status": 201,
+      "key_id": 130
+    },
+    {
+      "name": "persisted-builtins-without-full-access-omitted",
+      "pass": true
+    },
+    {
+      "name": "new-key-twelve-tools-omitted",
+      "pass": true
+    },
+    {
+      "name": "same-key-isolated-eight-omitted",
+      "pass": true
+    },
+    {
+      "name": "patch-empty-keeps-builtins-omitted",
+      "pass": true
+    },
+    {
+      "name": "patch-optional-preserved-omitted",
+      "pass": true
+    },
+    {
+      "name": "put-cannot-remove-builtins-omitted",
+      "pass": true
+    },
+    {
+      "name": "rotate-keeps-builtins-omitted",
+      "pass": true
+    },
+    {
+      "name": "old-secret-rejected-omitted",
+      "pass": true
+    },
+    {
+      "name": "rotated-secret-twelve-tools-omitted",
+      "pass": true
+    },
+    {
+      "name": "temporary-key-revoked-omitted",
+      "pass": true
+    },
+    {
+      "name": "revocation-immediate-omitted",
+      "pass": true
+    },
+    {
+      "name": "create-empty",
+      "pass": true,
+      "http_status": 201,
+      "key_id": 131
+    },
+    {
+      "name": "persisted-builtins-without-full-access-empty",
+      "pass": true
+    },
+    {
+      "name": "new-key-twelve-tools-empty",
+      "pass": true
+    },
+    {
+      "name": "same-key-isolated-eight-empty",
+      "pass": true
+    },
+    {
+      "name": "patch-empty-keeps-builtins-empty",
+      "pass": true
+    },
+    {
+      "name": "patch-optional-preserved-empty",
+      "pass": true
+    },
+    {
+      "name": "put-cannot-remove-builtins-empty",
+      "pass": true
+    },
+    {
+      "name": "rotate-keeps-builtins-empty",
+      "pass": true
+    },
+    {
+      "name": "old-secret-rejected-empty",
+      "pass": true
+    },
+    {
+      "name": "rotated-secret-twelve-tools-empty",
+      "pass": true
+    },
+    {
+      "name": "temporary-key-revoked-empty",
+      "pass": true
+    },
+    {
+      "name": "revocation-immediate-empty",
+      "pass": true
+    },
+    {
+      "name": "create-retrieve",
+      "pass": true,
+      "http_status": 201,
+      "key_id": 132
+    },
+    {
+      "name": "persisted-builtins-without-full-access-retrieve",
+      "pass": true
+    },
+    {
+      "name": "new-key-twelve-tools-retrieve",
+      "pass": true
+    },
+    {
+      "name": "same-key-isolated-eight-retrieve",
+      "pass": true
+    },
+    {
+      "name": "patch-empty-keeps-builtins-retrieve",
+      "pass": true
+    },
+    {
+      "name": "patch-optional-preserved-retrieve",
+      "pass": true
+    },
+    {
+      "name": "put-cannot-remove-builtins-retrieve",
+      "pass": true
+    },
+    {
+      "name": "rotate-keeps-builtins-retrieve",
+      "pass": true
+    },
+    {
+      "name": "old-secret-rejected-retrieve",
+      "pass": true
+    },
+    {
+      "name": "rotated-secret-twelve-tools-retrieve",
+      "pass": true
+    },
+    {
+      "name": "temporary-key-revoked-retrieve",
+      "pass": true
+    },
+    {
+      "name": "revocation-immediate-retrieve",
+      "pass": true
+    }
+  ],
+  "temporary_key_ids": [
+    130,
+    131,
+    132
+  ],
+  "temporary_keys_revoked": true,
+  "identity_invented": false,
+  "secrets_exported": false,
+  "observed_utc": "2026-11-13T02:14:08.486602+00:00"
+}

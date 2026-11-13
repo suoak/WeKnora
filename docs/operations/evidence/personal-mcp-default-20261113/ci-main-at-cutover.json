@@ -1,0 +1,107 @@
+{
+  "main": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "checks": [
+    {
+      "name": "Docker image and production startup smoke",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422598/job/131616315958"
+    },
+    {
+      "name": "build-app",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422369/job/131613724985"
+    },
+    {
+      "name": "build-ui",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422369/job/131613723407"
+    },
+    {
+      "name": "merge",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422369/job/131613675374"
+    },
+    {
+      "name": "build-docreader",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422369/job/131613674917"
+    },
+    {
+      "name": "build-sandbox",
+      "status": "completed",
+      "conclusion": "skipped",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422369/job/131613674277"
+    },
+    {
+      "name": "warm lint cache (.)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422535/job/131613671645"
+    },
+    {
+      "name": "warm lint cache (cli)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422535/job/131613671536"
+    },
+    {
+      "name": "warm lint cache (client)",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422535/job/131613671199"
+    },
+    {
+      "name": "Docker multi-stage image",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422478/job/131613669816"
+    },
+    {
+      "name": "Format, vet, test, and build",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422598/job/131613669627"
+    },
+    {
+      "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422382/job/131613669380"
+    },
+    {
+      "name": "M1 Linux backend and MCP compatibility",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422382/job/131613669303"
+    },
+    {
+      "name": "Test, type-check, and build",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422478/job/131613669205"
+    },
+    {
+      "name": "Portal contracts, RBAC, race, and branding",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422382/job/131613668955"
+    },
+    {
+      "name": "Personal MCP authenticated concurrency and SSE isolation",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422388/job/131613668701"
+    },
+    {
+      "name": "accounting",
+      "status": "completed",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/43342422388/job/131613668405"
+    }
+  ]
+}

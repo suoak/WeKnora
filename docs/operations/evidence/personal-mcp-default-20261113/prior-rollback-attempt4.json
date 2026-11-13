@@ -1,0 +1,28 @@
+{
+  "status": "rolled_back",
+  "reason": "operator-controlled release rollback",
+  "main_candidate": "224da1f4dd557cad9615945f08bee8379aff31be",
+  "restored": {
+    "app": {
+      "id": "029a708a7df113e25386f1e8d906d61ad924b3273669ec9fabd5a4f9d0878dff",
+      "image": "sha256:453b855d2a97052a7ac593fb05991e570c6fd505e927d3e80df6f6f9c0d6c97b",
+      "started": "2026-11-13T02:01:26.519694932Z",
+      "restart_count": 0
+    },
+    "frontend": {
+      "id": "43daa7724690cb655de67676b070ec6c7332a1182ff04431c26edc64586509dd",
+      "image": "sha256:e20ddd2487d42e5f28d4829e2e42aeea54af797e7c21d6e1d96ebbe59e69c370",
+      "started": "2026-11-13T02:01:32.306799222Z",
+      "restart_count": 0
+    }
+  },
+  "database": {
+    "version": 3047,
+    "dirty": false,
+    "fence": "00bd6b7bbbb4ea41d51c0e7b2906e304"
+  },
+  "database_version_modified": false,
+  "queues_cleared": false,
+  "safety_locks_released": false,
+  "observed_utc": "2026-11-13T02:01:33.134348+00:00"
+}
