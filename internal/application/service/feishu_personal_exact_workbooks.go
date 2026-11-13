@@ -338,7 +338,8 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 		canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
 		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
 			canonicalErr != nil || canonical != ref ||
-			kind != "" && kind != "s" && kind != "inlineStr" && kind != "n" && kind != "b" {
+			kind != "" && kind != "s" && kind != "inlineStr" &&
+				kind != "str" && kind != "n" && kind != "b" {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
 		cells[ref] = true

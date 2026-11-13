@@ -43,8 +43,8 @@ func CanonicalDOCXDigest(content []byte) (string, string, error) {
 }
 
 // CanonicalDOCXSnapshotDigest compares fresh exports while preserving stored
-// v1/v2 identities. Only unique embedded content-type declaration order is
-// additionally normalized; cells, widths and all other embedded bytes bind.
+// v1/v2 identities. Embedded content-type declaration order and fully resolved
+// style index allocation normalize; cells, widths and actual styles bind.
 func CanonicalDOCXSnapshotDigest(content []byte) (string, string, error) {
 	return canonicalDOCXDigest(content, true)
 }
@@ -169,7 +169,7 @@ func canonicalDOCXDigest(content []byte, snapshot bool) (string, string, error) 
 	}
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Name < parts[j].Name })
 	if snapshot {
-		identityAlgorithm = "feishu-docx-snapshot-v1"
+		identityAlgorithm = "feishu-docx-snapshot-v2"
 	}
 	identity, _ := json.Marshal(struct {
 		Algorithm string
