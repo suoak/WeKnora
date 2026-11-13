@@ -31,7 +31,7 @@ func TestDOCXSnapshotEmbeddedDeclarationOrder(t *testing.T) {
 	require.NoError(t, err)
 	two, _, err := CanonicalDOCXSnapshotDigest(second)
 	require.NoError(t, err)
-	require.Equal(t, "feishu-docx-snapshot-v1", algorithm)
+	require.Equal(t, "feishu-docx-snapshot-v2", algorithm)
 	require.Equal(t, one, two)
 	changed, _, err := CanonicalDOCXSnapshotDigest(pack(b+a, true))
 	require.NoError(t, err)

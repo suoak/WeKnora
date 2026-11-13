@@ -35,6 +35,7 @@ func embeddedXLSXSnapshotIdentity(content []byte, expanded *uint64, snapshot boo
 		"xl/workbook.xml": {Space: spreadsheetNS, Local: "workbook"},
 	}
 	var parts []partDigest
+	snapshotParts := map[string][]byte{}
 	for _, entry := range z.File {
 		name := entry.Name
 		clean := strings.TrimSuffix(name, "/")
@@ -85,9 +86,24 @@ func embeddedXLSXSnapshotIdentity(content []byte, expanded *uint64, snapshot boo
 			body = canonical.Bytes()
 		}
 		parts = append(parts, partDigest{Name: name, SHA256: sum(body)})
+		if snapshot && (name == "xl/styles.xml" || strings.HasPrefix(name, "xl/worksheets/") &&
+			strings.HasSuffix(name, ".xml")) {
+			snapshotParts[name] = body
+		}
 	}
 	if len(required) != 0 {
 		return nil, ErrInvalidPackage
+	}
+	if snapshot {
+		canonical, err := normalizeEmbeddedStyleIndexes(snapshotParts)
+		if err != nil {
+			return nil, err
+		}
+		for i, part := range parts {
+			if body, ok := canonical[part.Name]; ok {
+				parts[i].SHA256 = sum(body)
+			}
+		}
 	}
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Name < parts[j].Name })
 	identity, err := json.Marshal(struct {
