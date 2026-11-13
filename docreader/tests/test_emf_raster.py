@@ -1,7 +1,9 @@
 import struct
 import unittest
+import io
 
-from docreader.parser.emf_raster import validate_emf
+from PIL import Image
+from docreader.parser.emf_raster import crop_rendered_emf, validate_emf
 
 
 def emf_fixture():
@@ -13,6 +15,25 @@ def emf_fixture():
 
 
 class EMFValidationTest(unittest.TestCase):
+    def test_remove_only_surrounding_white_canvas(self):
+        image = Image.new("RGB", (100, 100), "white")
+        image.paste("black", (30, 40, 60, 70))
+        raw = io.BytesIO()
+        image.save(raw, format="PNG")
+        cropped = Image.open(io.BytesIO(crop_rendered_emf(raw.getvalue())))
+        self.assertEqual(cropped.size, (46, 46))
+        self.assertEqual(cropped.getpixel((8, 8)), (0, 0, 0))
+
+    def test_blank_or_page_edge_content_is_refused(self):
+        for box in [None, (0, 0, 20, 20)]:
+            image = Image.new("RGB", (100, 100), "white")
+            if box:
+                image.paste("black", box)
+            raw = io.BytesIO()
+            image.save(raw, format="PNG")
+            with self.assertRaises(ValueError):
+                crop_rendered_emf(raw.getvalue())
+
     def test_complete_bounded_records(self):
         validate_emf(emf_fixture())
 

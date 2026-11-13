@@ -17,6 +17,9 @@ The EMF reader bounds input bytes, declared dimensions and record count, walks
 every complete record through EOF, uses an isolated LibreOffice profile and the
 existing process-group timeout executor, then validates output PNG bytes,
 dimensions and integrity. The APP validates the returned image again.
+Use the documented [PNG export pixel parameters](https://help.libreoffice.org/latest/en-US/text/shared/guide/graphic_export_params.html)
+for a bounded higher-resolution canvas. Remove only its surrounding white page,
+preserving every rendered mark with a margin; empty or edge-clipped output fails.
 No source file is edited and no image failure becomes a silent text-only import.
 
 Validation includes synthetic malformed/truncated input and raster tests,

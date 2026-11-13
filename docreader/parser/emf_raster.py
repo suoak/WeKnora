@@ -6,7 +6,7 @@ import struct
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from PIL import Image, ImageChops
 
 
 def validate_emf(data: bytes) -> None:
@@ -54,14 +54,33 @@ def rasterize_emf(data: bytes) -> bytes:
         source.write_bytes(data)
         _, _, status = SandboxExecutor(default_timeout=30).execute_in_sandbox([
             soffice, "-env:UserInstallation=" + (root / "profile").as_uri(),
-            "--headless", "--convert-to", "png", "--outdir", directory, str(source),
+            "--headless", "--convert-to",
+            'png:draw_png_Export:{"PixelWidth":{"type":"long","value":"2048"},'
+            '"PixelHeight":{"type":"long","value":"2896"}}',
+            "--outdir", directory, str(source),
         ])
         if status != 0 or not output.is_file() or not 0 < output.stat().st_size <= 32 << 20:
             raise ValueError("EMF rasterization failed")
-        png = output.read_bytes()
-        with Image.open(io.BytesIO(png)) as image:
-            width, height = image.size
-            if image.format != "PNG" or width <= 0 or height <= 0 or width * height > 16 << 20:
-                raise ValueError("Rendered EMF image outside supported bounds")
-            image.verify()
-        return png
+        return crop_rendered_emf(output.read_bytes())
+
+
+def crop_rendered_emf(png: bytes) -> bytes:
+    """Remove the renderer's surrounding white page, preserving every mark."""
+    with Image.open(io.BytesIO(png)) as image:
+        width, height = image.size
+        if image.format != "PNG" or width <= 0 or height <= 0 or width * height > 16 << 20:
+            raise ValueError("Rendered EMF image outside supported bounds")
+        image.verify()
+    with Image.open(io.BytesIO(png)) as image:
+        rgb = image.convert("RGB")
+        bounds = ImageChops.difference(rgb, Image.new("RGB", rgb.size, "white")).getbbox()
+        if bounds is None or bounds[0] == 0 or bounds[1] == 0 or bounds[2] == width or bounds[3] == height:
+            raise ValueError("Rendered EMF is empty or potentially clipped")
+        left, top, right, bottom = bounds
+        crop = rgb.crop((max(0, left - 8), max(0, top - 8), min(width, right + 8), min(height, bottom + 8)))
+        buffer = io.BytesIO()
+        crop.save(buffer, format="PNG")
+        result = buffer.getvalue()
+        if len(result) > 32 << 20:
+            raise ValueError("Rendered EMF image exceeds byte limit")
+        return result
