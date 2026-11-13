@@ -12,6 +12,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/models/api"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -46,10 +47,11 @@ func vlmHTTPTimeout() time.Duration {
 // dialect (max_tokens field, sampling restrictions, protocol) is resolved
 // exactly like it is for chat models.
 type RemoteAPIVLM struct {
-	modelName   string
-	modelID     string
-	chat        chat.Chat
-	temperature float64
+	modelName     string
+	modelID       string
+	chat          chat.Chat
+	temperature   float64
+	structuredOCR bool
 }
 
 // NewRemoteAPIVLM creates a remote-API backed VLM instance.
@@ -71,7 +73,7 @@ func NewRemoteAPIVLM(config *Config) (*RemoteAPIVLM, error) {
 		}
 	}
 
-	client, err := chat.NewRemoteChat(&chat.ChatConfig{
+	chatConfig := &chat.ChatConfig{
 		Source:        types.ModelSourceRemote,
 		BaseURL:       config.BaseURL,
 		ModelName:     config.ModelName,
@@ -83,20 +85,27 @@ func NewRemoteAPIVLM(config *Config) (*RemoteAPIVLM, error) {
 		AppID:         config.AppID,
 		AppSecret:     config.AppSecret,
 		Spec:          config.Spec,
-	})
+	}
+	resolved, err := chat.Resolve(chatConfig)
+	if err != nil {
+		return nil, err
+	}
+	client, err := chat.NewRemoteChat(chatConfig)
 	if err != nil {
 		return nil, err
 	}
 	return &RemoteAPIVLM{
-		modelName:   config.ModelName,
-		modelID:     config.ModelID,
-		chat:        client,
-		temperature: temp,
+		modelName:     config.ModelName,
+		modelID:       config.ModelID,
+		chat:          client,
+		temperature:   temp,
+		structuredOCR: resolved.API == api.APIOpenAICompletions && resolved.OpenAICompletions.SupportsResponseFormat,
 	}, nil
 }
 
 // Predict sends images with a text prompt through the chat client.
 func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, prompt string) (string, error) {
+	structured := false
 	parts := []chat.MessageContentPart{{Type: "text", Text: prompt}}
 	totalImageSize := 0
 	for _, imgBytes := range imgBytesList {
@@ -136,6 +145,14 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 			defaultMaxToks, extractionMaxToks)
 		retry := *opts
 		retry.MaxTokens = extractionMaxToks
+		if v.structuredOCR && isOCRExtraction(ctx) {
+			// A complete structured transcription can stop terminal-history
+			// continuation loops. Keep successful ordinary OCR unchanged, and
+			// discard the entire truncated first attempt before this retry.
+			structured = true
+			retry.Format = structuredOCRSchema
+			parts[0].Text = structuredOCRPrompt
+		}
 		resp, err = v.chat.Chat(ctx, []chat.Message{{Role: "user", MultiContent: parts}}, &retry)
 		if err != nil {
 			return "", fmt.Errorf("VLM extraction retry: %w", err)
@@ -154,6 +171,12 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 		)
 	}
 	logger.Infof(ctx, "[VLM] response received, len=%d", len(content))
+	if structured {
+		if resp.FinishReason != "stop" {
+			return "", fmt.Errorf("structured OCR did not complete (finish_reason=%s)", resp.FinishReason)
+		}
+		return decodeStructuredOCR(content)
+	}
 	return content, nil
 }
 
