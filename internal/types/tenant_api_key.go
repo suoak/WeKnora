@@ -325,6 +325,15 @@ func NormalizeAPIKeyCapabilities(in StringArray) StringArray {
 	return out
 }
 
+// WithPersonalMCPBuiltinCapabilities adds the fixed Personal MCP capabilities.
+// Call only when persisting a user_mcp key, never when authorizing a request:
+// an old stored credential must not gain permissions through a read-time default.
+func WithPersonalMCPBuiltinCapabilities(in StringArray) StringArray {
+	capabilities := append(StringArray(nil), in...)
+	capabilities = append(capabilities, string(APIKeyCapabilityRetrieve), string(APIKeyCapabilityAddContent))
+	return NormalizeAPIKeyCapabilities(capabilities)
+}
+
 func (k *TenantAPIKey) BeforeSave(tx *gorm.DB) error {
 	if key := utils.GetAESKey(); key != nil && k.APIKey != "" {
 		encrypted, err := utils.EncryptAESGCM(k.APIKey, key)

@@ -31,6 +31,8 @@ type userMCPTenantScopeRequest struct {
 	KnowledgeBases []userMCPKBRequest      `json:"knowledge_bases"`
 }
 type userMCPKeyRequest struct {
+	// Optional selections cannot remove retrieve/add_content; the service
+	// normalizes every create/PUT/PATCH and persistence also fences rotation.
 	PersonalScopeMode string                      `json:"personal_scope_mode"`
 	Name              string                      `json:"name"`
 	ClientType        types.MCPClientType         `json:"client_type"`

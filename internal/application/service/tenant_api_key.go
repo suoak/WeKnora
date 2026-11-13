@@ -44,7 +44,7 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 		return nil, errors.New("invalid personal scope mode")
 	}
 	if mode == "dynamic_all" && (scopeType != types.APIKeyScopeUserMCP || req.FullAccess) {
-		return nil, errors.New("dynamic scope requires a real personal read-only key")
+		return nil, errors.New("dynamic scope requires a real personal key without FullAccess")
 	}
 	if mode == "dynamic_all" {
 		for _, scope := range req.TenantScopes {
@@ -66,9 +66,8 @@ func (s *tenantAPIKeyService) CreateAPIKey(
 	capabilities := types.NormalizeAPIKeyCapabilities(types.StringArray(req.Capabilities))
 	var err error
 	if scopeType == types.APIKeyScopeUserMCP {
-		// User-owned MCP credentials remain bounded to the Phase 1 read-only
-		// capability set. Keep this invariant below the HTTP handler so future
-		// callers cannot elevate it.
+		// Personal capabilities are fixed below HTTP so every client gets the
+		// same bounded tools. Actual content writes still require live KB grants.
 		req.FullAccess = false
 		req.KnowledgeBaseIDs = nil
 		capabilities, err = normalizeUserMCPCapabilities(req.Capabilities, true)
@@ -189,6 +188,9 @@ func (s *tenantAPIKeyService) RotateUserMCPAPIKey(ctx context.Context, userID st
 		if !expiresAt.After(now) {
 			return nil, errors.New("expired credentials require a new future expiry or never_expires=true")
 		}
+	}
+	if _, err := normalizeUserMCPCapabilities([]string(current.Capabilities), false); err != nil {
+		return nil, err
 	}
 	token, err := generateTenantAPIKeyToken()
 	if err != nil {
@@ -379,7 +381,9 @@ func normalizeMCPClientTypeStrict(clientType types.MCPClientType) (types.MCPClie
 
 func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArray, error) {
 	if len(in) == 0 && useDefault {
-		return types.StringArray{string(types.APIKeyCapabilityRetrieve), string(types.APIKeyCapabilityChat)}, nil
+		return types.WithPersonalMCPBuiltinCapabilities(types.StringArray{
+			string(types.APIKeyCapabilityRetrieve), string(types.APIKeyCapabilityChat),
+		}), nil
 	}
 	normalized := types.NormalizeAPIKeyCapabilities(types.StringArray(in))
 	if len(normalized) != len(uniqueNonEmptyUserMCPCapabilities(in)) {
@@ -393,15 +397,7 @@ func normalizeUserMCPCapabilities(in []string, useDefault bool) (types.StringArr
 			return nil, errors.New("unsupported user_mcp capability")
 		}
 	}
-	if len(normalized) == 0 {
-		return nil, errors.New("at least one capability is required")
-	}
-	if (types.TenantAPIKeyScope{Capabilities: normalized}).HasCapability(types.APIKeyCapabilityEnterpriseRetrieve) {
-		if !(types.TenantAPIKeyScope{Capabilities: normalized}).HasCapability(types.APIKeyCapabilityRetrieve) {
-			return nil, errors.New("enterprise_retrieve requires retrieve")
-		}
-	}
-	return normalized, nil
+	return types.WithPersonalMCPBuiltinCapabilities(normalized), nil
 }
 
 func uniqueNonEmptyUserMCPCapabilities(in []string) map[string]struct{} {

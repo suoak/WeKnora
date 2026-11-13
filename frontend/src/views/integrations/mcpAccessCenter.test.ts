@@ -19,7 +19,7 @@ test('Access Center presents credentials as integrations rather than plaintext A
 })
 
 test('create flow defaults to least privilege and supports multi-space per-KB scope', () => {
-  assert.match(view, /ref<MCPCapability\[]>\(\['retrieve', 'chat'\]\)/)
+  assert.match(view, /ref<MCPCapability\[]>\(\['retrieve', 'chat', 'add_content'\]\)/)
   assert.doesNotMatch(view, /value: 'ingest'|value: 'manage_kbs'/)
   assert.match(view, /selectedTenantIds/)
   assert.match(view, /kb_scope_mode/)
@@ -35,9 +35,9 @@ test('frontend adapter uses M1 PATCH, rotate, revoke and scope-options contracts
 })
 
 test('owner can reopen encrypted Secret; legacy hash-only keys require explicit rotation', () => {
-  assert.match(view, /预览中的 Secret 已遮蔽/)
-  assert.match(view, /此 Key 的真实 Secret，无需手动替换/)
-  assert.match(view, /此 Key 未保存可恢复的 Secret/)
+  assert.match(view, /预览已隐藏密钥，复制配置时自动填入/)
+  assert.match(view, /请勿公开分享/)
+  assert.match(view, /此 Key 的密钥不可恢复/)
   assert.match(view, /重新生成 Secret/)
   assert.match(view, /旧 Secret 将立即失效/)
   assert.match(view, /rotateMCPAccessKey/)

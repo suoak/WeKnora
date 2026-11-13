@@ -15,7 +15,7 @@ export type PersonalKnowledgeRange = 'default' | 'selected'
 export function personalKnowledgeRangePayload(mode: PersonalKnowledgeRange, selections: Record<number, string[]>, options: MCPScopeOption[]): Pick<MCPKeyPayload, 'personal_scope_mode' | 'capabilities' | 'tenant_scopes'> {
   if (mode === 'default') {
     if (!options.length) throw new Error('当前没有可用的授权空间')
-    return { personal_scope_mode: 'dynamic_all', capabilities: ['retrieve', 'enterprise_retrieve'], tenant_scopes: options.map(option => ({ tenant_id: option.tenant_id, kb_scope_mode: 'all', knowledge_bases: [] })) }
+    return { personal_scope_mode: 'dynamic_all', capabilities: ['retrieve', 'enterprise_retrieve', 'add_content'], tenant_scopes: options.map(option => ({ tenant_id: option.tenant_id, kb_scope_mode: 'all', knowledge_bases: [] })) }
   }
   const scopes: MCPTenantScope[] = []
   for (const [tenant, values] of Object.entries(selections)) {
@@ -34,7 +34,7 @@ export function personalKnowledgeRangePayload(mode: PersonalKnowledgeRange, sele
     scopes.push({ tenant_id: option.tenant_id, kb_scope_mode: 'selected', knowledge_bases })
   }
   if (!scopes.length) throw new Error('请至少选择一个当前有权读取的知识库')
-  return { personal_scope_mode: 'fixed', capabilities: ['retrieve'], tenant_scopes: scopes }
+  return { personal_scope_mode: 'fixed', capabilities: ['retrieve', 'add_content'], tenant_scopes: scopes }
 }
 
 // An explicit update may add currently authorized spaces. Existing selected KB
