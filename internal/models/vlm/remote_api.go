@@ -23,7 +23,10 @@ const (
 	// can be raised further via VLM_HTTP_TIMEOUT_SECONDS.
 	defaultTimeout = 180 * time.Second
 	defaultMaxToks = 5000
-	defaultTemp    = float32(0.1)
+	// One bounded full retry for dense background extraction; partial text is
+	// discarded. Ordinary interactive VLM requests keep their existing budget.
+	extractionMaxToks = 20000
+	defaultTemp       = float32(0.1)
 )
 
 // vlmHTTPTimeout returns the HTTP client timeout for VLM requests, read from
@@ -128,6 +131,17 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 	if err != nil {
 		return "", fmt.Errorf("VLM request: %w", err)
 	}
+	if extraction && resp.FinishReason == "length" {
+		logger.Warnf(ctx, "[VLM] Extraction reached %d tokens; retrying once with budget=%d",
+			defaultMaxToks, extractionMaxToks)
+		retry := *opts
+		retry.MaxTokens = extractionMaxToks
+		resp, err = v.chat.Chat(ctx, []chat.Message{{Role: "user", MultiContent: parts}}, &retry)
+		if err != nil {
+			return "", fmt.Errorf("VLM extraction retry: %w", err)
+		}
+		opts = &retry
+	}
 	content := resp.Content
 	if resp.FinishReason == "length" && (extraction || strings.TrimSpace(content) == "") {
 		// Reasoning may exhaust the budget before visible output. Partial OCR
@@ -136,7 +150,7 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 		return "", fmt.Errorf(
 			"VLM completion truncated at %d tokens "+
 				"(finish_reason=length, visible_bytes=%d, reasoning_bytes=%d, completion_tokens=%d)",
-			defaultMaxToks, len(content), len(resp.ReasoningContent), resp.Usage.CompletionTokens,
+			opts.MaxTokens, len(content), len(resp.ReasoningContent), resp.Usage.CompletionTokens,
 		)
 	}
 	logger.Infof(ctx, "[VLM] response received, len=%d", len(content))
