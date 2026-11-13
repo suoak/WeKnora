@@ -12,6 +12,10 @@ test('environment switching preserves the Key, masks previews and copies the rig
   await chooseClient(page, 'Codex')
   const dialog = page.locator('.t-dialog:visible')
   await expect(dialog.getByRole('radio', { name: '云外地址', exact: true })).toBeChecked()
+  await expect(dialog.locator('.connection-environment')).toContainText('企业内网 · 查询与新增')
+  await expect(dialog.locator('.connection-environment')).toContainText('隔离· 仅查询')
+  await expect(dialog.locator('.connection-environment .t-alert')).toHaveCount(0)
+  await expect(dialog.locator('.connection-help')).not.toHaveAttribute('open')
   for (const client of ['Codex', 'Claude Code', 'GitHub Copilot', 'VS Code', 'WorkBuddy', 'Pi', '其他 MCP 客户端']) {
     if (client !== 'Codex') {
       await dialog.getByRole('button', { name: '更换客户端', exact: true }).click()

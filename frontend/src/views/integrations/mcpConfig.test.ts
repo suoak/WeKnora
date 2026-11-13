@@ -85,7 +85,7 @@ test('copies configuration and supports owner-authenticated encrypted Secret ret
   assert.match(accessKeysSource, /复制占位模板/)
   assert.match(accessKeysSource, /复制完整配置（含密钥）/)
   assert.match(accessKeysSource, /YOUR_MCP_KEY/)
-  assert.match(accessKeysSource, /预览中的 Secret 已遮蔽/)
+  assert.match(accessKeysSource, /预览已隐藏密钥，复制配置时自动填入/)
   assert.match(accessKeysSource, /revealMCPAccessKey\(key.id\)/)
   assert.doesNotMatch(accessKeysSource, /localStorage|sessionStorage|indexedDB/)
 })

@@ -43,7 +43,7 @@ func TestTenantAPIKeyServiceCreateAPIKeyUsesSKPrefix(t *testing.T) {
 	}
 }
 
-func TestTenantAPIKeyServiceUserMCPForcesReadOnlyCapabilities(t *testing.T) {
+func TestTenantAPIKeyServiceUserMCPForcesBoundedBuiltinCapabilities(t *testing.T) {
 	repo := newFakeTenantAPIKeyRepo()
 	svc := NewTenantAPIKeyService(repo)
 	result, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
@@ -62,7 +62,7 @@ func TestTenantAPIKeyServiceUserMCPForcesReadOnlyCapabilities(t *testing.T) {
 	if result.APIKey.FullAccess || len(result.APIKey.KnowledgeBaseIDs) != 0 {
 		t.Fatalf("user MCP key retained elevated scope: %#v", result.APIKey)
 	}
-	want := types.StringArray{"retrieve", "chat"}
+	want := types.StringArray{"retrieve", "chat", "add_content"}
 	if strings.Join(result.APIKey.Capabilities, ",") != strings.Join(want, ",") {
 		t.Fatalf("capabilities = %#v, want %#v", result.APIKey.Capabilities, want)
 	}
@@ -490,7 +490,7 @@ func TestTenantAPIKeyServiceUpdatesUserMCPCapabilitiesWithinAllowList(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got := strings.Join(updated.Capabilities, ","); got != "retrieve,read_agents" {
+	if got := strings.Join(updated.Capabilities, ","); got != "retrieve,read_agents,add_content" {
 		t.Fatalf("capabilities = %s", got)
 	}
 	_, err = userSvc.ReplaceUserMCPAPIKey(ctx, "user-1", &types.TenantAPIKey{

@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"time"
@@ -10,6 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/Tencent/WeKnora/internal/utils"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrTenantAPIKeyNotFound = errors.New("tenant api key not found")
@@ -24,6 +26,7 @@ func NewTenantAPIKeyRepository(db *gorm.DB) interfaces.TenantAPIKeyRepository {
 
 func (r *tenantAPIKeyRepository) CreateAPIKey(ctx context.Context, key *types.TenantAPIKey) error {
 	if key.IsUserMCP() {
+		key.Capabilities = types.WithPersonalMCPBuiltinCapabilities(key.Capabilities)
 		scopes := key.TenantScopes
 		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			key.TenantScopes = nil
@@ -166,6 +169,7 @@ func (r *tenantAPIKeyRepository) GetUserMCPTenantScope(ctx context.Context, keyI
 }
 
 func (r *tenantAPIKeyRepository) ReplaceUserMCPAPIKey(ctx context.Context, userID string, key *types.TenantAPIKey) (*types.TenantAPIKey, error) {
+	key.Capabilities = types.WithPersonalMCPBuiltinCapabilities(key.Capabilities)
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		res := tx.Model(&types.TenantAPIKey{}).Where("id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL", key.ID, userID, types.APIKeyScopeUserMCP).
 			Updates(map[string]any{
@@ -238,20 +242,39 @@ func (r *tenantAPIKeyRepository) RotateUserMCPAPIKey(
 			return nil, errors.New("MCP secret must be encrypted")
 		}
 	}
-	res := r.db.WithContext(ctx).Model(&types.TenantAPIKey{}).
-		Where("id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL AND key_hash=?",
-			id, userID, types.APIKeyScopeUserMCP, expectedHash).
-		Updates(map[string]any{
-			"key_hash":   newHash,
-			"token_hint": tokenHint,
-			"api_key":    secret,
-			"expires_at": expiresAt,
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// Lock the current row so rotating an old credential repairs its builtins
+		// atomically without overwriting concurrently edited optional capabilities.
+		where := "id=? AND owner_user_id=? AND scope_type=? AND revoked_at IS NULL AND key_hash=?"
+		args := []any{id, userID, types.APIKeyScopeUserMCP, expectedHash}
+		var current struct {
+			CapabilitiesJSON string `gorm:"column:capabilities"`
+		}
+		if err := tx.Table("tenant_api_keys").Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("capabilities").Where(where, args...).Take(&current).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return ErrTenantAPIKeyNotFound
+			}
+			return err
+		}
+		var capabilities types.StringArray
+		if err := json.Unmarshal([]byte(current.CapabilitiesJSON), &capabilities); err != nil {
+			return err
+		}
+		res := tx.Model(&types.TenantAPIKey{}).Where(where, args...).Updates(map[string]any{
+			"key_hash": newHash, "token_hint": tokenHint, "api_key": secret, "expires_at": expiresAt,
+			"capabilities": types.WithPersonalMCPBuiltinCapabilities(capabilities),
 		})
-	if res.Error != nil {
-		return nil, res.Error
-	}
-	if res.RowsAffected != 1 {
-		return nil, ErrTenantAPIKeyNotFound
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected != 1 {
+			return ErrTenantAPIKeyNotFound
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
 	}
 	return r.GetUserMCPAPIKey(ctx, userID, id)
 }

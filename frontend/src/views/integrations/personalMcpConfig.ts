@@ -37,7 +37,7 @@ export function personalCodexConfig(publicURL: string): string {
 
 // Browser-to-MCP protocol test, independent of an agent/LLM. No localStorage,
 // query-string credential, generic proxy or external model is involved.
-export async function testPersonalMcpConnection(url: string, token: string, fetcher = fetch): Promise<string[]> {
+export async function testPersonalMcpConnection(url: string, token: string, fetcher = fetch, environment: PersonalMcpEnvironment = 'intranet'): Promise<string[]> {
   const call = async (method: string, params: object, id: number) => {
     const response = await fetcher(url, { method: 'POST', credentials: 'omit', cache: 'no-store',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json', Accept: 'application/json, text/event-stream', 'MCP-Protocol-Version': '2025-03-26' },
@@ -54,6 +54,8 @@ export async function testPersonalMcpConnection(url: string, token: string, fetc
   await call('initialize', { protocolVersion: '2025-03-26', capabilities: {}, clientInfo: { name: 'knowhub-connection-check', version: '1' } }, 1)
   const result = await call('tools/list', {}, 2)
   const names = (result.tools || []).map((tool: { name: string }) => tool.name).sort()
-  if (JSON.stringify(names) !== JSON.stringify(['grep_chunks', 'list_documents', 'list_knowledge_bases', 'read_document', 'search_knowledge', 'wiki_index', 'wiki_read_page', 'wiki_search'])) throw new Error('只读工具范围与预期不一致')
+  const expected = ['grep_chunks', 'list_documents', 'list_knowledge_bases', 'read_document', 'search_knowledge', 'wiki_index', 'wiki_read_page', 'wiki_search']
+  if (environment === 'intranet') expected.push('list_writable_knowledge_bases', 'add_document', 'upload_document', 'get_document_processing_status')
+  if (JSON.stringify(names) !== JSON.stringify(expected.sort())) throw new Error(environment === 'isolated' ? '只读工具范围与预期不一致' : '云外知识查询和新增工具范围与预期不一致')
   return names
 }

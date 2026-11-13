@@ -1,4 +1,5 @@
 import { del, get, patch, post } from '@/utils/request'
+import { withPersonalMCPBuiltinCapabilities } from './personalMcpCapabilities'
 
 export type KBScopeMode = 'all' | 'selected'
 export type KBSourceType = 'owned' | 'shared'
@@ -39,6 +40,9 @@ export interface MCPAccessKey {
 export type MCPClientType = 'workbuddy' | 'workmate' | 'cursor' | 'codebuddy' | 'generic'
 export type MCPAccessStatus = 'active' | 'expired' | 'revoked'
 export type MCPCapability = 'retrieve' | 'chat' | 'read_agents' | 'enterprise_retrieve' | 'add_content'
+export type MCPOptionalCapability = Exclude<MCPCapability, 'retrieve' | 'add_content'>
+
+export { withPersonalMCPBuiltinCapabilities } from './personalMcpCapabilities'
 
 export interface KnowledgeBaseOption {
   id: string
@@ -91,8 +95,8 @@ export interface MCPKeyResponse<T> {
 }
 
 export const listMCPAccessKeys = () => get('/api/v1/mcp-api-keys') as Promise<MCPKeyResponse<MCPAccessKey[]>>
-export const createMCPAccessKey = (payload: MCPKeyPayload) => post('/api/v1/mcp-api-keys', payload) as Promise<MCPKeyResponse<MCPSecretResult>>
-export const updateMCPAccessKey = (id: number, payload: MCPKeyPatchPayload) => patch(`/api/v1/mcp-api-keys/${id}`, payload) as Promise<MCPKeyResponse<MCPAccessKey>>
+export const createMCPAccessKey = (payload: MCPKeyPayload) => post('/api/v1/mcp-api-keys', { ...payload, capabilities: withPersonalMCPBuiltinCapabilities(payload.capabilities) }) as Promise<MCPKeyResponse<MCPSecretResult>>
+export const updateMCPAccessKey = (id: number, payload: MCPKeyPatchPayload) => patch(`/api/v1/mcp-api-keys/${id}`, { ...payload, ...(payload.capabilities === undefined ? {} : { capabilities: withPersonalMCPBuiltinCapabilities(payload.capabilities) }) }) as Promise<MCPKeyResponse<MCPAccessKey>>
 export const rotateMCPAccessKey = (id: number, payload: MCPRotatePayload = {}) => post(`/api/v1/mcp-api-keys/${id}/rotate`, payload) as Promise<MCPKeyResponse<MCPSecretResult>>
 export const revealMCPAccessKey = (id: number) => post(`/api/v1/mcp-api-keys/${id}/reveal`, {}) as Promise<MCPKeyResponse<{ token: string }>>
 export const revokeMCPAccessKey = (id: number) => del(`/api/v1/mcp-api-keys/${id}`) as Promise<MCPKeyResponse<never>>

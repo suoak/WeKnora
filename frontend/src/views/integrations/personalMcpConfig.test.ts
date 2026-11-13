@@ -27,7 +27,21 @@ test('connection check actually initializes and verifies the exact read-only too
       : { tools: ['search_knowledge', 'list_knowledge_bases', 'list_documents', 'read_document', 'grep_chunks', 'wiki_search', 'wiki_read_page', 'wiki_index'].map(name => ({ name })) }
     return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }), { headers: { 'Content-Type': 'application/json' } })
   }) as typeof fetch
-  assert.equal((await testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', fetcher)).length, 8)
+  assert.equal((await testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', fetcher, 'isolated')).length, 8)
   assert.deepEqual(methods, ['initialize', 'tools/list'])
   await assert.rejects(testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', (async () => new Response('', { status: 401 })) as typeof fetch), /凭据/)
+})
+
+test('external discovery requires all builtins while the isolated entry rejects every added tool', async () => {
+  const read = ['search_knowledge', 'list_knowledge_bases', 'list_documents', 'read_document', 'grep_chunks', 'wiki_search', 'wiki_read_page', 'wiki_index']
+  const content = ['list_writable_knowledge_bases', 'add_document', 'upload_document', 'get_document_processing_status']
+  const discovery = (names: string[]) => (async (_url: string, init: RequestInit) => {
+    const request = JSON.parse(init.body as string)
+    const result = request.method === 'initialize' ? { protocolVersion: '2025-03-26' } : { tools: names.map(name => ({ name })) }
+    return new Response(JSON.stringify({ jsonrpc: '2.0', id: request.id, result }))
+  }) as typeof fetch
+  assert.equal((await testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', discovery([...read, ...content]))).length, 12)
+  await assert.rejects(testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', discovery(read)), /云外/)
+  await assert.rejects(testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', discovery([...read, ...content]), 'isolated'), /只读/)
+  await assert.rejects(testPersonalMcpConnection('https://example.invalid/mcp', 'synthetic-token', discovery([...read, ...content, 'delete_document'])), /云外/)
 })

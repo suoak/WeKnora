@@ -51,11 +51,11 @@ test('default range preserves dynamic authorization and selected range never gai
   const snapshot = structuredClone(rangeOptions)
   const defaults = personalKnowledgeRangePayload('default', {}, rangeOptions)
   assert.equal(defaults.personal_scope_mode, 'dynamic_all')
-  assert.deepEqual(defaults.capabilities, ['retrieve', 'enterprise_retrieve'])
+  assert.deepEqual(defaults.capabilities, ['retrieve', 'enterprise_retrieve', 'add_content'])
   assert.equal(defaults.tenant_scopes.length, 2)
   const selected = personalKnowledgeRangePayload('selected', { 1: ['owned:private-one', 'shared:shared-one:share-one', 'owned:private-one'] }, rangeOptions)
   assert.equal(selected.personal_scope_mode, 'fixed')
-  assert.deepEqual(selected.capabilities, ['retrieve'])
+  assert.deepEqual(selected.capabilities, ['retrieve', 'add_content'])
   assert.deepEqual(selected.tenant_scopes, [{ tenant_id: 1, kb_scope_mode: 'selected', knowledge_bases: [{ knowledge_base_id: 'private-one', source_type: 'owned' }, { knowledge_base_id: 'shared-one', source_type: 'shared', kb_share_id: 'share-one' }] }])
   assert.deepEqual(rangeOptions, snapshot)
 })
@@ -69,8 +69,17 @@ test('empty, public-only, foreign and stale selections cannot become all knowled
 })
 
 
-test('content creation opt-in preserves personal presentation without becoming generic ingest', () => {
+test('builtin content creation preserves personal presentation without becoming generic ingest', () => {
   assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', client_type: 'generic', capabilities: ['retrieve', 'add_content'] }), true)
   assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', capabilities: ['retrieve', 'enterprise_retrieve', 'add_content'] }), true)
   assert.equal(isUnifiedPersonalKey({ scope_type: 'user_mcp', capabilities: ['retrieve', 'ingest'] as any }), false)
+})
+
+test('personal content capability is fixed and the isolated entry remains read-only', () => {
+  const view = readFileSync(new URL('./MCPAccessKeys.vue', import.meta.url), 'utf8')
+  assert.doesNotMatch(view, /setContentCapability|允许新增内容|toggleCapability\('add_content'/)
+  assert.match(view, /支持新增知识和上传文档/)
+  assert.match(view, /仅限本人当前有编辑权限的知识库/)
+  assert.match(view, /云内地址仅支持查询和读取/)
+  assert.match(view, /connectionEnvironment.value\)/)
 })
