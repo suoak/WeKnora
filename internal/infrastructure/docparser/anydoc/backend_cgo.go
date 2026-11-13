@@ -4,7 +4,6 @@ package anydoc
 
 import (
 	"fmt"
-	"mime"
 	"strings"
 
 	upstream "github.com/firecrawl/anydoc/go"
@@ -200,11 +199,7 @@ func extensionFor(mediaType string) string {
 	case "image/svg+xml":
 		return ".svg"
 	}
-	// Anything else (EMF/WMF drawings, unknown object payloads) keeps
-	// whatever extension the media type registry knows, and .bin otherwise,
-	// so downstream storage never writes an extension-less blob.
-	if exts, err := mime.ExtensionsByType(mediaType); err == nil && len(exts) > 0 {
-		return exts[0]
-	}
+	// The native serializer names unknown formats .bin. Host MIME registry
+	// guesses (e.g. .emf) must not detach these bytes from their placements.
 	return ".bin"
 }
