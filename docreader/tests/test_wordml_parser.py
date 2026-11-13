@@ -60,6 +60,7 @@ class WordMLCoverageTests(unittest.TestCase):
             self.source.replace(b"</w:body>", b"<w:object/></w:body>"),
             self.source.replace(b"</w:body>", b"<w:hdr><w:t>header</w:t></w:hdr></w:body>"),
             b'<!DOCTYPE a [<!ENTITY b "x">]>' + self.source,
+            ('<!DOCTYPE a [<!ENTITY b "x">]>' + self.source.decode()).encode('utf-16'),
         ):
             with self.assertRaises(ValueError):
                 source_manifest(source)

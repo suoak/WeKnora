@@ -29,9 +29,15 @@ MAX_BYTES = 8 << 20
 
 
 def parse_xml(raw: bytes):
-    if not raw or len(raw) > MAX_BYTES or b"<!DOCTYPE" in raw.upper() or b"<!ENTITY" in raw.upper():
+    if not raw or len(raw) > MAX_BYTES:
         raise ValueError("WordML XML outside supported bounds")
-    root = ET.fromstring(raw)
+    text = raw.decode("utf-8-sig")
+    declared = re.search(r'<\?xml[^>]*encoding\s*=\s*[\'"]([^\'"]+)', text[:256], re.IGNORECASE)
+    if "\x00" in text or "<!DOCTYPE" in text.upper() or "<!ENTITY" in text.upper() or (
+        declared is not None and declared[1].lower() not in ("utf-8", "utf8")
+    ):
+        raise ValueError("WordML XML declaration outside supported bounds")
+    root = ET.fromstring(text)
     stack = [(root, 0)]
     count = 0
     while stack:
