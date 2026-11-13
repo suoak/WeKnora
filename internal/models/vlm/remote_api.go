@@ -151,6 +151,9 @@ func (v *RemoteAPIVLM) Predict(ctx context.Context, imgBytesList [][]byte, promp
 			// discard the entire truncated first attempt before this retry.
 			structured = true
 			retry.Format = structuredOCRSchema
+			// Very low sampling can repeat terminal prompts indefinitely. A
+			// complete retry must escape that loop instead of extending it.
+			retry.Temperature = max(retry.Temperature, 1.0)
 			parts[0].Text = structuredOCRPrompt
 		}
 		resp, err = v.chat.Chat(ctx, []chat.Message{{Role: "user", MultiContent: parts}}, &retry)
