@@ -18,6 +18,10 @@ import (
 // serialization, relationships and all binary parts remain byte-for-byte bound.
 // Expansion shares the outer DOCX budget; nested workbook assets stay opaque.
 func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
+	return embeddedXLSXSnapshotIdentity(content, expanded, false)
+}
+
+func embeddedXLSXSnapshotIdentity(content []byte, expanded *uint64, snapshot bool) ([]byte, error) {
 	z, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil || len(z.File) == 0 || len(z.File) > 4096 {
 		return nil, ErrInvalidPackage
@@ -72,6 +76,13 @@ func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
 				}
 				delete(required, name)
 			}
+		}
+		if snapshot && name == "[Content_Types].xml" {
+			var canonical bytes.Buffer
+			if err := writeSnapshotContentTypes(bytes.NewReader(body), &canonical); err != nil {
+				return nil, ErrInvalidPackage
+			}
+			body = canonical.Bytes()
 		}
 		parts = append(parts, partDigest{Name: name, SHA256: sum(body)})
 	}

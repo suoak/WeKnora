@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
@@ -107,6 +108,23 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 		return err
 	}
 	if !legacyIdentityEqual(first, second) {
+		if kind := original.Metadata["obj_type"]; kind == "docx" || kind == "sheet" || kind == "bitable" {
+			digest := feishudocx.CanonicalXLSXSnapshotDigest
+			if kind == "docx" {
+				digest = feishudocx.CanonicalDOCXSnapshotDigest
+			}
+			left, _, leftErr := digest(original.Content)
+			right, _, rightErr := digest(current.Content)
+			if leftErr != nil {
+				return leftErr
+			}
+			if rightErr != nil {
+				return rightErr
+			}
+			if left == right {
+				return nil
+			}
+		}
 		return legacyFence("latest_source_snapshot_changed")
 	}
 	return nil
