@@ -22,6 +22,7 @@ func TestEmbeddedWorkbookDirectStringCells(t *testing.T) {
 	require.NoError(t, err)
 	require.Contains(t, grid, "complete direct string")
 	require.Equal(t, []int{1, 1, 1}, []int{rows, cols, cells})
-	_, _, _, _, err = exactWorkbookCellGrid(file, "Sheet1", bytes.ReplaceAll(body, []byte(`t="str"`), []byte(`t="unknown"`)))
+	unknown := bytes.ReplaceAll(body, []byte(`t="str"`), []byte(`t="unknown"`))
+	_, _, _, _, err = exactWorkbookCellGrid(file, "Sheet1", unknown)
 	require.Error(t, err)
 }
