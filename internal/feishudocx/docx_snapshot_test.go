@@ -15,7 +15,9 @@ func TestDOCXSnapshotEmbeddedDeclarationOrder(t *testing.T) {
 		parts["[Content_Types].xml"] = `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
 			declarations + `</Types>`
 		if cellChange {
-			parts["xl/worksheets/sheet1.xml"] = strings.ReplaceAll(parts["xl/worksheets/sheet1.xml"], "<v>2</v>", "<v>3</v>")
+			parts["xl/worksheets/sheet1.xml"] = strings.ReplaceAll(
+				parts["xl/worksheets/sheet1.xml"], "<v>2</v>", "<v>3</v>",
+			)
 		}
 		return docxWithEmbeddedWorkbook(t, archive(t, parts, false))
 	}

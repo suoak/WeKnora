@@ -40,7 +40,9 @@ func TestXLSXSnapshotContentTypeOrder(t *testing.T) {
 	changed, _, err := CanonicalXLSXSnapshotDigest(pack(second+first, true))
 	require.NoError(t, err)
 	require.NotEqual(t, one, changed)
-	changed, _, err = CanonicalXLSXSnapshotDigest(pack(strings.ReplaceAll(first, "image/png", "image/jpeg")+second, false))
+	changed, _, err = CanonicalXLSXSnapshotDigest(
+		pack(strings.ReplaceAll(first, "image/png", "image/jpeg")+second, false),
+	)
 	require.NoError(t, err)
 	require.NotEqual(t, one, changed, "content type mapping still binds its value")
 	for _, declarations := range []string{

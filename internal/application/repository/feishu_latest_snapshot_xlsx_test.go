@@ -30,7 +30,8 @@ func TestFeishuLatestSnapshotXLSXDeclarationOrder(t *testing.T) {
 				if reverse {
 					a, b = b, a
 				}
-				body = []byte(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` + a + b + `</Types>`)
+				body = []byte(`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
+					a + b + `</Types>`)
 			}
 			if changed && part.Name == "xl/worksheets/sheet1.xml" {
 				body = bytes.ReplaceAll(body, []byte("<v>42</v>"), []byte("<v>43</v>"))
