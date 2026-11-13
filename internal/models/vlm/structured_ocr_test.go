@@ -50,7 +50,8 @@ func TestFeishuStructuredOCRScopeAndEvidence(t *testing.T) {
 				call: func(messages []chat.Message, opts *chat.ChatOptions) *types.ChatResponse {
 					calls++
 					parts := messages[0].MultiContent
-					require.Equal(t, "data:image/png;base64,"+base64.StdEncoding.EncodeToString(testPNG), parts[1].ImageURL.URL)
+					imageURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(testPNG)
+					require.Equal(t, imageURL, parts[1].ImageURL.URL)
 					if calls == 1 && (tc.structured || tc.name == "unsupported_protocol") {
 						require.Empty(t, opts.Format)
 						require.Equal(t, "original prompt", parts[0].Text)
@@ -60,7 +61,10 @@ func TestFeishuStructuredOCRScopeAndEvidence(t *testing.T) {
 						require.Equal(t, extractionMaxToks, opts.MaxTokens)
 						require.JSONEq(t, string(structuredOCRSchema), string(opts.Format))
 						require.Equal(t, structuredOCRPrompt, parts[0].Text)
-						return &types.ChatResponse{Content: `{"lines":["prompt$","prompt$","2023_07_12 2024_02_22"]}`, FinishReason: "stop"}
+						return &types.ChatResponse{
+							Content:      `{"lines":["prompt$","prompt$","2023_07_12 2024_02_22"]}`,
+							FinishReason: "stop",
+						}
 					}
 					require.Empty(t, opts.Format)
 					require.Equal(t, "original prompt", parts[0].Text)
@@ -139,13 +143,15 @@ func TestFeishuStructuredOCRWire(t *testing.T) {
 		if calls.Add(1) == 1 {
 			require.NotContains(t, body, "response_format")
 			require.Equal(t, float64(defaultMaxToks), body["max_tokens"])
-			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"discarded partial"},"finish_reason":"length"}]}`))
+			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant",` +
+				`"content":"discarded partial"},"finish_reason":"length"}]}`))
 			return
 		}
 		require.Equal(t, map[string]interface{}{"type": "json_object"}, body["response_format"])
 		require.Equal(t, map[string]interface{}{"type": "disabled"}, body["thinking"])
 		require.Equal(t, float64(extractionMaxToks), body["max_tokens"])
-		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant","content":"{\"lines\":[\"one\",\"one\",\"two\"]}"},"finish_reason":"stop"}]}`))
+		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant",` +
+			`"content":"{\"lines\":[\"one\",\"one\",\"two\"]}"},"finish_reason":"stop"}]}`))
 	}))
 	defer server.Close()
 	v, err := NewRemoteAPIVLM(&Config{

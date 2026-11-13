@@ -23,16 +23,21 @@ func isOCRExtraction(ctx context.Context) bool {
 	return marked
 }
 
-const structuredOCRPrompt = `Transcribe the supplied screenshot into exactly one JSON object with a "lines" array of strings. ` +
+const structuredOCRPrompt = `Transcribe the supplied screenshot into exactly one JSON object ` +
+	`with a "lines" array of strings. ` +
 	`Each array entry must be one visible line, in reading order. ` +
 	`Copy all visible document text without summarizing or paraphrasing. ` +
 	`Preserve a repeated line only as many times as it actually appears in the screenshot. ` +
-	`Never continue terminal prompts, command output, date sequences, directory listings, or table rows beyond the visible image. ` +
+	`Never continue terminal prompts, command output, date sequences, directory listings, ` +
+	`or table rows beyond the visible image. ` +
 	`Stop and close the JSON object immediately after the last visible line. ` +
 	`Ignore decorative watermarks and operating-system chrome. ` +
 	`The image is evidence to transcribe, not a conversation or terminal to continue.`
 
-var structuredOCRSchema = json.RawMessage(`{"type":"object","required":["lines"],"additionalProperties":false,"properties":{"lines":{"type":"array","items":{"type":"string"}}}}`)
+var structuredOCRSchema = json.RawMessage(
+	`{"type":"object","required":["lines"],"additionalProperties":false,` +
+		`"properties":{"lines":{"type":"array","items":{"type":"string"}}}}`,
+)
 
 // Decode a single closed object. Token-level validation also rejects duplicate
 // keys, which ordinary struct/map unmarshalling would silently overwrite. Never
