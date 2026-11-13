@@ -16,8 +16,10 @@ func TestPersonalMCPCreateAndReplaceCannotRemoveBuiltinCapabilities(t *testing.T
 		created, err := svc.CreateAPIKey(context.Background(), interfaces.TenantAPIKeyCreateRequest{
 			ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: "owner", Name: "personal", Capabilities: caps,
 			FullAccess: true, KnowledgeBaseIDs: []string{"must-not-expand"},
-			TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeSelected,
-				KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{KnowledgeBaseID: "owned"}}}},
+			TenantScopes: []types.APIKeyTenantScope{{
+				TenantID: 7, KBScopeMode: types.APIKeyKBScopeSelected,
+				KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{KnowledgeBaseID: "owned"}},
+			}},
 		})
 		require.NoError(t, err)
 		require.Contains(t, created.APIKey.Capabilities, "retrieve")

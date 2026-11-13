@@ -24,8 +24,10 @@ func TestPersonalMCPPersistenceAndLegacyRotationKeepBuiltinsAndScopes(t *testing
 	key := &types.TenantAPIKey{
 		ScopeType: types.APIKeyScopeUserMCP, OwnerUserID: &owner, Name: "personal", KeyHash: "initial",
 		Capabilities: types.StringArray{"enterprise_retrieve"},
-		TenantScopes: []types.APIKeyTenantScope{{TenantID: 7, KBScopeMode: types.APIKeyKBScopeSelected,
-			KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{KnowledgeBaseID: "fixed", SourceType: "owned"}}}},
+		TenantScopes: []types.APIKeyTenantScope{{
+			TenantID: 7, KBScopeMode: types.APIKeyKBScopeSelected,
+			KnowledgeBases: []types.APIKeyKnowledgeBaseScope{{KnowledgeBaseID: "fixed", SourceType: "owned"}},
+		}},
 	}
 	require.NoError(t, repo.CreateAPIKey(context.Background(), key))
 	require.ElementsMatch(t, []string{"enterprise_retrieve", "retrieve", "add_content"}, []string(key.Capabilities))
