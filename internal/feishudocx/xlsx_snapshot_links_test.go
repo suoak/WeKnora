@@ -18,7 +18,8 @@ func TestXLSXSnapshotHyperlinkBindings(t *testing.T) {
 	pack := func(rels, links, extra string) []byte {
 		parts := embeddedWorkbookParts()
 		const relationshipsNS = "http://schemas.openxmlformats.org/package/2006/relationships"
-		parts["xl/worksheets/_rels/sheet1.xml.rels"] = `<Relationships xmlns="` + relationshipsNS + `">` + rels + `</Relationships>`
+		const relPart = "xl/worksheets/_rels/sheet1.xml.rels"
+		parts[relPart] = `<Relationships xmlns="` + relationshipsNS + `">` + rels + `</Relationships>`
 		parts["xl/worksheets/sheet1.xml"] = `<worksheet xmlns="` + spreadsheetNS + `" xmlns:r="` +
 			hyperlinkRelNS + `"><sheetData/><hyperlinks>` + links + `</hyperlinks>` + extra + `</worksheet>`
 		return archive(t, parts, false)
