@@ -46,18 +46,20 @@ func TestFeishuStructuredOCRScopeAndEvidence(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			calls := 0
-			v := &RemoteAPIVLM{structuredOCR: tc.capable, chat: structuredOCRChat{
+			v := &RemoteAPIVLM{temperature: 0.25, structuredOCR: tc.capable, chat: structuredOCRChat{
 				call: func(messages []chat.Message, opts *chat.ChatOptions) *types.ChatResponse {
 					calls++
 					parts := messages[0].MultiContent
 					imageURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(testPNG)
 					require.Equal(t, imageURL, parts[1].ImageURL.URL)
 					if calls == 1 && (tc.structured || tc.name == "unsupported_protocol") {
+						require.Equal(t, 0.25, opts.Temperature)
 						require.Empty(t, opts.Format)
 						require.Equal(t, "original prompt", parts[0].Text)
 						return &types.ChatResponse{Content: "discarded partial", FinishReason: "length"}
 					}
 					if tc.structured {
+						require.Equal(t, 1.0, opts.Temperature)
 						require.Equal(t, extractionMaxToks, opts.MaxTokens)
 						require.JSONEq(t, string(structuredOCRSchema), string(opts.Format))
 						require.Equal(t, structuredOCRPrompt, parts[0].Text)
@@ -67,6 +69,7 @@ func TestFeishuStructuredOCRScopeAndEvidence(t *testing.T) {
 						}
 					}
 					require.Empty(t, opts.Format)
+					require.Equal(t, 0.25, opts.Temperature)
 					require.Equal(t, "original prompt", parts[0].Text)
 					return &types.ChatResponse{Content: "original text", FinishReason: "stop"}
 				},
@@ -143,6 +146,7 @@ func TestFeishuStructuredOCRWire(t *testing.T) {
 		if calls.Add(1) == 1 {
 			require.NotContains(t, body, "response_format")
 			require.Equal(t, float64(defaultMaxToks), body["max_tokens"])
+			require.InDelta(t, 0.1, body["temperature"], 0.000001)
 			_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant",` +
 				`"content":"discarded partial"},"finish_reason":"length"}]}`))
 			return
@@ -150,6 +154,7 @@ func TestFeishuStructuredOCRWire(t *testing.T) {
 		require.Equal(t, map[string]interface{}{"type": "json_object"}, body["response_format"])
 		require.Equal(t, map[string]interface{}{"type": "disabled"}, body["thinking"])
 		require.Equal(t, float64(extractionMaxToks), body["max_tokens"])
+		require.Equal(t, 1.0, body["temperature"])
 		_, _ = w.Write([]byte(`{"choices":[{"message":{"role":"assistant",` +
 			`"content":"{\"lines\":[\"one\",\"one\",\"two\"]}"},"finish_reason":"stop"}]}`))
 	}))
