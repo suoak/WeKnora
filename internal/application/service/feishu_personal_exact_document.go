@@ -313,7 +313,7 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 		if _, dependencyErr := parseExactStandaloneWorkbook(ctx, manifest.Name, data); dependencyErr != nil {
 			return nil, fmt.Errorf("%w: %w", errPersonalExactDependencies, dependencyErr)
 		}
-	} else if preflight && exactPersonalFileFormat(manifest.Name) == "docx" && exactEmbeddedWorkbooksEnabled() {
+	} else if preflight && exactPersonalFileFormat(manifest.Name) != "xlsx" && exactEmbeddedWorkbooksEnabled() {
 		mark("embedded_dependency_preflight")
 		if _, dependencyErr := prepareExactEmbeddedWorkbooks(data); dependencyErr != nil {
 			return nil, fmt.Errorf("%w: %w", errPersonalExactDependencies, dependencyErr)
