@@ -112,7 +112,8 @@ func TestPersonalExactStandaloneXLSXAuthorizationResumeRemainsClosed(t *testing.
 						}).Error)
 					case "pending review category":
 						observed.LastErrorCategory = "exact_document_execution_requires_review"
-						require.NoError(t, tx.Exec("UPDATE feishu_personal_attempts SET last_error_category=? WHERE id=?",
+						require.NoError(t, tx.Exec(
+							"UPDATE feishu_personal_attempts SET last_error_category=? WHERE id=?",
 							observed.LastErrorCategory, observed.ID).Error)
 					}
 					require.NoError(t, tx.Commit().Error)
