@@ -19,6 +19,16 @@ class ImageParser(BaseParser):
     def parse_into_text(self, content: bytes) -> Document:
         logger.info("Parsing image file=%s, size=%d bytes", self.file_name, len(content))
 
+        if self.file_type.lower().lstrip(".") == "emf":
+            from docreader.parser.emf_raster import rasterize_emf
+
+            rendered = rasterize_emf(content)
+            ref = "images/rendered.png"
+            return Document(
+                content=f"![Rendered embedded image]({ref})",
+                images={ref: base64.b64encode(rendered).decode()},
+            )
+
         ext = os.path.splitext(self.file_name)[1].lower() or ".png"
         ref_path = f"images/{self.file_name}"
 

@@ -48,6 +48,9 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	if !ok {
 		return nil, fmt.Errorf("anydoc engine does not support file type %q", fileTypeOf(req))
 	}
+	if result, handled, err := r.readWordML(ctx, req, format); handled {
+		return result, err
+	}
 
 	converted, err := anydoc.Convert(req.FileContent, anydoc.Options{
 		Format:     format,
@@ -58,6 +61,9 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	}
 	if err != nil {
 		return nil, fmt.Errorf("anydoc conversion failed for %q: %w", req.FileName, err)
+	}
+	if err := r.renderEmbeddedEMF(ctx, converted, format); err != nil {
+		return nil, err
 	}
 	return materializeAnydocResult(ctx, converted, format, req.FileName)
 }

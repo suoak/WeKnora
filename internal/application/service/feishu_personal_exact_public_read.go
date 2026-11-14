@@ -144,8 +144,7 @@ func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb stri
 		return nil, false, nil
 	}
 	var count int64
-	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").Where(
-		"scope=? AND payload->>'knowledge_base_id'=?", types.PersonalExactReceiptScope, kb).
+	if err := p.liveExactSearchReceipts(ctx, []string{kb}, nil).
 		Count(&count).Error; err != nil {
 		return nil, true, err
 	}

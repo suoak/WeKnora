@@ -34,6 +34,13 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 		return false, nil, nil // Multi-KB requests keep their existing strict path.
 	}
 	p := s.personalRecovery
+	var live int64
+	if err := p.liveExactSearchReceipts(ctx, []string{kbID}, params.KnowledgeIDs).Count(&live).Error; err != nil {
+		return true, nil, err
+	}
+	if live == 0 {
+		return false, nil, nil
+	}
 	// Do not enumerate another user's private KB or its receipt metadata.
 	kb, err := p.loadAuthorizationKB(ctx, kbID)
 	if err != nil {
@@ -50,15 +57,9 @@ func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 		return true, nil, err
 	}
 	read := types.WithExecutionTenant(grant.Context(ctx), kb.TenantID)
-	query := p.service.db.WithContext(read).Table("task_pending_ops").Where(
-		"scope=? AND tenant_id=? AND payload->>'knowledge_base_id'=?",
-		types.PersonalExactReceiptScope, kb.TenantID, kbID,
-	)
-	if len(params.KnowledgeIDs) != 0 {
-		query = query.Where("scope_id IN ?", params.KnowledgeIDs)
-	}
+	query := p.liveExactSearchReceipts(read, []string{kbID}, params.KnowledgeIDs)
 	var ids []string
-	if err := query.Order("id").Limit(257).Pluck("scope_id", &ids).Error; err != nil {
+	if err := query.Order("receipts.id").Limit(257).Pluck("receipts.scope_id", &ids).Error; err != nil {
 		return true, nil, err
 	}
 	if len(ids) == 0 {
@@ -147,9 +148,7 @@ func (s *knowledgeBaseService) exactPublishedMultiKBSearch(
 ) (bool, []*types.SearchResult, error) {
 	p := s.personalRecovery
 	var count int64
-	if err := p.service.db.WithContext(ctx).Table("task_pending_ops").
-		Where("scope=? AND payload->>'knowledge_base_id' IN ?",
-			types.PersonalExactReceiptScope, params.KnowledgeBaseIDs).
+	if err := p.liveExactSearchReceipts(ctx, params.KnowledgeBaseIDs, params.KnowledgeIDs).
 		Count(&count).Error; err != nil {
 		return true, nil, err
 	}

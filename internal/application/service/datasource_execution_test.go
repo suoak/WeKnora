@@ -319,23 +319,30 @@ func syncServiceSuite(t *testing.T, dialect string) {
 	}
 	t.Run("manual_20", func(t *testing.T) {
 		svc, ds, queue, _ := makeSvc()
-		results := make(chan error, 20)
+		results := make(chan *types.SyncLog, 20)
+		errors := make(chan error, 20)
 		var wg sync.WaitGroup
 		for i := 0; i < 20; i++ {
 			wg.Add(1)
-			go func() { defer wg.Done(); _, err := svc.ManualSync(context.Background(), ds.ID); results <- err }()
+			go func() {
+				defer wg.Done()
+				log, err := svc.ManualSync(context.Background(), ds.ID)
+				results <- log
+				errors <- err
+			}()
 		}
 		wg.Wait()
 		close(results)
-		winners := 0
-		for err := range results {
-			if err == nil {
-				winners++
-			} else {
-				require.ErrorIs(t, err, datasource.ErrSyncAlreadyRunning)
-			}
+		close(errors)
+		for err := range errors {
+			require.NoError(t, err)
 		}
-		require.Equal(t, 1, winners)
+		ids := map[string]bool{}
+		for log := range results {
+			require.NotNil(t, log)
+			ids[log.ID] = true
+		}
+		require.Len(t, ids, 1, "repeated clicks return the same accepted run")
 		require.EqualValues(t, 1, queue.calls.Load())
 	})
 	t.Run("duplicate_delivery_skips_connector", func(t *testing.T) {

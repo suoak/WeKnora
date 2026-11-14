@@ -40,7 +40,7 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 		switch refusal.reason {
 		case "versioned_image_staging_required", "audio_not_supported",
 			"empty_parsed_content", "chunk_count_out_of_bounds", "parser_semantic_row_too_large",
-			"image_enrichment_failed", "image_assets_unavailable":
+			"image_enrichment_failed", "image_assets_unavailable", "embedded_workbook_unsupported":
 			return "safe_staging_" + refusal.reason
 		}
 	}

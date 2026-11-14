@@ -18,6 +18,10 @@ import (
 // serialization, relationships and all binary parts remain byte-for-byte bound.
 // Expansion shares the outer DOCX budget; nested workbook assets stay opaque.
 func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
+	return embeddedXLSXSnapshotIdentity(content, expanded, false)
+}
+
+func embeddedXLSXSnapshotIdentity(content []byte, expanded *uint64, snapshot bool) ([]byte, error) {
 	z, err := zip.NewReader(bytes.NewReader(content), int64(len(content)))
 	if err != nil || len(z.File) == 0 || len(z.File) > 4096 {
 		return nil, ErrInvalidPackage
@@ -31,6 +35,7 @@ func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
 		"xl/workbook.xml": {Space: spreadsheetNS, Local: "workbook"},
 	}
 	var parts []partDigest
+	snapshotParts := map[string][]byte{}
 	for _, entry := range z.File {
 		name := entry.Name
 		clean := strings.TrimSuffix(name, "/")
@@ -73,10 +78,32 @@ func embeddedXLSXIdentity(content []byte, expanded *uint64) ([]byte, error) {
 				delete(required, name)
 			}
 		}
+		if snapshot && name == "[Content_Types].xml" {
+			var canonical bytes.Buffer
+			if err := writeSnapshotContentTypes(bytes.NewReader(body), &canonical); err != nil {
+				return nil, ErrInvalidPackage
+			}
+			body = canonical.Bytes()
+		}
 		parts = append(parts, partDigest{Name: name, SHA256: sum(body)})
+		if snapshot && (name == "xl/styles.xml" || strings.HasPrefix(name, "xl/worksheets/") &&
+			strings.HasSuffix(name, ".xml")) {
+			snapshotParts[name] = body
+		}
 	}
 	if len(required) != 0 {
 		return nil, ErrInvalidPackage
+	}
+	if snapshot {
+		canonical, err := normalizeEmbeddedStyleIndexes(snapshotParts)
+		if err != nil {
+			return nil, err
+		}
+		for i, part := range parts {
+			if body, ok := canonical[part.Name]; ok {
+				parts[i].SHA256 = sum(body)
+			}
+		}
 	}
 	sort.Slice(parts, func(i, j int) bool { return parts[i].Name < parts[j].Name })
 	identity, err := json.Marshal(struct {
