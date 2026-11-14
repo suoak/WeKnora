@@ -209,10 +209,22 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			return err
 		}
 		var intent types.KnowledgeDispatch
-		if dispatch.Op != "attention" || json.Unmarshal(dispatch.Payload, &intent) != nil ||
+		if json.Unmarshal(dispatch.Payload, &intent) != nil ||
 			intent.PayloadVersion != 3 || intent.Task.PersonalAttemptID != attempt.ID ||
 			intent.Task.KnowledgeID != source.KnowledgeID ||
 			intent.Task.CandidateVersionID != source.CandidateVersionID || !intent.Task.FirstCreate {
+			return ErrPersonalIdentity
+		}
+		// A pre-parser authorization failure can leave the original, unclaimed
+		// v3 outbox pending. Only this zero-output XLSX origin may recover it;
+		// a retained receipt or another task/source identity remains closed.
+		historicalPending := observed.LastErrorCategory == "authorization_or_resource_missing" &&
+			missingReceipt && dispatch.Op == "pending" && dispatch.ClaimedAt == nil &&
+			intent.Task.TenantID == source.TenantID && intent.Task.KnowledgeBaseID == source.KnowledgeBaseID &&
+			strings.EqualFold(strings.TrimPrefix(intent.Task.FileType, "."), "xlsx") &&
+			intent.Task.FilePath == types.BuildResourcePath(source.ResourceHandle) &&
+			intent.Task.URL == "" && intent.Task.FileURL == "" && len(intent.Task.Passages) == 0
+		if dispatch.Op != "attention" && !historicalPending {
 			return ErrPersonalIdentity
 		}
 		if err := exactResumeEmptyDerived(tx, source); err != nil {

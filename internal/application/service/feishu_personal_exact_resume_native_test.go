@@ -161,6 +161,7 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 type nativeResumeFormatOptions struct {
 	Format               string
 	AuthorizationFailure bool
+	PendingDispatch      bool
 	AssertClosed         func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
 }
 
@@ -352,6 +353,9 @@ func exerciseNativeResumeWithFormat(
 		// receipt has been created, and recovery must re-prove the local copy.
 		require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET last_error_category=? WHERE id=?",
 			"authorization_or_resource_missing", owner.ID).Error)
+	}
+	if options.PendingDispatch {
+		require.NoError(t, f.db.Model(&types.TaskPendingOp{}).Where("id=?", op.ID).Update("op", "pending").Error)
 	}
 	observed := mustPersonalAttempt(t, f, owner.ID)
 	// The source can be edited while this imported copy awaits recovery.
