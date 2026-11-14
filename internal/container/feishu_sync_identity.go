@@ -27,5 +27,5 @@ func resolveFeishuSyncRevision(commit, configured string, info *debug.BuildInfo)
 	if configured = strings.TrimSpace(configured); configured != "" {
 		return configured
 	}
-	return "build-unversioned"
+	return ""
 }

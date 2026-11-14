@@ -116,6 +116,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		if cfg.Scope == "" {
 			cfg.Scope = "all"
 		}
+		if cfg.SourceSHA == "" {
+			cfg.SourceSHA = "build-unversioned"
+		}
 	}
 	controlRedis, transport := feishusynccontrol.NewControlClient(rdb)
 	keepControlRedis := false

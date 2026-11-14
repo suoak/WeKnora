@@ -15,7 +15,7 @@ func TestFeishuSyncRevisionUsesExecutableBeforeInheritedEnvironment(t *testing.T
 		{"release build", "actual-release", "previous-release", "actual-release", info},
 		{"vcs build", "unknown", "previous-release", "vcs-build", info},
 		{"legacy unversioned executable", "unknown", "legacy-config", "legacy-config", nil},
-		{"no revision", "unknown", "", "build-unversioned", nil},
+		{"no revision keeps strict configuration empty", "unknown", "", "", nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := resolveFeishuSyncRevision(tc.commit, tc.configured, tc.info); got != tc.want {
