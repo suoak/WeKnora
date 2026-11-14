@@ -9,7 +9,9 @@ import (
 )
 
 var (
-	ErrNormalQueueStopped           = errors.New("normal_sync_queue_platform_stopped")
+	// ErrNormalQueueStopped rejects admission while the platform stop is latched.
+	ErrNormalQueueStopped = errors.New("normal_sync_queue_platform_stopped")
+	// ErrNormalQueueSafetyUnavailable means the current stop state could not be read.
 	ErrNormalQueueSafetyUnavailable = errors.New("normal_sync_queue_safety_unavailable")
 )
 
