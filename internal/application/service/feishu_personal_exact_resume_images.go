@@ -11,10 +11,8 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
-// Resume never uploads another image or guesses a replacement URL. Reuse only
-// a locally registered image owned by this document whose actual bytes match
-// the image freshly extracted from the checked original DOCX. Ordinary chunk
-// comparison subsequently verifies the original references and all offsets.
+// Retained output must reuse exact owned image bytes and references. If no
+// output exists, the normal checked image-storage path can create its assets.
 type exactResumeImageFiles struct {
 	interfaces.FileService
 	consumer *exactPersonalConsumer
@@ -24,12 +22,25 @@ func (f *exactResumeImageFiles) SaveBytes(
 	ctx context.Context,
 	data []byte,
 	tenant uint64,
-	_ string,
+	name string,
 	temp bool,
 ) (string, error) {
 	if f.consumer == nil || !f.consumer.resuming || temp || tenant != f.consumer.source.tenant ||
 		len(data) == 0 {
 		return "", errPersonalExactDependencies
+	}
+	if f.consumer.resumeEmpty {
+		empty, err := f.consumer.resumeHasNoOutput(ctx)
+		if err != nil {
+			return "", err
+		}
+		if !empty {
+			return "", errPersonalExactDocument
+		}
+		if _, err := f.consumer.recovery.revalidateExactPersonalDocument(ctx, f.consumer.source); err != nil {
+			return "", err
+		}
+		return f.FileService.SaveBytes(ctx, data, tenant, name, false)
 	}
 	proof := f.consumer.source
 	var rows []types.StoredResource

@@ -36,6 +36,7 @@ type exactPersonalConsumer struct {
 	modelVectors    map[[32]byte][32]byte
 	resuming        bool
 	resumeStorage   int64
+	resumeEmpty     bool
 }
 
 func exactPersonalConsumerFrom(ctx context.Context) (*exactPersonalConsumer, bool) {
@@ -127,6 +128,10 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		consumer, _ := exactPersonalConsumerFrom(work)
 		consumer.resuming = resuming
 		if resuming {
+			consumer.resumeEmpty, err = consumer.resumeHasNoOutput(work)
+			if err != nil {
+				return err
+			}
 			if err := p.service.db.WithContext(work).Table("knowledges").
 				Select("storage_size").Where("id=?", proof.knowledge).
 				Scan(&consumer.resumeStorage).Error; err != nil {

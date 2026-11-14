@@ -20,6 +20,18 @@ type exactResumeChunkKey struct {
 	Index int
 }
 
+func (c *exactPersonalConsumer) resumeHasNoOutput(ctx context.Context) (bool, error) {
+	db := c.recovery.service.db.WithContext(ctx)
+	var chunks, vectors int64
+	if err := db.Table("chunks").Where("knowledge_id=?", c.source.knowledge).Count(&chunks).Error; err != nil {
+		return false, err
+	}
+	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).Count(&vectors).Error; err != nil {
+		return false, err
+	}
+	return chunks == 0 && vectors == 0, nil
+}
+
 func exactPersonalStorageCharge(ctx context.Context, size int64) int64 {
 	if consumer, exact := exactPersonalConsumerFrom(ctx); exact && consumer.resuming {
 		return size - consumer.resumeStorage

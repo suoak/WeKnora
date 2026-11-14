@@ -116,7 +116,7 @@ func TestExactWorkbookRejectsUnprovedDependencies(t *testing.T) {
 	buffer, err := file.WriteToBuffer()
 	require.NoError(t, err)
 	_, err = exactWorkbookParts(buffer.Bytes())
-	require.ErrorIs(t, err, errExactWorkbookUnsupported)
+	require.NoError(t, err, "scalar formulas are preserved without recalculation")
 
 	for _, name := range []string{"../outside", "xl/vbaProject.bin", "xl/externalLinks/externalLink1.xml"} {
 		var raw bytes.Buffer

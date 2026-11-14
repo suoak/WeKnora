@@ -168,6 +168,44 @@ func TestPersonalExactResumeMissingReceiptRequiresZeroOutput(t *testing.T) {
 	}
 }
 
+func TestPersonalExactReviewedResumeIsScopedAndCumulative(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		offset int
+		listed bool
+		want   bool
+	}{
+		{"unlisted", 0, false, false}, {"reviewed", 0, true, true}, {"exhausted", 1, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f, observed := closedExactResumeFixture(t)
+			count := repository.PersonalExactResumeMaxAttempts + tc.offset
+			require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=? WHERE id=?", count, observed.ID).Error)
+			observed = mustPersonalAttempt(t, f, observed.ID)
+			ids := "unrelated"
+			if tc.listed {
+				ids = observed.LogicalKnowledgeID
+			}
+			t.Setenv("FEISHU_PERSONAL_EXACT_REVIEWED_RESUME_KNOWLEDGE_IDS", ids)
+			check := &personalExactPreflight{observed: observed, closed: true}
+			_, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
+			require.NoError(t, err)
+			err = f.p.repo.QueueExactResume(context.Background(), observed, exactSourceReceipt(check.source), check.validate)
+			if !tc.want {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, count+1, mustPersonalAttempt(t, f, observed.ID).RetryCount)
+			var audit types.TaskDeadLetter
+			require.NoError(t, f.db.Where("task_type=?", "knowledge:exact_resume_audit").Take(&audit).Error)
+			var fields map[string]json.RawMessage
+			require.NoError(t, json.Unmarshal(audit.Payload, &fields))
+			require.JSONEq(t, "true", string(fields["reviewed_extra_attempt"]))
+		})
+	}
+}
+
 func TestPersonalExactResumeUsesImportedSnapshotAfterRemoteEdit(t *testing.T) {
 	f, observed := closedExactResumeFixture(t)
 	exactPreflightRemote(t, f, "2", true)

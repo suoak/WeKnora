@@ -4335,11 +4335,12 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	var storedImages []docparser.StoredImage
 	consumer, exactConsumer := exactPersonalConsumerFrom(ctx)
 	exactSegments := exactConsumer && consumer.parsed != nil && len(consumer.parsed.segments) > 0
-	if exactSegments {
+	exactImages := exactConsumer && consumer.parsed != nil
+	if exactImages {
 		// The closed-package resolver permits only checked embedded bytes and
 		// translates all semantic spans together with image substitutions.
 		// No HTML/table rewrite or remote fetch may alter the proved grid.
-		if err := validateParserDefinedContentUnchanged(true,
+		if err := validateParserDefinedContentUnchanged(exactSegments,
 			preservedCanonicalContent, convertResult.MarkdownContent); err != nil {
 			return err
 		}
@@ -4360,16 +4361,18 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 		if _, err := consumer.recovery.revalidateExactPersonalDocument(ctx, consumer.source); err != nil {
 			return err
 		}
-		parserSegments, segmented, parserChunkErr = materializeParserDefinedSegments(
-			convertResult, eff.ChunkingConfig.ParserSemanticChunkMaxChars,
-		)
-		if parserChunkErr != nil || !segmented {
-			return errors.Join(errPersonalExactDocument, parserChunkErr)
+		if exactSegments {
+			parserSegments, segmented, parserChunkErr = materializeParserDefinedSegments(
+				convertResult, eff.ChunkingConfig.ParserSemanticChunkMaxChars,
+			)
+			if parserChunkErr != nil || !segmented {
+				return errors.Join(errPersonalExactDocument, parserChunkErr)
+			}
+			preservedCanonicalContent = convertResult.MarkdownContent
 		}
-		preservedCanonicalContent = convertResult.MarkdownContent
 	}
 
-	if s.imageResolver != nil && convertResult != nil && !exactSegments {
+	if s.imageResolver != nil && convertResult != nil && !exactImages {
 		fileSvc := s.resolveFileService(ctx, kb)
 		tenantID, _ := ctx.Value(types.TenantIDContextKey).(uint64)
 		updatedMarkdown, images, resolveErr := s.imageResolver.ResolveAndStore(
@@ -4409,7 +4412,7 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	// Claim the stored images for this document before chunking proceeds:
 	// the file proxies authorize images through resource bindings, and an
 	// unbound extracted image renders broken for org-shared KB viewers.
-	if exactSegments {
+	if exactImages {
 		if err := s.bindExactStoredImages(ctx, consumer, storedImages); err != nil {
 			return err
 		}

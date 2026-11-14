@@ -8,7 +8,9 @@ import (
 	"encoding/xml"
 	"errors"
 	"fmt"
-	"image/png"
+	"image"
+	_ "image/jpeg"
+	_ "image/png"
 	"io"
 	"net/url"
 	"os"
@@ -233,7 +235,10 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			strings.HasPrefix(name, "xl/theme/") && strings.HasSuffix(name, ".xml") ||
 			strings.HasPrefix(name, "xl/worksheets/") &&
 				(strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels")) ||
-			strings.HasPrefix(name, "xl/media/") && strings.HasSuffix(name, ".png")
+			strings.HasPrefix(name, "xl/drawings/") &&
+				(strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels")) ||
+			strings.HasPrefix(name, "xl/media/") && (strings.HasSuffix(name, ".png") ||
+				strings.HasSuffix(name, ".jpeg") || strings.HasSuffix(name, ".jpg"))
 		if !allowed || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") ||
 			path.Clean(name) != name || parts[name] != nil || entry.UncompressedSize64 > 8<<20 ||
 			size > (32<<20)-entry.UncompressedSize64 {
@@ -275,7 +280,7 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			// These dependencies carry data that this bounded reader cannot
 			// completely represent. Preserve pending instead of omitting it.
 			switch start.Name.Local {
-			case "f", "formula", "drawing", "legacyDrawing",
+			case "formula", "legacyDrawing",
 				"oleObject", "control", "externalReference", "AlternateContent":
 				return nil, errExactWorkbookUnsupported
 			}
@@ -314,6 +319,9 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 		}
 	}
 	if _, err := exactWorkbookHyperlinkNotes(parts); err != nil {
+		return nil, err
+	}
+	if _, err := exactWorkbookDrawingNotes(parts); err != nil {
 		return nil, err
 	}
 	return parts, nil
@@ -395,14 +403,14 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 			grid.WriteString(" " + escape(value) + " |")
 		}
 		grid.WriteString("\n")
-		// Keep the entire worksheet together. Never split a row or silently
-		// truncate a workbook to fit a model/chunk limit.
-		if utf8.RuneCountInString(grid.String()) > types.DefaultParserSemanticChunkMaxChars-1024 {
+		// Bound the complete worksheet independently of semantic chunk size.
+		// The section builder splits only between complete rows below.
+		if grid.Len() > 4<<20 {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
 	}
 	result := grid.String() + mergeNote
-	if utf8.RuneCountInString(result) > types.DefaultParserSemanticChunkMaxChars-1024 {
+	if len(result) > 4<<20 {
 		return "", 0, 0, 0, errExactWorkbookUnsupported
 	}
 	return result, maxRow, maxCol, len(cells), nil
@@ -505,6 +513,16 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 		return nil, err
 	}
 	grid += notes[worksheetParts[0]]
+	formulas, err := exactWorkbookFormulaNotes(file, sheets[0], parts[worksheetParts[0]])
+	if err != nil {
+		return nil, err
+	}
+	grid += formulas
+	drawings, err := exactWorkbookDrawingNotes(parts)
+	if err != nil {
+		return nil, err
+	}
+	grid += drawings[worksheetParts[0]]
 	native, err := anydoc.Convert(data, anydoc.Options{Format: "xlsx", WithAssets: true})
 	if err != nil || native == nil || native.AssetsError != nil || strings.TrimSpace(native.Markdown) == "" {
 		return nil, errExactWorkbookUnsupported
@@ -517,8 +535,9 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 		Name: name, SHA256: digest(data), NativeMarkdownSHA256: digest([]byte(native.Markdown)),
 	}
 	header := strings.NewReplacer("\n", " ", "\r", " ", "<", "&lt;", ">", "&gt;")
-	markdown := "\n\n## Embedded workbook: " + header.Replace(path.Base(name)) +
-		"\n\n### Worksheet: " + header.Replace(sheets[0]) + "\n\n" + grid
+	heading := "\n\n## Embedded workbook: " + header.Replace(path.Base(name)) +
+		"\n\n### Worksheet: " + header.Replace(sheets[0]) + "\n\n"
+	markdown := heading + grid
 	var images []string
 	for part := range parts {
 		if strings.HasPrefix(part, "xl/media/") {
@@ -527,27 +546,75 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 	}
 	sort.Strings(images)
 	for index, part := range images {
-		image := parts[part]
-		config, imageErr := png.DecodeConfig(bytes.NewReader(image))
+		imageBytes := parts[part]
+		config, format, imageErr := image.DecodeConfig(bytes.NewReader(imageBytes))
 		if imageErr != nil || config.Width <= 0 || config.Height <= 0 ||
 			int64(config.Width)*int64(config.Height) > 16<<20 {
 			return nil, errExactWorkbookUnsupported
 		}
-		if _, imageErr = png.Decode(bytes.NewReader(image)); imageErr != nil {
+		if _, _, imageErr = image.Decode(bytes.NewReader(imageBytes)); imageErr != nil ||
+			(format != "png" && format != "jpeg") {
 			return nil, errExactWorkbookUnsupported
 		}
-		imageName := fmt.Sprintf("embedded-workbook-%d-image-%d.png", ordinal, index+1)
+		ext, mediaType := ".png", "image/png"
+		if format == "jpeg" {
+			ext, mediaType = ".jpg", "image/jpeg"
+		}
+		imageName := fmt.Sprintf("embedded-workbook-%d-image-%d%s", ordinal, index+1, ext)
 		result.Assets = append(result.Assets, anydoc.Asset{
-			Name: imageName, MediaType: "image/png", Data: append([]byte(nil), image...),
+			Name: imageName, MediaType: mediaType, Data: append([]byte(nil), imageBytes...),
 			Alt: "Embedded workbook image", Section: sheets[0],
 		})
 		markdown += "\n\n![Embedded workbook image](" + anydoc.ImageDir + imageName + ")\n"
 	}
-	if utf8.RuneCountInString(markdown) > types.DefaultParserSemanticChunkMaxChars {
+	sections, err := splitExactWorkbookRows(markdown, heading)
+	if err != nil {
+		return nil, err
+	}
+	for _, text := range sections {
+		result.Sections = append(result.Sections, exactWorkbookSection{
+			name: name, sheet: sheets[0], markdown: text, rows: rows, columns: columns, cells: cells,
+		})
+	}
+	return result, nil
+}
+
+// A large worksheet is still one checked source. Repeat its coordinate header
+// when splitting at row boundaries so every value keeps its row and column.
+// Notes and image references also remain complete; no content is truncated.
+func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
+	limit := types.DefaultParserSemanticChunkMaxChars
+	if utf8.RuneCountInString(markdown) <= limit {
+		return []string{markdown}, nil
+	}
+	lines := strings.SplitAfter(strings.TrimPrefix(markdown, heading), "\n")
+	if len(lines) < 2 || !strings.HasPrefix(lines[0], "| Row |") || !strings.HasPrefix(lines[1], "| --- |") {
 		return nil, errExactWorkbookUnsupported
 	}
-	result.Sections = []exactWorkbookSection{{
-		name: name, sheet: sheets[0], markdown: markdown, rows: rows, columns: columns, cells: cells,
-	}}
-	return result, nil
+	prefix := heading + lines[0] + lines[1]
+	prefixChars := utf8.RuneCountInString(prefix)
+	if prefixChars >= limit {
+		return nil, errExactWorkbookUnsupported
+	}
+	current, size := prefix, prefixChars
+	var sections []string
+	for _, line := range lines[2:] {
+		n := utf8.RuneCountInString(line)
+		if prefixChars+n > limit {
+			return nil, errExactWorkbookUnsupported
+		}
+		if size+n > limit {
+			sections = append(sections, current)
+			if len(sections) >= 1024 {
+				return nil, errExactWorkbookUnsupported
+			}
+			current, size = prefix, prefixChars
+		}
+		current += line
+		size += n
+	}
+	if current != prefix {
+		sections = append(sections, current)
+	}
+	return sections, nil
 }

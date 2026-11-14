@@ -51,3 +51,16 @@ NTOS库 `45c73999-ba38-4e12-895f-b53ac59fb647` 的495条操作处于活动执行
 发布前固定运行镜像、main SHA、schema、目标原文件/分块/向量/receipt/任务ID、页面与人工编辑基线，准备回滚镜像。发布后先单文档/单库验收，再分批扩展；出现身份不匹配、输出差异或重复任务则停止扩大并保留证据。
 
 本轮生产仅查询，无任务重试、队列清理、状态改写或服务重启。原始只读回执在私有目录 `E:/AIData/Codex/knowledge-incident-20261113-c996` 的 `personal-current-recovery-snapshot.json` 和 `wiki-current-recovery-snapshot.json`。
+
+## 2026-11-14 09:21 存量与配置复核
+
+个人文档当前为22份：9份 staging 且累计恢复5次，7份缺receipt且零输出，5份内嵌依赖预检拒绝，1份授权/资源缺失。旧的21份统计只代表上一日快照。恢复预算扩展必须通过服务器的 `FEISHU_PERSONAL_EXACT_REVIEWED_RESUME_KNOWLEDGE_IDS` 逐一列出9个已核对的 Knowledge ID；仅增加一次、累计上限6，不清零计数，保留原并发2限制。
+
+Wiki当前为9库1,238条阻塞操作；NTOS另有148条活动操作，09:05仍在发布，不取消这些活动操作。只读文档级预览中9库均有可用输入，分别为9、275、3、63、73、107、396、415、11份。来源不明、未发布或停用的文档仍须隔离。
+
+现有启用文件 `/tmp/knowhub-wiki-document-selection-active.json` 在容器替换后丢失。集中部署时将 `KNOWHUB_WIKI_DOCUMENT_SELECTION_ACTIVE_FILE` 指向持久卷内 `/data/feishu-personal-private/operations/wiki-document-selection-active.json`，不向下载目录放置运维配置。保留其余环境项，将已预览的9库加入服务器KB范围；活跃文件先为空数组，健康检查通过且备份完成后逐库原子启用。启用动作保留预览、原操作及页面备份，正常worker仍重新核对输入，不把旧页面直接标记为已验证。
+
+两个目标原文件已按登记MD5、长度及SHA256校验后复制到隔离测试目录。C2文档15个表格已通过完整原生转换。50表格文档还定位出共享公式、JPEG绘图及背景图共存、负的图片边框偏移、工作表超过7,500字单块上限；候选修复保留公式与缓存值、图片原字节和定位，仅在完整行间切分表格。超过单行预算、外部工作簿、未知形状仍拒绝，不截断原文。
+
+以上仍是部署前证据，不表示线上恢复完成。部署与存量恢复结果须追加实际main SHA、镜像、健康检查、发布receipt和Wiki新页面回执。
+

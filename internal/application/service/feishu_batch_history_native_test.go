@@ -35,9 +35,15 @@ func assertExactPublicationHistory(t *testing.T, f *personalRecoveryFixture, imp
 		UpdateColumn("payload", types.JSON(receipt.Payload)).Error)
 	strategy, err := json.Marshal(types.IndexingStrategy{WikiEnabled: true})
 	require.NoError(t, err)
+	var original struct{ IndexingStrategy types.IndexingStrategy }
+	require.NoError(t, f.db.Table("knowledge_bases").Where("id='kb'").Take(&original).Error)
+	defer func() {
+		encoded, err := json.Marshal(original.IndexingStrategy)
+		require.NoError(t, err)
+		require.NoError(t, f.db.Table("knowledge_bases").Where("id='kb'").Update("indexing_strategy", string(encoded)).Error)
+	}()
 	require.NoError(t, f.db.Table("knowledge_bases").Where("id='kb'").Update("indexing_strategy", string(strategy)).Error)
 	states, err = f.s.exactBatchHistoryStates(context.Background(), batch, []string{imported})
 	require.NoError(t, err)
 	require.Equal(t, "dispatched", states[imported], "an index receipt does not certify Wiki publication")
-	require.NoError(t, f.db.Table("knowledge_bases").Where("id='kb'").Update("indexing_strategy", "{}").Error)
 }
