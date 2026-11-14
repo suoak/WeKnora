@@ -28,11 +28,13 @@ type Client struct {
 	// location renders bitable date cells in the table's timezone (default GMT+8).
 	location *time.Location
 
-	httpClient *http.Client
-	jsonLimit  int64 // Tests may lower the production JSON boundary.
-	policy     *appPolicy
-	retry      retryPolicy
-	token      *tokenState
+	httpClient          *http.Client
+	downloadTimeout     time.Duration
+	downloadIdleTimeout time.Duration
+	jsonLimit           int64 // Tests may lower the production JSON boundary.
+	policy              *appPolicy
+	retry               retryPolicy
+	token               *tokenState
 }
 
 type tokenState struct {
@@ -76,12 +78,14 @@ func (c *Client) tz() *time.Location {
 func NewClient(config *Config) *Client {
 	rp := defaultRetryPolicy()
 	c := &Client{
-		baseURL:    config.GetBaseURL(),
-		appID:      config.AppID,
-		appSecret:  config.AppSecret,
-		location:   resolveLocation(config.Timezone),
-		httpClient: newSafetyHTTPClient(),
-		retry:      rp,
+		baseURL:             config.GetBaseURL(),
+		appID:               config.AppID,
+		appSecret:           config.AppSecret,
+		location:            resolveLocation(config.Timezone),
+		httpClient:          newSafetyHTTPClient(),
+		downloadTimeout:     10 * time.Minute,
+		downloadIdleTimeout: 30 * time.Second,
+		retry:               rp,
 	}
 	c.policy = sharedAppPolicy(c.baseURL, c.appID, rp)
 	key := tokenScopeKey(c.baseURL, c.appID, c.appSecret)
@@ -158,12 +162,16 @@ const maxFeishuDownloadBytes = 512 * 1024 * 1024 // 512 MB
 
 type responseByteCounter struct {
 	io.Reader
-	bytes int64
+	bytes    int64
+	progress func()
 }
 
 func (r *responseByteCounter) Read(p []byte) (int, error) {
 	n, err := r.Reader.Read(p)
 	r.bytes += int64(n)
+	if n > 0 && r.progress != nil {
+		r.progress()
+	}
 	return n, err
 }
 
@@ -225,6 +233,31 @@ func (c *Client) doRequestBytesWithOptions(
 	authenticated, binary bool, maxBytes int64, options *requestByteOptions,
 ) ([]byte, error) {
 	c.ensureRuntime()
+	if !binary || c.downloadTimeout <= 0 {
+		return c.doRequestBytesLoop(ctx, operation, method, path, bodyBytes, authenticated, binary, maxBytes, options)
+	}
+	// Bound the entire download, including retries, pacing and authorization.
+	// A per-document deadline must not masquerade as cancellation of the sync.
+	bounded, cancel := context.WithTimeout(ctx, c.downloadTimeout)
+	defer cancel()
+	data, err := c.doRequestBytesLoop(bounded, operation, method, path, bodyBytes,
+		authenticated, binary, maxBytes, options)
+	if ctx.Err() == nil && bounded.Err() != nil {
+		return nil, &APIError{Category: ErrorCategoryTransient, Operation: operation, Cause: bounded.Err()}
+	}
+	return data, err
+}
+
+func (c *Client) doRequestBytesLoop(
+	ctx context.Context, operation, method, path string, bodyBytes []byte,
+	authenticated, binary bool, maxBytes int64, options *requestByteOptions,
+) ([]byte, error) {
+	httpClient := c.httpClient
+	if binary && c.downloadTimeout > 0 {
+		requestClient := *httpClient
+		requestClient.Timeout = c.downloadTimeout
+		httpClient = &requestClient // Keep the shared metadata client and safe transport intact.
+	}
 	var token string
 	var err error
 	identity, personal := ctx.Value(userIdentityKey{}).(userIdentity)
@@ -349,8 +382,15 @@ func (c *Client) doRequestBytesWithOptions(
 		// context so the safety boundary can identify a source deadline reliably.
 		attemptCtx := ctx
 		cancelAttempt := func() {}
-		if c.httpClient.Timeout > 0 {
-			attemptCtx, cancelAttempt = context.WithTimeout(ctx, c.httpClient.Timeout)
+		if httpClient.Timeout > 0 {
+			attemptCtx, cancelAttempt = context.WithTimeout(ctx, httpClient.Timeout)
+		}
+		progress := func() {}
+		if binary && c.downloadIdleTimeout > 0 {
+			var stopIdle func()
+			attemptCtx, progress, stopIdle = watchDownloadProgress(attemptCtx, c.downloadIdleTimeout)
+			cancelDeadline := cancelAttempt
+			cancelAttempt = func() { stopIdle(); cancelDeadline() }
 		}
 		req, reqErr := http.NewRequestWithContext(attemptCtx, method, requestURL, bodyReader)
 		if reqErr != nil {
@@ -370,8 +410,9 @@ func (c *Client) doRequestBytesWithOptions(
 			}
 		}
 
-		resp, requestErr := c.httpClient.Do(req)
+		resp, requestErr := httpClient.Do(req)
 		if requestErr != nil {
+			requestErr = downloadDeadlineError(attemptCtx, requestErr)
 			cancelAttempt()
 			release()
 			if ctxErr := ctx.Err(); ctxErr != nil {
@@ -400,15 +441,19 @@ func (c *Client) doRequestBytesWithOptions(
 					limit = min(limit, options.partialLimit)
 				}
 			}
-			counted := &responseByteCounter{Reader: resp.Body}
+			progress() // Headers arrived; the next bound is body progress.
+			counted := &responseByteCounter{Reader: resp.Body, progress: progress}
 			readStarted := time.Now()
 			responseBody, readErr := readFeishuCapped(counted, limit)
 			requestErr = readErr
 			closeErr := resp.Body.Close()
-			cancelAttempt()
 			if requestErr == nil {
 				requestErr = closeErr
 			}
+			if requestErr != nil {
+				requestErr = downloadDeadlineError(attemptCtx, requestErr)
+			}
+			cancelAttempt()
 			release()
 			if errors.Is(requestErr, ErrResponseTooLarge) {
 				return nil, requestErr

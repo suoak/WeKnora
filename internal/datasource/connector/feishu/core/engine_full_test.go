@@ -19,6 +19,33 @@ func (o *fullStreamOps) List(context.Context, *Client, string) ([]string, error,
 	return []string{"document"}, o.partial, nil
 }
 
+func TestIncrementalUnchangedNodesCheckpointAndStopOnWriteFailure(t *testing.T) {
+	before := FeishuStreamCheckpointInterval
+	FeishuStreamCheckpointInterval = 1
+	t.Cleanup(func() { FeishuStreamCheckpointInterval = before })
+	newOps := func() *fullStreamOps {
+		return &fullStreamOps{moveOps: moveOps{
+			previous: map[string]map[string]string{"first": {"document": "new"}, "second": {"document": "new"}},
+		}}
+	}
+	ops := newOps()
+	h := &moveHandler{}
+	_, err := runSync(t.Context(), &Client{}, &types.DataSourceConfig{}, []string{"first", "second"},
+		&types.SyncCursor{ConnectorCursor: map[string]interface{}{}}, h, ops)
+	require.NoError(t, err)
+	require.Zero(t, ops.fetches)
+	require.Len(t, h.checkpoints, 2)
+	require.Empty(t, h.items)
+	ops = newOps()
+	failed := &failedCheckpointHandler{err: errors.New("checkpoint storage unavailable")}
+	next, err := runSync(t.Context(), &Client{}, &types.DataSourceConfig{}, []string{"first", "second"},
+		&types.SyncCursor{ConnectorCursor: map[string]interface{}{}}, failed, ops)
+	require.ErrorIs(t, err, failed.err)
+	require.Nil(t, next)
+	require.Zero(t, ops.fetches)
+	require.Equal(t, 1, ops.lists, "checkpoint failure must stop before listing another resource")
+}
+
 func TestFullStreamRefetchesUnchangedAndRetainsDeletionBaseline(t *testing.T) {
 	for _, full := range []bool{false, true} {
 		ops := &fullStreamOps{moveOps: moveOps{

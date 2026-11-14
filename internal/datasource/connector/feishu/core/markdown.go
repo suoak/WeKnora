@@ -214,13 +214,34 @@ func textBearingField(b DocxBlock) *BlockText {
 
 // cellText renders a native table cell to a single string. A Feishu table_cell
 // (block_type 32) is a container: its text lives in child blocks, not on the
-// cell itself, so we concatenate the text of each child block.
+// cell itself. Include nested text in document order, once per block (#4400).
 func cellText(cell DocxBlock, byID map[string]DocxBlock) string {
 	var parts []string
-	for _, childID := range cell.Children {
-		if t := plainText(textBearingField(byID[childID])); t != "" {
+	seen := map[string]bool{cell.BlockID: true}
+	var pending []string
+	push := func(children []string) {
+		for i := len(children) - 1; i >= 0; i-- {
+			pending = append(pending, children[i])
+		}
+	}
+	push(cell.Children)
+	for len(pending) > 0 {
+		id := pending[len(pending)-1]
+		pending = pending[:len(pending)-1]
+		block, ok := byID[id]
+		if !ok || seen[id] {
+			continue
+		}
+		seen[id] = true
+		// Match tableDescendants: attachments/media and their subtrees remain
+		// with the flat renderer, preserving their references without duplicates.
+		if block.BlockType == BlockTypeFile || block.BlockType == BlockTypeImage {
+			continue
+		}
+		if t := plainText(textBearingField(block)); t != "" {
 			parts = append(parts, t)
 		}
+		push(block.Children)
 	}
 	return strings.Join(parts, " ")
 }
