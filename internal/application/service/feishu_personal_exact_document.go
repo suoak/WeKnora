@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -224,6 +225,10 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		k.FileSize != manifest.Size || k.FileName != manifest.Name {
 		return nil, errPersonalExactDocument
 	}
+	if exactPersonalFileFormat(manifest.Name) == "xlsx" &&
+		strings.TrimPrefix(strings.ToLower(k.FileType), ".") != "xlsx" {
+		return nil, errPersonalExactDocument
+	}
 	mark("file_registration")
 	var file types.StoredResource
 	if err = p.service.db.WithContext(ctx).Where(
@@ -303,7 +308,12 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	if hex.EncodeToString(md5sum[:]) != k.FileHash {
 		return nil, errPersonalExactDocument
 	}
-	if preflight && exactEmbeddedWorkbooksEnabled() {
+	if preflight && exactPersonalFileFormat(manifest.Name) == "xlsx" && exactPersonalFormatEnabled("xlsx") {
+		mark("standalone_dependency_preflight")
+		if _, dependencyErr := parseExactStandaloneWorkbook(ctx, manifest.Name, data); dependencyErr != nil {
+			return nil, fmt.Errorf("%w: %w", errPersonalExactDependencies, dependencyErr)
+		}
+	} else if preflight && exactPersonalFileFormat(manifest.Name) != "xlsx" && exactEmbeddedWorkbooksEnabled() {
 		mark("embedded_dependency_preflight")
 		if _, dependencyErr := prepareExactEmbeddedWorkbooks(data); dependencyErr != nil {
 			return nil, fmt.Errorf("%w: %w", errPersonalExactDependencies, dependencyErr)
@@ -381,6 +391,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			revision: a.Revision, generation: owner.Fence, nonce: owner.OwnerNonce,
 			leaseUntil: leaseUntil, file: data,
 			fileMD5: k.FileHash, physicalPath: file.PhysicalPath, bindingID: bindings[0].ID,
+			filename: manifest.Name,
 		}
 		if closed {
 			// Read-only source observation, never an execution capability.

@@ -82,8 +82,10 @@ SELECT 1 FROM knowledges k
 JOIN feishu_personal_resources r ON r.logical_knowledge_id=k.id
 JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id AND a.import_id=r.import_id
 JOIN feishu_personal_imports m ON m.id=r.import_id AND m.knowledge_id=k.id
-WHERE k.id=? AND k.deleted_at IS NULL AND lower(k.file_type)='docx'
-AND lower(k.file_name) LIKE '%.docx' AND a.logical_knowledge_id=k.id
+WHERE k.id=? AND k.deleted_at IS NULL AND
+((lower(k.file_type)='docx' AND lower(k.file_name) LIKE '%.docx') OR
+ (? AND lower(k.file_type)='xlsx' AND lower(k.file_name) LIKE '%.xlsx'))
+AND a.logical_knowledge_id=k.id
 AND a.caller_tenant_id=k.tenant_id AND m.kb_id=k.knowledge_base_id
 AND m.auth_mode='user_oauth' AND a.auth_mode='user_oauth'
 AND a.fence=r.generation AND a.expected_active_version=''
@@ -91,7 +93,8 @@ AND (a.candidate_version_id=r.candidate_version_id OR
  (a.status='indexed' AND a.candidate_version_id=r.active_version_id))
 AND EXISTS(SELECT 1 FROM task_pending_ops o WHERE o.scope=? AND o.scope_id=k.id
 AND o.tenant_id=k.tenant_id AND CAST(o.payload->>'payload_version' AS TEXT)='3'))`,
-		knowledgeID, types.KnowledgeDispatchScope).Scan(&eligible).Error
+		knowledgeID, repository.PersonalExactStandaloneXLSXEnabled(),
+		types.KnowledgeDispatchScope).Scan(&eligible).Error
 	return err == nil && eligible
 }
 
@@ -234,11 +237,12 @@ func (c *exactPersonalConsumer) convert(
 	ctx context.Context, payload types.DocumentProcessPayload,
 ) (*types.ReadResult, error) {
 	proof := c.source
+	format := exactPersonalFileFormat(proof.filename)
 	if payload.KnowledgeID != proof.knowledge || payload.KnowledgeBaseID != proof.kb ||
 		payload.TenantID != proof.tenant || payload.PersonalAttemptID != proof.attempt ||
 		payload.CandidateVersionID != proof.candidate || !payload.FirstCreate ||
 		payload.URL != "" || payload.FileURL != "" || len(payload.Passages) != 0 ||
-		strings.TrimPrefix(strings.ToLower(payload.FileType), ".") != "docx" {
+		!exactPersonalFormatEnabled(format) || strings.TrimPrefix(strings.ToLower(payload.FileType), ".") != format {
 		return nil, fmt.Errorf("exact_document_task_binding_unverified: %w", errPersonalExactDocument)
 	}
 	parsed, err := c.recovery.parseExactPersonalDocument(ctx, proof)
@@ -246,8 +250,8 @@ func (c *exactPersonalConsumer) convert(
 		return nil, err
 	}
 	c.parsed = parsed
-	// This is the same AnyDoc result consumed by the normal image resolver and
-	// chunker. Paths are logical references to checked embedded bytes; no URL or
+	// The checked result enters the normal image resolver and chunker. Paths
+	// are logical references to checked embedded bytes; no URL or
 	// task-supplied file is reopened between verification and parsing.
 	result := &types.ReadResult{
 		MarkdownContent: parsed.markdown,
@@ -256,11 +260,17 @@ func (c *exactPersonalConsumer) convert(
 			"parser": "anydoc", "anydoc_version": parsed.parserVersion, "source_format": "docx",
 		},
 	}
+	if format == "xlsx" {
+		result.Metadata = map[string]string{
+			"parser": "exact-xlsx", "parser_version": parsed.parserVersion, "source_format": "xlsx",
+		}
+	}
 	for _, asset := range parsed.assets {
 		result.ImageRefs = append(result.ImageRefs, types.ImageRef{
 			Filename: asset.Name, OriginalRef: anydoc.ImageDir + asset.Name,
 			MimeType: asset.MediaType, ImageData: append([]byte(nil), asset.Data...),
-			IsOriginal: strings.HasPrefix(asset.Name, "embedded-workbook-"),
+			IsOriginal: strings.HasPrefix(asset.Name, "embedded-workbook-") ||
+				strings.HasPrefix(asset.Name, "standalone-workbook-"),
 		})
 	}
 	return result, nil

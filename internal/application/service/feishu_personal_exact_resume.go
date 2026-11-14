@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -22,8 +21,8 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 		observed.AuthMode != types.FeishuUserOAuth ||
 		observed.Status != "needs_attention" ||
 		observed.RetryCount >= repository.PersonalExactResumeBudget(observed.LogicalKnowledgeID, observed.RetryCount) ||
-		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
-		!strings.HasSuffix(strings.ToLower(observed.ManifestName), ".docx") {
+		!repository.PersonalExactResumeCategoryAllowed(observed) ||
+		!exactPersonalFormatEnabled(exactPersonalFileFormat(observed.ManifestName)) {
 		return nil
 	}
 	if observed.RetryCount > 0 {
