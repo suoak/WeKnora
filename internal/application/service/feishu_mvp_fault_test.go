@@ -126,6 +126,10 @@ func TestMVPFirstCreateIdempotencyPostgres(t *testing.T) {
 					require.NoError(t, err)
 				}
 			case "partial_chunks_preserved":
+				// The first-create output check examines both storage tables.
+				// This fixture exercises unknown chunk retention, without a vector
+				// engine, but still needs the empty vector inventory from production.
+				require.NoError(t, f.db.Exec("CREATE TABLE embeddings (knowledge_id varchar(36))").Error)
 				c := &types.Chunk{
 					ID:              "partial",
 					TenantID:        k.TenantID,
