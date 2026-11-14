@@ -73,6 +73,17 @@ consumer pause without a trip still permits authorized requests to wait;
 workers revalidate the source and outbound permit before execution. Neither
 case removes the stop latch or releases a safety-owned pause.
 
+Binary download HTTP success is not source acceptance. An empty body receives
+the same bounded request retries as other temporary fetch failures; exhaustion
+reports `feishu_empty_download` and retains the failed document's checkpoint.
+It cannot enter the staging writer or URL fallback as a successful file. Other
+verified documents may continue through their existing publication checks.
+An actual response-body timeout reports `feishu_timeout`. Read-failure logs
+record only operation, HTTP status, received/declared byte counts and elapsed
+milliseconds, allowing operators to distinguish a stalled transfer from slow
+progress without retaining source bytes or credentials. Existing size limits,
+request deadlines and integrity checks remain authoritative.
+
 ## Closed lifecycle
 
 1. Read-only plan; old trip and old Guard remain closed.

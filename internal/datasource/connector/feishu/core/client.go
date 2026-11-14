@@ -156,6 +156,17 @@ func (c *Client) GetTenantAccessToken(ctx context.Context) (string, error) {
 // worker from adversarial or pathological oversized responses.
 const maxFeishuDownloadBytes = 512 * 1024 * 1024 // 512 MB
 
+type responseByteCounter struct {
+	io.Reader
+	bytes int64
+}
+
+func (r *responseByteCounter) Read(p []byte) (int, error) {
+	n, err := r.Reader.Read(p)
+	r.bytes += int64(n)
+	return n, err
+}
+
 // DoRequest executes an authenticated JSON API request. It is kept as the
 // compatibility entry point used by integration helpers; connector operations
 // call doRequest with an explicit operation name for structured logs.
@@ -389,7 +400,9 @@ func (c *Client) doRequestBytesWithOptions(
 					limit = min(limit, options.partialLimit)
 				}
 			}
-			responseBody, readErr := readFeishuCapped(resp.Body, limit)
+			counted := &responseByteCounter{Reader: resp.Body}
+			readStarted := time.Now()
+			responseBody, readErr := readFeishuCapped(counted, limit)
 			requestErr = readErr
 			closeErr := resp.Body.Close()
 			cancelAttempt()
@@ -401,6 +414,9 @@ func (c *Client) doRequestBytesWithOptions(
 				return nil, requestErr
 			}
 			if requestErr != nil {
+				logger.Warnf(ctx,
+					"[Feishu] API response read failed operation=%s status=%d received_bytes=%d content_length=%d elapsed_ms=%d",
+					operation, resp.StatusCode, counted.bytes, resp.ContentLength, time.Since(readStarted).Milliseconds())
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
 				}
@@ -417,40 +433,52 @@ func (c *Client) doRequestBytesWithOptions(
 					envelope.Code = feishuRateLimitCode
 				}
 				if resp.StatusCode >= 200 && resp.StatusCode < 300 && envelope.Code == 0 {
-					RecordAPIObservation(ctx, APIObservation{
-						Operation: operation, HTTPStatus: resp.StatusCode,
-						RequestID: ResponseRequestID(resp.Header),
-					})
 					if options != nil && options.validate != nil {
 						if err := options.validate(resp, responseBody); err != nil {
 							return nil, err
 						}
 					}
-					logger.Infof(ctx, "[Feishu] API request succeeded operation=%s status=%d bytes=%d",
-						operation, resp.StatusCode, len(responseBody))
-					return responseBody, nil
-				}
-				retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
-				category, providerReason := classifyOperationAPIError(
-					operation, resp.StatusCode, envelope.Code, envelope.Msg,
-				)
-				if category == ErrorCategoryRateLimit {
-					retryAfter = feishuRateLimitWait(resp.Header, c.retry.now())
-					if providerReason == "export_throttled" {
-						retryAfter = max(retryAfter, time.Minute)
+					if binary && len(responseBody) == 0 {
+						// A complete empty HTTP response is not a document. Retry it
+						// within the request budget; never send it to URL fallback or
+						// the staging writer as an accepted source version.
+						err = &APIError{
+							Category: ErrorCategoryTransient, Operation: operation,
+							HTTPStatus: resp.StatusCode, RequestID: ResponseRequestID(resp.Header),
+							ProviderReason: "empty_binary_response",
+						}
+					} else {
+						RecordAPIObservation(ctx, APIObservation{
+							Operation: operation, HTTPStatus: resp.StatusCode,
+							RequestID: ResponseRequestID(resp.Header),
+						})
+						logger.Infof(ctx, "[Feishu] API request succeeded operation=%s status=%d bytes=%d",
+							operation, resp.StatusCode, len(responseBody))
+						return responseBody, nil
 					}
-					gate.cooldown(retryAfter)
-				}
-				err = &APIError{
-					Category:       category,
-					Code:           envelope.Code,
-					Message:        envelope.Msg,
-					HTTPStatus:     resp.StatusCode,
-					Operation:      operation,
-					RequestID:      ResponseRequestID(resp.Header),
-					Scopes:         requiredScopes(envelope.Msg),
-					RetryAfter:     retryAfter,
-					ProviderReason: providerReason,
+				} else {
+					retryAfter := parseRetryAfterAt(resp.Header.Get("Retry-After"), 0, c.retry.now())
+					category, providerReason := classifyOperationAPIError(
+						operation, resp.StatusCode, envelope.Code, envelope.Msg,
+					)
+					if category == ErrorCategoryRateLimit {
+						retryAfter = feishuRateLimitWait(resp.Header, c.retry.now())
+						if providerReason == "export_throttled" {
+							retryAfter = max(retryAfter, time.Minute)
+						}
+						gate.cooldown(retryAfter)
+					}
+					err = &APIError{
+						Category:       category,
+						Code:           envelope.Code,
+						Message:        envelope.Msg,
+						HTTPStatus:     resp.StatusCode,
+						Operation:      operation,
+						RequestID:      ResponseRequestID(resp.Header),
+						Scopes:         requiredScopes(envelope.Msg),
+						RetryAfter:     retryAfter,
+						ProviderReason: providerReason,
+					}
 				}
 			}
 		}

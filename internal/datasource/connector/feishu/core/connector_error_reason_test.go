@@ -1,6 +1,7 @@
 package core
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -19,6 +20,22 @@ func TestFeishuFailure(t *testing.T) {
 		fallbackHas   []string
 		noLeak        []string // must appear in neither code nor fallback
 	}{
+		{
+			name: "typed download timeout",
+			err: &APIError{
+				Category: ErrorCategoryTransient, Operation: "download_drive_file",
+				HTTPStatus: 200, Cause: context.DeadlineExceeded,
+			},
+			wantCode: "feishu_timeout", noLeak: []string{"body=", "source-token"},
+		},
+		{
+			name: "empty binary response",
+			err: &APIError{
+				Category: ErrorCategoryTransient, Operation: "download_drive_file",
+				HTTPStatus: 200, ProviderReason: "empty_binary_response",
+			},
+			wantCode: "feishu_empty_download", fallbackHas: []string{"empty", "no content was imported"},
+		},
 		{
 			name:        "rate limited",
 			err:         errors.New("feishu rate limited: status=429 body={\"code\":99991400,\"msg\":\"too many request\"}"),
