@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"runtime/debug"
 	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
+	"github.com/Tencent/WeKnora/internal/handler"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -100,7 +100,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		Automatic:       automatic,
 		WorkerID:        os.Getenv("FEISHU_SYNC_WORKER_ID"),
 		ExpectedWorkers: strings.Split(os.Getenv("FEISHU_SYNC_EXPECTED_WORKERS"), ","),
-		SourceSHA:       os.Getenv("FEISHU_SYNC_SOURCE_SHA"),
+		SourceSHA:       feishuSyncRuntimeRevision(handler.CommitID, os.Getenv("FEISHU_SYNC_SOURCE_SHA")),
 		Scope:           os.Getenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS"), Maintenance: allocation.Maintenance,
 	}
 	if automatic {
@@ -115,16 +115,6 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		cfg.ExpectedWorkers = nil
 		if cfg.Scope == "" {
 			cfg.Scope = "all"
-		}
-		if cfg.SourceSHA == "" {
-			cfg.SourceSHA = "build-unversioned"
-			if info, ok := debug.ReadBuildInfo(); ok {
-				for _, setting := range info.Settings {
-					if setting.Key == "vcs.revision" {
-						cfg.SourceSHA = setting.Value
-					}
-				}
-			}
 		}
 	}
 	controlRedis, transport := feishusynccontrol.NewControlClient(rdb)

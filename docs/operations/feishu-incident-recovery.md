@@ -45,6 +45,11 @@ change. The offline CLI requires a reviewed, maintained Python cryptography
 installation; the application verifier uses the Go standard library.
 
 The plan pins the public key SHA256. Reset binds the original incarnation.
+The controller identifies the running executable using its compiled CommitID,
+then Go VCS build metadata. An inherited FEISHU_SYNC_SOURCE_SHA is only a
+compatibility fallback for an unversioned executable; it must not override a
+replacement binary's build identity. Compare the plan with the actual release
+before signing, and regenerate plans after a binary replacement.
 After reset, save and review `status --output post-reset-status.json`; canary
 `approve` additionally requires `--recovery-status-file post-reset-status.json`.
 Canary approval binds the fresh incarnation, runtime SHA and worker. It cannot
@@ -59,6 +64,14 @@ backup/restore, isolation, source authorization and runtime identity evidence.
 The evidence digest proves integrity, **not that tests or backups happened**.
 An independent reviewer must verify their contents. A plan is valid for at most
 15 minutes. There is no extension, automatic approval or retry after lost ACK.
+
+A latched platform stop rejects new normal sync admission before creating a
+SyncLog or queue task, returning `sync_platform_stopped`. An unavailable stop
+check returns `sync_safety_unavailable`. This avoids accepting a request that
+the controller immediately cancels while fencing executions. A temporary
+consumer pause without a trip still permits authorized requests to wait;
+workers revalidate the source and outbound permit before execution. Neither
+case removes the stop latch or releases a safety-owned pause.
 
 ## Closed lifecycle
 

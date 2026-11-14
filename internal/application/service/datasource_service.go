@@ -637,6 +637,12 @@ func (s *DataSourceService) manualSyncUsing(
 		if types.ApprovedSyncLaneEnabled() && feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "" {
 			normalQueued, err = feishusynccontrol.QueueNormalSource(ctx, ds.ID, fingerprint)
 			if err != nil {
+				if errors.Is(err, feishusynccontrol.ErrNormalQueueStopped) {
+					return nil, &datasource.SyncAdmissionError{Reason: "sync_platform_stopped", Cause: err}
+				}
+				if errors.Is(err, feishusynccontrol.ErrNormalQueueSafetyUnavailable) {
+					return nil, &datasource.SyncAdmissionError{Reason: "sync_safety_unavailable", Cause: err}
+				}
 				if !errors.Is(err, feishusynccontrol.ErrRecoveryRejected) {
 					return nil, err
 				}
