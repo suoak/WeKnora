@@ -59,7 +59,8 @@ func TestBinaryEmptyResponseRetriesWithoutAcceptingEmptySource(t *testing.T) {
 func TestBinaryEmptyResponseCanRecoverWithOriginalBytes(t *testing.T) {
 	var calls atomic.Int32
 	original := []byte("complete-original-source")
-	server, cfg := retryTestServer("/open-apis/drive/v1/files/file/download", func(w http.ResponseWriter, _ *http.Request) {
+	target := "/open-apis/drive/v1/files/file/download"
+	server, cfg := retryTestServer(target, func(w http.ResponseWriter, _ *http.Request) {
 		if calls.Add(1) >= 3 {
 			_, _ = w.Write(original)
 		}
