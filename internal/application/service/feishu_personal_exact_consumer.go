@@ -33,7 +33,7 @@ type exactPersonalConsumer struct {
 	derivedReady    bool
 	resultMu        sync.Mutex
 	indexContents   map[string]string
-	modelVectors    map[[32]byte][32]byte
+	modelVectors    map[[32]byte]map[[32]byte]bool
 	resuming        bool
 	resumeStorage   int64
 	resumeEmpty     bool

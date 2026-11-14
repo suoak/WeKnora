@@ -117,11 +117,11 @@ func (c *exactPersonalConsumer) publish(ctx context.Context) error {
 		defer c.resultMu.Unlock()
 		for _, vector := range vectors {
 			content, exists := c.indexContents[vector.SourceID]
-			want, proved := c.modelVectors[retriever.EmbeddingInputDigest(ctx, vector.Content)]
+			accepted := c.modelVectors[retriever.EmbeddingInputDigest(ctx, vector.Content)]
 			got := exactHalfVectorDigest(vector.Embedding.Slice())
-			if !exists || !proved || vector.IsEnabled || vector.Content != content ||
+			if !exists || !accepted[got] || vector.IsEnabled || vector.Content != content ||
 				vector.SourceID != vector.ChunkID || vector.SourceType != int(types.ChunkSourceType) ||
-				vector.Dimension <= 0 || vector.Dimension != len(vector.Embedding.Slice()) || got != want {
+				vector.Dimension <= 0 || vector.Dimension != len(vector.Embedding.Slice()) {
 				return errPersonalExactDocument
 			}
 			if _, duplicate := vectorHashes[vector.SourceID]; duplicate {

@@ -34,6 +34,29 @@ func PersonalExactResumeLimit(knowledge string) int {
 	return PersonalExactResumeMaxAttempts
 }
 
+// PersonalExactResumeBudget admits one reviewed retry at an exact historical
+// counter value. Old preflight deferrals used the execution counter, so some
+// documents already exceed the normal budget without having executed once.
+// A stale baseline cannot authorize another retry or reset that history.
+func PersonalExactResumeBudget(knowledge string, count int) int {
+	limit := PersonalExactResumeLimit(knowledge)
+	if knowledge == "" || count < PersonalExactResumeMaxAttempts || count > 10000 {
+		return limit
+	}
+	raw := os.Getenv("FEISHU_PERSONAL_EXACT_REVIEWED_RESUME_BASELINES")
+	if len(raw) > 16<<10 {
+		return limit
+	}
+	var baselines map[string]int
+	if json.Unmarshal([]byte(raw), &baselines) != nil || len(baselines) > 32 {
+		return limit
+	}
+	if baseline, ok := baselines[knowledge]; ok && baseline == count {
+		return count + 1
+	}
+	return limit
+}
+
 // QueueExactResume preserves the original dispatch, file and receipt IDs.
 // It grants no body/model authority. A new owner must rederive and compare all
 // old parser output before reindexing or publishing any candidate content.
@@ -44,7 +67,8 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 ) error {
 	if !r.FirstCreateOnly || observed == nil || validate == nil ||
 		observed.Status != "needs_attention" || observed.OwnerNonce != "" ||
-		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeLimit(observed.LogicalKnowledgeID) ||
+		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeBudget(
+		observed.LogicalKnowledgeID, observed.RetryCount) ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		source.AttemptID != observed.ID || source.Generation != observed.Fence {
 		return ErrPersonalFence
@@ -153,6 +177,8 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			"attempt": attempt, "resource": resource, "receipt": receipt, "dispatch": dispatch,
 			"receipt_missing_before_resume": missingReceipt,
 			"reviewed_extra_attempt":        attempt.RetryCount >= PersonalExactResumeMaxAttempts,
+			"reviewed_counter_baseline":     attempt.RetryCount,
+			"reviewed_cumulative_limit":     PersonalExactResumeBudget(attempt.LogicalKnowledgeID, attempt.RetryCount),
 		})
 		if err != nil {
 			return err

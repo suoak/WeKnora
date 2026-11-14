@@ -33,11 +33,16 @@ func (r *PersonalRecoveryRepository) RecordPreflightDeferral(
 			resource.ActiveVersionID != a.ExpectedActiveVersion {
 			return ErrPersonalFence
 		}
-		count := min(max(a.RetryCount, 0)+1, 1000)
-		delay := min(15*time.Minute, time.Minute*time.Duration(1<<min(count-1, 4)))
+		// A refused probe never executed the document. Keep its cooldown without
+		// consuming the cumulative execution-recovery budget (or resetting old
+		// historical counts). Repeated refusals use the maximum cooldown.
+		delay := time.Minute
+		if a.LastErrorCategory == category {
+			delay = 15 * time.Minute
+		}
 		next := now.Add(delay)
 		return tx.Model(a).Updates(map[string]any{
-			"retry_count": count, "retry_after": next, "last_error_category": category,
+			"retry_after": next, "last_error_category": category,
 		}).Error
 	})
 }

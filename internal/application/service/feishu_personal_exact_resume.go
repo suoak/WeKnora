@@ -21,13 +21,20 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 			!exactPersonalRecoveryAllows(observed.LogicalKnowledgeID)) ||
 		observed.AuthMode != types.FeishuUserOAuth ||
 		observed.Status != "needs_attention" ||
-		observed.RetryCount >= repository.PersonalExactResumeLimit(observed.LogicalKnowledgeID) ||
+		observed.RetryCount >= repository.PersonalExactResumeBudget(observed.LogicalKnowledgeID, observed.RetryCount) ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		!strings.HasSuffix(strings.ToLower(observed.ManifestName), ".docx") {
 		return nil
 	}
 	if observed.RetryCount > 0 {
-		delay := time.Minute << uint(observed.RetryCount-1)
+		// Historical preflight counts can be hundreds. Bound the shift rather
+		// than overflowing a duration or treating observations as executions.
+		exponent := min(observed.RetryCount-1, repository.PersonalExactResumeMaxAttempts-1)
+		delay := time.Minute << uint(exponent)
+		if repository.PersonalExactResumeBudget(observed.LogicalKnowledgeID, observed.RetryCount) >
+			repository.PersonalExactResumeMaxAttempts+1 {
+			delay = time.Minute
+		}
 		if observed.UpdatedAt.Add(delay).After(time.Now()) {
 			return nil
 		}

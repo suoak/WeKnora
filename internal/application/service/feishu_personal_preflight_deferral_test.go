@@ -20,7 +20,7 @@ func TestPersonalPreflightDeferralPreservesDispatchAndFencesClaim(t *testing.T) 
 	require.Equal(t, attempt.Fence, current.Fence)
 	require.Empty(t, current.OwnerNonce)
 	require.Nil(t, current.LeaseUntil)
-	require.Equal(t, 1, current.RetryCount)
+	require.Equal(t, attempt.RetryCount, current.RetryCount)
 	require.True(t, current.RetryAfter.After(time.Now()))
 	require.JSONEq(t, string(before), string(exactPendingSnapshot(t, f, attempt.ID)))
 	ready, err := f.p.firstCreateDispatchable(ctx, intent)
@@ -48,6 +48,21 @@ func TestPersonalPreflightDeferralDoesNotBlockOtherDocuments(t *testing.T) {
 	require.True(t, ready)
 	_, err = other.p.repo.Claim(context.Background(), otherAttempt.ID, time.Minute)
 	require.NoError(t, err)
+}
+
+func TestPersonalPreflightDeferralRetainsHistoricalCount(t *testing.T) {
+	f, attempt, _ := pendingExactFixture(t)
+	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id=?", attempt.ID).
+		Update("retry_count", 162).Error)
+	for range 2 {
+		observed := mustPersonalAttempt(t, f, attempt.ID)
+		require.NoError(t, f.p.repo.RecordPreflightDeferral(context.Background(), observed,
+			"embedded_dependency_unsupported"))
+		current := mustPersonalAttempt(t, f, attempt.ID)
+		require.Equal(t, 162, current.RetryCount)
+		require.Equal(t, observed.Fence, current.Fence)
+		require.True(t, current.RetryAfter.After(time.Now()))
+	}
 }
 
 func TestPersonalProcessingMetadataDistinguishesPreflightFromLiveOwner(t *testing.T) {
