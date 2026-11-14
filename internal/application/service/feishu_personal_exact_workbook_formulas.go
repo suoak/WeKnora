@@ -52,7 +52,7 @@ func exactWorkbookFormulaNotesForFormat(
 			for _, attr := range c.Formula.Attrs {
 				if attr.Name.Space != "" ||
 					(attr.Name.Local != "t" && attr.Name.Local != "si" && attr.Name.Local != "ref" &&
-						!(standalone && (attr.Name.Local == "aca" || attr.Name.Local == "ca"))) {
+						(!standalone || (attr.Name.Local != "aca" && attr.Name.Local != "ca"))) {
 					return "", errExactWorkbookUnsupported
 				}
 				if _, exists := a[attr.Name.Local]; exists {

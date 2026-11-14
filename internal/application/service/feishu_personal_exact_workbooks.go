@@ -407,7 +407,7 @@ func exactWorkbookCellGridForFormat(
 		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
 			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" &&
-				kind != "str" && kind != "n" && kind != "b" && !(standalone && kind == "e") {
+				kind != "str" && kind != "n" && kind != "b" && (!standalone || kind != "e") {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
 		cells[ref] = true

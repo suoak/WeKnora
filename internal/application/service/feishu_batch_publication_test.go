@@ -119,10 +119,15 @@ func TestFeishuV2PostgresInlineContinuePreservesOriginalBatch(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "dispatched", current.Items[0].Status)
 	require.Equal(t, view.Items[0].ID, current.Items[0].ID)
-	require.NoError(t, f.s.RetryBatch(f.ctx, view.Batch.ID))
+	// A successfully dispatched admission is already owned by its original
+	// import. Retrying it must refuse without creating another admission.
+	require.ErrorIs(t, f.s.RetryBatch(f.ctx, view.Batch.ID), ErrFeishuBatchNotRetryable)
 	again, err := f.s.Batch(f.ctx, view.Batch.ID)
 	require.NoError(t, err)
+	require.Equal(t, current.Items[0].ID, again.Items[0].ID)
 	require.Equal(t, current.Items[0].ImportID, again.Items[0].ImportID)
+	require.Equal(t, "dispatched", again.Items[0].Status)
+	require.Equal(t, current.Items[0].RetryCount, again.Items[0].RetryCount)
 	var approvals, imports int64
 	require.NoError(t, f.db.Model(&types.FeishuSharingApproval{}).Count(&approvals).Error)
 	require.NoError(t, f.db.Model(&types.FeishuPersonalImport{}).Count(&imports).Error)

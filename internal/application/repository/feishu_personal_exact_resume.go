@@ -20,15 +20,18 @@ import (
 // The cumulative count is retained; no task or attempt counter is reset.
 const PersonalExactResumeMaxAttempts = 5
 
+// PersonalExactStandaloneXLSXEnv controls admission of standalone workbook imports.
 const PersonalExactStandaloneXLSXEnv = "FEISHU_PERSONAL_EXACT_STANDALONE_XLSX"
 
+// PersonalExactStandaloneXLSXEnabled reads the server-owned standalone workbook gate.
 func PersonalExactStandaloneXLSXEnabled() bool {
 	return os.Getenv(PersonalExactStandaloneXLSXEnv) == "1"
 }
 
-// Historical local copies may have stopped at an expired source OAuth check.
-// This is eligibility only: QueueExactResume still revalidates current local
-// authority in its transaction and requires absolutely no derived output.
+// PersonalExactResumeCategoryAllowed checks eligibility for the closed resume
+// protocol, including historical local copies stopped at a source OAuth check.
+// QueueExactResume still revalidates current local authority in its transaction
+// and requires absolutely no derived output for those historical failures.
 func PersonalExactResumeCategoryAllowed(attempt *types.FeishuPersonalAttempt) bool {
 	if attempt == nil {
 		return false
