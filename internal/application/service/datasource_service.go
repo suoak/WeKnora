@@ -619,6 +619,7 @@ func (s *DataSourceService) manualSyncUsing(
 		return nil, err
 	}
 	approvedDelivery := false
+	normalQueued := false
 	admissionFingerprint := ""
 	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
 		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
@@ -633,8 +634,20 @@ func (s *DataSourceService) manualSyncUsing(
 			return nil, fpErr
 		}
 		admissionFingerprint = fingerprint
+		if types.ApprovedSyncLaneEnabled() && feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "" {
+			normalQueued, err = feishusynccontrol.QueueNormalSource(ctx, ds.ID, fingerprint)
+			if err != nil {
+				if !errors.Is(err, feishusynccontrol.ErrRecoveryRejected) {
+					return nil, err
+				}
+				return nil, &datasource.SyncAdmissionError{Reason: "sync_source_permission_denied", Cause: err}
+			}
+		}
 		ctx = feishusafety.WithRecoveryExecution(ctx, fingerprint, "", 0)
-		ctx, approvedDelivery, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		approvedDelivery = normalQueued
+		if !normalQueued {
+			ctx, approvedDelivery, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		}
 		if err != nil {
 			logger.Warnf(ctx, "Feishu sync admission rejected source=%s stage=bind cause=%v", ds.ID, err)
 			return nil, &datasource.SyncAdmissionError{
@@ -643,7 +656,7 @@ func (s *DataSourceService) manualSyncUsing(
 		}
 
 	}
-	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil && !normalQueued {
 		logger.Warnf(ctx, "Feishu sync admission rejected source=%s stage=guard cause=%v", ds.ID, err)
 		return nil, &datasource.SyncAdmissionError{
 			Reason: feishusynccontrol.AdmissionFailureReason(ctx, ds.ID, admissionFingerprint), Cause: err,
@@ -677,6 +690,13 @@ func (s *DataSourceService) manualSyncUsing(
 			return nil, err
 		}
 		if !created {
+			current, readErr := s.syncLogRepo.FindLatest(ctx, dsID)
+			if readErr != nil {
+				return nil, readErr
+			}
+			if current != nil && current.Status == types.SyncLogStatusRunning {
+				return current, nil
+			}
 			return nil, datasource.ErrSyncAlreadyRunning
 		}
 	}

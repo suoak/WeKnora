@@ -66,6 +66,12 @@ func (h *probeRouteHook) DialHook(next redis.DialHook) redis.DialHook { return n
 
 func (h *probeRouteHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
+		// Connection initialization uses a sticky connection and inherits the
+		// caller's context. Routing its handshake to the probe pool leaves the
+		// original physical connection unauthenticated or on the wrong DB.
+		if connectionInitializationCommand(cmd.Name()) {
+			return next(ctx, cmd)
+		}
 		if ctx.Value(controllerProbeKey{}) == true {
 			// Controller cycles use standalone commands and Lua. WATCH/MULTI
 			// state cannot move safely between pooled connections.
@@ -81,6 +87,11 @@ func (h *probeRouteHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 
 func (h *probeRouteHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
 	return func(ctx context.Context, cmds []redis.Cmder) error {
+		for _, cmd := range cmds {
+			if connectionInitializationCommand(cmd.Name()) {
+				return next(ctx, cmds)
+			}
+		}
 		if ctx.Value(controllerProbeKey{}) != true {
 			return next(ctx, cmds)
 		}
@@ -96,6 +107,15 @@ func (h *probeRouteHook) ProcessPipelineHook(next redis.ProcessPipelineHook) red
 			return nil
 		})
 		return err
+	}
+}
+
+func connectionInitializationCommand(name string) bool {
+	switch name {
+	case "hello", "auth", "select", "client", "readonly":
+		return true
+	default:
+		return false
 	}
 }
 
