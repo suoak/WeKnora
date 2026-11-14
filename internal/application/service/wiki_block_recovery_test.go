@@ -82,19 +82,23 @@ func wikiBlockedLaneDB(t *testing.T, dialect string) *gorm.DB {
 	t.Helper()
 	db := syncdb.Open(t, dialect)
 	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
-	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases(id text PRIMARY KEY,tenant_id bigint,deleted_at timestamp)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases("+
+		"id text PRIMARY KEY,tenant_id bigint,deleted_at timestamp)").Error)
 	require.NoError(t, db.Exec("CREATE TABLE tenants(id bigint PRIMARY KEY,status text,deleted_at timestamp)").Error)
 	require.NoError(t, db.Exec("INSERT INTO tenants(id,status) VALUES(1,'active'),(2,'active')").Error)
 	require.NoError(t, db.Exec("UPDATE tenants SET deleted_at=CURRENT_TIMESTAMP WHERE id=2").Error)
 	now := time.Now()
-	for _, name := range []string{"eligible", "cooling", "claimed", "deleted", "wrong-tenant", "deleted-tenant", "malformed"} {
+	for _, name := range []string{
+		"eligible", "cooling", "claimed", "deleted", "wrong-tenant", "deleted-tenant", "malformed",
+	} {
 		tenant := uint64(1)
 		if name == "deleted-tenant" {
 			tenant = 2
 		}
 		require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id) VALUES(?,?)", name, tenant).Error)
 		if name == "deleted" {
-			require.NoError(t, db.Exec("UPDATE knowledge_bases SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", name).Error)
+			require.NoError(t, db.Exec("UPDATE knowledge_bases SET deleted_at=CURRENT_TIMESTAMP WHERE id=?",
+				name).Error)
 		}
 		block := repository.WikiProcessingBlock{
 			Reason:    "source_verification_required",

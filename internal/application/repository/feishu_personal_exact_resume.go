@@ -113,7 +113,8 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			receipt = types.TaskPendingOp{
 				TenantID: source.TenantID, Scope: types.PersonalExactReceiptScope,
 				ScopeID: source.KnowledgeID, TaskType: "knowledge:exact_receipt", Op: "staging",
-				DedupKey: fmt.Sprintf("exact-%s-%d", source.AttemptID, source.Generation), Payload: body, EnqueuedAt: now,
+				DedupKey: fmt.Sprintf("exact-%s-%d", source.AttemptID, source.Generation),
+				Payload:  body, EnqueuedAt: now,
 			}
 			if err := tx.Create(&receipt).Error; err != nil {
 				return err

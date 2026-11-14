@@ -92,11 +92,14 @@ func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing
 			consumer := &exactPersonalConsumer{recovery: f.p, source: proof, resuming: true, resumeEmpty: true}
 			switch change {
 			case "retained_chunk":
-				require.NoError(t, f.db.Exec("INSERT INTO chunks(id,knowledge_id) VALUES('old',?)", a.LogicalKnowledgeID).Error)
+				require.NoError(t, f.db.Exec("INSERT INTO chunks(id,knowledge_id) VALUES('old',?)",
+					a.LogicalKnowledgeID).Error)
 			case "retained_vector":
-				require.NoError(t, f.db.Exec("INSERT INTO embeddings(knowledge_id) VALUES(?)", a.LogicalKnowledgeID).Error)
+				require.NoError(t, f.db.Exec("INSERT INTO embeddings(knowledge_id) VALUES(?)",
+					a.LogicalKnowledgeID).Error)
 			case "stale_owner":
-				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET owner_nonce='changed' WHERE id=?", a.ID).Error)
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET owner_nonce='changed' WHERE id=?",
+					a.ID).Error)
 			}
 			files := &exactResumeImageFiles{FileService: f.ks.fileSvc, consumer: consumer}
 			data := []byte("checked image")

@@ -44,7 +44,8 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 			formulas[c.Ref] = c.Formula
 			a := map[string]string{}
 			for _, attr := range c.Formula.Attrs {
-				if attr.Name.Space != "" || (attr.Name.Local != "t" && attr.Name.Local != "si" && attr.Name.Local != "ref") {
+				if attr.Name.Space != "" ||
+					(attr.Name.Local != "t" && attr.Name.Local != "si" && attr.Name.Local != "ref") {
 					return "", errExactWorkbookUnsupported
 				}
 				if _, exists := a[attr.Name.Local]; exists {
@@ -85,7 +86,8 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 		}
 		left, top, e := excelize.CellNameToCoordinates(ends[0])
 		right, bottom, e2 := excelize.CellNameToCoordinates(ends[1])
-		if e != nil || e2 != nil || left > right || top > bottom || right > 64 || bottom > 1024 || (right-left+1)*(bottom-top+1) != len(refs) {
+		if e != nil || e2 != nil || left > right || top > bottom || right > 64 || bottom > 1024 ||
+			(right-left+1)*(bottom-top+1) != len(refs) {
 			return "", errExactWorkbookUnsupported
 		}
 		for row := top; row <= bottom; row++ {
@@ -112,7 +114,8 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 			if strings.ContainsAny(text, "[|\x00") {
 				return "", errExactWorkbookUnsupported
 			}
-			fmt.Fprintf(&notes, "\nFormula cell %s (saved value shown above; formula not recalculated): %s\n", c.Ref, escape.Replace(text))
+			fmt.Fprintf(&notes, "\nFormula cell %s (saved value shown above; formula not recalculated): %s\n",
+				c.Ref, escape.Replace(text))
 		}
 	}
 	return notes.String(), nil

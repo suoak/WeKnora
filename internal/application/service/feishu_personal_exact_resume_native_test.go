@@ -93,8 +93,11 @@ func resumeNativeImageDOCX(t *testing.T, data []byte) []byte {
 		require.NoError(t, err)
 		require.NoError(t, r.Close())
 	}
-	parts["[Content_Types].xml"] = []byte(strings.Replace(string(parts["[Content_Types].xml"]), "</Types>", `<Default Extension="png" ContentType="image/png"/></Types>`, 1))
-	parts["word/_rels/document.xml.rels"] = []byte(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/rel` +
+	parts["[Content_Types].xml"] = []byte(strings.Replace(string(parts["[Content_Types].xml"]), "</Types>",
+		`<Default Extension="png" ContentType="image/png"`+
+			`/></Types>`, 1))
+	parts["word/_rels/document.xml.rels"] = []byte(`<Relationships xmlns="http://schemas.openxmlform` +
+		`ats.org/package/2006/rel` +
 		`ationships"><Relationship Id="picture" Type="http://schemas.openxmlforma` +
 		`ts.org/officeDocument/2006/relationships/image" Target="media/picture.pn` +
 		`g"/></Relationships>`)
@@ -110,7 +113,8 @@ func resumeNativeImageDOCX(t *testing.T, data []byte) []byte {
 		`/a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext c` +
 		`x="95250" cy="95250"/></a:xfrm><a:prstGeom prst="rect"/></pic:spPr></pic` +
 		`:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
-	parts["word/document.xml"] = []byte(strings.Replace(string(parts["word/document.xml"]), "</w:body>", drawing+"</w:body>", 1))
+	parts["word/document.xml"] = []byte(strings.Replace(string(parts["word/document.xml"]), "</w:body>", drawing+
+		"</w:body>", 1))
 	var picture bytes.Buffer
 	require.NoError(t, png.Encode(&picture, image.NewRGBA(image.Rect(0, 0, 2, 2))))
 	parts["word/media/picture.png"] = picture.Bytes()
@@ -369,7 +373,8 @@ func exerciseNativeResume(t *testing.T, empty, withImages bool) {
 	}
 	if withImages {
 		var bound int64
-		require.NoError(t, f.db.Table("resource_bindings").Where("owner_id=? AND relation=?", knowledge.ID, types.ResourceRelationExtractedImage).Count(&bound).Error)
+		require.NoError(t, f.db.Table("resource_bindings").Where("owner_id=? AND relation=?",
+			knowledge.ID, types.ResourceRelationExtractedImage).Count(&bound).Error)
 		require.Positive(t, bound, "fresh image assets must remain bound after empty-output recovery")
 		return
 	}

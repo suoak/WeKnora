@@ -40,7 +40,10 @@ func TestExactWorkbookLargeWorksheetSplitsOnlyBetweenCompleteRows(t *testing.T) 
 		require.Equal(t, 1, strings.Count(joined, row))
 	}
 	require.Equal(t, 1, strings.Count(joined, "Hyperlink cell A1:"))
-	_, err = splitExactWorkbookRows(heading+"| Row | A |\n| --- | --- |\n| 1 | "+strings.Repeat("值", types.DefaultParserSemanticChunkMaxChars)+" |\n", heading)
+	_, err = splitExactWorkbookRows(heading+
+		"| Row | A |\n| --- | --- |\n| 1 | "+
+		strings.Repeat("值", types.DefaultParserSemanticChunkMaxChars)+
+		" |\n", heading)
 	require.Error(t, err, "a single oversized row must never be truncated")
 }
 
@@ -60,7 +63,14 @@ func exactContentWorkbook(t *testing.T, cells, extra string, additional map[stri
 		require.NoError(t, err)
 		require.NoError(t, r.Close())
 	}
-	parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="` + exactWorkbookRelNamespace + `"><sheetData><row r="1">` + cells + `</row></sheetData>` + extra + `</worksheet>`)
+	parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="http://schemas.openxmlformats.` +
+		`org/spreadsheetml/2006/main" xmlns:r="` +
+		exactWorkbookRelNamespace +
+		`"><sheetData><row r="1">` +
+		cells +
+		`</row></sheetData>` +
+		extra +
+		`</worksheet>`)
 	for name, body := range additional {
 		parts[name] = body
 	}
@@ -104,39 +114,72 @@ func TestExactWorkbookFormulasPreserveSavedValuesAndSharedExpressions(t *testing
 		`<c r="A1"><f t="array" ref="A1:B1">1+1</f></c>`,
 		`<c r="A1"><f>[1]Sheet1!A1</f></c>`,
 	} {
-		_, err := exactWorkbookFormulaNotes(f, "Sheet1", []byte(`<worksheet><sheetData><row>`+bad+`</row></sheetData></worksheet>`))
+		_, err := exactWorkbookFormulaNotes(f, "Sheet1", []byte(`<worksheet><sheetData><row>`+
+			bad+
+			`</row></sheetData></worksheet>`))
 		require.Error(t, err)
 	}
 }
 
 func exactDrawingFixture() map[string][]byte {
 	return map[string][]byte{
-		"xl/worksheets/sheet1.xml":            []byte(`<worksheet xmlns:r="` + exactWorkbookRelNamespace + `"><drawing r:id="drawing"/></worksheet>`),
-		"xl/worksheets/_rels/sheet1.xml.rels": []byte(`<Relationships><Relationship Id="drawing" Type="` + exactWorkbookRelNamespace + `/drawing" Target="../drawings/drawing1.xml"/></Relationships>`),
-		"xl/drawings/drawing1.xml":            []byte(`<xdr:wsDr xmlns:xdr="` + exactDrawingNamespace + `" xmlns:a="` + exactDrawingMainNamespace + `" xmlns:r="` + exactWorkbookRelNamespace + `"><xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name="Original picture" descr="Source diagram"/><xdr:cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:embed="image"/><a:stretch><a:fillRect/></a:stretch></xdr:blipFill><xdr:spPr><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic><xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`),
-		"xl/drawings/_rels/drawing1.xml.rels": []byte(`<Relationships><Relationship Id="image" Type="` + exactWorkbookRelNamespace + `/image" Target="../media/image1.jpeg"/></Relationships>`),
-		"xl/media/image1.jpeg":                []byte("image"),
+		"xl/worksheets/sheet1.xml": []byte(`<worksheet xmlns:r="` +
+			exactWorkbookRelNamespace +
+			`"><drawing r:id="drawing"/></worksheet>`),
+		"xl/worksheets/_rels/sheet1.xml.rels": []byte(`<Relationships><Relationship Id="drawing" Type="` +
+			exactWorkbookRelNamespace +
+			`/drawing" Target="../drawings/drawing1.xml"/></R` +
+			`elationships>`),
+		"xl/drawings/drawing1.xml": []byte(`<xdr:wsDr xmlns:xdr="` +
+			exactDrawingNamespace +
+			`" xmlns:a="` +
+			exactDrawingMainNamespace +
+			`" xmlns:r="` +
+			exactWorkbookRelNamespace +
+			`"><xdr:twoCellAnchor><xdr:from><xdr:col>0</xdr:c` +
+			`ol><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row` +
+			`><xdr:rowOff>0</xdr:rowOff></xdr:from><xdr:to><x` +
+			`dr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr` +
+			`:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:` +
+			`to><xdr:pic><xdr:nvPicPr><xdr:cNvPr id="1" name=` +
+			`"Original picture" descr="Source diagram"/><xdr:` +
+			`cNvPicPr/></xdr:nvPicPr><xdr:blipFill><a:blip r:` +
+			`embed="image"/><a:stretch><a:fillRect/></a:stret` +
+			`ch></xdr:blipFill><xdr:spPr><a:prstGeom prst="re` +
+			`ct"><a:avLst/></a:prstGeom></xdr:spPr></xdr:pic>` +
+			`<xdr:clientData/></xdr:twoCellAnchor></xdr:wsDr>`),
+		"xl/drawings/_rels/drawing1.xml.rels": []byte(`<Relationships><Relationship Id="image" Type="` +
+			exactWorkbookRelNamespace +
+			`/image" Target="../media/image1.jpeg"/></Relatio` +
+			`nships>`),
+		"xl/media/image1.jpeg": []byte("image"),
 	}
 }
 
 func TestExactWorkbookDrawingPreservesPlacementAndRejectsUnknownInputs(t *testing.T) {
-	for _, change := range []string{"valid", "external", "orphan", "chart", "out_of_bounds", "missing_image", "wrong_role"} {
+	for _, change := range []string{
+		"valid", "external", "orphan", "chart", "out_of_bounds", "missing_image", "wrong_role",
+	} {
 		t.Run(change, func(t *testing.T) {
 			parts := exactDrawingFixture()
 			key := "xl/drawings/drawing1.xml"
+			relKey := "xl/drawings/_rels/drawing1.xml.rels"
 			switch change {
 			case "external":
-				parts["xl/drawings/_rels/drawing1.xml.rels"] = []byte(strings.Replace(string(parts["xl/drawings/_rels/drawing1.xml.rels"]), `Target="../media/image1.jpeg"`, `Target="https://example.invalid/image" TargetMode="External"`, 1))
+				parts[relKey] = []byte(strings.Replace(string(parts[relKey]),
+					`Target="../media/image1.jpeg"`, `Target="https://example.invalid/image" TargetMod`+
+						`e="External"`, 1))
 			case "orphan":
 				parts["xl/drawings/drawing2.xml"] = parts[key]
 			case "chart":
 				parts[key] = []byte(strings.Replace(string(parts[key]), "xdr:pic>", "xdr:graphicFrame>", -1))
 			case "out_of_bounds":
-				parts[key] = []byte(strings.Replace(string(parts[key]), "<xdr:col>2</xdr:col>", "<xdr:col>64</xdr:col>", 1))
+				parts[key] = []byte(strings.Replace(string(parts[key]),
+					"<xdr:col>2</xdr:col>", "<xdr:col>64</xdr:col>", 1))
 			case "missing_image":
 				delete(parts, "xl/media/image1.jpeg")
 			case "wrong_role":
-				parts["xl/drawings/_rels/drawing1.xml.rels"] = []byte(strings.Replace(string(parts["xl/drawings/_rels/drawing1.xml.rels"]), "/image", "/hyperlink", 1))
+				parts[relKey] = []byte(strings.Replace(string(parts[relKey]), "/image", "/hyperlink", 1))
 			}
 			notes, err := exactWorkbookDrawingNotes(parts)
 			if change != "valid" {
@@ -168,8 +211,14 @@ func TestExactWorkbookDrawingNativeJPEGCompleteCoverage(t *testing.T) {
 	require.NoError(t, png.Encode(&background, image.NewRGBA(image.Rect(0, 0, 2, 2))))
 	parts["xl/media/background.png"] = background.Bytes()
 	rels := "xl/worksheets/_rels/sheet1.xml.rels"
-	parts[rels] = []byte(strings.Replace(string(parts[rels]), "</Relationships>", `<Relationship Id="background" Type="`+exactWorkbookRelNamespace+`/image" Target="../media/background.png"/></Relationships>`, 1))
-	data := exactContentWorkbook(t, `<c r="A1" t="inlineStr"><is><t>Retained worksheet label</t></is></c>`, `<drawing r:id="drawing"/><picture r:id="background"/>`, parts)
+	parts[rels] = []byte(strings.Replace(string(parts[rels]), "</Relationships>",
+		`<Relationship Id="background" Type="`+
+			exactWorkbookRelNamespace+
+			`/image" Target="../media/background.png"/></Rela`+
+			`tionships>`, 1))
+	data := exactContentWorkbook(t, `<c r="A1" t="inlineStr"><is><t>Retained workshee`+
+		`t label</t></is></c>`, `<drawing r:id="drawing"/><picture r:id="backgrou`+
+		`nd"/>`, parts)
 	book, err := parseExactEmbeddedWorkbook("word/embeddings/a.xlsx", data, 1)
 	require.NoError(t, err)
 	require.Len(t, book.Assets, 2)

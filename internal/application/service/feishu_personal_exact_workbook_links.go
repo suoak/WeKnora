@@ -119,7 +119,8 @@ func exactWorkbookHyperlinkNotes(parts map[string][]byte) (map[string]string, er
 					used[a.Value] = true
 					attrs["url"] = targets[a.Value]
 				} else {
-					if a.Name.Space != "" || (key != "ref" && key != "display" && key != "tooltip" && key != "location") {
+					if a.Name.Space != "" ||
+						(key != "ref" && key != "display" && key != "tooltip" && key != "location") {
 						return nil, errExactWorkbookUnsupported
 					}
 					if _, exists := attrs[key]; exists {
@@ -149,7 +150,8 @@ func exactWorkbookHyperlinkNotes(parts map[string][]byte) (map[string]string, er
 		}
 		sort.Strings(refs)
 		var text strings.Builder
-		escape := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\r", "&#13;", "\n", "&#10;", "|", "&#124;")
+		escape := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;",
+			"\r", "&#13;", "\n", "&#10;", "|", "&#124;")
 		for _, ref := range refs {
 			text.WriteString("\nHyperlink cell " + ref + ":")
 			for _, key := range []string{"url", "location", "display", "tooltip"} {

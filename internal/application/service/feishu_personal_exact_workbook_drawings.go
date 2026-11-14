@@ -17,6 +17,10 @@ const (
 	exactDrawingMainNamespace = "http://schemas.openxmlformats.org/drawingml/2006/main"
 )
 
+type exactWorkbookDrawingBlip struct {
+	ID string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships embed,attr"`
+}
+
 // Admit only embedded pictures with explicit two-cell placement. Charts,
 // text boxes, linked media and unknown shapes still require their own reader.
 func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, error) {
@@ -100,7 +104,8 @@ func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, erro
 						if a.Name.Space == "xmlns" || a.Name.Local == "xmlns" {
 							continue
 						}
-						if a.Name.Space == exactWorkbookRelNamespace && el.Name.Local == "blip" && a.Name.Local == "embed" {
+						if a.Name.Space == exactWorkbookRelNamespace && el.Name.Local == "blip" &&
+							a.Name.Local == "embed" {
 							continue
 						}
 						permitted := map[string]string{
@@ -112,7 +117,8 @@ func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, erro
 							"prstGeom":      "prst",
 							"clientData":    "fLocksWithSheet fPrintsWithSheet",
 						}
-						if a.Name.Space != "" || !strings.Contains(" "+permitted[el.Name.Local]+" ", " "+a.Name.Local+" ") {
+						if a.Name.Space != "" ||
+							!strings.Contains(" "+permitted[el.Name.Local]+" ", " "+a.Name.Local+" ") {
 							return nil, errExactWorkbookUnsupported
 						}
 						if el.Name.Local == "prstGeom" && a.Value != "rect" {
@@ -137,13 +143,12 @@ func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, erro
 							Description string `xml:"descr,attr"`
 							Title       string `xml:"title,attr"`
 						} `xml:"nvPicPr>cNvPr"`
-						Blips []struct {
-							ID string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships embed,attr"`
-						} `xml:"blipFill>blip"`
+						Blips []exactWorkbookDrawingBlip `xml:"blipFill>blip"`
 					} `xml:"pic"`
 				} `xml:"twoCellAnchor"`
 			}
-			if xml.Unmarshal(parts[drawingPart], &document) != nil || len(document.Anchors) == 0 || len(document.Anchors) > 64 {
+			if xml.Unmarshal(parts[drawingPart], &document) != nil ||
+				len(document.Anchors) == 0 || len(document.Anchors) > 64 {
 				return nil, errExactWorkbookUnsupported
 			}
 			seenRels := map[string]bool{}
@@ -165,15 +170,20 @@ func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, erro
 						return "", errExactWorkbookUnsupported
 					}
 					ref, _ := excelize.CoordinatesToCellName(m.Col+1, m.Row+1)
-					return ref + " (offset " + strconv.FormatInt(m.ColOff, 10) + "," + strconv.FormatInt(m.RowOff, 10) + " EMU)", nil
+					return ref + " (offset " + strconv.FormatInt(m.ColOff, 10) + "," +
+						strconv.FormatInt(m.RowOff, 10) + " EMU)", nil
 				}
 				from, e := label(anchor.From)
 				to, e2 := label(anchor.To)
 				if e != nil || e2 != nil {
 					return nil, errExactWorkbookUnsupported
 				}
-				escape := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;", "\n", "&#10;", "\r", "&#13;", "|", "&#124;")
-				notes[sheet] += fmt.Sprintf("\nEmbedded picture %s: from %s to %s; name=%s; description=%s; title=%s.\n", path.Base(image), from, to, escape.Replace(picture.Properties.Name), escape.Replace(picture.Properties.Description), escape.Replace(picture.Properties.Title))
+				escape := strings.NewReplacer("&", "&amp;", "<", "&lt;", ">", "&gt;",
+					"\n", "&#10;", "\r", "&#13;", "|", "&#124;")
+				notes[sheet] += fmt.Sprintf(
+					"\nEmbedded picture %s: from %s to %s; name=%s; description=%s; title=%s.\n",
+					path.Base(image), from, to, escape.Replace(picture.Properties.Name),
+					escape.Replace(picture.Properties.Description), escape.Replace(picture.Properties.Title))
 			}
 			var rels struct {
 				Rows []struct {

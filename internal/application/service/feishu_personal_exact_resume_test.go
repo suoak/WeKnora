@@ -146,7 +146,8 @@ func TestPersonalExactResumeMissingReceiptRequiresZeroOutput(t *testing.T) {
 			check := &personalExactPreflight{observed: observed, closed: true}
 			_, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
 			require.NoError(t, err)
-			err = f.p.repo.QueueExactResume(context.Background(), observed, exactSourceReceipt(check.source), check.validate)
+			err = f.p.repo.QueueExactResume(context.Background(), observed,
+				exactSourceReceipt(check.source), check.validate)
 			var receipts int64
 			require.NoError(t, f.db.Model(&types.TaskPendingOp{}).Where("scope=? AND scope_id=?",
 				types.PersonalExactReceiptScope, observed.LogicalKnowledgeID).Count(&receipts).Error)
@@ -182,7 +183,8 @@ func TestPersonalExactReviewedResumeIsScopedAndCumulative(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			f, observed := closedExactResumeFixture(t)
 			count := repository.PersonalExactResumeMaxAttempts + tc.offset
-			require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=? WHERE id=?", count, observed.ID).Error)
+			require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=? WHERE id=?",
+				count, observed.ID).Error)
 			observed = mustPersonalAttempt(t, f, observed.ID)
 			ids := "unrelated"
 			if tc.listed {
@@ -192,7 +194,8 @@ func TestPersonalExactReviewedResumeIsScopedAndCumulative(t *testing.T) {
 			check := &personalExactPreflight{observed: observed, closed: true}
 			_, err := f.p.checkExactPersonalSource(context.Background(), observed, false, check)
 			require.NoError(t, err)
-			err = f.p.repo.QueueExactResume(context.Background(), observed, exactSourceReceipt(check.source), check.validate)
+			err = f.p.repo.QueueExactResume(context.Background(), observed,
+				exactSourceReceipt(check.source), check.validate)
 			if !tc.want {
 				require.Error(t, err)
 				return

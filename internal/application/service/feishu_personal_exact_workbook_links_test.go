@@ -28,7 +28,9 @@ func TestExactWorkbookHyperlinkNativeCoverage(t *testing.T) {
 	defer func() { require.NoError(t, f.Close()) }()
 	require.NoError(t, f.SetCellStr("Sheet1", "A1", "original label"))
 	require.NoError(t, f.SetCellHyperLink("Sheet1", "A1", server.URL+"/never-fetch", "External"))
-	require.NoError(t, f.SetCellFormula("Sheet1", "B1", `HYPERLINK("`+server.URL+`/formula-never-fetch","formula label")`))
+	require.NoError(t, f.SetCellFormula("Sheet1", "B1", `HYPERLINK("`+
+		server.URL+
+		`/formula-never-fetch","formula label")`))
 	b, err := f.WriteToBuffer()
 	require.NoError(t, err)
 	book, err := parseExactEmbeddedWorkbook("word/embeddings/test.xlsx", b.Bytes(), 1)
@@ -105,8 +107,15 @@ func TestExactWorkbookLinksRejectUnprovedDependencies(t *testing.T) {
 		``,
 	} {
 		parts := map[string][]byte{
-			"xl/worksheets/sheet1.xml":            []byte(`<worksheet xmlns:r="` + exactWorkbookRelNamespace + `"><sheetData><row><c r="A1"/></row></sheetData>` + child + `</worksheet>`),
-			"xl/worksheets/_rels/sheet1.xml.rels": []byte(`<Relationships><Relationship Id="link" Type="` + exactWorkbookHyperlinkType + `" Target="https://example.invalid/" TargetMode="External"/></Relationships>`),
+			"xl/worksheets/sheet1.xml": []byte(`<worksheet xmlns:r="` +
+				exactWorkbookRelNamespace +
+				`"><sheetData><row><c r="A1"/></row></sheetData>` +
+				child +
+				`</worksheet>`),
+			"xl/worksheets/_rels/sheet1.xml.rels": []byte(`<Relationships><Relationship Id="link" Type="` +
+				exactWorkbookHyperlinkType +
+				`" Target="https://example.invalid/" TargetMode="` +
+				`External"/></Relationships>`),
 		}
 		_, err := exactWorkbookHyperlinkNotes(parts)
 		require.Error(t, err, child)

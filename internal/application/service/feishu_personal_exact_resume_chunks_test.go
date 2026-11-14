@@ -18,7 +18,9 @@ func TestPersonalExactResumeEmptyOutputDoesNotAdoptOrphanVectors(t *testing.T) {
 		source:   &personalExactDocument{knowledge: "doc", kb: "kb", tenant: 1},
 		parsed:   &personalExactParsedDocument{}, resuming: true,
 	}
-	generated := []*types.Chunk{{ID: "new", KnowledgeID: "doc", KnowledgeBaseID: "kb", TenantID: 1, ChunkType: types.ChunkTypeText}}
+	generated := []*types.Chunk{{
+		ID: "new", KnowledgeID: "doc", KnowledgeBaseID: "kb", TenantID: 1, ChunkType: types.ChunkTypeText,
+	}}
 	require.ErrorIs(t, c.reproveResumeChunks(context.Background(), generated), errExactResumeEmptyOutput)
 	require.Equal(t, "new", generated[0].ID)
 	require.NoError(t, db.Exec("INSERT INTO embeddings VALUES('doc')").Error)
