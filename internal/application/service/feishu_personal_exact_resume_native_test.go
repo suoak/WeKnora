@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -131,13 +132,38 @@ func resumeNativeImageDOCX(t *testing.T, data []byte) []byte {
 }
 
 func exerciseNativeResume(t *testing.T, empty, withImages bool) {
+	exerciseNativeResumeWithData(t, empty, withImages, nil)
+}
+
+func TestPersonalExactResumeNativeOriginalWorkbookPublication(t *testing.T) {
+	root := os.Getenv("EXACT_PUBLICATION_FIXTURE_DIR")
+	if root == "" {
+		t.Skip("requires isolated incident originals")
+	}
+	t.Setenv("FEISHU_PERSONAL_EXACT_EMBEDDED_XLSX", "1")
+	for _, id := range []string{
+		"3d5c264c-2bf7-48fe-9c8d-f4e729346491", "0765a51b-2ac5-4b9c-952b-f442b5c42397",
+		"418a14cb-1c82-4f29-a44b-c4b753d446fa", "142fee4d-b2ea-4b67-8ed8-02fa74544a24",
+		"c8961e8d-7a21-415e-9f15-0779c9de5dfc",
+	} {
+		t.Run(id, func(t *testing.T) {
+			data, err := os.ReadFile(filepath.Join(root, id+".docx"))
+			require.NoError(t, err)
+			exerciseNativeResumeWithData(t, false, true, data)
+		})
+	}
+}
+
+func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []byte) {
 	t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	f := newMVPFixture(t)
 	f.p.lease = 2 * time.Minute
-	data := resumeNativeDOCX(t)
-	if withImages {
-		data = resumeNativeImageDOCX(t, data)
+	if data == nil {
+		data = resumeNativeDOCX(t)
+		if withImages {
+			data = resumeNativeImageDOCX(t, data)
+		}
 	}
 	files := map[string][]byte{
 		"real": data,

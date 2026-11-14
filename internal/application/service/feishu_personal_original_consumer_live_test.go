@@ -182,7 +182,8 @@ func configureOriginalExactConsumer(
 		var rows []any
 		for i := range request.Input {
 			vector := make([]float32, 1024)
-			vector[0] = 1
+			// Providers may return distinct vectors for repeated input text.
+			vector[0] = float32(i + 1)
 			rows = append(rows, map[string]any{"object": "embedding", "index": i, "embedding": vector})
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"object": "list", "data": rows, "model": "isolated-fixture"})

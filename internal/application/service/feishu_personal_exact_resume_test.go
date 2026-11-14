@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"sync"
 	"testing"
 
@@ -207,6 +208,35 @@ func TestPersonalExactReviewedResumeIsScopedAndCumulative(t *testing.T) {
 			var fields map[string]json.RawMessage
 			require.NoError(t, json.Unmarshal(audit.Payload, &fields))
 			require.JSONEq(t, "true", string(fields["reviewed_extra_attempt"]))
+		})
+	}
+}
+
+func TestPersonalExactReviewedHistoricalCounterResume(t *testing.T) {
+	for _, baseline := range []int{161, 162, 163} {
+		t.Run(fmt.Sprint(baseline), func(t *testing.T) {
+			f, observed := closedExactResumeFixture(t)
+			require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET retry_count=162 WHERE id=?",
+				observed.ID).Error)
+			observed = mustPersonalAttempt(t, f, observed.ID)
+			settings, err := json.Marshal(map[string]int{observed.LogicalKnowledgeID: baseline})
+			require.NoError(t, err)
+			t.Setenv("FEISHU_PERSONAL_EXACT_REVIEWED_RESUME_BASELINES", string(settings))
+			check := &personalExactPreflight{observed: observed, closed: true}
+			_, err = f.p.checkExactPersonalSource(context.Background(), observed, false, check)
+			require.NoError(t, err)
+			err = f.p.repo.QueueExactResume(context.Background(), observed,
+				exactSourceReceipt(check.source), check.validate)
+			if baseline != 162 {
+				require.ErrorIs(t, err, repository.ErrPersonalFence)
+				require.Equal(t, 162, mustPersonalAttempt(t, f, observed.ID).RetryCount)
+				return
+			}
+			require.NoError(t, err)
+			current := mustPersonalAttempt(t, f, observed.ID)
+			require.Equal(t, 163, current.RetryCount)
+			require.Less(t, repository.PersonalExactResumeBudget(current.LogicalKnowledgeID, current.RetryCount),
+				current.RetryCount, "consumed review must not admit another execution")
 		})
 	}
 }

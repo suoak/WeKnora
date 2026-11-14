@@ -137,15 +137,18 @@ func (e *exactPersonalEmbedder) accept(ctx context.Context, texts []string, vect
 	e.consumer.resultMu.Lock()
 	defer e.consumer.resultMu.Unlock()
 	if e.consumer.modelVectors == nil {
-		e.consumer.modelVectors = make(map[[32]byte][32]byte)
+		e.consumer.modelVectors = make(map[[32]byte]map[[32]byte]bool)
 	}
 	for i, text := range texts {
 		key := sha256.Sum256([]byte(text))
 		digest := exactHalfVectorDigest(vectors[i])
-		if previous, exists := e.consumer.modelVectors[key]; exists && previous != digest {
-			return types.ErrExactDocumentScope
+		// Repeated table/header text can occur in several chunks. A provider
+		// may return different vectors for those identical inputs; retain only
+		// digests actually returned for this verified input in this execution.
+		if e.consumer.modelVectors[key] == nil {
+			e.consumer.modelVectors[key] = make(map[[32]byte]bool)
 		}
-		e.consumer.modelVectors[key] = digest
+		e.consumer.modelVectors[key][digest] = true
 	}
 	return nil
 }
