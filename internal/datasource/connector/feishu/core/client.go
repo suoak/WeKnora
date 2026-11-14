@@ -254,9 +254,9 @@ func (c *Client) doRequestBytesLoop(
 ) ([]byte, error) {
 	httpClient := c.httpClient
 	if binary && c.downloadTimeout > 0 {
-		copy := *httpClient
-		copy.Timeout = c.downloadTimeout
-		httpClient = &copy // Keep the shared metadata client and safe transport intact.
+		requestClient := *httpClient
+		requestClient.Timeout = c.downloadTimeout
+		httpClient = &requestClient // Keep the shared metadata client and safe transport intact.
 	}
 	var token string
 	var err error

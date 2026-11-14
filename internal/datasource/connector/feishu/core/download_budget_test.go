@@ -98,7 +98,7 @@ func TestBinaryDownloadTotalBudgetCannotBeExtendedByProgress(t *testing.T) {
 
 func TestBinaryDownloadPreservesCallerCancellation(t *testing.T) {
 	started := make(chan struct{})
-	server, cfg := retryTestServer("/binary", func(w http.ResponseWriter, r *http.Request) {
+	server, cfg := retryTestServer("/binary", func(_ http.ResponseWriter, r *http.Request) {
 		close(started)
 		<-r.Context().Done()
 	})

@@ -12,6 +12,15 @@ retaining the fork's source authority, generation, publication and stop fences:
   This is restricted to uploaded Drive files. Native documents with similar
   names still follow normal content and access checks. Ignored files remain
   visible as unsupported/skipped work; they are not reported as imported.
+- `b373374bf` / upstream #4400: retain nested lists/callouts inside native
+  table cells in source order. Iterative traversal handles repeated/cyclic
+  child references, while file/image subtrees keep their existing flat rendering.
+
+The broader upstream Wiki-shortcut expansion (#4565) is not imported here:
+cross-space descendants need this fork's selected-source authority and durable
+discovery review, not an automatic widening of the current selection. Upstream
+error-preview truncation (#4614) changes a helper with no call sites in this
+fork's Feishu core; current errors retain structured codes, not provider bodies.
 
 ## Binary transfer budget
 
