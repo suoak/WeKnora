@@ -78,10 +78,15 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 			return "", 0, repository.ErrWikiMCPUnverified
 		}
 		verified, err := reader.VerifiedWikiBrowserReadContext(ctx, kbID)
+		if stderrors.Is(err, repository.ErrWikiMCPInputsChanged) && ctx.Err() == nil {
+			verified, err = reader.VerifiedWikiBrowserReadContext(ctx, kbID)
+		}
 		if err != nil {
 			return "", 0, err
 		}
-		c.Request = c.Request.WithContext(verified)
+		c.Request = c.Request.WithContext(context.WithValue(verified, wikiBrowserSnapshotKey{}, wikiBrowserSnapshot{
+			kb: kbID, base: ctx,
+		}))
 	}
 
 	return kbID, tenantID, nil
@@ -116,7 +121,7 @@ func getSlugParam(c *gin.Context) string {
 func (h *WikiPageHandler) ListPages(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -151,9 +156,11 @@ func (h *WikiPageHandler) ListPages(c *gin.Context) {
 		SortOrder:       c.DefaultQuery("sort_order", "desc"),
 	}
 
-	resp, err := h.wikiService.ListPages(c.Request.Context(), req)
+	resp, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiPageListResponse, error) {
+		return h.wikiService.ListPages(ctx, req)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -175,7 +182,7 @@ func (h *WikiPageHandler) ListPages(c *gin.Context) {
 func (h *WikiPageHandler) ListFolders(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 	parentID := strings.TrimSpace(c.Query("parent_id"))
@@ -187,9 +194,11 @@ func (h *WikiPageHandler) ListFolders(c *gin.Context) {
 			}
 		}
 	}
-	folders, err := h.wikiService.ListChildFolders(c.Request.Context(), kbID, parentID, pageTypes)
+	folders, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) ([]types.WikiFolderNode, error) {
+		return h.wikiService.ListChildFolders(ctx, kbID, parentID, pageTypes)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 	if folders == nil {
@@ -448,7 +457,7 @@ func (h *WikiPageHandler) recordManualWikiActivity(
 func (h *WikiPageHandler) GetPage(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -458,13 +467,15 @@ func (h *WikiPageHandler) GetPage(c *gin.Context) {
 		return
 	}
 
-	page, err := h.wikiService.GetPageBySlug(c.Request.Context(), kbID, slug)
+	page, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiPage, error) {
+		return h.wikiService.GetPageBySlug(ctx, kbID, slug)
+	})
 	if err != nil {
 		if stderrors.Is(err, repository.ErrWikiPageNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Wiki page not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -597,7 +608,7 @@ func (h *WikiPageHandler) UpdatePage(c *gin.Context) {
 func (h *WikiPageHandler) ListRevisions(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -607,21 +618,21 @@ func (h *WikiPageHandler) ListRevisions(c *gin.Context) {
 		return
 	}
 
-	ctx := c.Request.Context()
-
 	if raw := c.Query("version"); raw != "" {
 		version, parseErr := strconv.Atoi(raw)
 		if parseErr != nil || version < 1 {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid version"})
 			return
 		}
-		rev, err := h.wikiService.GetRevision(ctx, kbID, slug, version)
+		rev, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiPageRevision, error) {
+			return h.wikiService.GetRevision(ctx, kbID, slug, version)
+		})
 		if err != nil {
 			if stderrors.Is(err, repository.ErrWikiPageNotFound) {
 				c.JSON(http.StatusNotFound, gin.H{"error": "Wiki page revision not found"})
 				return
 			}
-			c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+			writeWikiReadError(c, http.StatusInternalServerError, err)
 			return
 		}
 		c.JSON(http.StatusOK, rev)
@@ -640,13 +651,15 @@ func (h *WikiPageHandler) ListRevisions(c *gin.Context) {
 		offset = 0
 	}
 
-	resp, err := h.wikiService.ListRevisions(ctx, kbID, slug, limit, offset)
+	resp, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiPageRevisionListResponse, error) {
+		return h.wikiService.ListRevisions(ctx, kbID, slug, limit, offset)
+	})
 	if err != nil {
 		if stderrors.Is(err, repository.ErrWikiPageNotFound) {
 			c.JSON(http.StatusNotFound, gin.H{"error": "Wiki page not found"})
 			return
 		}
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 	c.JSON(http.StatusOK, resp)
@@ -770,7 +783,7 @@ func (h *WikiPageHandler) DeletePage(c *gin.Context) {
 func (h *WikiPageHandler) GetIndex(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -791,9 +804,11 @@ func (h *WikiPageHandler) GetIndex(c *gin.Context) {
 		}
 	}
 
-	resp, err := h.wikiService.GetIndexView(c.Request.Context(), kbID, pageTypes, limit, c.Query("cursor"))
+	resp, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiIndexResponse, error) {
+		return h.wikiService.GetIndexView(ctx, kbID, pageTypes, limit, c.Query("cursor"))
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -833,7 +848,7 @@ const (
 func (h *WikiPageHandler) GetGraph(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -900,9 +915,11 @@ func (h *WikiPageHandler) GetGraph(c *gin.Context) {
 		req.FamiliarKnowledgeIDs = h.memoryService.FamiliarKnowledgeIDs(c.Request.Context())
 	}
 
-	graph, err := h.wikiService.GetGraph(c.Request.Context(), req)
+	graph, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiGraphData, error) {
+		return h.wikiService.GetGraph(ctx, req)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -921,13 +938,15 @@ func (h *WikiPageHandler) GetGraph(c *gin.Context) {
 func (h *WikiPageHandler) GetStats(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
-	stats, err := h.wikiService.GetStats(c.Request.Context(), kbID)
+	stats, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) (*types.WikiStats, error) {
+		return h.wikiService.GetStats(ctx, kbID)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -948,16 +967,18 @@ func (h *WikiPageHandler) GetStats(c *gin.Context) {
 func (h *WikiPageHandler) ListIssues(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
 	slug := c.Query("slug")
 	status := c.Query("status")
 
-	issues, err := h.wikiService.ListIssues(c.Request.Context(), kbID, slug, status)
+	issues, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) ([]*types.WikiPageIssue, error) {
+		return h.wikiService.ListIssues(ctx, kbID, slug, status)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
@@ -1030,7 +1051,7 @@ func (h *WikiPageHandler) UpdateIssueStatus(c *gin.Context) {
 func (h *WikiPageHandler) SearchPages(c *gin.Context) {
 	kbID, _, err := h.validateWikiKB(c)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusBadRequest, err)
 		return
 	}
 
@@ -1042,9 +1063,11 @@ func (h *WikiPageHandler) SearchPages(c *gin.Context) {
 
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "10"))
 
-	pages, err := h.wikiService.SearchPages(c.Request.Context(), kbID, query, limit)
+	pages, err := readWikiBrowserSnapshot(c, h, func(ctx context.Context) ([]*types.WikiPage, error) {
+		return h.wikiService.SearchPages(ctx, kbID, query, limit)
+	})
 	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		writeWikiReadError(c, http.StatusInternalServerError, err)
 		return
 	}
 
