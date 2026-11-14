@@ -3,7 +3,6 @@ package repository
 import (
 	"context"
 	"net/url"
-	"path/filepath"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -129,23 +128,33 @@ r.knowledge_base_id AS kb_id
 	if err != nil {
 		return false, err
 	}
-	normalize := func(p string) (string, error) {
+	normalize := func(p string, protection bool) (string, bool, error) {
+		unavailable := false
 		if handle, ok := types.ParseResourcePath(p); ok {
 			var resource struct {
-				PhysicalPath, Provider string
-				TenantID               uint64
+				PhysicalPath, Provider, State string
+				TenantID                      uint64
+				Deleted                       bool
+			}
+			// A tombstone still identifies the directory that must remain
+			// protected. Resolving its retained locator grants no file access;
+			// otherwise one retired resource would reject unrelated files in
+			// the entire tenant before their own bindings were examined.
+			query := "SELECT physical_path,provider,tenant_id,state,deleted_at IS NOT NULL AS deleted " +
+				"FROM resources WHERE handle=?"
+			if !protection {
+				query += " AND state='active' AND deleted_at IS NULL"
 			}
 			if e := r.db.
 				WithContext(ctx).
-				Raw("SELECT physical_path,provider,tenant_id FROM resources WHERE handle=? AND st"+
-					"ate='active' AND deleted_at IS NULL",
-					handle).
+				Raw(query, handle).
 				Scan(&resource).Error; e != nil {
-				return "", e
+				return "", false, e
 			}
 			if resource.TenantID != tenant || resource.Provider != "local" || resource.PhysicalPath == "" {
-				return "", types.ErrLegacySourceRestricted
+				return "", false, types.ErrLegacySourceRestricted
 			}
+			unavailable = resource.State != types.ResourceStateActive || resource.Deleted
 			p = resource.PhysicalPath
 		}
 		if _, inner, ok := types.ParseStorageBackendPath(p); ok {
@@ -155,31 +164,34 @@ r.knowledge_base_id AS kb_id
 		for i := 0; i < 4; i++ {
 			decoded, e := url.PathUnescape(p)
 			if e != nil {
-				return "", types.ErrLegacySourceRestricted
+				return "", false, types.ErrLegacySourceRestricted
 			}
 			if decoded == p {
 				break
 			}
 			p = decoded
 			if i == 3 {
-				return "", types.ErrLegacySourceRestricted
+				return "", false, types.ErrLegacySourceRestricted
 			}
 		}
-		p = filepath.Clean(p)
-		if resolved, e := filepath.EvalSymlinks(p); e == nil {
-			p = resolved
+		p, e := canonicalLegacyFilePath(p)
+		if e != nil {
+			return "", false, types.ErrLegacySourceRestricted
 		}
-		return strings.ReplaceAll(p, "\\", "/"), nil
+		return strings.ReplaceAll(p, "\\", "/"), unavailable, nil
 	}
-	path, err = normalize(path)
+	path, _, err = normalize(path, false)
 	if err != nil {
 		return false, err
 	}
+	// An allowed ancestor must not hide a retired or revoked child binding.
+	// Every applicable protection must pass before any bytes can be served.
+	managed := false
 	for _, b := range bindings {
 		if b.Path == "" {
 			continue
 		}
-		p, e := normalize(b.Path)
+		p, unavailable, e := normalize(b.Path, true)
 		if e != nil {
 			return false, e
 		}
@@ -191,16 +203,16 @@ r.knowledge_base_id AS kb_id
 		if !strings.HasPrefix(path, dir) {
 			continue
 		}
-		if b.State != "active" || b.Attempt != b.ActiveAttempt {
+		if unavailable || b.State != "active" || b.Attempt != b.ActiveAttempt {
 			return true, types.ErrLegacySourceRestricted
 		}
 		if e := types.CheckLegacySourceRead(r.db.WithContext(ctx), "", b.KBID); e != nil {
 			return true, e
 		}
-		return true, nil
+		managed = true
 	}
 	if !legacy || r.db.Name() != "postgres" {
-		return false, nil
+		return managed, nil
 	}
 	// Even a not-yet-prepared attempt is private. SaveFile namespaces all its
 	// artifacts under the attempt ID; never authorize an unpublished directory.
@@ -216,6 +228,7 @@ r.knowledge_base_id AS kb_id
 	}
 	for _, a := range attempts {
 		if strings.Contains("/"+strings.Trim(path, "/")+"/", "/"+a.ID+"/") {
+			managed = true
 			if a.State != "active" || a.ID != a.ActiveAttempt {
 				return true, types.ErrLegacySourceRestricted
 			}
@@ -243,14 +256,20 @@ k.knowledge_base_id AS kb_id FROM knowledges k JOIN data_sources d ON k.metadata
 		if p == "" {
 			continue
 		}
-		p, e := normalize(p)
+		p, unavailable, e := normalize(p, true)
 		if e != nil {
 			return false, e
 		}
 		i := strings.LastIndex(p, "/")
 		if i > 0 && strings.HasPrefix(path, p[:i+1]) {
-			return true, types.CheckLegacySourceRead(r.db.WithContext(ctx), "", binding.KBID)
+			if unavailable {
+				return true, types.ErrLegacySourceRestricted
+			}
+			if e := types.CheckLegacySourceRead(r.db.WithContext(ctx), "", binding.KBID); e != nil {
+				return true, e
+			}
+			managed = true
 		}
 	}
-	return false, nil
+	return managed, nil
 }
