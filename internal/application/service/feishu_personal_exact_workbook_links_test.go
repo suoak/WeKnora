@@ -19,7 +19,7 @@ func TestExactWorkbookHyperlinkNativeCoverage(t *testing.T) {
 		t.Skip("requires linked native anydoc parser")
 	}
 	var requests atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		requests.Add(1)
 		w.WriteHeader(http.StatusForbidden)
 	}))

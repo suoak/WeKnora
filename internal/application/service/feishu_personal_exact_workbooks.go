@@ -9,8 +9,8 @@ import (
 	"errors"
 	"fmt"
 	"image"
-	_ "image/jpeg"
-	_ "image/png"
+	_ "image/jpeg" // Register the checked embedded JPEG decoder for image.Decode.
+	_ "image/png"  // Register the checked embedded PNG decoder for image.Decode.
 	"io"
 	"net/url"
 	"os"
@@ -232,11 +232,14 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			name == "docprops/core.xml" || name == "docprops/app.xml" ||
 			name == "xl/workbook.xml" || name == "xl/_rels/workbook.xml.rels" ||
 			name == "xl/sharedstrings.xml" || name == "xl/styles.xml" || name == "xl/metadata.xml" ||
+			path.Dir(name) == "xl" && strings.HasPrefix(path.Base(name), "comments") &&
+				strings.HasSuffix(name, ".xml") ||
 			strings.HasPrefix(name, "xl/theme/") && strings.HasSuffix(name, ".xml") ||
 			strings.HasPrefix(name, "xl/worksheets/") &&
 				(strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels")) ||
 			strings.HasPrefix(name, "xl/drawings/") &&
-				(strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels")) ||
+				(strings.HasSuffix(name, ".xml") || strings.HasSuffix(name, ".rels") ||
+					strings.HasSuffix(name, ".vml")) ||
 			strings.HasPrefix(name, "xl/media/") && (strings.HasSuffix(name, ".png") ||
 				strings.HasSuffix(name, ".jpeg") || strings.HasSuffix(name, ".jpg"))
 		if !allowed || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") ||
@@ -280,7 +283,7 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			// These dependencies carry data that this bounded reader cannot
 			// completely represent. Preserve pending instead of omitting it.
 			switch start.Name.Local {
-			case "formula", "legacyDrawing",
+			case "formula",
 				"oleObject", "control", "externalReference", "AlternateContent":
 				return nil, errExactWorkbookUnsupported
 			}
@@ -322,6 +325,9 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 		return nil, err
 	}
 	if _, err := exactWorkbookDrawingNotes(parts); err != nil {
+		return nil, err
+	}
+	if _, err := exactWorkbookCommentNotes(parts); err != nil {
 		return nil, err
 	}
 	return parts, nil
@@ -523,6 +529,11 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 		return nil, err
 	}
 	grid += drawings[worksheetParts[0]]
+	comments, err := exactWorkbookCommentNotes(parts)
+	if err != nil {
+		return nil, err
+	}
+	grid += comments[worksheetParts[0]]
 	native, err := anydoc.Convert(data, anydoc.Options{Format: "xlsx", WithAssets: true})
 	if err != nil || native == nil || native.AssetsError != nil || strings.TrimSpace(native.Markdown) == "" {
 		return nil, errExactWorkbookUnsupported

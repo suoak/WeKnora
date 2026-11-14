@@ -201,7 +201,7 @@ func exactWorkbookDrawingNotes(parts map[string][]byte) (map[string]string, erro
 		}
 	}
 	for name := range parts {
-		if strings.HasPrefix(name, "xl/drawings/") {
+		if strings.HasPrefix(name, "xl/drawings/") && !strings.HasSuffix(name, ".vml") {
 			parent := name
 			if strings.Contains(name, "/_rels/") {
 				parent = "xl/drawings/" + strings.TrimSuffix(path.Base(name), ".rels")

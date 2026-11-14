@@ -172,7 +172,7 @@ func TestExactWorkbookDrawingPreservesPlacementAndRejectsUnknownInputs(t *testin
 			case "orphan":
 				parts["xl/drawings/drawing2.xml"] = parts[key]
 			case "chart":
-				parts[key] = []byte(strings.Replace(string(parts[key]), "xdr:pic>", "xdr:graphicFrame>", -1))
+				parts[key] = []byte(strings.ReplaceAll(string(parts[key]), "xdr:pic>", "xdr:graphicFrame>"))
 			case "out_of_bounds":
 				parts[key] = []byte(strings.Replace(string(parts[key]),
 					"<xdr:col>2</xdr:col>", "<xdr:col>64</xdr:col>", 1))
@@ -202,8 +202,8 @@ func TestExactWorkbookDrawingNativeJPEGCompleteCoverage(t *testing.T) {
 	delete(parts, "xl/worksheets/sheet1.xml")
 	// Feishu exports use signed end offsets for an inset picture border.
 	drawing := "xl/drawings/drawing1.xml"
-	parts[drawing] = []byte(strings.Replace(string(parts[drawing]), "<xdr:colOff>0</xdr:colOff>",
-		"<xdr:colOff>-38100</xdr:colOff>", -1))
+	parts[drawing] = []byte(strings.ReplaceAll(string(parts[drawing]), "<xdr:colOff>0</xdr:colOff>",
+		"<xdr:colOff>-38100</xdr:colOff>"))
 	var jpegBytes bytes.Buffer
 	require.NoError(t, jpeg.Encode(&jpegBytes, image.NewRGBA(image.Rect(0, 0, 2, 2)), nil))
 	parts["xl/media/image1.jpeg"] = jpegBytes.Bytes()
