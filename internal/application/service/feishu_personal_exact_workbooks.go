@@ -220,12 +220,23 @@ func exactEmbeddedWorkbooksEnabled() bool {
 // resolves an external relationship, executes a formula, or authorizes bytes
 // outside the already authenticated parent DOCX.
 func exactWorkbookParts(data []byte) (map[string][]byte, error) {
+	return exactWorkbookPartsForFormat(data, false)
+}
+
+func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[string][]byte, refusal error) {
+	stage := "archive"
+	defer func() {
+		if standalone && refusal != nil {
+			refusal = fmt.Errorf("standalone_package_%s: %w", stage, refusal)
+		}
+	}()
 	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil || len(z.File) == 0 || len(z.File) > 256 {
 		return nil, errExactWorkbookUnsupported
 	}
 	parts := map[string][]byte{}
 	var size uint64
+	stage = "parts"
 	for _, entry := range z.File {
 		name := strings.ToLower(entry.Name)
 		allowed := name == "[content_types].xml" || name == "_rels/.rels" ||
@@ -242,6 +253,11 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 					strings.HasSuffix(name, ".vml")) ||
 			strings.HasPrefix(name, "xl/media/") && (strings.HasSuffix(name, ".png") ||
 				strings.HasSuffix(name, ".jpeg") || strings.HasSuffix(name, ".jpg"))
+		if standalone {
+			allowed = allowed || name == "xl/calcchain.xml" ||
+				path.Dir(name) == "xl/persons" && strings.HasSuffix(name, ".xml") ||
+				path.Dir(name) == "xl/threadedcomments" && strings.HasSuffix(name, ".xml")
+		}
 		if !allowed || strings.ContainsAny(name, "\\:\x00") || strings.HasPrefix(name, "/") ||
 			path.Clean(name) != name || parts[name] != nil || entry.UncompressedSize64 > 8<<20 ||
 			size > (32<<20)-entry.UncompressedSize64 {
@@ -259,6 +275,7 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 		}
 		parts[name] = body
 	}
+	stage = "xml_dependencies"
 	for name, body := range parts {
 		if !strings.HasSuffix(name, ".xml") && !strings.HasSuffix(name, ".rels") {
 			continue
@@ -321,6 +338,11 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 			}
 		}
 	}
+	if standalone {
+		// The standalone parser checks every source fact and all three
+		// dependency readers after validating its complete workbook mapping.
+		return parts, nil
+	}
 	if _, err := exactWorkbookHyperlinkNotes(parts); err != nil {
 		return nil, err
 	}
@@ -334,6 +356,12 @@ func exactWorkbookParts(data []byte) (map[string][]byte, error) {
 }
 
 func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (string, int, int, int, error) {
+	return exactWorkbookCellGridForFormat(file, sheet, body, false)
+}
+
+func exactWorkbookCellGridForFormat(
+	file *excelize.File, sheet string, body []byte, standalone bool,
+) (string, int, int, int, error) {
 	merged, mergeNote, mergeRow, mergeCol, err := exactWorkbookMerges(body)
 	if err != nil {
 		return "", 0, 0, 0, err
@@ -354,13 +382,22 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 			continue
 		}
 		ref, kind := "", ""
+		seenAttributes := map[xml.Name]bool{}
 		for _, attr := range start.Attr {
+			if standalone && (attr.Name.Space != "" || seenAttributes[attr.Name]) {
+				return "", 0, 0, 0, errExactWorkbookUnsupported
+			}
+			seenAttributes[attr.Name] = true
 			switch attr.Name.Local {
 			case "r":
 				ref = attr.Value
 			case "t":
 				kind = attr.Value
 			case "s":
+			case "cm":
+				if !standalone || attr.Name.Space != "" {
+					return "", 0, 0, 0, errExactWorkbookUnsupported
+				}
 			default:
 				return "", 0, 0, 0, errExactWorkbookUnsupported
 			}
@@ -370,13 +407,16 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
 			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" &&
-				kind != "str" && kind != "n" && kind != "b" {
+				kind != "str" && kind != "n" && kind != "b" && !(standalone && kind == "e") {
 			return "", 0, 0, 0, errExactWorkbookUnsupported
 		}
 		cells[ref] = true
 		maxRow, maxCol = max(maxRow, row), max(maxCol, col)
 	}
 	if len(cells) == 0 {
+		if standalone {
+			return "| Row | A |\n| --- | --- |\n" + mergeNote, mergeRow, mergeCol, 0, nil
+		}
 		return "", 0, 0, 0, errExactWorkbookUnsupported
 	}
 	escape := func(value string) string {

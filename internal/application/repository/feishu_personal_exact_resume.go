@@ -20,6 +20,27 @@ import (
 // The cumulative count is retained; no task or attempt counter is reset.
 const PersonalExactResumeMaxAttempts = 5
 
+const PersonalExactStandaloneXLSXEnv = "FEISHU_PERSONAL_EXACT_STANDALONE_XLSX"
+
+func PersonalExactStandaloneXLSXEnabled() bool {
+	return os.Getenv(PersonalExactStandaloneXLSXEnv) == "1"
+}
+
+// Historical local copies may have stopped at an expired source OAuth check.
+// This is eligibility only: QueueExactResume still revalidates current local
+// authority in its transaction and requires absolutely no derived output.
+func PersonalExactResumeCategoryAllowed(attempt *types.FeishuPersonalAttempt) bool {
+	if attempt == nil {
+		return false
+	}
+	if attempt.LastErrorCategory == "exact_document_execution_requires_review" {
+		return true
+	}
+	return PersonalExactStandaloneXLSXEnabled() &&
+		strings.HasSuffix(strings.ToLower(attempt.ManifestName), ".xlsx") &&
+		attempt.LastErrorCategory == "authorization_or_resource_missing"
+}
+
 // PersonalExactResumeLimit grants one extra cumulative attempt only to IDs in
 // the server-owned incident review list. HTTP payloads cannot change this list,
 // counters are never reset, and all source/ownership checks still run.
@@ -69,7 +90,7 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 		observed.Status != "needs_attention" || observed.OwnerNonce != "" ||
 		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeBudget(
 		observed.LogicalKnowledgeID, observed.RetryCount) ||
-		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
+		!PersonalExactResumeCategoryAllowed(observed) ||
 		source.AttemptID != observed.ID || source.Generation != observed.Fence {
 		return ErrPersonalFence
 	}
@@ -101,6 +122,27 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 		}
 		if err := validate(tx, attempt); err != nil {
 			return err
+		}
+		if observed.LastErrorCategory == "authorization_or_resource_missing" {
+			// Never adopt output produced before this source proof. An expired
+			// remote token does not identify the owner of an old derived row.
+			var count int64
+			for _, table := range []string{"chunks", "embeddings"} {
+				if err := tx.Table(table).Where("knowledge_id=?", source.KnowledgeID).Count(&count).Error; err != nil {
+					return err
+				}
+				if count != 0 {
+					return ErrPersonalIdentity
+				}
+			}
+			if err := tx.Table("resource_bindings").Where("owner_type='knowledge' AND owner_id=? AND "+
+				"(id<>? OR resource_id<>? OR tenant_id<>? OR relation<>'source_file')", source.KnowledgeID,
+				source.BindingID, source.ResourceID, source.TenantID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 0 {
+				return ErrPersonalIdentity
+			}
 		}
 		var receipt, dispatch types.TaskPendingOp
 		receiptErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(

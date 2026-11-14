@@ -40,6 +40,10 @@ const (
 // local destination without resolving any target or letting native media readers
 // reinterpret an external hyperlink relationship as an image/object dependency.
 func exactWorkbookHyperlinkNotes(parts map[string][]byte) (map[string]string, error) {
+	return exactWorkbookHyperlinkNotesForFormat(parts, false)
+}
+
+func exactWorkbookHyperlinkNotesForFormat(parts map[string][]byte, standalone bool) (map[string]string, error) {
 	notes := map[string]string{}
 	for name := range parts {
 		if strings.HasPrefix(name, "xl/worksheets/_rels/") && strings.HasSuffix(name, ".rels") {
@@ -133,7 +137,7 @@ func exactWorkbookHyperlinkNotes(parts map[string][]byte) (map[string]string, er
 			col, row, err := excelize.CellNameToCoordinates(ref)
 			canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
 			if err != nil || canonicalErr != nil || canonical != ref || col > 64 || row > 1024 ||
-				links[ref] != nil || (attrs["url"] == "" && attrs["location"] == "") {
+				links[ref] != nil || (!standalone && attrs["url"] == "" && attrs["location"] == "") {
 				return nil, errExactWorkbookUnsupported
 			}
 			links[ref] = attrs
@@ -154,6 +158,9 @@ func exactWorkbookHyperlinkNotes(parts map[string][]byte) (map[string]string, er
 			"\r", "&#13;", "\n", "&#10;", "|", "&#124;")
 		for _, ref := range refs {
 			text.WriteString("\nHyperlink cell " + ref + ":")
+			if links[ref]["url"] == "" && links[ref]["location"] == "" {
+				text.WriteString(" destination=empty_saved_destination;")
+			}
 			for _, key := range []string{"url", "location", "display", "tooltip"} {
 				if value := links[ref][key]; value != "" {
 					text.WriteString(" " + key + "=" + escape.Replace(value) + ";")

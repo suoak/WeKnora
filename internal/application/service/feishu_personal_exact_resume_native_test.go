@@ -155,6 +155,19 @@ func TestPersonalExactResumeNativeOriginalWorkbookPublication(t *testing.T) {
 }
 
 func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []byte) {
+	exerciseNativeResumeWithFormat(t, empty, withImages, data, nativeResumeFormatOptions{Format: "docx"})
+}
+
+type nativeResumeFormatOptions struct {
+	Format               string
+	AuthorizationFailure bool
+	AssertClosed         func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
+}
+
+func exerciseNativeResumeWithFormat(
+	t *testing.T, empty, withImages bool, data []byte, options nativeResumeFormatOptions,
+) {
+	format, authorizationFailure := options.Format, options.AuthorizationFailure
 	t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	f := newMVPFixture(t)
@@ -198,12 +211,16 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 				w.WriteHeader(403)
 				return
 			}
+			extension := ".docx"
+			if token == "real" {
+				extension = "." + format
+			}
 			_ = json.NewEncoder(w).
 				Encode(map[string]any{
 					"code": 0,
 					"data": map[string]any{"metas": []any{map[string]any{
 						"doc_type":  "file",
-						"doc_token": token, "title": "resume-" + token + ".docx", "latest_modify_time": fmt.
+						"doc_token": token, "title": "resume-" + token + extension, "latest_modify_time": fmt.
 								Sprint(f.revision.Load()),
 					}}},
 				})
@@ -237,6 +254,10 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 	require.NoError(t, err)
 	require.NoError(t, f.db.Exec(string(retired)).Error)
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", knowledge.ID)
+	if format == "xlsx" {
+		t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC", "1")
+		t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY_KNOWLEDGE_IDS", "")
+	}
 	require.NoError(t, f.db.AutoMigrate(&types.StoredResource{}, &types.ResourceBinding{},
 		&types.DataSource{}, &types.TaskDeadLetter{}))
 	ddl, err := os.ReadFile("../../../migrations/versioned/003036_feishu_legacy_atomic.up.sql")
@@ -277,7 +298,7 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 	require.NoError(t, err)
 	proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
 	require.NoError(t, err)
-	provider, _, _ := configureOriginalExactConsumer(t, f, proof)
+	provider, _, modelCalls := configureOriginalExactConsumer(t, f, proof)
 	inner, err := originalAcceptanceChat(t, provider.URL)
 	require.NoError(t, err)
 	gate := repository.NewModelRepository(f.db).(legacyModelInputGate)
@@ -289,25 +310,36 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 		Update("summary_model_id", "isolated-summary").Error)
 	work, err := f.p.exactConsumerContext(context.Background(), proof)
 	require.NoError(t, err)
-	require.NoError(t, f.p.beginExactPersonalReceipt(work, proof))
-	work = context.WithValue(work, personalFirstCreateContextKey{}, true)
-	work = context.WithValue(work, knowledgeDispatchContextKey{}, op)
-	body, err := json.Marshal(payload)
-	require.NoError(t, err)
-	require.NoError(t, f.ks.processDocument(work, asynq.NewTask(types.TypeDocumentProcess, body)))
-	consumer, _ := exactPersonalConsumerFrom(work)
-	require.True(t, consumer.indexed)
+	if !authorizationFailure {
+		require.NoError(t, f.p.beginExactPersonalReceipt(work, proof))
+		work = context.WithValue(work, personalFirstCreateContextKey{}, true)
+		work = context.WithValue(work, knowledgeDispatchContextKey{}, op)
+		body, err := json.Marshal(payload)
+		require.NoError(t, err)
+		require.NoError(t, f.ks.processDocument(work, asynq.NewTask(types.TypeDocumentProcess, body)))
+		consumer, _ := exactPersonalConsumerFrom(work)
+		require.True(t, consumer.indexed)
+	}
 	var originalIDs []string
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=?", knowledge.ID).
 		Order("id").Pluck("id", &originalIDs).Error)
-	require.NotEmpty(t, originalIDs)
+	if authorizationFailure {
+		require.True(t, empty)
+		require.Empty(t, originalIDs)
+	} else {
+		require.NotEmpty(t, originalIDs)
+	}
 	var originalVectors []struct {
 		ID       int64
 		SourceID string
 	}
 	require.NoError(t, f.db.Table("embeddings").Select("id,source_id").
 		Where("knowledge_id=?", knowledge.ID).Order("source_id").Scan(&originalVectors).Error)
-	require.NotEmpty(t, originalVectors)
+	if authorizationFailure {
+		require.Empty(t, originalVectors)
+	} else {
+		require.NotEmpty(t, originalVectors)
+	}
 	if empty {
 		require.NoError(t, f.db.Exec("DELETE FROM embeddings WHERE knowledge_id=?", knowledge.ID).Error)
 		require.NoError(t, f.db.Exec("DELETE FROM chunks WHERE knowledge_id=?", knowledge.ID).Error)
@@ -315,6 +347,12 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 	}
 
 	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), owner, op.ID))
+	if authorizationFailure {
+		// Reconstruct the historical pre-parser OAuth failure. No output or
+		// receipt has been created, and recovery must re-prove the local copy.
+		require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET last_error_category=? WHERE id=?",
+			"authorization_or_resource_missing", owner.ID).Error)
+	}
 	observed := mustPersonalAttempt(t, f, owner.ID)
 	// The source can be edited while this imported copy awaits recovery.
 	// Resume must publish the checked original bytes without replacing chunks.
@@ -325,6 +363,10 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 	require.NoError(t, f.db.Where("user_id='A'").Take(&grant).Error)
 	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuConnection{}).Error)
 	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuPersonalGrantEpoch{}).Error)
+	if options.AssertClosed != nil {
+		options.AssertClosed(f, observed, modelCalls)
+		return
+	}
 	require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
 	require.NoError(t, f.p.processFirstCreateDocument(context.Background(), payload))
 	require.Equal(t, requestsBeforeProcessing, sourceRequests.Load(),

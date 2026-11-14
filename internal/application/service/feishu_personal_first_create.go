@@ -358,8 +358,8 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 	}
 	if os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") == "1" &&
 		types.FeishuAuthMode(m.AuthMode) == types.FeishuUserOAuth && a.Status == "index_pending" &&
-		(!strings.EqualFold(filepath.Ext(a.ManifestName), ".docx") ||
-			!strings.EqualFold(strings.TrimPrefix(t.FileType, "."), "docx")) {
+		(!exactPersonalFormatEnabled(exactPersonalFileFormat(a.ManifestName)) ||
+			!strings.EqualFold(strings.TrimPrefix(t.FileType, "."), exactPersonalFileFormat(a.ManifestName))) {
 		// Unsupported exact consumers never Claim a held file. Non-held
 		// formats retain the existing ordinary parsing path.
 		err := types.CheckLegacySourceRead(p.service.db.WithContext(ctx), k.ID, k.KnowledgeBaseID)

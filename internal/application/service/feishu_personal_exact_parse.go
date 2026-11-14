@@ -6,8 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"path/filepath"
-	"strings"
 	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
@@ -50,6 +48,7 @@ func (p *PersonalRecovery) revalidateExactPersonalDocument(
 		fresh.fileSHA256 != proof.fileSHA256 || fresh.manifestSHA256 != proof.manifestSHA256 ||
 		fresh.fileMD5 != proof.fileMD5 || fresh.physicalPath != proof.physicalPath ||
 		fresh.bindingID != proof.bindingID ||
+		fresh.filename != proof.filename ||
 		fresh.connectionIdentity != proof.connectionIdentity || fresh.revision != proof.revision {
 		return nil, errPersonalExactDocument
 	}
@@ -70,8 +69,12 @@ func (p *PersonalRecovery) parseExactPersonalDocument(
 	if err != nil {
 		return nil, err
 	}
-	if strings.ToLower(filepath.Ext(a.ManifestName)) != ".docx" {
+	format := exactPersonalFileFormat(a.ManifestName)
+	if !exactPersonalFormatEnabled(format) {
 		return nil, errPersonalExactDocument
+	}
+	if format == "xlsx" {
+		return p.parseExactPersonalXLSX(ctx, fresh)
 	}
 	workbooks, err := prepareExactEmbeddedWorkbooks(fresh.file)
 	if err != nil {

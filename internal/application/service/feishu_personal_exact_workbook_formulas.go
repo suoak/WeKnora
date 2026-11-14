@@ -11,6 +11,12 @@ import (
 // Read the saved value and formula as separate source facts. GetCellFormula
 // expands shared references; neither it nor GetCellValue evaluates the formula.
 func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (string, error) {
+	return exactWorkbookFormulaNotesForFormat(file, sheet, body, false)
+}
+
+func exactWorkbookFormulaNotesForFormat(
+	file *excelize.File, sheet string, body []byte, standalone bool,
+) (string, error) {
 	type formula struct {
 		Text  string     `xml:",chardata"`
 		Attrs []xml.Attr `xml:",any,attr"`
@@ -45,7 +51,8 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 			a := map[string]string{}
 			for _, attr := range c.Formula.Attrs {
 				if attr.Name.Space != "" ||
-					(attr.Name.Local != "t" && attr.Name.Local != "si" && attr.Name.Local != "ref") {
+					(attr.Name.Local != "t" && attr.Name.Local != "si" && attr.Name.Local != "ref" &&
+						!(standalone && (attr.Name.Local == "aca" || attr.Name.Local == "ca"))) {
 					return "", errExactWorkbookUnsupported
 				}
 				if _, exists := a[attr.Name.Local]; exists {
@@ -53,11 +60,18 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 				}
 				a[attr.Name.Local] = attr.Value
 			}
+			if standalone && a["t"] == "array" {
+				if a["si"] != "" || strings.TrimSpace(c.Formula.Text) == "" ||
+					!standaloneArrayRange(a["ref"], c.Ref) {
+					return "", errExactWorkbookUnsupported
+				}
+				continue
+			}
 			if a["t"] != "" && a["t"] != "normal" && a["t"] != "shared" {
 				return "", errExactWorkbookUnsupported
 			}
 			if a["t"] != "shared" {
-				if a["si"] != "" || a["ref"] != "" || strings.TrimSpace(c.Formula.Text) == "" {
+				if a["si"] != "" || a["ref"] != "" || (!standalone && strings.TrimSpace(c.Formula.Text) == "") {
 					return "", errExactWorkbookUnsupported
 				}
 				continue
@@ -107,12 +121,15 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 				continue
 			}
 			text, err := file.GetCellFormula(sheet, c.Ref)
-			if err != nil || strings.TrimSpace(text) == "" || len(text) > 8192 {
+			if err != nil || (!standalone && strings.TrimSpace(text) == "") || len(text) > 8192 {
 				return "", errExactWorkbookUnsupported
 			}
 			// External workbook/DDE inputs cannot be represented by this package.
 			if strings.ContainsAny(text, "[|\x00") {
 				return "", errExactWorkbookUnsupported
+			}
+			if strings.TrimSpace(text) == "" {
+				text = "(empty saved formula)"
 			}
 			fmt.Fprintf(&notes, "\nFormula cell %s (saved value shown above; formula not recalculated): %s\n",
 				c.Ref, escape.Replace(text))
