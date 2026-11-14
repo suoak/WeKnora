@@ -161,6 +161,20 @@ func runSyncMode[N any](
 
 	processed := 0
 	lastCheckpoint := time.Now()
+	// Upstream #4736: unchanged nodes earn durable progress too. Unlike the
+	// upstream warning-only callback, an unconfirmed checkpoint is fatal here.
+	checkpointProcessed := func() error {
+		processed++
+		if !documentRecovery && processed%FeishuStreamCheckpointInterval != 0 &&
+			time.Since(lastCheckpoint) < FeishuStreamCheckpointMaxInterval {
+			return nil
+		}
+		if err := h.Checkpoint(ctx, encodeCursor()); err != nil {
+			return fmt.Errorf("feishu sync checkpoint unconfirmed: %w", err)
+		}
+		lastCheckpoint = time.Now()
+		return nil
+	}
 	for _, resourceID := range resourceIDs {
 		nodes, partial, err := ops.List(ctx, client, resourceID)
 		if err != nil {
@@ -216,6 +230,9 @@ func runSyncMode[N any](
 					observeDocument(h, resourceID, tok, "unchanged")
 				} else {
 					observeDocument(h, resourceID, tok, "unsupported")
+				}
+				if err := checkpointProcessed(); err != nil {
+					return nil, err
 				}
 				continue
 			}
@@ -333,16 +350,8 @@ func runSyncMode[N any](
 				}
 			}
 
-			processed++
-			if documentRecovery || processed%FeishuStreamCheckpointInterval == 0 ||
-				time.Since(lastCheckpoint) >= FeishuStreamCheckpointMaxInterval {
-				if cerr := h.Checkpoint(ctx, encodeCursor()); cerr != nil {
-					// A checkpoint is durable admission, not optional progress.
-					// In particular, a lost execution fence must stop further fetch,
-					// ingest and deletion before another worker owns this source.
-					return nil, fmt.Errorf("feishu sync checkpoint unconfirmed: %w", cerr)
-				}
-				lastCheckpoint = time.Now()
+			if err := checkpointProcessed(); err != nil {
+				return nil, err
 			}
 			if n := i + 1; n%100 == 0 {
 				logger.Infof(ctx, "%s stream progress resource=%s %d/%d (%s)",

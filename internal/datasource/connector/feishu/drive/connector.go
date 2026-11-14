@@ -31,8 +31,10 @@ func NewDriveConnector(region core.Region) *DriveConnector {
 
 // Drive supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
-var _ datasource.StreamingConnector = (*DriveConnector)(nil)
-var _ datasource.FullStreamingConnector = (*DriveConnector)(nil)
+var (
+	_ datasource.StreamingConnector     = (*DriveConnector)(nil)
+	_ datasource.FullStreamingConnector = (*DriveConnector)(nil)
+)
 
 // Type returns the connector type identifier.
 func (c *DriveConnector) Type() string {
@@ -352,7 +354,21 @@ func (o driveOps) Fetch(
 	resourceID string,
 	multimodal bool,
 ) ([]*types.FetchedItem, error) {
+	// Adapt upstream #4738 only for uploaded files. A native document with
+	// a similar title still requires the normal source content/ACL checks.
+	if n.Type == "file" && isSystemJunkFileName(n.Name) {
+		return nil, nil
+	}
 	return fetchDriveFileContent(ctx, client, n, resourceID, multimodal, o.region)
+}
+
+func isSystemJunkFileName(name string) bool {
+	base := strings.ToLower(strings.TrimSpace(name))
+	switch base {
+	case ".ds_store", "thumbs.db", "desktop.ini":
+		return true
+	}
+	return strings.HasPrefix(base, "._") || strings.HasPrefix(base, "~$")
 }
 
 func (o driveOps) ListFailureItems(resourceID string, partial error) []types.FetchedItem {
