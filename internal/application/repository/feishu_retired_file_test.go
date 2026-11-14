@@ -53,7 +53,9 @@ func TestRetiredFileProtectionDoesNotDenyUnrelatedImages(t *testing.T) {
 				if dialect == "postgres" {
 					require.NoError(t, db.Exec("INSERT INTO feishu_legacy_resources VALUES"+
 						"('legacy',1,'active','old-attempt',?,'retired')", reference).Error)
-					manifest, err := json.Marshal(map[string]any{"knowledge": map[string]string{"file_path": reference}})
+					manifest, err := json.Marshal(map[string]any{
+						"knowledge": map[string]string{"file_path": reference},
+					})
 					require.NoError(t, err)
 					require.NoError(t, db.Exec("INSERT INTO feishu_legacy_attempts VALUES('old-attempt','legacy',?)",
 						string(manifest)).Error)
