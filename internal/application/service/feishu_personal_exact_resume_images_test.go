@@ -78,6 +78,29 @@ func TestPersonalExactResumeImagesReusesOnlyMatchingOwnedBytes(t *testing.T) {
 	}
 }
 
+func TestPersonalExactResumeImageReferencesFollowRetainedPositions(t *testing.T) {
+	f, a, _ := pendingExactFixture(t)
+	refs := []string{"resource://secondabcdefghijklmn", "resource://firstabcdefghijklmn"}
+	consumer := &exactPersonalConsumer{recovery: f.p, source: &personalExactDocument{
+		tenant: a.CallerTenantID, knowledge: a.LogicalKnowledgeID, kb: "kb",
+	}}
+	files := &exactResumeImageFiles{consumer: consumer}
+	require.NoError(t, f.db.Exec(`INSERT INTO chunks
+(id,tenant_id,knowledge_id,knowledge_base_id,chunk_type,start_at,content)
+VALUES ('ordered-image-chunk',?,?,?,'text',0,?)`,
+		a.CallerTenantID, a.LogicalKnowledgeID, "kb", refs[1]+" then "+refs[0]).Error)
+	first, err := files.orderedReference(context.Background(), append(refs, "resource://unreferenced"))
+	require.NoError(t, err)
+	require.Equal(t, refs[1], first)
+	second, err := files.orderedReference(context.Background(), refs)
+	require.NoError(t, err)
+	require.Equal(t, refs[0], second)
+	_, err = files.orderedReference(context.Background(), refs)
+	require.Error(t, err, "a reference cannot be consumed twice for different package assets")
+	_, err = files.orderedReference(context.Background(), []string{refs[0], "resource://unreferenced"})
+	require.Error(t, err, "an unreferenced duplicate cannot replace an exhausted reference")
+}
+
 func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing.T) {
 	for _, change := range []string{"valid", "retained_chunk", "retained_vector", "stale_owner"} {
 		t.Run(change, func(t *testing.T) {
