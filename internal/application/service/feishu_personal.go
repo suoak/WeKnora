@@ -1021,6 +1021,8 @@ func personalImportPublicError(category string) string {
 		"pg_index_receipt_unconfirmed",
 		"exact_document_execution_requires_review":
 		return category
+	case "embedded_dependency_unsupported", "source_verification_required", "preflight_transient":
+		return category
 	default:
 		return "operation_failed"
 	}

@@ -10,6 +10,9 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/png"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -19,6 +22,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	storagefiles "github.com/Tencent/WeKnora/internal/application/service/file"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -66,11 +70,75 @@ func resumeNativeDOCXWithText(t *testing.T, text string) []byte {
 }
 
 func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *testing.T) {
+	exerciseNativeResume(t, false, false)
+}
+
+func TestPersonalExactResumeNativePublishesEmptyOutput(t *testing.T) {
+	exerciseNativeResume(t, true, false)
+}
+
+func TestPersonalExactResumeNativePublishesEmptyOutputWithCatalogImages(t *testing.T) {
+	exerciseNativeResume(t, true, true)
+}
+
+func resumeNativeImageDOCX(t *testing.T, data []byte) []byte {
+	t.Helper()
+	z, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	require.NoError(t, err)
+	parts := map[string][]byte{}
+	for _, entry := range z.File {
+		r, err := entry.Open()
+		require.NoError(t, err)
+		parts[entry.Name], err = io.ReadAll(r)
+		require.NoError(t, err)
+		require.NoError(t, r.Close())
+	}
+	parts["[Content_Types].xml"] = []byte(strings.Replace(string(parts["[Content_Types].xml"]), "</Types>",
+		`<Default Extension="png" ContentType="image/png"`+
+			`/></Types>`, 1))
+	parts["word/_rels/document.xml.rels"] = []byte(`<Relationships xmlns="http://schemas.openxmlform` +
+		`ats.org/package/2006/rel` +
+		`ationships"><Relationship Id="picture" Type="http://schemas.openxmlforma` +
+		`ts.org/officeDocument/2006/relationships/image" Target="media/picture.pn` +
+		`g"/></Relationships>`)
+	drawing := `<w:p><w:r><w:drawing><wp:inline xmlns:wp="http://schemas.openxmlformats.` +
+		`org/drawingml/2006/wordprocessingDrawing"><wp:extent cx="95250" cy="9525` +
+		`0"/><wp:docPr id="1" name="Checked picture"/><a:graphic xmlns:a="http://` +
+		`schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http` +
+		`://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic` +
+		`="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr` +
+		`><pic:cNvPr id="1" name="Checked picture"/><pic:cNvPicPr/></pic:nvPicPr>` +
+		`<pic:blipFill><a:blip xmlns:r="http://schemas.openxmlformats.org/officeD` +
+		`ocument/2006/relationships" r:embed="picture"/><a:stretch><a:fillRect/><` +
+		`/a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext c` +
+		`x="95250" cy="95250"/></a:xfrm><a:prstGeom prst="rect"/></pic:spPr></pic` +
+		`:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`
+	parts["word/document.xml"] = []byte(strings.Replace(string(parts["word/document.xml"]), "</w:body>", drawing+
+		"</w:body>", 1))
+	var picture bytes.Buffer
+	require.NoError(t, png.Encode(&picture, image.NewRGBA(image.Rect(0, 0, 2, 2))))
+	parts["word/media/picture.png"] = picture.Bytes()
+	var out bytes.Buffer
+	w := zip.NewWriter(&out)
+	for name, body := range parts {
+		entry, err := w.Create(name)
+		require.NoError(t, err)
+		_, err = entry.Write(body)
+		require.NoError(t, err)
+	}
+	require.NoError(t, w.Close())
+	return out.Bytes()
+}
+
+func exerciseNativeResume(t *testing.T, empty, withImages bool) {
 	t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	f := newMVPFixture(t)
 	f.p.lease = 2 * time.Minute
 	data := resumeNativeDOCX(t)
+	if withImages {
+		data = resumeNativeImageDOCX(t, data)
+	}
 	files := map[string][]byte{
 		"real": data,
 		"real2": resumeNativeDOCXWithText(
@@ -161,6 +229,11 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 		ID: uuid.NewString(), ResourceID: file.ID, TenantID: 1,
 		OwnerType: "knowledge", OwnerID: knowledge.ID, Relation: "source_file",
 	}).Error)
+	if withImages {
+		catalog := NewResourceCatalog(repository.NewResourceRepository(f.db))
+		f.ks.fileSvc = storagefiles.NewResourceCatalogFileService(f.ks.fileSvc, catalog)
+		f.ks.resourceCatalog = catalog
+	}
 	payload.FilePath = types.BuildResourcePath(file.Handle)
 	require.NoError(t, f.db.Exec("UPDATE knowledges SET file_path=? WHERE id=?",
 		payload.FilePath, knowledge.ID).Error)
@@ -209,6 +282,12 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Table("embeddings").Select("id,source_id").
 		Where("knowledge_id=?", knowledge.ID).Order("source_id").Scan(&originalVectors).Error)
 	require.NotEmpty(t, originalVectors)
+	if empty {
+		require.NoError(t, f.db.Exec("DELETE FROM embeddings WHERE knowledge_id=?", knowledge.ID).Error)
+		require.NoError(t, f.db.Exec("DELETE FROM chunks WHERE knowledge_id=?", knowledge.ID).Error)
+		require.NoError(t, f.db.Exec("UPDATE knowledges SET storage_size=0 WHERE id=?", knowledge.ID).Error)
+	}
+
 	require.NoError(t, f.p.repo.AbortExactExecution(context.Background(), owner, op.ID))
 	observed := mustPersonalAttempt(t, f, owner.ID)
 	// The source can be edited while this imported copy awaits recovery.
@@ -233,10 +312,15 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	var published types.PersonalExactReceipt
 	require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 	require.NoError(t, f.p.verifyExactPublishedDatabase(context.Background(), published))
+	assertExactPublicationHistory(t, f, imported.ID)
 	var retained []string
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type<>'summary'", knowledge.ID).
 		Order("id").Pluck("id", &retained).Error)
-	require.Equal(t, originalIDs, retained)
+	if empty {
+		require.NotEmpty(t, retained)
+	} else {
+		require.Equal(t, originalIDs, retained)
+	}
 	var retainedVectors []struct {
 		ID       int64
 		SourceID string
@@ -244,7 +328,11 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NoError(t, f.db.Table("embeddings").Select("id,source_id").
 		Where("knowledge_id=? AND source_id IN ?", knowledge.ID, originalIDs).
 		Order("source_id").Scan(&retainedVectors).Error)
-	require.Equal(t, originalVectors, retainedVectors)
+	if empty {
+		require.Empty(t, retainedVectors, "new chunks must not adopt deleted IDs")
+	} else {
+		require.Equal(t, originalVectors, retainedVectors)
+	}
 	var summaryRows int64
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type='summary'", knowledge.ID).
 		Count(&summaryRows).Error)
@@ -282,6 +370,13 @@ func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *te
 	require.NotEmpty(t, results, "normal hybrid search must return the published retained source")
 	for _, hit := range results {
 		require.Equal(t, knowledge.ID, hit.KnowledgeID)
+	}
+	if withImages {
+		var bound int64
+		require.NoError(t, f.db.Table("resource_bindings").Where("owner_id=? AND relation=?",
+			knowledge.ID, types.ResourceRelationExtractedImage).Count(&bound).Error)
+		require.Positive(t, bound, "fresh image assets must remain bound after empty-output recovery")
+		return
 	}
 	exerciseAdditionalPublishedSnapshots(t, f, knowledge.ID, files)
 	exercisePublishedSnapshotReaderMatrix(t, f, knowledge.ID)

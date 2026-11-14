@@ -35,6 +35,7 @@ type FeishuBatchItem struct {
 	ProviderCode      int        `gorm:"-"          json:"provider_code,omitempty"`
 	Operation         string     `gorm:"-"          json:"operation,omitempty"`
 	Retryable         bool       `gorm:"-"          json:"retryable"`
+	CanRetry          bool       `gorm:"-"          json:"can_retry"`
 	UserAction        string     `gorm:"-"          json:"user_action,omitempty"`
 	RequestIDHash     string     `gorm:"-"          json:"request_id_hash,omitempty"`
 	ImportID          string     `                  json:"import_id,omitempty"`

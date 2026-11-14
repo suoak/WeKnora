@@ -3,7 +3,11 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"os"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -16,6 +20,20 @@ import (
 // The cumulative count is retained; no task or attempt counter is reset.
 const PersonalExactResumeMaxAttempts = 5
 
+// PersonalExactResumeLimit grants one extra cumulative attempt only to IDs in
+// the server-owned incident review list. HTTP payloads cannot change this list,
+// counters are never reset, and all source/ownership checks still run.
+func PersonalExactResumeLimit(knowledge string) int {
+	if knowledge != "" {
+		for _, id := range strings.Split(os.Getenv("FEISHU_PERSONAL_EXACT_REVIEWED_RESUME_KNOWLEDGE_IDS"), ",") {
+			if strings.TrimSpace(id) == knowledge {
+				return PersonalExactResumeMaxAttempts + 1
+			}
+		}
+	}
+	return PersonalExactResumeMaxAttempts
+}
+
 // QueueExactResume preserves the original dispatch, file and receipt IDs.
 // It grants no body/model authority. A new owner must rederive and compare all
 // old parser output before reindexing or publishing any candidate content.
@@ -26,7 +44,7 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 ) error {
 	if !r.FirstCreateOnly || observed == nil || validate == nil ||
 		observed.Status != "needs_attention" || observed.OwnerNonce != "" ||
-		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeMaxAttempts ||
+		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeLimit(observed.LogicalKnowledgeID) ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		source.AttemptID != observed.ID || source.Generation != observed.Fence {
 		return ErrPersonalFence
@@ -61,10 +79,48 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			return err
 		}
 		var receipt, dispatch types.TaskPendingOp
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
+		receiptErr := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
 			"scope=? AND scope_id=? AND tenant_id=?", types.PersonalExactReceiptScope,
-			source.KnowledgeID, source.TenantID).Take(&receipt).Error; err != nil {
-			return err
+			source.KnowledgeID, source.TenantID).Take(&receipt).Error
+		missingReceipt := errors.Is(receiptErr, gorm.ErrRecordNotFound)
+		if missingReceipt {
+			// Claim can stop before staging is established. Only a freshly
+			// verified source with absolutely no output may create its first
+			// receipt here. Never infer ownership of retained partial output.
+			var count int64
+			for _, table := range []string{"chunks", "embeddings"} {
+				if err := tx.Table(table).Where("knowledge_id=?", source.KnowledgeID).Count(&count).Error; err != nil {
+					return err
+				}
+				if count != 0 {
+					return ErrPersonalIdentity
+				}
+			}
+			if err := exactResumeEmptyDerived(tx, source); err != nil {
+				return err
+			}
+			if err := tx.Model(&types.TaskPendingOp{}).Where("scope=? AND scope_id=?",
+				types.PersonalExactReceiptScope, source.KnowledgeID).Count(&count).Error; err != nil {
+				return err
+			}
+			if count != 0 {
+				return ErrPersonalIdentity
+			}
+			body, err := json.Marshal(source)
+			if err != nil {
+				return err
+			}
+			receipt = types.TaskPendingOp{
+				TenantID: source.TenantID, Scope: types.PersonalExactReceiptScope,
+				ScopeID: source.KnowledgeID, TaskType: "knowledge:exact_receipt", Op: "staging",
+				DedupKey: fmt.Sprintf("exact-%s-%d", source.AttemptID, source.Generation),
+				Payload:  body, EnqueuedAt: now,
+			}
+			if err := tx.Create(&receipt).Error; err != nil {
+				return err
+			}
+		} else if receiptErr != nil {
+			return receiptErr
 		}
 		var previous types.PersonalExactReceipt
 		if (receipt.Op != "staging" && receipt.Op != "resuming") ||
@@ -95,15 +151,21 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 		}
 		audit, err := json.Marshal(map[string]any{
 			"attempt": attempt, "resource": resource, "receipt": receipt, "dispatch": dispatch,
+			"receipt_missing_before_resume": missingReceipt,
+			"reviewed_extra_attempt":        attempt.RetryCount >= PersonalExactResumeMaxAttempts,
 		})
 		if err != nil {
 			return err
+		}
+		auditReason := "original_staging_retained_before_reviewed_resume"
+		if missingReceipt {
+			auditReason = "source_reproved_before_first_staging_resume"
 		}
 		if err := tx.Create(&types.TaskDeadLetter{
 			TenantID: source.TenantID, TaskType: "knowledge:exact_resume_audit",
 			Scope: types.TaskScopeKnowledge, ScopeID: source.KnowledgeID,
 			RelatedID: attempt.ID, Payload: audit, FailedAt: now,
-			LastError: "original_staging_retained_before_reviewed_resume",
+			LastError: auditReason,
 			FailCount: attempt.RetryCount,
 		}).Error; err != nil {
 			return err

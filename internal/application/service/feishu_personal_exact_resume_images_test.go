@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"io"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -73,6 +74,48 @@ func TestPersonalExactResumeImagesReusesOnlyMatchingOwnedBytes(t *testing.T) {
 				require.Error(t, err)
 				require.Empty(t, url)
 			}
+		})
+	}
+}
+
+func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing.T) {
+	for _, change := range []string{"valid", "retained_chunk", "retained_vector", "stale_owner"} {
+		t.Run(change, func(t *testing.T) {
+			f, a, intent := pendingExactFixture(t)
+			renameExactProtocolFixture(t, f, a, &intent, "image.docx", "docx")
+			owner, err := f.p.repo.Claim(context.Background(), a.ID, f.p.lease)
+			require.NoError(t, err)
+			proof, err := f.p.prepareExactPersonalDocument(context.Background(), owner)
+			require.NoError(t, err)
+			work, err := f.p.exactDocumentExecutionContext(context.Background(), proof)
+			require.NoError(t, err)
+			consumer := &exactPersonalConsumer{recovery: f.p, source: proof, resuming: true, resumeEmpty: true}
+			switch change {
+			case "retained_chunk":
+				require.NoError(t, f.db.Exec("INSERT INTO chunks(id,knowledge_id) VALUES('old',?)",
+					a.LogicalKnowledgeID).Error)
+			case "retained_vector":
+				require.NoError(t, f.db.Exec("INSERT INTO embeddings(knowledge_id) VALUES(?)",
+					a.LogicalKnowledgeID).Error)
+			case "stale_owner":
+				require.NoError(t, f.db.Exec("UPDATE feishu_personal_attempts SET owner_nonce='changed' WHERE id=?",
+					a.ID).Error)
+			}
+			files := &exactResumeImageFiles{FileService: f.ks.fileSvc, consumer: consumer}
+			data := []byte("checked image")
+			url, err := files.SaveBytes(work, data, 1, "fresh.png", false)
+			if change != "valid" {
+				require.Error(t, err)
+				require.Empty(t, url)
+				return
+			}
+			require.NoError(t, err)
+			r, err := f.ks.fileSvc.GetFile(work, url)
+			require.NoError(t, err)
+			defer func() { require.NoError(t, r.Close()) }()
+			actual, err := io.ReadAll(r)
+			require.NoError(t, err)
+			require.Equal(t, data, actual)
 		})
 	}
 }

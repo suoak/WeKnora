@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"reflect"
 
 	"github.com/Tencent/WeKnora/internal/common"
@@ -10,9 +11,25 @@ import (
 	"gorm.io/gorm"
 )
 
+// This internal result permits only the ordinary fenced CreateChunks path.
+// No old chunk/vector exists to adopt or overwrite.
+var errExactResumeEmptyOutput = errors.New("personal_exact_resume_empty_output")
+
 type exactResumeChunkKey struct {
 	Kind  string
 	Index int
+}
+
+func (c *exactPersonalConsumer) resumeHasNoOutput(ctx context.Context) (bool, error) {
+	db := c.recovery.service.db.WithContext(ctx)
+	var chunks, vectors int64
+	if err := db.Table("chunks").Where("knowledge_id=?", c.source.knowledge).Count(&chunks).Error; err != nil {
+		return false, err
+	}
+	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).Count(&vectors).Error; err != nil {
+		return false, err
+	}
+	return chunks == 0 && vectors == 0, nil
 }
 
 func exactPersonalStorageCharge(ctx context.Context, size int64) int64 {
@@ -38,6 +55,16 @@ func (c *exactPersonalConsumer) reproveResumeChunks(
 	if err := db.Table("chunks").Select("id,chunk_type,chunk_index").
 		Where("knowledge_id=?", c.source.knowledge).Limit(2049).Scan(&existing).Error; err != nil {
 		return err
+	}
+	if len(existing) == 0 {
+		var vectors int64
+		if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).Count(&vectors).Error; err != nil {
+			return err
+		}
+		if vectors != 0 {
+			return errPersonalExactDocument
+		}
+		return errExactResumeEmptyOutput
 	}
 	if len(existing) != len(generated) || len(existing) > 2048 {
 		return errPersonalExactDocument
@@ -124,7 +151,7 @@ AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=
 			textIDs = append(textIDs, chunk.ID)
 		}
 	}
-	var matching, total int64
+	var matching, total, identities int64
 	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).
 		Count(&total).Error; err != nil {
 		return err
@@ -134,7 +161,14 @@ AND (to_jsonb(c)-'created_at'-'updated_at'-'seq_id')=
 		c.source.knowledge, c.source.kb, textIDs).Count(&matching).Error; err != nil {
 		return err
 	}
-	if matching != int64(len(textIDs)) || matching != total {
+	if err := db.Table("embeddings").Where("knowledge_id=?", c.source.knowledge).
+		Distinct("source_id").Count(&identities).Error; err != nil {
+		return err
+	}
+	// A failed index batch may have written only a subset. Every retained row
+	// must still belong uniquely to the newly proved text chunks. The ordinary
+	// indexer regenerates all vectors below; completeness is checked at publish.
+	if matching > int64(len(textIDs)) || matching != total || identities != total {
 		return errPersonalExactDocument
 	}
 	// No old vector is trusted here. The normal indexer obtains fresh model

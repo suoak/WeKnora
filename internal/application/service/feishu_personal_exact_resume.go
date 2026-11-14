@@ -21,7 +21,7 @@ func (p *PersonalRecovery) prepareExactPersonalResume(
 			!exactPersonalRecoveryAllows(observed.LogicalKnowledgeID)) ||
 		observed.AuthMode != types.FeishuUserOAuth ||
 		observed.Status != "needs_attention" ||
-		observed.RetryCount >= repository.PersonalExactResumeMaxAttempts ||
+		observed.RetryCount >= repository.PersonalExactResumeLimit(observed.LogicalKnowledgeID) ||
 		observed.LastErrorCategory != "exact_document_execution_requires_review" ||
 		!strings.HasSuffix(strings.ToLower(observed.ManifestName), ".docx") {
 		return nil

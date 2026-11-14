@@ -140,6 +140,7 @@ func (h *HousekeepingService) StopWithin(timeout time.Duration) {
 // runSweep is exported on the type for testability — tests can drive a
 // single sweep without waiting for the cron tick.
 func (h *HousekeepingService) runSweep(ctx context.Context) {
+	h.rearmExpiredWikiBlocks(ctx)
 	if wikiDocumentSelectionEnabled() && h.task != nil {
 		targets, err := apprepo.RecheckWikiSkippedOperations(ctx, h.db, 32)
 		if err != nil {

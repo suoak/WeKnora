@@ -8,6 +8,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -23,6 +24,7 @@ func TestFeishuFailurePreservesAuthorizationAndDuplicateContract(t *testing.T) {
 		{"forbidden", access.ErrForbidden, 403, "feishu_kb_write_forbidden"},
 		{"missing", access.ErrNotFound, 404, "resource_not_found"},
 		{"duplicate", repository.ErrPersonalAlreadyImported, 400, "feishu_already_imported"},
+		{"retry-noop", service.ErrFeishuBatchNotRetryable, 409, "feishu_batch_not_retryable"},
 		{"internal", errors.New("private database detail"), 400, "feishu_operation_failed"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
