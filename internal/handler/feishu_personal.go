@@ -29,8 +29,10 @@ func feishuFailureResponse(c *gin.Context, err error) {
 	// client errors carry no provider-controlled error bodies or credentials.
 	if err != nil {
 		if errors.Is(err, service.ErrFeishuBatchNotRetryable) {
-			c.JSON(http.StatusConflict, gin.H{"error": "feishu_batch_not_retryable",
-				"message": "当前任务无需重复导入或需要受控恢复，请刷新进度查看具体原因"})
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "feishu_batch_not_retryable",
+				"message": "当前任务无需重复导入或需要受控恢复，请刷新进度查看具体原因",
+			})
 			return
 		}
 		if errors.Is(err, types.ErrPrivateKnowledgeBase) {

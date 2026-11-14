@@ -96,8 +96,10 @@ func wikiBlockedLaneDB(t *testing.T, dialect string) *gorm.DB {
 		if name == "deleted" {
 			require.NoError(t, db.Exec("UPDATE knowledge_bases SET deleted_at=CURRENT_TIMESTAMP WHERE id=?", name).Error)
 		}
-		block := repository.WikiProcessingBlock{Reason: "source_verification_required",
-			CheckedAt: now.Add(-time.Hour), RetryAfter: now.Add(-time.Minute)}
+		block := repository.WikiProcessingBlock{
+			Reason:    "source_verification_required",
+			CheckedAt: now.Add(-time.Hour), RetryAfter: now.Add(-time.Minute),
+		}
 		if name == "cooling" {
 			block.RetryAfter = now.Add(time.Hour)
 		}
@@ -106,16 +108,20 @@ func wikiBlockedLaneDB(t *testing.T, dialect string) *gorm.DB {
 		if name == "malformed" {
 			payload = []byte(`{}`)
 		}
-		require.NoError(t, db.Create(&types.TaskPendingOp{TenantID: tenant,
-			Scope: "wiki_processing_state", ScopeID: name, TaskType: "wiki:state", Op: "blocked",
-			DedupKey: name, Payload: payload}).Error)
+		require.NoError(t, db.Create(&types.TaskPendingOp{
+			TenantID: tenant,
+			Scope:    "wiki_processing_state", ScopeID: name, TaskType: "wiki:state", Op: "blocked",
+			DedupKey: name, Payload: payload,
+		}).Error)
 		if name == "wrong-tenant" {
 			tenant = 2
 		}
 		for _, taskType := range []string{types.TypeWikiIngest, types.TypeWikiFinalize} {
-			op := types.TaskPendingOp{TenantID: tenant, Scope: types.TaskScopeKnowledgeBase,
+			op := types.TaskPendingOp{
+				TenantID: tenant, Scope: types.TaskScopeKnowledgeBase,
 				ScopeID: name, TaskType: taskType, Op: "ingest", DedupKey: name + taskType,
-				Payload: json.RawMessage(`{"op":"ingest","knowledge_id":"doc","language":"zh-CN"}`)}
+				Payload: json.RawMessage(`{"op":"ingest","knowledge_id":"doc","language":"zh-CN"}`),
+			}
 			if name == "claimed" {
 				op.ClaimedAt = &now
 			}

@@ -134,8 +134,10 @@ func TestPersonalExactResumeMissingReceiptRequiresZeroOutput(t *testing.T) {
 			require.NoError(t, f.db.Exec("DELETE FROM task_pending_ops WHERE scope=? AND scope_id=?",
 				types.PersonalExactReceiptScope, observed.LogicalKnowledgeID).Error)
 			if output == "chunk" {
-				require.NoError(t, f.db.Create(&types.Chunk{ID: "unknown", TenantID: 1,
-					KnowledgeID: observed.LogicalKnowledgeID, KnowledgeBaseID: "kb", ChunkType: types.ChunkTypeText}).Error)
+				require.NoError(t, f.db.Create(&types.Chunk{
+					ID: "unknown", TenantID: 1,
+					KnowledgeID: observed.LogicalKnowledgeID, KnowledgeBaseID: "kb", ChunkType: types.ChunkTypeText,
+				}).Error)
 			}
 			if output == "vector" {
 				require.NoError(t, f.db.Exec("INSERT INTO embeddings(knowledge_id,is_enabled) VALUES(?,false)",
