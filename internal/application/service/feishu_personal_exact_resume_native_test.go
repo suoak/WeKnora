@@ -91,7 +91,7 @@ func resumeNativeImageDOCX(t *testing.T, data []byte) []byte {
 		require.NoError(t, err)
 		parts[entry.Name], err = io.ReadAll(r)
 		require.NoError(t, err)
-		r.Close()
+		require.NoError(t, r.Close())
 	}
 	parts["[Content_Types].xml"] = []byte(strings.Replace(string(parts["[Content_Types].xml"]), "</Types>", `<Default Extension="png" ContentType="image/png"/></Types>`, 1))
 	parts["word/_rels/document.xml.rels"] = []byte(`<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/rel` +

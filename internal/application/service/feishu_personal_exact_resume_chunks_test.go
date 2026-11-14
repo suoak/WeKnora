@@ -13,8 +13,11 @@ func TestPersonalExactResumeEmptyOutputDoesNotAdoptOrphanVectors(t *testing.T) {
 	db := syncdb.Open(t, "postgres")
 	require.NoError(t, db.AutoMigrate(&types.Chunk{}))
 	require.NoError(t, db.Exec("CREATE TABLE embeddings(knowledge_id text)").Error)
-	c := &exactPersonalConsumer{recovery: &PersonalRecovery{service: &FeishuPersonalService{db: db}},
-		source: &personalExactDocument{knowledge: "doc", kb: "kb", tenant: 1}, parsed: &personalExactParsedDocument{}, resuming: true}
+	c := &exactPersonalConsumer{
+		recovery: &PersonalRecovery{service: &FeishuPersonalService{db: db}},
+		source:   &personalExactDocument{knowledge: "doc", kb: "kb", tenant: 1},
+		parsed:   &personalExactParsedDocument{}, resuming: true,
+	}
 	generated := []*types.Chunk{{ID: "new", KnowledgeID: "doc", KnowledgeBaseID: "kb", TenantID: 1, ChunkType: types.ChunkTypeText}}
 	require.ErrorIs(t, c.reproveResumeChunks(context.Background(), generated), errExactResumeEmptyOutput)
 	require.Equal(t, "new", generated[0].ID)

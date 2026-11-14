@@ -16,15 +16,21 @@ func TestFeishuBatchRetryPolicyDoesNotOfferExecutionReset(t *testing.T) {
 		want bool
 	}{
 		{"pre-admission", types.FeishuBatchItem{Status: "failed"}, true},
-		{"execution", types.FeishuBatchItem{Status: "failed", ImportID: "existing",
-			ErrorCategory: "exact_document_execution_requires_review"}, false},
-		{"preflight", types.FeishuBatchItem{Status: "blocked", ImportID: "existing",
-			ErrorCategory: "embedded_dependency_unsupported"}, false},
+		{"execution", types.FeishuBatchItem{
+			Status: "failed", ImportID: "existing",
+			ErrorCategory: "exact_document_execution_requires_review",
+		}, false},
+		{"preflight", types.FeishuBatchItem{
+			Status: "blocked", ImportID: "existing",
+			ErrorCategory: "embedded_dependency_unsupported",
+		}, false},
 		{"identity", types.FeishuBatchItem{Status: "blocked", ErrorCategory: "source_identity_conflict"}, false},
 		{"exhausted", types.FeishuBatchItem{Status: "failed", RetryCount: 3}, false},
 		{"running", types.FeishuBatchItem{Status: "dispatched"}, false},
-		{"publication-recheck", types.FeishuBatchItem{Status: "blocked", ImportID: "existing",
-			ErrorCategory: "publication_confirmation_expired"}, true},
+		{"publication-recheck", types.FeishuBatchItem{
+			Status: "blocked", ImportID: "existing",
+			ErrorCategory: "publication_confirmation_expired",
+		}, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) { require.Equal(t, tc.want, canRetryFeishuBatchItem(tc.item)) })
 	}
@@ -38,7 +44,9 @@ func TestFeishuV2PostgresProgressShowsPreflightRefusal(t *testing.T) {
 	m, _, attempt, err := f.p.repo.Load(f.ctx, m.AttemptID)
 	require.NoError(t, err)
 	require.NoError(t, f.db.Model(&types.FeishuPersonalAttempt{}).Where("id=?", attempt.ID).
-		Updates(map[string]any{"status": "index_pending", "last_error_category": "embedded_dependency_unsupported"}).Error)
+		Updates(map[string]any{
+			"status": "index_pending", "last_error_category": "embedded_dependency_unsupported",
+		}).Error)
 	item := types.FeishuBatchItem{Status: "dispatched", ImportID: m.ID}
 	require.NoError(t, f.s.batchItemProgress(f.ctx, &item, m, time.Now(), &batchQueueProgress{}))
 	require.Equal(t, "blocked", item.Status)

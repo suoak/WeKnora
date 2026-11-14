@@ -25,7 +25,7 @@ func TestExactWorkbookHyperlinkNativeCoverage(t *testing.T) {
 	}))
 	defer server.Close()
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { require.NoError(t, f.Close()) }()
 	require.NoError(t, f.SetCellStr("Sheet1", "A1", "original label"))
 	require.NoError(t, f.SetCellHyperLink("Sheet1", "A1", server.URL+"/never-fetch", "External"))
 	require.NoError(t, f.SetCellFormula("Sheet1", "B1", `HYPERLINK("`+server.URL+`/formula-never-fetch","formula label")`))
@@ -81,11 +81,13 @@ func TestExactWorkbookLinksPreserveLiteralMetadata(t *testing.T) {
 }
 
 func TestExactWorkbookLinksRejectUnprovedDependencies(t *testing.T) {
-	for _, target := range []string{"file:///etc/passwd", "javascript:alert(1)", "ftp://example.invalid/a",
-		"https://user:password@example.invalid/a"} {
+	for _, target := range []string{
+		"file:///etc/passwd", "javascript:alert(1)", "ftp://example.invalid/a",
+		"https://user:password@example.invalid/a",
+	} {
 		t.Run(target, func(t *testing.T) {
 			f := excelize.NewFile()
-			defer f.Close()
+			defer func() { require.NoError(t, f.Close()) }()
 			require.NoError(t, f.SetCellStr("Sheet1", "A1", "label"))
 			require.NoError(t, f.SetCellHyperLink("Sheet1", "A1", target, "External"))
 			b, err := f.WriteToBuffer()

@@ -12,8 +12,10 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-const exactDrawingNamespace = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-const exactDrawingMainNamespace = "http://schemas.openxmlformats.org/drawingml/2006/main"
+const (
+	exactDrawingNamespace     = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+	exactDrawingMainNamespace = "http://schemas.openxmlformats.org/drawingml/2006/main"
+)
 
 // Admit only embedded pictures with explicit two-cell placement. Charts,
 // text boxes, linked media and unknown shapes still require their own reader.

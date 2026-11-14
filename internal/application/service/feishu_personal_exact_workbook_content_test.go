@@ -47,7 +47,7 @@ func TestExactWorkbookLargeWorksheetSplitsOnlyBetweenCompleteRows(t *testing.T) 
 func exactContentWorkbook(t *testing.T, cells, extra string, additional map[string][]byte) []byte {
 	t.Helper()
 	f := excelize.NewFile()
-	defer f.Close()
+	defer func() { require.NoError(t, f.Close()) }()
 	b, err := f.WriteToBuffer()
 	require.NoError(t, err)
 	z, err := zip.NewReader(bytes.NewReader(b.Bytes()), int64(b.Len()))
@@ -58,7 +58,7 @@ func exactContentWorkbook(t *testing.T, cells, extra string, additional map[stri
 		require.NoError(t, err)
 		parts[entry.Name], err = io.ReadAll(r)
 		require.NoError(t, err)
-		r.Close()
+		require.NoError(t, r.Close())
 	}
 	parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="` + exactWorkbookRelNamespace + `"><sheetData><row r="1">` + cells + `</row></sheetData>` + extra + `</worksheet>`)
 	for name, body := range additional {
@@ -84,7 +84,7 @@ func TestExactWorkbookFormulasPreserveSavedValuesAndSharedExpressions(t *testing
 	require.NoError(t, err)
 	f, err := excelize.OpenReader(bytes.NewReader(data))
 	require.NoError(t, err)
-	defer f.Close()
+	defer func() { require.NoError(t, f.Close()) }()
 	grid, _, _, _, err := exactWorkbookCellGrid(f, "Sheet1", parts["xl/worksheets/sheet1.xml"])
 	require.NoError(t, err)
 	require.Contains(t, grid, "| 1 | 2 | 3 | 4 |")

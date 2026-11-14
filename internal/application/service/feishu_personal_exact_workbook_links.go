@@ -31,8 +31,10 @@ func checkExactWorkbookExpansionBudget(packages map[string][]byte) error {
 	return nil
 }
 
-const exactWorkbookHyperlinkType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
-const exactWorkbookRelNamespace = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+const (
+	exactWorkbookHyperlinkType = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+	exactWorkbookRelNamespace  = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
+)
 
 // Links are literal source metadata. Preserve cell, URL, display, tooltip and
 // local destination without resolving any target or letting native media readers

@@ -109,7 +109,7 @@ func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing
 			require.NoError(t, err)
 			r, err := f.ks.fileSvc.GetFile(work, url)
 			require.NoError(t, err)
-			defer r.Close()
+			defer func() { require.NoError(t, r.Close()) }()
 			actual, err := io.ReadAll(r)
 			require.NoError(t, err)
 			require.Equal(t, data, actual)
