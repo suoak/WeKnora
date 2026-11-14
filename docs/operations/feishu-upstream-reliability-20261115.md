@@ -58,3 +58,22 @@ was imported. Wiki ingest records and page finalizer operations must be counted
 separately when reviewing progress. Wait for active Wiki model work to finish
 before the consolidated backend replacement; then verify real incremental sync,
 published source receipts and authorized document/Wiki reads.
+
+## Typed native resource refusals
+
+Live validation completed the previously interrupted 212505652-byte download.
+The next boundary was the native converter's typed `resource_limit` refusal,
+which the old service treated as an unknown admission error and retried as a
+whole sync. This repeats the large download and earlier permission failures.
+
+The cgo adapter now preserves a stable `ErrResourceLimit` marker only when the
+original native `ConvertError.Kind` is exactly `resource_limit`. Wrapped causes
+remain inspectable; matching words in ordinary errors do not set the marker.
+The legacy Feishu safe-incremental path records
+`safe_staging_parser_resource_limit`, leaves the failed candidate unpublished
+and its version unacknowledged, then continues other documents. Resource limits
+are retained. A resource refusal during image extraction also rejects the
+candidate rather than publishing a text-only fallback. Unknown parser errors,
+unavailable engines, source authority failures and durable-write errors retain
+their existing handling. Resource-limited files need source repair or splitting;
+they must not be reported as successfully imported.
