@@ -17,6 +17,7 @@ from docreader.parser.pptx_media import (
     markdown_needs_pptx_media_attach,
 )
 from docreader.parser.xlsx_repair import (
+    normalize_blank_underline_xlsx,
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
 )
@@ -54,6 +55,9 @@ class StdMarkitdownParser(BaseParser):
         elif ft == "docx":
             content = fill_vertical_merged_cells_docx(content)
         elif ft in ("xlsx", "xlsm"):
+            normalized = normalize_blank_underline_xlsx(content)
+            if normalized is not None:
+                content = normalized
             # MarkItDown reads spreadsheets through pandas/openpyxl, so the
             # ranges openpyxl cannot parse (#3599) and the non-conforming
             # styles.xml fills (#3637) that break the builtin ExcelParser break

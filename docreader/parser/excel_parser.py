@@ -24,6 +24,7 @@ from docreader.parser.excel_convert import (
 )
 from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
 from docreader.parser.xlsx_repair import (
+    normalize_blank_underline_xlsx,
     repair_xlsx_bytes,
     sanitize_xlsx_styles,
     strip_unreadable_ranges_xlsx,
@@ -500,6 +501,9 @@ def _parse_positive_int(value: Any, name: str, default: int) -> int:
 
 
 def _prepare_xlsx_bytes(data: bytes) -> bytes:
+    normalized = normalize_blank_underline_xlsx(data)
+    if normalized is not None:
+        data = normalized
     repaired = repair_xlsx_bytes(data)
     if repaired is not None:
         data = repaired
