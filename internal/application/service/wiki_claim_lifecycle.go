@@ -46,7 +46,8 @@ func (l *wikiClaimLifecycle) record(
 			if err != nil {
 				logger.Warnf(ctx, "Wiki claim lifecycle cleanup failed kb=%s: %v", payload.KnowledgeBaseID, err)
 			} else if count > 0 {
-				logger.Infof(ctx, "Wiki claim lifecycle released %d owned operations kb=%s", count, payload.KnowledgeBaseID)
+				logger.Infof(ctx, "Wiki claim lifecycle released %d owned operations kb=%s",
+					count, payload.KnowledgeBaseID)
 			}
 		})
 	}

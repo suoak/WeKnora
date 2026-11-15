@@ -26,7 +26,8 @@ func (s *wikiIngestService) withGenerationLease(
 			if recovery, ok := s.pendingRepo.(interface {
 				RecoverWikiClaimsForGeneration(context.Context, uint64, string) (int64, error)
 			}); ok {
-				if _, err := recovery.RecoverWikiClaimsForGeneration(locked, payload.TenantID, payload.KnowledgeBaseID); err != nil {
+				_, err := recovery.RecoverWikiClaimsForGeneration(locked, payload.TenantID, payload.KnowledgeBaseID)
+				if err != nil {
 					return err
 				}
 			}

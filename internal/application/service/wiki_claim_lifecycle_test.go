@@ -93,8 +93,8 @@ func TestWikiClaimAsynqShutdownPostgres(t *testing.T) {
 	worker.Shutdown()
 	require.Eventually(t, func() bool {
 		var current types.TaskPendingOp
-		return db.First(&current, "id=?", row.ID).Error == nil && current.ClaimedAt == nil &&
-			!redisServer.Exists("wiki:proof:generation:shutdown-kb")
+		released := db.First(&current, "id=?", row.ID).Error == nil && current.ClaimedAt == nil
+		return released && !redisServer.Exists("wiki:proof:generation:shutdown-kb")
 	}, 3*time.Second, 10*time.Millisecond)
 	select {
 	case err := <-returned:
@@ -235,7 +235,8 @@ func TestWikiClaimGenerationRecoveryFencesOldSettlement(t *testing.T) {
 			require.Equal(t, other.ClaimedAt, kept.ClaimedAt)
 			require.Equal(t, 7, kept.FailCount)
 		}
-		current, e := repo.ClaimBatch(locked, wikiTaskType, wikiTaskScope, "public-two", 1, time.Now().Add(-90*time.Minute))
+		current, e := repo.ClaimBatch(locked, wikiTaskType, wikiTaskScope,
+			"public-two", 1, time.Now().Add(-90*time.Minute))
 		require.NoError(t, e)
 		require.Len(t, current, 1)
 		old := types.WithWikiClaimOwner(ctx, 1, "public-two", map[int64]time.Time{row.ID: stamp})
@@ -248,7 +249,7 @@ func TestWikiClaimGenerationRecoveryFencesOldSettlement(t *testing.T) {
 		require.Equal(t, current[0].ClaimedAt, kept.ClaimedAt)
 		require.Equal(t, 4, kept.FailCount)
 		require.Equal(t, []byte(row.Payload), []byte(kept.Payload))
-		server.Set("wiki:proof:generation:public-two", "replacement-token")
+		require.NoError(t, server.Set("wiki:proof:generation:public-two", "replacement-token"))
 		_, e = recovery.RecoverWikiClaimsForGeneration(locked, 1, "public-two")
 		require.Error(t, e)
 		return nil
@@ -274,7 +275,9 @@ func TestWikiClaimCanceledWorkerYieldsGenerationBeforeModelReturns(t *testing.T)
 	}()
 	oldContext := <-entered
 	cancel()
-	require.Eventually(t, func() bool { return !server.Exists("wiki:proof:generation:kb") }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool {
+		return !server.Exists("wiki:proof:generation:kb")
+	}, time.Second, time.Millisecond)
 	cleanup, done := wikilock.Detached(oldContext, time.Second)
 	require.Error(t, cleanup.Err(), "a canceled worker loses detached publication/settlement authority")
 	done()

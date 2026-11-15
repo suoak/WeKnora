@@ -36,7 +36,8 @@ func (r *taskPendingOpsRepository) RecoverWikiClaimsForGeneration(
 		}
 		var rows []types.TaskPendingOp
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).
-			Select("id,claimed_at").Where("tenant_id=? AND scope=? AND scope_id=? AND task_type=? AND claimed_at IS NOT NULL",
+			Select("id,claimed_at").Where(
+			"tenant_id=? AND scope=? AND scope_id=? AND task_type=? AND claimed_at IS NOT NULL",
 			tenant, types.TaskScopeKnowledgeBase, kb, types.TypeWikiIngest).
 			Order("id").Limit(1000).Find(&rows).Error; err != nil {
 			return err
