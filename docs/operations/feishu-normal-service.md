@@ -53,7 +53,8 @@ After current signed normal-service authorization, controller membership,
 consumer health and outbound permit pass validation with no emergency trip,
 the periodic controller also releases old shared `sync` pause markers
 `feishu_safety_stop`, `invalid_feishu_safety_configuration` and
-`approved_sync_frozen`. This runs even
+`approved_sync_frozen` and `feishu_emergency_stop`. The latter remains blocked
+until the emergency trip has been explicitly resolved. This runs even
 if `approved_sync` is already open. The final ownership check and release are
 atomic and audited as `normal_shared_queue_resumed`. Pending messages, SQL
 claims, cursors, source permissions and published data are not rewritten.

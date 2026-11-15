@@ -183,7 +183,8 @@ func (m *RecoveryManager) resumeNormalQueueAfterHealth(ctx context.Context) erro
 		if readErr != nil && !errors.Is(readErr, redis.Nil) {
 			return readErr
 		}
-		sharedPaused = marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" || marker == "approved_sync_frozen"
+		sharedPaused = marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" ||
+			marker == "approved_sync_frozen" || marker == "feishu_emergency_stop"
 	}
 	if paused != "feishu_safety_stop" && paused != "invalid_feishu_safety_configuration" && !sharedPaused {
 		return nil
@@ -214,7 +215,8 @@ if approvedMarker=='feishu_safety_stop' or approvedMarker=='invalid_feishu_safet
 end
 if ARGV[6]=='true' then
  local marker=redis.call('GET',KEYS[7])
- if marker=='feishu_safety_stop' or marker=='invalid_feishu_safety_configuration' or marker=='approved_sync_frozen' then
+ if marker=='feishu_safety_stop' or marker=='invalid_feishu_safety_configuration' or
+  marker=='approved_sync_frozen' or marker=='feishu_emergency_stop' then
   redis.call('XADD',KEYS[6],'*','event','normal_shared_queue_resumed','grant_id',ARGV[5],
    'worker_id',ARGV[3],'reason','legacy_feishu_pause_on_shared_queue')
   redis.call('DEL',KEYS[7])
