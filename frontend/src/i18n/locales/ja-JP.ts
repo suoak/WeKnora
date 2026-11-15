@@ -4419,6 +4419,7 @@ const messages = {
           }
         },
         pools: {
+          general_sync: '汎用同期の予約枠',
           core: 'コア解析',
           postprocess: '後処理オーケストレーション',
           enrichment: 'エンリッチメント',
@@ -4427,6 +4428,7 @@ const messages = {
           wiki: 'Wikiプール'
         },
         poolDescriptions: {
+          general_sync: '飛書以外のデータソース専用の実行枠',
           core: 'ドキュメント解析と手動での再解析の保証容量',
           postprocess: '解析の最終処理とエンリッチメントの振り分け',
           enrichment: '要約、画像、グラフ、質問の生成',

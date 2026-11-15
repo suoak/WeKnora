@@ -32,7 +32,7 @@ func TestSyncLiveQueueProbeP0(t *testing.T) {
 	live, err := inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
 	require.Empty(t, live)
-	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+	for _, queue := range []string{types.QueueSync, types.QueueGeneralSync, feishusynccontrol.ApprovedSyncQueue} {
 		for _, state := range []string{"pending", "scheduled", "archived"} {
 			p := types.DataSourceSyncPayload{DataSourceID: "source", TenantID: 1, SyncLogID: queue + state}
 			payload, _ := json.Marshal(p)
@@ -49,7 +49,7 @@ func TestSyncLiveQueueProbeP0(t *testing.T) {
 	}
 	live, err = inspector.LiveSyncTasks(ctx)
 	require.NoError(t, err)
-	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+	for _, queue := range []string{types.QueueSync, types.QueueGeneralSync, feishusynccontrol.ApprovedSyncQueue} {
 		require.True(t, live[types.SyncTaskKey(1, "source", queue+"pending")])
 		require.True(t, live[types.SyncTaskKey(1, "source", queue+"scheduled")])
 		require.False(t, live[types.SyncTaskKey(1, "source", queue+"archived")])

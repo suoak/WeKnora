@@ -1736,6 +1736,7 @@ func aggregateRuntimeWorkerPools(pools []RuntimeWorkerPool, servers []types.Work
 		types.WorkerPoolPostProcess: types.QueueWeightsForPool(types.WorkerPoolPostProcess),
 		types.WorkerPoolEnrichment:  types.QueueWeightsForPool(types.WorkerPoolEnrichment),
 		types.WorkerPoolMaintenance: types.QueueWeightsForPool(types.WorkerPoolMaintenance),
+		types.WorkerPoolGeneralSync: types.QueueWeightsForPool(types.WorkerPoolGeneralSync),
 		types.WorkerPoolShared:      types.QueueWeightsForSharedPool(),
 		types.WorkerPoolWiki:        types.QueueWeightsForPool(types.WorkerPoolWiki),
 	}
@@ -1803,6 +1804,7 @@ func (h *SystemHandler) GetRuntimeQueues(c *gin.Context) {
 		queueCounts[definition.Pool]++
 	}
 	queueCounts[types.WorkerPoolPostProcess] = len(types.QueueWeightsForPool(types.WorkerPoolPostProcess))
+	queueCounts[types.WorkerPoolGeneralSync] = len(types.QueueWeightsForPool(types.WorkerPoolGeneralSync))
 	resp := RuntimeQueuesResponse{
 		UpstreamConcurrency: allocation.UpstreamTotal(),
 		ParseConcurrency:    allocation.UpstreamTotal(),
@@ -1812,6 +1814,10 @@ func (h *SystemHandler) GetRuntimeQueues(c *gin.Context) {
 			{Name: types.WorkerPoolPostProcess, Concurrency: allocation.PostProcess, QueueCount: queueCounts[types.WorkerPoolPostProcess]},
 			{Name: types.WorkerPoolEnrichment, Concurrency: allocation.Enrichment, QueueCount: queueCounts[types.WorkerPoolEnrichment]},
 			{Name: types.WorkerPoolMaintenance, Concurrency: allocation.Maintenance, QueueCount: queueCounts[types.WorkerPoolMaintenance]},
+			{
+				Name: types.WorkerPoolGeneralSync, Concurrency: types.DefaultGeneralSyncWorkerConcurrency,
+				QueueCount: queueCounts[types.WorkerPoolGeneralSync],
+			},
 			{Name: types.WorkerPoolShared, Concurrency: allocation.Shared, QueueCount: len(types.QueueWeightsForSharedPool())},
 			{Name: types.WorkerPoolWiki, Concurrency: allocation.Wiki, QueueCount: queueCounts[types.WorkerPoolWiki]},
 		},

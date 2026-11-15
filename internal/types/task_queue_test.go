@@ -23,6 +23,7 @@ func assertQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
 		WorkerPoolPostProcess: true,
 		WorkerPoolEnrichment:  true,
 		WorkerPoolMaintenance: true,
+		WorkerPoolGeneralSync: true,
 		WorkerPoolWiki:        true,
 	}
 	seen := make(map[string]bool, len(definitions))
@@ -45,7 +46,7 @@ func assertQueueDefinitionsAreUniqueAndConsumable(t *testing.T) {
 		if len(definition.TaskTypes) == 0 {
 			canonical, ok := byName[definition.DeliveryOf]
 			if ok && len(canonical.TaskTypes) > 0 && canonical.DeliveryOf == "" &&
-				canonical.Pool == definition.Pool {
+				(canonical.Pool == definition.Pool || definition.Name == QueueGeneralSync) {
 				continue
 			}
 			t.Fatalf("queue %q declares no task types", definition.Name)

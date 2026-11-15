@@ -192,6 +192,9 @@ func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
 		return
 	}
 	queueName := types.QueueSync
+	if !types.FeishuConnectorType(ds.Type) {
+		queueName = types.QueueGeneralSync
+	}
 	if feishusafety.Scoped(feishusafety.LegacyContext(ctx, ds.Type, ds.ID)) {
 		fingerprint, fpErr := feishusafety.SourceConfigFingerprint(
 			ds.ID,

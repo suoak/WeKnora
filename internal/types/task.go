@@ -16,6 +16,7 @@ const (
 	WorkerPoolPostProcess = "postprocess"
 	WorkerPoolEnrichment  = "enrichment"
 	WorkerPoolMaintenance = "maintenance"
+	WorkerPoolGeneralSync = "general_sync"
 	WorkerPoolShared      = "shared"
 	WorkerPoolWiki        = "wiki"
 
@@ -26,11 +27,12 @@ const (
 	DefaultPostProcessWorkerConcurrency = 2
 	DefaultEnrichmentWorkerConcurrency  = 12
 	DefaultMaintenanceWorkerConcurrency = 4
+	DefaultGeneralSyncWorkerConcurrency = 1
 	DefaultSharedWorkerConcurrency      = 6
 	DefaultWikiWorkerConcurrency        = 8
 	DefaultUpstreamWorkerConcurrency    = DefaultCoreWorkerConcurrency +
 		DefaultPostProcessWorkerConcurrency + DefaultEnrichmentWorkerConcurrency +
-		DefaultMaintenanceWorkerConcurrency + DefaultSharedWorkerConcurrency
+		DefaultMaintenanceWorkerConcurrency + DefaultSharedWorkerConcurrency + DefaultGeneralSyncWorkerConcurrency
 )
 
 // Asynq queue names. QueueMaintenance intentionally keeps the physical Redis
@@ -48,6 +50,7 @@ const (
 	QueueGraph          = "graph"
 	QueueQuestion       = "question"
 	QueueSync           = "sync"
+	QueueGeneralSync    = "general_sync"
 	QueueApprovedSync   = "approved_sync"
 	QueueMaintenance    = "low"
 	QueueWiki           = "wiki"
@@ -91,8 +94,9 @@ var queueDefinitions = []QueueDefinition{
 	{Name: QueueQuestion, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeQuestionGeneration}},
 	{Name: QueueMemory, Pool: WorkerPoolEnrichment, Weight: 1, SharedWeight: 1, TaskTypes: []string{TypeMemoryExtract}},
 	{Name: QueueSync, Pool: WorkerPoolMaintenance, Weight: 2, TaskTypes: []string{TypeDataSourceSync}},
-	// The shared lane stays paused during incident recovery. Only signed
-	// source admission may route new sync tasks to this maintenance lane.
+	{Name: QueueGeneralSync, Pool: WorkerPoolGeneralSync, Weight: 1, DeliveryOf: QueueSync},
+	// Only signed source admission may route new sync tasks to this lane.
+	// General sync stays enabled independently of Feishu safety controls.
 	{Name: QueueApprovedSync, Pool: WorkerPoolMaintenance, Weight: 1, DeliveryOf: QueueSync},
 	{Name: QueueMaintenance, Pool: WorkerPoolMaintenance, Weight: 1, TaskTypes: []string{
 		TypeFeishuConnectionCheck,
@@ -211,7 +215,7 @@ func ResolveWorkerPoolConcurrency(read func(key, env string, fallback int) int) 
 }
 
 func (c WorkerPoolConcurrency) UpstreamTotal() int {
-	return c.Core + c.PostProcess + c.Enrichment + c.Maintenance + c.Shared
+	return c.Core + c.PostProcess + c.Enrichment + c.Maintenance + c.Shared + DefaultGeneralSyncWorkerConcurrency
 }
 
 // QueueStat is a read-only depth snapshot of a single asynq queue, used

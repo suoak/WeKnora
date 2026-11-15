@@ -20,7 +20,7 @@ func (a *asynqTaskInspector) LiveSyncTasks(ctx context.Context) (map[string]bool
 	if a.redis == nil {
 		return nil, fmt.Errorf("sync queue Redis client unavailable")
 	}
-	for _, queue := range []string{types.QueueSync, feishusynccontrol.ApprovedSyncQueue} {
+	for _, queue := range []string{types.QueueSync, types.QueueGeneralSync, feishusynccontrol.ApprovedSyncQueue} {
 		live, err := a.liveSyncQueueTasks(ctx, queue)
 		if err != nil {
 			return nil, err

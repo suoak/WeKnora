@@ -4518,6 +4518,7 @@ export default {
           }
         },
         pools: {
+          general_sync: 'Reserved general sync',
           core: 'Core parsing',
           postprocess: 'Post-process orchestration',
           enrichment: 'Enrichment',
@@ -4526,6 +4527,7 @@ export default {
           wiki: 'Wiki pool'
         },
         poolDescriptions: {
+          general_sync: 'Dedicated capacity reserved for non-Feishu sources',
           core: 'Guaranteed document and manual parsing capacity',
           postprocess: 'Parse finalization and enrichment fan-out',
           enrichment: 'Summaries, images, graph, and question generation',

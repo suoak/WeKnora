@@ -30,6 +30,18 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("%w: invalid sync payload", asynq.SkipRetry)
 	}
+	if types.IsGeneralSyncWorker(ctx) {
+		source, err := s.dsRepo.FindByID(ctx, payload.DataSourceID)
+		if err != nil {
+			return err
+		}
+		if source == nil || source.TenantID != payload.TenantID {
+			return fmt.Errorf("%w: invalid source binding", asynq.SkipRetry)
+		}
+		if types.FeishuConnectorType(source.Type) {
+			return errors.Join(asynq.SkipRetry, types.ErrGeneralSyncCapacityReserved)
+		}
+	}
 	repo, err := s.executionRepo()
 	if err != nil {
 		return err
