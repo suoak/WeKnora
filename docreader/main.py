@@ -18,6 +18,7 @@ from docreader.config import CONFIG
 from docreader.models.document import ChunkingPolicy
 from docreader.parser import Parser
 from docreader.parser.registry import registry
+from docreader.shutdown import wait_for_termination
 from docreader.proto import docreader_pb2_grpc
 from docreader.proto.docreader_pb2 import (
     CHUNKING_POLICY_DEFAULT,
@@ -498,11 +499,7 @@ def main():
     logger.info("Server started on port %d", CONFIG.grpc_port)
     logger.info("Server is ready to accept connections")
 
-    try:
-        server.wait_for_termination()
-    except KeyboardInterrupt:
-        logger.info("Received termination signal, shutting down server")
-        server.stop(0)
+    wait_for_termination(server, logger)
 
 
 if __name__ == "__main__":
