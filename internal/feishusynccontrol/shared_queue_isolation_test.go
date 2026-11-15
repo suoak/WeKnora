@@ -31,7 +31,10 @@ func TestDedicatedFeishuStopDoesNotPauseSharedSync(t *testing.T) {
 }
 
 func TestNormalHealthRecoversLegacySharedFeishuPause(t *testing.T) {
-	for _, marker := range []string{"feishu_safety_stop", "invalid_feishu_safety_configuration", "approved_sync_frozen", "feishu_emergency_stop", "operator_maintenance", "1"} {
+	for _, marker := range []string{
+		"feishu_safety_stop", "invalid_feishu_safety_configuration", "approved_sync_frozen",
+		"feishu_emergency_stop", "operator_maintenance", "1",
+	} {
 		t.Run(marker, func(t *testing.T) {
 			f := newNormalFixture(t)
 			f.c.Config.DedicatedSyncLane = true
@@ -43,9 +46,10 @@ func TestNormalHealthRecoversLegacySharedFeishuPause(t *testing.T) {
 			// Recovery must work even when the dedicated lane is already open.
 			require.NoError(t, f.r.Del(ctx, "asynq:{approved_sync}:paused").Err())
 			require.NoError(t, f.c.Step(ctx))
-			if marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" || marker == "approved_sync_frozen" || marker == "feishu_emergency_stop" {
+			switch marker {
+			case "feishu_safety_stop", "invalid_feishu_safety_configuration", "approved_sync_frozen", "feishu_emergency_stop":
 				require.Zero(t, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
-			} else {
+			default:
 				require.Equal(t, marker, f.r.Get(ctx, "asynq:{sync}:paused").Val())
 			}
 			require.Equal(t, pending, f.r.LRange(ctx, "asynq:{sync}:pending", 0, -1).Val())
@@ -54,7 +58,9 @@ func TestNormalHealthRecoversLegacySharedFeishuPause(t *testing.T) {
 }
 
 func TestSharedPauseRecoveryRejectsUnsafeState(t *testing.T) {
-	for _, failure := range []string{"trip", "missing_permit", "missing_consumer", "revoked", "changed_record", "legacy_lane"} {
+	for _, failure := range []string{
+		"trip", "missing_permit", "missing_consumer", "revoked", "changed_record", "legacy_lane",
+	} {
 		t.Run(failure, func(t *testing.T) {
 			f := newNormalFixture(t)
 			f.c.Config.DedicatedSyncLane = true

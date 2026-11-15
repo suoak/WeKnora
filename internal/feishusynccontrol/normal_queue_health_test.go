@@ -8,7 +8,9 @@ import (
 )
 
 func TestNormalServiceHealthResumesOnlyItsSafetyPause(t *testing.T) {
-	for _, marker := range []string{"feishu_safety_stop", "invalid_feishu_safety_configuration", "operator_pause", "wiki-global-drain:fixture"} {
+	for _, marker := range []string{
+		"feishu_safety_stop", "invalid_feishu_safety_configuration", "operator_pause", "wiki-global-drain:fixture",
+	} {
 		t.Run(marker, func(t *testing.T) {
 			f := newNormalFixture(t)
 			ctx := context.Background()
