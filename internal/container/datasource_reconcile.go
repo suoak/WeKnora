@@ -14,6 +14,7 @@ func startDataSourceSyncReconciliation(
 	db *gorm.DB,
 	tasks interfaces.TaskInspector,
 	cleaner interfaces.ResourceCleaner,
+	queue interfaces.TaskEnqueuer,
 ) {
 	probe, ok := tasks.(interfaces.SyncTaskInspector)
 	if !ok {
@@ -27,6 +28,12 @@ func startDataSourceSyncReconciliation(
 		defer ticker.Stop()
 		for {
 			attempt, stop := context.WithTimeout(ctx, 45*time.Second)
+			if pending, ok := tasks.(service.PendingGeneralSyncInspector); ok {
+				_, err := service.RecoverGeneralSyncCapacity(attempt, db, pending, queue)
+				if err != nil && ctx.Err() == nil {
+					logger.Warnf(ctx, "[GeneralSyncRecovery] %v", err)
+				}
+			}
 			n, err := service.ReconcileDataSourceSyncs(attempt, db, probe)
 			stop()
 			if err != nil && ctx.Err() == nil {

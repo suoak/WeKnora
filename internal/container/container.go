@@ -471,6 +471,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 		must(container.Provide(router.NewPostProcessAsynqServer, dig.Name("postProcessAsynqServer")))
 		must(container.Provide(router.NewEnrichmentAsynqServer, dig.Name("enrichmentAsynqServer")))
 		must(container.Provide(router.NewMaintenanceAsynqServer, dig.Name("maintenanceAsynqServer")))
+		must(container.Provide(router.NewGeneralSyncAsynqServer, dig.Name("generalSyncAsynqServer")))
 		must(container.Provide(router.NewSharedAsynqServer, dig.Name("sharedAsynqServer")))
 		must(container.Provide(router.NewWikiAsynqServer, dig.Name("wikiAsynqServer")))
 		// Asynq inspector for cancel-by-knowledge-id (best-effort

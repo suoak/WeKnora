@@ -731,6 +731,9 @@ func (s *DataSourceService) manualSyncUsing(
 
 	payloadJSON, _ := json.Marshal(payload)
 	queueName := types.QueueSync
+	if !types.FeishuConnectorType(ds.Type) {
+		queueName = types.QueueGeneralSync
+	}
 	if approvedDelivery {
 		queueName = types.QueueApprovedSync
 	}
@@ -912,6 +915,9 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 
 	// Re-mark after the authoritative source load as well: a transient failure
 	// in the wrapper's optional early read must never create an unguarded path.
+	if types.IsGeneralSyncWorker(ctx) && types.FeishuConnectorType(ds.Type) {
+		return errors.Join(asynq.SkipRetry, types.ErrGeneralSyncCapacityReserved)
+	}
 	marked := feishusafety.LegacyContext(ctx, ds.Type, ds.ID)
 	if feishusafety.Scoped(marked) {
 		fingerprint, err := feishusafety.SourceConfigFingerprint(

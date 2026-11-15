@@ -3591,6 +3591,7 @@ export default {
           archived: '最终失败'
         },
         pools: {
+          general_sync: '通用同步保留容量',
           core: '核心解析',
           postprocess: '后处理编排',
           enrichment: '内容富化',
@@ -3599,6 +3600,7 @@ export default {
           wiki: 'Wiki 池'
         },
         poolDescriptions: {
+          general_sync: '为非飞书数据源保留的独立执行容量',
           core: '文档解析与手工重解析的保底容量',
           postprocess: '解析完成后的收尾与富化扇出',
           enrichment: '摘要、图片、图谱与问题生成',

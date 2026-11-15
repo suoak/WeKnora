@@ -89,6 +89,66 @@ func syncServiceSuite(t *testing.T, dialect string) {
 		}
 		return svc, ds, queue, connector
 	}
+	t.Run("reserved_general_sync_uses_original_sql_claim", func(t *testing.T) {
+		svc, ds, _, connector := makeSvc()
+		close(connector.proceed)
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
+		require.NoError(t, err)
+		task := asynq.NewTask(types.TypeDataSourceSync, body)
+		ctx := types.WithGeneralSyncWorker(context.Background())
+		require.NoError(t, svc.ProcessSync(ctx, task))
+		require.NoError(t, svc.ProcessSync(ctx, task))
+		require.EqualValues(t, 1, connector.calls.Load())
+		stored, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.Equal(t, types.SyncLogStatusSuccess, stored.Status)
+		require.False(t, stored.ExecutionClaimed)
+		require.EqualValues(t, 1, stored.ExecutionGeneration)
+	})
+	t.Run("reserved_general_sync_never_claims_feishu", func(t *testing.T) {
+		for _, kind := range []string{
+			types.ConnectorTypeFeishu, types.ConnectorTypeFeishuDrive,
+			types.ConnectorTypeLark, types.ConnectorTypeLarkDrive,
+		} {
+			svc, ds, _, connector := makeSvc()
+			ds.Type = kind
+			require.NoError(t, dsRepo.Update(context.Background(), ds))
+			log := &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning}
+			require.NoError(t, logs.Create(context.Background(), log))
+			body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
+			require.NoError(t, err)
+			err = svc.ProcessSync(types.WithGeneralSyncWorker(context.Background()),
+				asynq.NewTask(types.TypeDataSourceSync, body))
+			require.ErrorIs(t, err, types.ErrGeneralSyncCapacityReserved)
+			require.Zero(t, connector.calls.Load())
+			stored, err := logs.FindByID(context.Background(), log.ID)
+			require.NoError(t, err)
+			require.Zero(t, stored.ExecutionGeneration)
+			require.False(t, stored.ExecutionClaimed)
+			require.Equal(t, types.SyncLogStatusRunning, stored.Status)
+		}
+	})
+	t.Run("reserved_and_original_deliveries_share_one_retry_budget", func(t *testing.T) {
+		svc, ds, _, connector := makeSvc()
+		connector.fetchErr = context.DeadlineExceeded
+		log, err := svc.ManualSync(context.Background(), ds.ID)
+		require.NoError(t, err)
+		body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
+		require.NoError(t, err)
+		task := asynq.NewTask(types.TypeDataSourceSync, body)
+		budget := types.WithTaskRetryMetadata(context.Background(), 0, 1)
+		require.Error(t, svc.ProcessSync(types.WithGeneralSyncWorker(budget), task))
+		require.Error(t, svc.ProcessSync(budget, task))
+		require.NoError(t, svc.ProcessSync(types.WithGeneralSyncWorker(budget), task))
+		require.EqualValues(t, 2, connector.calls.Load(), "two queues cannot multiply the one-retry budget")
+		stored, err := logs.FindByID(context.Background(), log.ID)
+		require.NoError(t, err)
+		require.EqualValues(t, 2, stored.ExecutionGeneration)
+		require.Equal(t, types.SyncLogStatusFailed, stored.Status)
+		require.False(t, stored.ExecutionClaimed)
+	})
 	t.Run("recovery_delivery_preserves_normal_claim_without_enqueue", func(t *testing.T) {
 		svc, ds, q, connector := makeSvc()
 		close(connector.proceed)

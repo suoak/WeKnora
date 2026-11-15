@@ -257,6 +257,7 @@ func TestScheduler_CronFires(t *testing.T) {
 	_ = repo.Create(context.Background(), &types.DataSource{
 		ID:           "ds-fire",
 		TenantID:     1,
+		Type:         types.ConnectorTypeGitLab,
 		Status:       types.DataSourceStatusActive,
 		SyncSchedule: "* * * * * *", // every second
 	})
@@ -275,8 +276,8 @@ func TestScheduler_CronFires(t *testing.T) {
 	if enqueuer.count.Load() == 0 {
 		t.Error("expected at least 1 enqueue, got 0")
 	}
-	if queue, _ := enqueuer.lastQueue.Load().(string); queue != types.QueueSync {
-		t.Errorf("scheduled sync queue = %q, want %q", queue, types.QueueSync)
+	if queue, _ := enqueuer.lastQueue.Load().(string); queue != types.QueueGeneralSync {
+		t.Errorf("scheduled sync queue = %q, want %q", queue, types.QueueGeneralSync)
 	}
 }
 

@@ -3520,6 +3520,7 @@ const messages = {
           archived: '최종 실패'
         },
         pools: {
+          general_sync: '일반 동기화 예약 용량',
           core: '핵심 파싱',
           postprocess: '후처리 오케스트레이션',
           enrichment: '콘텐츠 보강',
@@ -3528,6 +3529,7 @@ const messages = {
           wiki: 'Wiki 풀'
         },
         poolDescriptions: {
+          general_sync: 'Feishu 이외 데이터 소스 전용 실행 용량',
           core: '문서 및 수동 파싱 보장 용량',
           postprocess: '파싱 마무리 및 보강 작업 분배',
           enrichment: '요약, 이미지, 그래프 및 질문 생성',
