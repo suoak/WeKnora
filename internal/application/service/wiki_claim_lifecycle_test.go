@@ -101,7 +101,8 @@ func TestWikiClaimAsynqShutdownPostgres(t *testing.T) {
 		t.Fatalf("model unexpectedly returned before release: %v", err)
 	default:
 	}
-	err = withWorkerWikiGenerationLease(context.Background(), client, "shutdown-kb", func(locked context.Context) error {
+	replacementCtx := context.Background()
+	err = withWorkerWikiGenerationLease(replacementCtx, client, "shutdown-kb", func(locked context.Context) error {
 		current, claimErr := repo.ClaimBatch(locked, wikiTaskType, wikiTaskScope,
 			"shutdown-kb", 1, time.Now().Add(-time.Hour))
 		require.NoError(t, claimErr)
