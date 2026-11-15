@@ -41,7 +41,11 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 		if rdb != nil {
-			_ = rdb.Set(stopCtx, "asynq:{sync}:paused", "invalid_feishu_safety_configuration", 0).Err()
+			queue := types.QueueSync
+			if types.ApprovedSyncLaneEnabled() {
+				queue = types.QueueApprovedSync
+			}
+			_ = rdb.SetNX(stopCtx, "asynq:{"+queue+"}:paused", "invalid_feishu_safety_configuration", 0).Err()
 		}
 		feishusynccontrol.CancelLocal()
 		if _, err := repository.FenceLegacySyncExecutions(stopCtx, db); err != nil {
@@ -97,11 +101,12 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		return int(settings.GetInt(ctx, key, env, int64(fallback)))
 	})
 	cfg := feishusynccontrol.Config{
-		Automatic:       automatic,
-		WorkerID:        os.Getenv("FEISHU_SYNC_WORKER_ID"),
-		ExpectedWorkers: strings.Split(os.Getenv("FEISHU_SYNC_EXPECTED_WORKERS"), ","),
-		SourceSHA:       feishuSyncRuntimeRevision(handler.CommitID, os.Getenv("FEISHU_SYNC_SOURCE_SHA")),
-		Scope:           os.Getenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS"), Maintenance: allocation.Maintenance,
+		DedicatedSyncLane: types.ApprovedSyncLaneEnabled(),
+		Automatic:         automatic,
+		WorkerID:          os.Getenv("FEISHU_SYNC_WORKER_ID"),
+		ExpectedWorkers:   strings.Split(os.Getenv("FEISHU_SYNC_EXPECTED_WORKERS"), ","),
+		SourceSHA:         feishuSyncRuntimeRevision(handler.CommitID, os.Getenv("FEISHU_SYNC_SOURCE_SHA")),
+		Scope:             os.Getenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS"), Maintenance: allocation.Maintenance,
 	}
 	if automatic {
 		host, hostErr := os.Hostname()

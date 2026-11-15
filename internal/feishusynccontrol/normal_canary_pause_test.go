@@ -35,6 +35,7 @@ func TestNormalServiceCanaryPreservesOperatorQueuePause(t *testing.T) {
 type normalPauseChangeHook struct {
 	once   sync.Once
 	change func()
+	key    string
 }
 
 func (h *normalPauseChangeHook) DialHook(next redis.DialHook) redis.DialHook { return next }
@@ -45,7 +46,11 @@ func (h *normalPauseChangeHook) ProcessPipelineHook(next redis.ProcessPipelineHo
 func (h *normalPauseChangeHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
 		err := next(ctx, cmd)
-		if cmd.Name() == "get" && cmd.Args()[1] == "asynq:{approved_sync}:paused" {
+		key := h.key
+		if key == "" {
+			key = "asynq:{approved_sync}:paused"
+		}
+		if cmd.Name() == "get" && cmd.Args()[1] == key {
 			h.once.Do(h.change)
 		}
 		return err

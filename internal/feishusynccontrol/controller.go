@@ -1,5 +1,6 @@
 // Package feishusynccontrol provides the minimal Feishu rollout stop loop.
-// It never resumes a queue, deletes tasks or changes datasource configuration.
+// It never deletes tasks or changes datasource configuration. Signed normal
+// service may recover safety-owned queue pauses after health validation.
 package feishusynccontrol
 
 import (
@@ -22,12 +23,14 @@ import (
 
 // Config selects a strict attested inventory or automatic Asynq/lease discovery.
 type Config struct {
-	Automatic       bool
-	WorkerID        string
-	ExpectedWorkers []string
-	SourceSHA       string
-	Scope           string
-	Maintenance     int
+	// DedicatedSyncLane isolates Feishu stops from unrelated shared sync work.
+	DedicatedSyncLane bool
+	Automatic         bool
+	WorkerID          string
+	ExpectedWorkers   []string
+	SourceSHA         string
+	Scope             string
+	Maintenance       int
 }
 
 // Metrics must be produced by an authorized monitoring identity. The key must
@@ -159,6 +162,9 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 	identity := []any{cfg.SourceSHA, cfg.Scope, cfg.Maintenance, workers, guard.Fingerprint()}
 	if cfg.Automatic {
 		identity = []any{"automatic", cfg.SourceSHA, cfg.Scope, guard.Fingerprint()}
+	}
+	if cfg.DedicatedSyncLane {
+		identity = append(identity, "dedicated_sync_lane")
 	}
 	raw, _ := json.Marshal(identity)
 	hash := sha256.Sum256(raw)
@@ -331,7 +337,10 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	} else {
 		failures = append(failures, c.Client.Del(ctx, c.Guard.PermitKey()).Err())
 	}
-	paused := c.Client.Set(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err()
+	var paused error
+	if !c.Config.DedicatedSyncLane {
+		paused = c.Client.SetNX(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err()
+	}
 	failures = append(failures, paused)
 	approvedPaused := c.Client.SetNX(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
 	failures = append(failures, approvedPaused)
@@ -352,6 +361,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
 				"approved_queue_paused": approvedPaused == nil,
+				"shared_queue_targeted": !c.Config.DedicatedSyncLane,
 				"probe_stage":           event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 				"step_id": event.StepID, "incarnation": event.Incarnation,
 				"probe_timing": probeTiming,

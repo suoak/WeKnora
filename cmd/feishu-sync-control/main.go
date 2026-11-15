@@ -64,9 +64,14 @@ func main() {
 	if err != nil {
 		os.Exit(1)
 	}
+	approvedPaused, err := client.Exists(ctx, "asynq:{approved_sync}:paused").Result()
+	if err != nil {
+		os.Exit(1)
+	}
 	_ = json.NewEncoder(os.Stdout).Encode(map[string]any{
 		"action": *action, "trip_latched": trip == 1,
 		"sync_paused": paused == 1, "active_queue_entries": active, "execution_fencing": "VERIFY_DATABASE_SEPARATELY",
+		"approved_sync_paused":    approvedPaused == 1,
 		"authorization_to_deploy": false,
 	})
 }

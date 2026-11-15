@@ -1,5 +1,10 @@
 # Approved Feishu sources after incident recovery
 
+Historical continuity procedure: the retained shared pause described below is
+superseded for dedicated-lane normal service by
+[queue isolation and automatic recovery](feishu-normal-service.md#recovery-and-lifecycle).
+Normal operation keeps shared sync, approved sync and Wiki enabled.
+
 This is a separately reviewed extension of PR #63, based on
 `1568ffc3d9928527eb96077eb22c949f1a3d7a19`. It is not production approval,
 a general queue resume, a new source permission system, or a held-source release.

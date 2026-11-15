@@ -8,7 +8,9 @@ import (
 )
 
 func TestNormalServiceHealthResumesOnlyItsSafetyPause(t *testing.T) {
-	for _, marker := range []string{"feishu_safety_stop", "operator_pause", "wiki-global-drain:fixture"} {
+	for _, marker := range []string{
+		"feishu_safety_stop", "invalid_feishu_safety_configuration", "operator_pause", "wiki-global-drain:fixture",
+	} {
 		t.Run(marker, func(t *testing.T) {
 			f := newNormalFixture(t)
 			ctx := context.Background()
@@ -18,7 +20,7 @@ func TestNormalServiceHealthResumesOnlyItsSafetyPause(t *testing.T) {
 			require.NoError(t, f.r.Set(ctx, "asynq:{sync}:paused", "retained_shared_queue", 0).Err())
 			require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", marker, 0).Err())
 			require.NoError(t, f.c.Step(ctx))
-			if marker == "feishu_safety_stop" {
+			if marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" {
 				require.Zero(t, f.r.Exists(ctx, "asynq:{approved_sync}:paused").Val())
 			} else {
 				require.Equal(t, marker, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())

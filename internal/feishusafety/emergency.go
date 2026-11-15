@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,7 +27,11 @@ return 1`).
 		Err()
 	// Queue key is in a different Redis Cluster slot, so do not pretend both
 	// actions are atomic. Return either failure and retain whichever stop succeeded.
-	pauseErr := client.Set(ctx, "asynq:{sync}:paused", "feishu_emergency_stop", 0).Err()
+	queue := types.QueueSync
+	if types.ApprovedSyncLaneEnabled() {
+		queue = types.QueueApprovedSync
+	}
+	pauseErr := client.SetNX(ctx, "asynq:{"+queue+"}:paused", "feishu_emergency_stop", 0).Err()
 	if blockErr != nil || pauseErr != nil {
 		return fmt.Errorf("emergency block=%v queue_pause=%v", blockErr, pauseErr)
 	}
