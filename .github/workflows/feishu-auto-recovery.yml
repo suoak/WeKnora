@@ -35,6 +35,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
       postgres:
         image: paradedb/paradedb:v0.22.2-pg17
         env:
@@ -49,6 +55,7 @@ jobs:
       FEISHU_LEGACY_TEST_DSN: postgres://postgres:synthetic-recovery-only@localhost:5432/feishu_atomic_test?sslmode=disable
       SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:synthetic-recovery-only@localhost:5432/feishu_atomic_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+      FEISHU_DISPATCH_REDIS_ADDR: knowhub-p1-dispatch-redis-20261018:6379
       FEISHU_SYNC_SAFETY_ENABLED: 'false'
     steps:
       - uses: actions/checkout@v6
@@ -60,6 +67,8 @@ jobs:
           cache: true
       - name: Install isolated native dependencies
         run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Bind the guarded disposable dispatch Redis alias
+        run: echo '127.0.0.1 knowhub-p1-dispatch-redis-20261018' | sudo tee -a /etc/hosts
       - name: Bounded recovery, complete snapshot proof and real publication
         shell: bash
         run: |
