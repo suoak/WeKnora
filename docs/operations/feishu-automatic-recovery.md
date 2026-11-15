@@ -103,3 +103,19 @@ and retain original packages privately. Native tests must prove the exact pair
 matches through `MatchLatestFetchedSnapshot`, while width/cell/style and overlap
 changes remain distinguishable. Consolidate any eventual deployment after the
 current verification batch rather than restarting it just for this normalization.
+
+## Whole-parent embedded workbook budget
+
+The legacy source expansion path previously refused a fifth embedded workbook,
+although the same five real packages individually passed the complete reader.
+Use the personal exact import whole-parent budget before any native workbook
+conversion: at most 64 unique parser-issued package references, at most 8 MiB
+per compressed package, 32 MiB compressed total and 64 MiB expanded total. Each
+ZIP entry remains limited to 8 MiB. This preserves the previous compressed total
+ceiling (four times 8 MiB) and tightens the previously multiplicative expanded
+allocation (four times 32 MiB). Count no longer substitutes for a parent budget.
+
+Unknown packages, duplicate names, unsupported relationships and unmapped parser
+semantic offsets still refuse the parent. No partial parent is published: all
+workbooks must prove complete cell coverage and replace exactly one original
+placeholder before the result changes. Literal hyperlinks remain unfetched.
