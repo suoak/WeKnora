@@ -42,9 +42,11 @@ func (runtimeTestSettings) List(context.Context) ([]*types.SystemSetting, error)
 func (runtimeTestSettings) Get(context.Context, string) (*types.SystemSetting, error) {
 	return nil, nil
 }
+
 func (runtimeTestSettings) Update(context.Context, string, any) (*types.SystemSetting, error) {
 	return nil, nil
 }
+
 func (runtimeTestSettings) UpdateBatch(context.Context, map[string]any) ([]*types.SystemSetting, error) {
 	return nil, nil
 }
@@ -62,6 +64,7 @@ type runtimeTestInspector struct{}
 func (runtimeTestInspector) CancelTasksForKnowledge(context.Context, string) (int, int, error) {
 	return 0, 0, nil
 }
+
 func (runtimeTestInspector) HasQueuedDeleteTasksForKnowledge(context.Context, string) (bool, error) {
 	return false, nil
 }
@@ -77,12 +80,17 @@ func (runtimeTestInspector) QueuedKnowledgeIDs(context.Context) (map[string]stru
 func (runtimeTestInspector) QueueStats(context.Context) ([]types.QueueStat, bool, error) {
 	return []types.QueueStat{}, true, nil
 }
+
 func (runtimeTestInspector) WorkerServerStats(context.Context) ([]types.WorkerServerStat, bool, error) {
 	return []types.WorkerServerStat{
 		{Concurrency: 8, Active: 4, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolCore)},
 		{Concurrency: 2, Active: 1, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolPostProcess)},
 		{Concurrency: 12, Active: 6, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolEnrichment)},
 		{Concurrency: 4, Active: 1, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolMaintenance)},
+		{
+			Concurrency: types.DefaultGeneralSyncWorkerConcurrency, Status: "active",
+			Queues: types.QueueWeightsForPool(types.WorkerPoolGeneralSync),
+		},
 		{Concurrency: 6, Active: 3, Status: "active", Queues: types.QueueWeightsForSharedPool()},
 		{Concurrency: 8, Active: 2, Status: "active", Queues: types.QueueWeightsForPool(types.WorkerPoolWiki)},
 		{Concurrency: 99, Active: 0, Status: "stopped", Queues: types.QueueWeightsForPool(types.WorkerPoolCore)},
@@ -240,7 +248,7 @@ func TestGetRuntimeQueuesReportsIsolatedPoolCapacity(t *testing.T) {
 	if !response.Available {
 		t.Fatal("queue inspection should be available")
 	}
-	if response.UpstreamConcurrency != 32 || response.ParseConcurrency != 32 {
+	if response.UpstreamConcurrency != 33 || response.ParseConcurrency != 33 {
 		t.Fatalf("upstream compatibility values are wrong: %+v", response)
 	}
 	want := map[string]struct {
@@ -251,6 +259,7 @@ func TestGetRuntimeQueuesReportsIsolatedPoolCapacity(t *testing.T) {
 		types.WorkerPoolPostProcess: {2, 2}, // postprocess plus existing low-queue fallback
 		types.WorkerPoolEnrichment:  {12, 5},
 		types.WorkerPoolMaintenance: {4, 2},
+		types.WorkerPoolGeneralSync: {1, 1},
 		types.WorkerPoolShared:      {6, 7},
 		types.WorkerPoolWiki:        {8, 1},
 	}

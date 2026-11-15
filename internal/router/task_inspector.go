@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/logger"
@@ -28,8 +29,9 @@ func NewAsynqInspector(redisClient *redis.Client) *asynq.Inspector {
 // swallowed so the cancel API still returns success even when Redis is
 // flaky.
 type asynqTaskInspector struct {
-	inspector *asynq.Inspector
-	redis     redis.UniversalClient
+	inspector       *asynq.Inspector
+	redis           redis.UniversalClient
+	generalSyncPage atomic.Uint64
 }
 
 // NewAsynqTaskInspector returns a TaskInspector wrapping the given

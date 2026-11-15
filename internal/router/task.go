@@ -34,6 +34,7 @@ type AsynqTaskParams struct {
 	PostProcessServer     *asynq.Server `name:"postProcessAsynqServer"`
 	EnrichmentServer      *asynq.Server `name:"enrichmentAsynqServer"`
 	MaintenanceServer     *asynq.Server `name:"maintenanceAsynqServer"`
+	GeneralSyncServer     *asynq.Server `name:"generalSyncAsynqServer"`
 	SharedServer          *asynq.Server `name:"sharedAsynqServer"`
 	WikiServer            *asynq.Server `name:"wikiAsynqServer"`
 	KnowledgeService      interfaces.KnowledgeService
@@ -136,9 +137,8 @@ func asynqIsFailure(err error) bool {
 }
 
 // Worker defaults live in types so server construction and runtime reporting
-// cannot drift. The upstream budget is divided without increasing historical
-// total capacity; Wiki remains separate because its model-heavy workload has a
-// different provider-capacity profile.
+// cannot drift. General sync adds one explicit reserved slot; Wiki remains
+// separate because its model-heavy workload has a different capacity profile.
 
 // newAsynqServer builds an asynq server bound to a specific queue set and
 // concurrency. Every worker pool uses it so Redis options and retry-delay
@@ -214,6 +214,13 @@ func NewMaintenanceAsynqServer(svc interfaces.SystemSettingService) *asynq.Serve
 	log.Printf("asynq maintenance-pool server starting with concurrency=%d total_upstream=%d",
 		allocation.Maintenance, allocation.UpstreamTotal())
 	return newAsynqServer(allocation.Maintenance, types.QueueWeightsForPool(types.WorkerPoolMaintenance))
+}
+
+// NewGeneralSyncAsynqServer reserves one worker for existing non-Feishu deliveries.
+// It never consumes the signed approved_sync queue or borrows parsing capacity.
+func NewGeneralSyncAsynqServer() *asynq.Server {
+	return newAsynqServer(types.DefaultGeneralSyncWorkerConcurrency,
+		types.QueueWeightsForPool(types.WorkerPoolGeneralSync))
 }
 
 // NewSharedAsynqServer is the elastic tier. Asynq dequeue is atomic, so it is
@@ -348,9 +355,22 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	runPool("postprocess-pool", params.PostProcessServer)
 	runPool("enrichment-pool", params.EnrichmentServer)
 	runPool("maintenance-pool", params.MaintenanceServer)
+	reserved := generalSyncMux(mux)
+	err := startAsynqPool("general-sync-pool", params.GeneralSyncServer, reserved, params.ResourceCleaner)
+	if err != nil {
+		log.Fatalf("could not start general sync asynq server: %v", err)
+	}
 	runPool("shared-pool", params.SharedServer)
 	runPool("wiki-pool", params.WikiServer)
 	return mux
+}
+
+func generalSyncMux(mux asynq.Handler) *asynq.ServeMux {
+	reserved := asynq.NewServeMux()
+	reserved.HandleFunc(types.TypeDataSourceSync, func(ctx context.Context, task *asynq.Task) error {
+		return mux.ProcessTask(types.WithGeneralSyncWorker(ctx), task)
+	})
+	return reserved
 }
 
 // Start never installs Asynq's independent SIGTERM/SIGINT handler. The APP

@@ -60,15 +60,18 @@ func (r *SyncLogRepository) ClaimExecution(
 			}
 			return err
 		}
-		result := tx.Model(&types.SyncLog{}).
+		query := tx.Model(&types.SyncLog{}).
 			Where("id = ? AND data_source_id = ? AND tenant_id = ? AND status = ?",
 				logID, dsID, tenantID, types.SyncLogStatusRunning).
 			Where("execution_claimed = ? OR "+staleSyncHeartbeatSQL(tx),
-				false, time.Now().UTC().Add(-types.SyncExecutionStaleAfter)).
-			Updates(map[string]interface{}{
-				"execution_generation": gorm.Expr("execution_generation + 1"),
-				"execution_claimed":    true, "finished_at": nil, "updated_at": time.Now().UTC(),
-			})
+				false, time.Now().UTC().Add(-types.SyncExecutionStaleAfter))
+		if limit, bounded := types.GeneralSyncRetryBudget(ctx); bounded {
+			query = query.Where("execution_generation <= ?", limit)
+		}
+		result := query.Updates(map[string]interface{}{
+			"execution_generation": gorm.Expr("execution_generation + 1"),
+			"execution_claimed":    true, "finished_at": nil, "updated_at": time.Now().UTC(),
+		})
 		if result.Error != nil {
 			return result.Error
 		}
