@@ -7,14 +7,16 @@ import (
 	"strings"
 )
 
+// FeishuDocumentParserSettingsKey names source-owned per-document Excel preferences.
 const FeishuDocumentParserSettingsKey = "feishu_document_parser_overrides_v1"
 
+// FeishuDocumentParserOverride carries a bounded builtin Excel parsing preference.
 type FeishuDocumentParserOverride struct {
 	XLSXContextColumnCount int `json:"xlsx_context_column_count"`
 }
 
-// Only a bounded, non-secret parser preference is accepted. Resource IDs are
-// scoped by the owning datasource; none of these values grant source access.
+// FeishuDocumentParserOverrides validates bounded, non-secret parser preferences.
+// Resource IDs are scoped by the owning datasource; these values grant no access.
 func (d *DataSourceConfig) FeishuDocumentParserOverrides() (map[string]FeishuDocumentParserOverride, error) {
 	if d == nil || d.Settings == nil {
 		return nil, nil
