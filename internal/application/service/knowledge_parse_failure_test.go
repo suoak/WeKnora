@@ -75,13 +75,13 @@ type parseFailureRepository struct {
 }
 
 func (r *parseFailureRepository) GetKnowledgeByID(context.Context, uint64, string) (*types.Knowledge, error) {
-	copy := *r.current
-	return &copy, nil
+	snapshot := *r.current
+	return &snapshot, nil
 }
 
 func (r *parseFailureRepository) UpdateKnowledge(_ context.Context, k *types.Knowledge) error {
-	copy := *k
-	r.current = &copy
+	snapshot := *k
+	r.current = &snapshot
 	r.writes++
 	return nil
 }

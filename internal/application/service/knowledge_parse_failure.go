@@ -21,8 +21,8 @@ func documentDispatchFailureTerminal(ctx context.Context, current *types.Knowled
 	}
 	retries, available := asynq.GetRetryCount(ctx)
 	limit, _ := asynq.GetMaxRetry(ctx)
-	if n, max, ok := types.TaskRetryMetadataFromContext(ctx); ok {
-		retries, limit, available = n, max, true
+	if n, retryLimit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
+		retries, limit, available = n, retryLimit, true
 	}
 	return !available || retries >= limit
 }
@@ -57,8 +57,8 @@ func knowledgeParseFailureState(
 	code, action, permanent := classifyKnowledgeParseFailure(err)
 	retries, _ := asynq.GetRetryCount(ctx)
 	limit, _ := asynq.GetMaxRetry(ctx)
-	if n, max, ok := types.TaskRetryMetadataFromContext(ctx); ok {
-		retries, limit = n, max
+	if n, retryLimit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
+		retries, limit = n, retryLimit
 	}
 	failure := &types.KnowledgeParseFailure{
 		Code: code, State: "needs_attention", Action: action,

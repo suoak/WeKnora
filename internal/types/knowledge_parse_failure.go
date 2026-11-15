@@ -2,6 +2,7 @@ package types
 
 import "encoding/json"
 
+// KnowledgeParseFailureKey reserves the server-owned recovery metadata entry.
 const KnowledgeParseFailureKey = "parse_failure_v1"
 
 // KnowledgeParseFailure describes server-owned recovery progress without raw
@@ -15,6 +16,8 @@ type KnowledgeParseFailure struct {
 	AutoRetry   bool   `json:"auto_retry"`
 }
 
+// SetParseFailure updates recovery progress while preserving other metadata.
+// A nil failure removes the previous processing attempt's recovery status.
 func (k *Knowledge) SetParseFailure(failure *KnowledgeParseFailure) error {
 	fields, err := k.Metadata.Map()
 	if err != nil {
