@@ -92,7 +92,7 @@ func (s *FeishuLegacyStore) QueueSourceDocumentReparse(
 	}
 	var result *types.FeishuDocumentReparseStatus
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if tx.Dialector.Name() != "postgres" {
+		if tx.Name() != "postgres" {
 			return legacyFence("repository_not_supported")
 		}
 		current, err := lockSyncDataSource(tx, ds.ID, ds.TenantID)

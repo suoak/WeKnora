@@ -238,7 +238,7 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			require.True(t, first.Created)
 			if reparseOnly {
 				t.Run("source-document-request-reparses-unchanged-content", func(t *testing.T) {
-					testSourceDocumentReparseRoundTrip(t, db, ks, ctx, ds, item, first.KnowledgeID, first.AttemptID)
+					testSourceDocumentReparseRoundTrip(ctx, t, db, ks, ds, item, first.KnowledgeID, first.AttemptID)
 				})
 				return
 			}
@@ -509,7 +509,7 @@ func (c *exactDocumentReparseConnector) FetchDocument(
 }
 
 func testSourceDocumentReparseRoundTrip(
-	t *testing.T, db *gorm.DB, original *knowledgeService, ctx context.Context,
+	ctx context.Context, t *testing.T, db *gorm.DB, original *knowledgeService,
 	ds *types.DataSource, item *types.FetchedItem, kid, oldAttempt string,
 ) {
 	t.Helper()

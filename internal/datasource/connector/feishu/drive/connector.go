@@ -300,6 +300,7 @@ func (c *DriveConnector) FetchFullStream(
 	return c.fetchStream(ctx, config, cursor, h, true)
 }
 
+// FetchDocument fetches one document after verifying its current selected-root binding.
 func (c *DriveConnector) FetchDocument(
 	ctx context.Context, config *types.DataSourceConfig, root, externalID string,
 ) (*types.FetchedItem, error) {
