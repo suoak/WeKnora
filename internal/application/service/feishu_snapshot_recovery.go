@@ -56,12 +56,21 @@ func recoverFeishuSnapshot(
 }
 
 func sameSnapshotRecoveryBinding(original, current *types.FetchedItem) bool {
+	if !sameSnapshotSourceBinding(original, current) || original.ReplacesSubtree != current.ReplacesSubtree ||
+		len(original.SubtreeKeep) != 0 || len(current.SubtreeKeep) != 0 {
+		return false
+	}
+	// External children were emitted from the original inventory. They need a
+	// complete new traversal; replacing only their parent cannot certify bytes.
+	return true
+}
+
+func sameSnapshotSourceBinding(original, current *types.FetchedItem) bool {
 	if original == nil || current == nil || current.IsDeleted || original.IsDeleted ||
 		len(current.Content) == 0 || original.ExternalID == "" || original.ExternalID != current.ExternalID ||
 		original.SourceResourceID != current.SourceResourceID || original.URL != current.URL ||
 		getFileType(original.FileName) != getFileType(current.FileName) ||
-		len(original.SubtreeKeep) != 0 || len(current.SubtreeKeep) != 0 ||
-		current.UpdatedAt.Before(original.UpdatedAt) || original.ReplacesSubtree != current.ReplacesSubtree ||
+		current.UpdatedAt.Before(original.UpdatedAt) ||
 		original.Metadata["attachment"] == "true" || current.Metadata["attachment"] == "true" {
 		return false
 	}
@@ -70,7 +79,5 @@ func sameSnapshotRecoveryBinding(original, current *types.FetchedItem) bool {
 			return false
 		}
 	}
-	// External children were emitted from the original inventory. They need a
-	// complete new traversal; replacing only their parent cannot certify bytes.
 	return true
 }

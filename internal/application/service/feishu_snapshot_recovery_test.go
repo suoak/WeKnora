@@ -78,6 +78,7 @@ func TestFeishuSnapshotRecoveryRevalidatesFreshCandidate(t *testing.T) {
 }
 
 func TestFeishuSnapshotRecoveryPreservesBinding(t *testing.T) {
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
 	for _, fault := range []string{
 		"external", "root", "url", "obj_type", "obj_token", "node_token", "space_id",
 		"deleted", "attachment", "children", "existing_children", "subtree", "revision",
@@ -124,6 +125,12 @@ func TestFeishuSnapshotRecoveryPreservesBinding(t *testing.T) {
 			require.Equal(t, 1, calls)
 			require.False(t, old.AutoRecovered)
 			require.Equal(t, "original package", string(old.Content))
+			code := feishuDocumentFailureCode(&types.DataSource{Type: "feishu"}, old, err)
+			if fault == "children" || fault == "existing_children" || fault == "subtree" {
+				require.Equal(t, "source_snapshot_changed", code)
+			} else {
+				require.Empty(t, code, "a changed identity or denied observation cannot become a local content retry")
+			}
 		})
 	}
 }
