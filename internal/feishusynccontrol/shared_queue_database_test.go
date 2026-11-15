@@ -112,6 +112,9 @@ func TestSharedQueueReleaseRealConsumerKeepsTerminalRunsFenced(t *testing.T) {
 	) (SharedQueueTaskProof, error) {
 		return SharedQueueProofFromDatabase(ctx, db, p)
 	})
+	// Schema setup can outlive the 750ms permit on a busy runner. Production
+	// renews it periodically; refresh health after fixture I/O before planning.
+	require.NoError(t, f.c.Step(ctx))
 	p, err := f.m.PlanSteadyWithSharedQueueRelease(ctx, "operator", f.ids, nil, 30)
 	require.NoError(t, err)
 	require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
