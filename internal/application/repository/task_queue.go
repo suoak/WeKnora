@@ -368,10 +368,11 @@ func (r *taskPendingOpsRepository) ReleaseByIDs(ctx context.Context, ids []int64
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).
-		Model(&types.TaskPendingOp{}).
-		Where("id IN ?", ids).
-		Update("claimed_at", nil).Error
+	query, _, err := scopedWikiClaimWrite(ctx, r.db.WithContext(ctx).Model(&types.TaskPendingOp{}), ids)
+	if err != nil {
+		return err
+	}
+	return query.Where("id IN ?", ids).Update("claimed_at", nil).Error
 }
 
 // DeleteByIDs removes the given rows in one statement. Empty input is a
@@ -380,7 +381,11 @@ func (r *taskPendingOpsRepository) DeleteByIDs(ctx context.Context, ids []int64)
 	if len(ids) == 0 {
 		return nil
 	}
-	return r.db.WithContext(ctx).
+	query, _, err := scopedWikiClaimWrite(ctx, r.db.WithContext(ctx), ids)
+	if err != nil {
+		return err
+	}
+	return query.
 		Where("id IN ?", ids).
 		Where("scope <> ?", types.PersonalExactReceiptScope).
 		Delete(&types.TaskPendingOp{}).Error
@@ -461,6 +466,21 @@ func (r *taskPendingOpsRepository) DrainUnclaimedAndRelease(
 // by a concurrent DeleteByIDs (e.g. dead-letter path), which is benign.
 func (r *taskPendingOpsRepository) IncrFailCount(ctx context.Context, id int64) (int, error) {
 	var newCount int
+	predicate, args, scoped, scopeErr := wikiClaimPredicate(ctx, []int64{id})
+	if scopeErr != nil {
+		return 0, scopeErr
+	}
+	if scoped {
+		result := r.db.WithContext(ctx).Raw("UPDATE task_pending_ops SET fail_count=fail_count+1 WHERE "+
+			predicate+" RETURNING fail_count", args...).Scan(&newCount)
+		if result.Error != nil {
+			return 0, result.Error
+		}
+		if result.RowsAffected == 0 {
+			return 0, types.ErrWikiClaimChanged
+		}
+		return newCount, nil
+	}
 	err := r.db.WithContext(ctx).Raw(
 		`UPDATE task_pending_ops SET fail_count = fail_count + 1 WHERE id = ? RETURNING fail_count`,
 		id,

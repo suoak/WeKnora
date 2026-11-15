@@ -1086,6 +1086,13 @@ func (s *wikiIngestService) claimPendingListWithOwnership(
 			claims[row.ID] = *row.ClaimedAt
 		}
 	}
+	tenant, _ := types.TenantIDFromContext(ctx)
+	if lifecycle, ok := ctx.Value(wikiClaimLifecycleKey{}).(*wikiClaimLifecycle); ok {
+		if releaser, supported := s.pendingRepo.(wikiOwnedClaimReleaser); supported {
+			lifecycle.record(ctx, releaser, WikiIngestPayload{TenantID: tenant, KnowledgeBaseID: kbID}, claims)
+		}
+	}
+	ctx = types.WithWikiClaimOwner(ctx, tenant, kbID, claims)
 	ops, peekedIDs = s.decodePendingRows(ctx, rows)
 	return ops, peekedIDs, claims, nil
 }

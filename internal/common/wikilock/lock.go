@@ -12,6 +12,17 @@ import (
 
 var local sync.Map
 
+// RequireOwned proves current distributed generation ownership for one KB.
+func RequireOwned(ctx context.Context, kb string) error {
+	return redislock.RequireOwned(ctx, "wiki:proof:generation:"+kb)
+}
+
+// ReleaseCanceledWorker fences a canceled worker before yielding its lease.
+// Historical reset retains the normal synchronous With lifetime.
+func ReleaseCanceledWorker(ctx context.Context, kb string) error {
+	return redislock.RelinquishCanceled(ctx, "wiki:proof:generation:"+kb)
+}
+
 // With shares one renewable lease between ingest, finalize and regeneration.
 func With(ctx context.Context, client *redis.Client, kb string, fn func(context.Context) error) error {
 	if client != nil {
