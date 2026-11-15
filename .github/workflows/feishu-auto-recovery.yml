@@ -4,7 +4,7 @@ on:
     branches: [main]
     paths:
       - internal/application/service/feishu_snapshot_recovery*.go
-
+      - internal/application/service/feishu_document_parser*.go
       - internal/application/service/feishu_final_snapshot_recovery*.go
       - internal/application/service/feishu_legacy_source_identity*.go
       - internal/application/service/feishu_legacy_staging.go
@@ -52,7 +52,7 @@ jobs:
           go test -json -race -p 1 -tags sqlite_fts5 \
             ./internal/application/service ./internal/application/repository \
             ./internal/datasource/connector/feishu/core ./internal/types \
-            -run 'TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
+            -run 'TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
             -count=1 -timeout=12m | tee recovery-verification.jsonl
       - uses: actions/upload-artifact@v7
         if: always()

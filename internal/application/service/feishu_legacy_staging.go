@@ -302,6 +302,9 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		parserOverrides = MergeParserEngineOverrides(parserOverrides, overrides.ParserEngineOverrides)
 	}
 	applyParserRuleOverrides(parserOverrides, eff.ChunkingConfig, fileType)
+	if err := applyFeishuDocumentParserOverride(ds, item, engine, parserOverrides); err != nil {
+		return nil, err
+	}
 	if err = validateParserEngineOverrideURLs(parserOverrides); err != nil {
 		return nil, err
 	}

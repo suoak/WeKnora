@@ -266,6 +266,9 @@ func (s *DataSourceService) UpdateDataSource(
 	if newParseErr != nil {
 		return nil, newParseErr
 	}
+	if _, err := newConfig.FeishuDocumentParserOverrides(); err != nil {
+		return nil, err
+	}
 	newRef, refErr := types.ParseFeishuSourceReference(newConfig)
 	if refErr != nil {
 		return nil, refErr
@@ -1798,6 +1801,10 @@ func (s *DataSourceService) validateDataSourceConfig(ctx context.Context, ds *ty
 
 	config, err := ds.ParseConfig()
 	if err != nil {
+		return datasource.ErrInvalidConfig
+	}
+
+	if _, err := config.FeishuDocumentParserOverrides(); err != nil {
 		return datasource.ErrInvalidConfig
 	}
 
