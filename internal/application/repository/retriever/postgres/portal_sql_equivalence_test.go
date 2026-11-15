@@ -45,6 +45,7 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 		`INSERT INTO tenant_portal_configs VALUES(1,'published'),(2,'draft')`,
 		`INSERT INTO knowledges VALUES('doc',1,'kb','title','file','completed','enabled',NULL)`,
 		`INSERT INTO chunks VALUES('chunk',1,'doc','kb','ordinary text','',true,'text',NULL)`,
+		`ALTER TABLE knowledges ADD COLUMN channel text DEFAULT 'web'`,
 	} {
 		require.NoError(t, db.Exec(sql).Error)
 	}
@@ -96,6 +97,11 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 		`DELETE FROM data_sources`,
 		`INSERT INTO task_pending_ops VALUES('personal_exact_receipt_v1','doc')`,
 		`DELETE FROM task_pending_ops`,
+		`INSERT INTO task_pending_ops VALUES('personal_exact_receipt_v1',NULL),('unrelated','doc')`,
+		`INSERT INTO data_sources VALUES(NULL,'hold')`,
+		`INSERT INTO feishu_private_kbs VALUES(NULL,'other'),('kb','viewer')`,
+		`UPDATE knowledges SET channel='feishu_personal' WHERE id='doc'`,
+		`UPDATE knowledges SET channel='web' WHERE id='doc'`,
 		`INSERT INTO feishu_private_kbs VALUES('kb','other')`,
 		`DELETE FROM feishu_private_kbs`,
 		"UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=1",
