@@ -80,3 +80,26 @@ retains the existing duplicate-content behavior.
 Validate the exact original offline first, then use one ordinary source sync and
 verify its publication receipt, complete chunks and vector indexes. Resource-limit
 failures of very large workbooks still require a smaller source workbook.
+
+## Embedded worksheet column permutations
+
+Live diagnostics found identical DOCX exports with stable source revision, title
+and filename but a different order of disjoint `<col>` declarations in embedded
+XLSX worksheets. The complete column attribute sets, cell data and other parts
+were unchanged. This produced a false `source_snapshot_changed` refusal before
+staging, despite the bounded recovery keeping healthy siblings running.
+
+The snapshot-only DOCX v3 comparator orders disjoint column definitions by their
+column number. It preserves every width, style, hidden flag, range and unknown
+attribute. Overlapping definitions retain their original order because precedence
+can affect the effective layout. Invalid or ambiguous column declarations are
+refused. Both styled and style-less embedded workbooks use this rule. Stored
+package v1/v2 identity algorithms are unchanged; a source name, authority or actual
+content change still cannot publish through this comparison.
+
+Do not infer that every snapshot failure is benign. Reproduce with bounded pairs
+of authorized live exports, verify source metadata and full package differences,
+and retain original packages privately. Native tests must prove the exact pair
+matches through `MatchLatestFetchedSnapshot`, while width/cell/style and overlap
+changes remain distinguishable. Consolidate any eventual deployment after the
+current verification batch rather than restarting it just for this normalization.
