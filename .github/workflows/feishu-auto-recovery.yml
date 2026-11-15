@@ -39,6 +39,7 @@ jobs:
         image: redis:7.4-alpine
         ports: ['6379:6379']
         options: >-
+          --restart always
           --health-cmd "redis-cli ping"
           --health-interval 5s --health-timeout 3s --health-retries 20
       postgres:
