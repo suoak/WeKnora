@@ -97,6 +97,7 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var targets []string
+		var requestID json.RawMessage
 		protocolOnly := r.Method == http.MethodGet || r.Method == http.MethodDelete
 		pool, class := s.protocol, "protocol"
 		if r.Method == http.MethodGet {
@@ -115,12 +116,14 @@ func (s *PersonalServer) Handler() http.Handler {
 				return
 			}
 			var envelope struct {
-				Method string `json:"method"`
+				Method string          `json:"method"`
+				ID     json.RawMessage `json:"id"`
 			}
 			_ = json.Unmarshal(body, &envelope) // Already validated by personalHTTPRequestTargets.
 			protocolOnly = personalMetadataMethod(envelope.Method)
 			if envelope.Method == "tools/call" {
 				pool, class = s.admission, "tool"
+				requestID = envelope.ID
 			}
 		}
 		waitStarted := time.Now()
@@ -193,10 +196,14 @@ func (s *PersonalServer) Handler() http.Handler {
 			return
 		}
 		w.Header().Set("Cache-Control", "private, no-store")
+		// mcp-go suppresses its final response when the operation context has
+		// expired. Complete the RPC explicitly instead of returning an empty 200.
+		response := newPersonalRPCResponse(w, requestID)
+		defer response.finish(r.Context())
 		if s.externalHandler != nil && !logger.IsolatedPersonalPayload(r.Context()) {
-			s.externalHandler.ServeHTTP(w, r)
+			s.externalHandler.ServeHTTP(response, r)
 		} else {
-			s.handler.ServeHTTP(w, r)
+			s.handler.ServeHTTP(response, r)
 		}
 	}))
 	return h

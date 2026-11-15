@@ -39,7 +39,7 @@ jobs:
           go test -race -count=1 -timeout=15m
           ./internal/mcpserver ./internal/types ./internal/application/service
           ./internal/application/repository ./internal/handler ./internal/database
-          -run 'TestMCPUsage|TestPersonalAdmission|Test.*UsageAnalytics|TestMigrationGovernanceManifest|TestSQLite.*Migration'
+          -run 'TestMCPUsage|TestPersonalRPC|TestPersonalScopeTimeout|TestPersonalAdmission|Test.*UsageAnalytics|TestMigrationGovernanceManifest|TestSQLite.*Migration'
 
   personal-concurrency:
     name: Personal MCP authenticated concurrency and SSE isolation
