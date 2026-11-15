@@ -335,6 +335,10 @@ func RegisterDataSourceRoutes(
 
 		// Sync management — Admin+
 		ds.POST("/:id/sync", g.Viewer(), handler.SourceWriteAccess, handler.ManualSync)
+		ds.POST("/:id/documents/:knowledge_id/reparse", g.Viewer(),
+			handler.SourceWriteAccess, handler.ReparseSourceDocument)
+		ds.GET("/:id/documents/:knowledge_id/reparse", g.Viewer(),
+			handler.SourceWriteAccess, handler.SourceDocumentReparseStatus)
 		ds.GET("/:id/safety-recovery/plan", g.Admin(), handler.FeishuRecoveryPlan)
 		ds.GET("/:id/safety-recovery/status", g.Admin(), handler.FeishuRecoveryStatus)
 		ds.POST("/:id/safety-recovery/execute", g.Admin(), handler.FeishuRecoveryExecute)

@@ -536,10 +536,12 @@ func (s *knowledgeService) processDurableDocument(
 			(current.ParseStatus == types.ParseStatusCompleted || current.ParseStatus == types.ParseStatusFinalizing) {
 			state = "completed"
 		}
-		if err == nil && readErr == nil && current != nil &&
-			current.ParseStatus == types.ParseStatusFailed {
+		if readErr == nil && documentDispatchFailureTerminal(ctx, current, err) {
 			state = "attention"
-			_ = repo.RecordKnowledgeDispatchFailure(ctx, op.ID, "document_processing_terminal")
+			failureErr := repo.RecordKnowledgeDispatchFailure(ctx, op.ID, "document_processing_terminal")
+			if failureErr != nil {
+				return errors.Join(err, failureErr)
+			}
 		}
 		saveCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
 		defer cancel()

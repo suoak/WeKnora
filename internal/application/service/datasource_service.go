@@ -719,6 +719,9 @@ func (s *DataSourceService) manualSyncUsing(
 		Initiator:    types.TaskInitiatorFromContext(ctx),
 		Trigger:      "manual",
 	}
+	if documentOnly, _ := ctx.Value(documentReparseRunKey{}).(bool); documentOnly {
+		payload.Trigger = "document_reparse"
+	}
 	if policy := feishusynccontrol.ReconciliationPolicy(ctx, ds.ID); policy != "" {
 		payload.ReconciliationPolicyID = policy
 		payload.ForceFull = true
@@ -1465,6 +1468,7 @@ func streamStartCursor(ds *types.DataSource, forceFull bool, attempt int) (*type
 type streamSyncHandler struct {
 	svc          *DataSourceService
 	ds           *types.DataSource
+	config       *types.DataSourceConfig
 	tagIDs       []string
 	result       *types.SyncResult
 	syncLog      *types.SyncLog
@@ -1489,7 +1493,10 @@ func (h *streamSyncHandler) Emit(ctx context.Context, item types.FetchedItem) er
 		return err
 	}
 	h.ingestErr = err
-	return err
+	if err == nil {
+		_, h.ingestErr = h.svc.drainSourceDocumentReparse(ctx, h.ds, h.config, h.tagIDs, nil)
+	}
+	return h.ingestErr
 }
 
 // Checkpoint persists the connector cursor onto the data source and mirrors the
@@ -1498,6 +1505,10 @@ func (h *streamSyncHandler) Emit(ctx context.Context, item types.FetchedItem) er
 func (h *streamSyncHandler) Checkpoint(ctx context.Context, cursor *types.SyncCursor) error {
 	if h.ingestErr != nil {
 		return h.ingestErr
+	}
+	if _, err := h.svc.drainSourceDocumentReparse(ctx, h.ds, h.config, h.tagIDs, nil); err != nil {
+		h.ingestErr = err
+		return err
 	}
 	if cursor == nil {
 		return nil
@@ -1589,7 +1600,24 @@ func (s *DataSourceService) processSyncStreaming(
 	}
 
 	result := &types.SyncResult{}
-	handler := &streamSyncHandler{svc: s, ds: ds, tagIDs: autoTagIDs, result: result, syncLog: syncLog}
+	handler := &streamSyncHandler{svc: s, ds: ds, config: config, tagIDs: autoTagIDs, result: result, syncLog: syncLog}
+	if payload.Trigger == "document_reparse" {
+		for range 32 {
+			handled, err := s.drainSourceDocumentReparse(ctx, ds, config, autoTagIDs, result)
+			if err != nil {
+				return err
+			}
+			if !handled {
+				break
+			}
+		}
+		status, message := streamingSyncOutcome(result)
+		resultJSON, _ := result.ToJSON()
+		return s.updateSyncRunResult(ctx, ds, syncLog, result, resultJSON, status, message, wasPaused)
+	}
+	if _, err := s.drainSourceDocumentReparse(ctx, ds, config, autoTagIDs, nil); err != nil {
+		return err
+	}
 
 	fullBaseline := startCursor
 	if forceFull {
@@ -1634,6 +1662,9 @@ func (s *DataSourceService) processSyncStreaming(
 			return err
 		}
 		return errors.Join(asynq.SkipRetry, fetchErr)
+	}
+	if _, err := s.drainSourceDocumentReparse(ctx, ds, config, autoTagIDs, nil); err != nil {
+		return err
 	}
 
 	resultJSON, _ := result.ToJSON()

@@ -9,6 +9,8 @@ import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
+import { parseFailureProgress } from '@/utils/knowledgeParseFailure';
+import { sourceReparseFailureAction, type SourceDocumentReparseStatus } from '../sourceReparse';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
 import AuthorizedDocumentSummary from './AuthorizedDocumentSummary.vue';
 import { personalDocumentSourceLabel } from '@/i18n/personalDocumentPresentation';
@@ -35,6 +37,7 @@ interface KnowledgeCard {
   file_type?: string;
   isMore?: boolean;
   metadata?: any;
+  source_document_reparse?: SourceDocumentReparseStatus;
   error_message?: string;
   tags?: Array<{ id: string; name: string; color?: string }>;
   stalled_minutes?: number;
@@ -497,7 +500,15 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 
         <div class="card-preview" @mouseenter="onCardMouseEnter($event, item)" @mouseleave="onCardMouseLeave">
         <!-- Parse status display -->
-        <div v-if="isParseInFlight(item.parse_status)" class="card-analyze card-analyze-trace"
+        <div v-if="item.source_document_reparse && item.source_document_reparse.state !== 'completed'"
+          class="card-analyze card-analyze-trace" :class="{ failure: item.source_document_reparse.state === 'failed' }">
+          <t-icon :name="item.source_document_reparse.state === 'failed' ? 'close-circle' : 'time'" />
+          <span class="card-analyze-txt">{{ $t('knowledgeBase.sourceDocumentReparseStates.' + item.source_document_reparse.state) }}</span>
+          <span v-if="item.source_document_reparse.state === 'failed'" class="card-analyze-reason">
+            {{ $t(sourceReparseFailureAction(item.source_document_reparse.error_code)) }}
+          </span>
+        </div>
+        <div v-else-if="isParseInFlight(item.parse_status)" class="card-analyze card-analyze-trace"
           :class="shownStall(item.stall_state, item.stalled_minutes)">
           <t-icon :name="shownStall(item.stall_state, item.stalled_minutes) ? 'time' : 'loading'"
             class="card-analyze-loading"></t-icon>
@@ -512,7 +523,14 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             @click.stop="handleAction('view-trace', item)"
             @keydown.enter.stop="handleAction('view-trace', item)"
             @keydown.space.prevent.stop="handleAction('view-trace', item)"
-          >{{ inFlightCardStatusText(item) }}</span>
+          >{{ parseFailureProgress(item)?.auto_retry
+            ? $t('knowledgeBase.parseRecoveryRetry', {
+              attempts: parseFailureProgress(item)!.attempts,
+              max: parseFailureProgress(item)!.max_attempts,
+            }) : inFlightCardStatusText(item) }}</span>
+          <span v-if="parseFailureProgress(item)?.auto_retry" class="card-analyze-reason">
+            {{ conciseProcessingError(item.error_message) }}
+          </span>
           <button
             type="button"
             class="card-analyze-trace-btn"
@@ -537,6 +555,9 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
           <span v-if="conciseProcessingError(item.error_message)" class="card-analyze-reason"
             :title="conciseProcessingError(item.error_message)">
             {{ conciseProcessingError(item.error_message) }}
+          </span>
+          <span v-if="parseFailureProgress(item)?.state === 'needs_attention'" class="card-analyze-reason">
+            {{ $t('knowledgeBase.parseRecoveryActions.' + parseFailureProgress(item)!.action) }}
           </span>
           <button
             type="button"

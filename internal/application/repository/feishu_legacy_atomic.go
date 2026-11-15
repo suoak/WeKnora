@@ -334,6 +334,13 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		if r.State == "revoked" {
 			return legacyFence("resource_revoked")
 		}
+		reparse, reparseErr := checkSourceReparseClaim(ctx, tx, ds, r)
+		if reparseErr != nil {
+			return reparseErr
+		}
+		if reparse != nil && reparse.request.RootID != item.SourceResourceID {
+			return legacyFence("document_request_binding_changed")
+		}
 		if latest != nil {
 			if e = latest.check(ctx, r, ds, item, sourceHash); e != nil {
 				return e
@@ -454,7 +461,7 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 			if matchErr != nil {
 				return matchErr
 			}
-			if matched && r.State == "active" {
+			if matched && r.State == "active" && reparse == nil {
 				r.SourceRevision = item.UpdatedAt.UTC().Format(time.RFC3339Nano)
 				if e = tx.Model(r).Update("source_revision", r.SourceRevision).Error; e != nil {
 					return e
@@ -631,7 +638,7 @@ func (s *FeishuLegacyStore) Prepare(
 		if previous.FileHash != a.ExpectedHash {
 			return legacyFence("public_file_hash_changed")
 		}
-		if e = legacyProcessMetadata(&previous, &m.Knowledge, true); e != nil {
+		if e = sourceReparseProcessMetadata(ctx, tx, ds, r, &previous, &m.Knowledge, true); e != nil {
 			return e
 		}
 		h, e := LegacyManifestHash(m)
@@ -797,7 +804,7 @@ func (s *FeishuLegacyStore) Publish(
 		if old.FileHash != a.ExpectedHash {
 			return legacyFence("public_file_hash_changed")
 		}
-		if e = legacyProcessMetadata(&old, &m.Knowledge, false); e != nil {
+		if e = sourceReparseProcessMetadata(ctx, tx, ds, r, &old, &m.Knowledge, false); e != nil {
 			return e
 		}
 		indexed, e := legacyIndexedChunks(m.Chunks)
@@ -995,6 +1002,9 @@ content,dimension,embedding,is_enabled)
 		if e = tx.Model(r).
 			Updates(map[string]any{"active_attempt": a.ID, "state": "active", "updated_at": receipt.PublishedAt}).
 			Error; e != nil {
+			return e
+		}
+		if e = completeSourceDocumentReparse(ctx, tx, ds, r, a.ID); e != nil {
 			return e
 		}
 		if !kb.IsWikiEnabled() {

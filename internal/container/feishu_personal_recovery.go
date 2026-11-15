@@ -17,9 +17,13 @@ func configurePersonalRecovery(
 	knowledge interfaces.KnowledgeService,
 	shares interfaces.KBShareService,
 	dataSources interfaces.DataSourceService,
+	housekeeping *service.HousekeepingService,
 ) error {
 	if ds, ok := dataSources.(*service.DataSourceService); ok {
 		ds.SetFeishuIdentityService(personal)
+		if err := housekeeping.SetSourceDocumentReparseRecovery(ds.RecoverSourceDocumentReparses); err != nil {
+			return err
+		}
 	}
 	if (os.Getenv(
 		"FEISHU_APPLICATION_GRANT_TEST_ONLY",

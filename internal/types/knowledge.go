@@ -249,6 +249,9 @@ type Knowledge struct {
 	// MetadataOnly entries disclose no body, profile, source URL or file locator.
 	// Detail/download/model access must obtain its own current content authority.
 	MetadataOnly bool `json:"metadata_only,omitempty" gorm:"-"`
+	// SourceDocumentReparse describes a separate controlled replacement request.
+	// The current published document keeps its own serving/parse state.
+	SourceDocumentReparse *FeishuDocumentReparseStatus `json:"source_document_reparse,omitempty" gorm:"-"`
 }
 
 // Stall verdicts for Knowledge.StallState.

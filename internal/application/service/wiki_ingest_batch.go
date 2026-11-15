@@ -500,6 +500,9 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		return fmt.Errorf("wiki ingest: load pending list: %w", loadErr)
 	}
 	pendingOpsCount = len(pendingOps)
+	if s.redisClient != nil && len(claimOwnership) > 0 {
+		ctx = types.WithWikiClaimOwner(ctx, payload.TenantID, payload.KnowledgeBaseID, claimOwnership)
+	}
 	if len(pendingOps) == 0 {
 		exitStatus = "no_pending_ops"
 		logger.Infof(ctx, "wiki ingest: no pending operations for KB %s", payload.KnowledgeBaseID)

@@ -51,6 +51,12 @@ type Connector interface {
 	FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error)
 }
 
+// DocumentConnector is optional. A targeted read preserves the full configured
+// scope and requires a fresh root/document binding before returning content.
+type DocumentConnector interface {
+	FetchDocument(context.Context, *types.DataSourceConfig, string, string) (*types.FetchedItem, error)
+}
+
 // StreamHandler receives items and progress checkpoints emitted during a
 // streaming fetch. The service implements it to ingest each item as it arrives
 // (bounding memory to one item instead of the whole wiki) and to persist the
