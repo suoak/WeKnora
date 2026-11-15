@@ -529,14 +529,15 @@ func testSourceDocumentReparseRoundTrip(
 	require.NoError(t, tx.Create(&types.TenantMember{
 		UserID: actor, TenantID: ds.TenantID, Role: types.TenantRoleOwner, Status: types.TenantMemberStatusActive,
 	}).Error)
-	ks := *original
-	ks.repo = repository.NewKnowledgeRepository(tx)
-	ks.kbService = &legacyLiveKB{db: tx}
+	ks := &knowledgeService{
+		config: original.config, repo: repository.NewKnowledgeRepository(tx), kbService: &legacyLiveKB{db: tx},
+		modelService: original.modelService, tenantService: original.tenantService, fileSvc: original.fileSvc,
+	}
 	registry := datasource.NewConnectorRegistry()
 	require.NoError(t, registry.Register(&exactDocumentReparseConnector{kind: ds.Type, item: *item}))
 	svc := &DataSourceService{
 		dsRepo: repository.NewDataSourceRepository(tx), syncLogRepo: repository.NewSyncLogRepository(tx),
-		knowledgeService: &ks, kbService: ks.kbService, connectorRegistry: registry,
+		knowledgeService: ks, kbService: ks.kbService, connectorRegistry: registry,
 		feishuIdentity: &FeishuPersonalService{db: tx},
 	}
 	requestCtx := types.WithCaller(ctx, types.Caller{TenantID: ds.TenantID, UserID: actor, Role: types.TenantRoleOwner})
