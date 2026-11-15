@@ -650,7 +650,8 @@ func (g *pgRepository) vectorRetrieve(
 		 (1-(embedding::halfvec(%d) <=> $1::halfvec(%d))) AS score
 		 FROM authorized WHERE $%d::int > 0 AND (embedding::halfvec(%d) <=> $1::halfvec(%d)) <= $%d
 		 ORDER BY (embedding::halfvec(%d) <=> $1::halfvec(%d)),id LIMIT $%d`,
-				portalCanonicalTextProjection(), whereClause, dimension, dimension, subqueryLimitParam, dimension, dimension, thresholdParam, dimension, dimension, finalLimitParam)
+				portalCanonicalTextProjection(), whereClause, dimension, dimension, subqueryLimitParam,
+				dimension, dimension, thresholdParam, dimension, dimension, finalLimitParam)
 		}
 	}
 
