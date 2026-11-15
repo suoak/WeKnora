@@ -54,7 +54,9 @@ func (d *DataSource) DescribeSyncHealth() *DataSourceSyncHealth {
 			)
 		}
 		if d.LatestSyncLog.Status == SyncLogStatusSuccess && d.Status == DataSourceStatusActive {
-			var result SyncResult
+			var result struct {
+				AutoRecovered int `json:"auto_recovered"`
+			}
 			if json.Unmarshal(d.LatestSyncLog.Result, &result) == nil && result.AutoRecovered > 0 {
 				return health("healthy", "已自动重新校验最新版本并恢复同步", "view_progress")
 			}
