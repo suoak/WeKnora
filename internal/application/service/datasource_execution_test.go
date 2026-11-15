@@ -132,7 +132,7 @@ func syncServiceSuite(t *testing.T, dialect string) {
 	})
 	t.Run("reserved_and_original_deliveries_share_one_retry_budget", func(t *testing.T) {
 		svc, ds, _, connector := makeSvc()
-		connector.fetchErr = errors.New("temporary connector failure")
+		connector.fetchErr = context.DeadlineExceeded
 		log, err := svc.ManualSync(context.Background(), ds.ID)
 		require.NoError(t, err)
 		body, err := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, TenantID: 1, SyncLogID: log.ID})
