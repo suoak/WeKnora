@@ -568,6 +568,9 @@ func (d *DataSourceConfig) ToJSON() (JSON, error) {
 	if d == nil {
 		return nil, nil
 	}
+	if _, err := d.FeishuDocumentParserOverrides(); err != nil {
+		return nil, err
+	}
 	out := *d
 	if key := utils.GetAESKey(); key != nil && len(out.Credentials) > 0 {
 		encCreds := make(map[string]interface{}, len(out.Credentials))

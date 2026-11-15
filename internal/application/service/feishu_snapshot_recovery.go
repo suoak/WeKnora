@@ -6,6 +6,7 @@ import (
 	"maps"
 	"slices"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -18,6 +19,27 @@ type feishuSnapshotChangedError struct {
 
 func (e *feishuSnapshotChangedError) Error() string { return e.cause.Error() }
 func (e *feishuSnapshotChangedError) Unwrap() error { return e.cause }
+
+// Both the pre-parse proof and final pre-publication check carry the actual
+// live observation. A bare version fence must never invent a recovery identity.
+func snapshotObservationError(err error, current *types.FetchedItem) error {
+	var fence *repository.LegacyFenceError
+	if errors.As(err, &fence) && fence.Reason == "latest_source_snapshot_changed" {
+		return &feishuSnapshotChangedError{cause: err, current: current}
+	}
+	return err
+}
+
+func verifyFinalFeishuSnapshot(ctx context.Context, item *types.FetchedItem) error {
+	if item == nil || item.CurrentSnapshot == nil {
+		return ErrFeishuStagingRequired
+	}
+	fresh, err := item.CurrentSnapshot(ctx)
+	if err != nil {
+		return err
+	}
+	return snapshotObservationError(repository.MatchLatestFetchedSnapshot(item, fresh), fresh)
+}
 
 // recoverFeishuSnapshot retries one document once, with a freshly observed,
 // identically bound snapshot. Every storage/parser/permission/publication check
