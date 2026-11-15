@@ -22,6 +22,15 @@ func (s *wikiIngestService) withGenerationLease(
 		return err
 	}
 	run := func(locked context.Context) error {
+		if s.redisClient != nil && (task.Type() == wikiTaskType || task.Type() == "wiki:finalize") {
+			if recovery, ok := s.pendingRepo.(interface {
+				RecoverWikiClaimsForGeneration(context.Context, uint64, string) (int64, error)
+			}); ok {
+				if _, err := recovery.RecoverWikiClaimsForGeneration(locked, payload.TenantID, payload.KnowledgeBaseID); err != nil {
+					return err
+				}
+			}
+		}
 		return fn(locked, task)
 	}
 	return withWorkerWikiGenerationLease(ctx, s.redisClient, payload.KnowledgeBaseID, run)
@@ -41,6 +50,18 @@ func withWorkerWikiGenerationLease(
 		if !timer.Stop() {
 			return ErrWikiIngestConcurrent
 		}
+		if client != nil {
+			done := make(chan struct{})
+			stop := context.AfterFunc(locked, func() {
+				defer close(done)
+				_ = wikilock.ReleaseCanceledWorker(locked, kb)
+			})
+			defer func() {
+				if !stop() {
+					<-done
+				}
+			}()
+		}
 		return fn(locked)
 	})
 	if ctx.Err() == nil && errors.Is(context.Cause(leaseCtx), ErrWikiIngestConcurrent) {
@@ -51,7 +72,11 @@ func withWorkerWikiGenerationLease(
 
 // ProcessWikiIngest holds the same lease as finalize and historical reset.
 func (s *wikiIngestService) ProcessWikiIngest(ctx context.Context, task *asynq.Task) error {
-	return s.withGenerationLease(ctx, task, s.processWikiIngest)
+	return s.withGenerationLease(ctx, task, func(locked context.Context, task *asynq.Task) error {
+		lifecycle := &wikiClaimLifecycle{}
+		defer lifecycle.finish()
+		return s.processWikiIngest(context.WithValue(locked, wikiClaimLifecycleKey{}, lifecycle), task)
+	})
 }
 
 // ProcessWikiFinalize cannot invalidate another batch's generation proof.

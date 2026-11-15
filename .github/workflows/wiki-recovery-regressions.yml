@@ -7,6 +7,9 @@ on:
       - "internal/application/service/wiki*.go"
       - "internal/application/repository/wiki*.go"
       - "internal/common/wikilock/**"
+      - "internal/common/redislock/**"
+      - "internal/application/repository/task_queue.go"
+      - "internal/types/wiki_claim_owner.go"
       - "internal/types/wiki_page.go"
       - "cmd/wiki-regenerate/**"
       - ".github/workflows/wiki-recovery-regressions.yml"
@@ -16,6 +19,9 @@ on:
       - "internal/application/service/wiki*.go"
       - "internal/application/repository/wiki*.go"
       - "internal/common/wikilock/**"
+      - "internal/common/redislock/**"
+      - "internal/application/repository/task_queue.go"
+      - "internal/types/wiki_claim_owner.go"
       - "internal/types/wiki_page.go"
       - "cmd/wiki-regenerate/**"
       - ".github/workflows/wiki-recovery-regressions.yml"
@@ -59,13 +65,15 @@ jobs:
       - name: Run Wiki recovery and provenance regressions with race detection
         run: >-
           go test -race -count=1 -timeout=15m
-          ./internal/application/service ./internal/application/repository ./internal/common/wikilock
+          ./internal/application/service ./internal/application/repository ./internal/common/wikilock ./internal/common/redislock
           -run 'Wiki|PortalV1Next'
       - name: Run historical regeneration and snapshot cases on real PostgreSQL
         env:
           WIKI_HISTORY_POSTGRES_DSN: postgres://postgres:synthetic-wiki-only@127.0.0.1:5432/wiki_regression?sslmode=disable
+          SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:synthetic-wiki-only@127.0.0.1:5432/wiki_regression?sslmode=disable
+          REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
         run: >-
           go test -race -count=1 -timeout=15m ./internal/application/service
-          -run '^TestWikiHistoryPostgres$'
+          -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres)$'
       - name: Build operator regeneration command
         run: go build -o /tmp/wiki-regenerate ./cmd/wiki-regenerate

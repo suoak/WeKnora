@@ -20,6 +20,43 @@ var ErrLockOwnershipLost = errors.New("redis lock ownership lost")
 
 type ownershipContextKey struct{}
 
+type (
+	ownedTokenKey struct{}
+	ownedToken    struct {
+		client          redis.UniversalClient
+		key, token      string
+		cancelOwnership context.CancelCauseFunc
+	}
+)
+
+// RelinquishCanceled releases only a canceled callback's original token and
+// fences its detached writes. A replacement owner's key is never deleted.
+func RelinquishCanceled(ctx context.Context, key string) error {
+	owner, ok := ctx.Value(ownedTokenKey{}).(ownedToken)
+	if !ok || owner.key != key || ctx.Err() == nil {
+		return ErrLockOwnershipLost
+	}
+	owner.cancelOwnership(ErrLockOwnershipLost)
+	releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), releaseTimeout)
+	defer cancel()
+	_, err := Release(releaseCtx, owner.client, owner.key, owner.token)
+	return err
+}
+
+// RequireOwned checks the actual Redis token, not a cached renewal result.
+// Only a server-issued renewable-lock callback carries this capability.
+func RequireOwned(ctx context.Context, key string) error {
+	owner, ok := ctx.Value(ownedTokenKey{}).(ownedToken)
+	if !ok || owner.key != key || ctx.Err() != nil || OwnershipContext(ctx).Err() != nil {
+		return ErrLockOwnershipLost
+	}
+	current, err := owner.client.Get(ctx, key).Result()
+	if err != nil || current != owner.token {
+		return ErrLockOwnershipLost
+	}
+	return nil
+}
+
 var (
 	releaseScript = redis.NewScript(`
 if redis.call('GET', KEYS[1]) == ARGV[1] then
@@ -176,6 +213,9 @@ func WithRenewableLock(
 	lockCtx, cancelLock := context.WithCancelCause(ctx)
 	ownershipCtx, cancelOwnership := context.WithCancelCause(context.Background())
 	lockCtx = context.WithValue(lockCtx, ownershipContextKey{}, ownershipCtx)
+	lockCtx = context.WithValue(lockCtx, ownedTokenKey{}, ownedToken{
+		client: client, key: key, token: token, cancelOwnership: cancelOwnership,
+	})
 	renewCtx, stopRenewal := context.WithCancel(context.WithoutCancel(ctx))
 	renewResult := make(chan error, 1)
 	go renewLoop(
