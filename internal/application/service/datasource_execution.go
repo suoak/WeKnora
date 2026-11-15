@@ -30,7 +30,12 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 	if err := json.Unmarshal(task.Payload(), &payload); err != nil {
 		return fmt.Errorf("%w: invalid sync payload", asynq.SkipRetry)
 	}
-	if types.IsGeneralSyncWorker(ctx) {
+	_, nativeBudget := asynq.GetRetryCount(ctx)
+	maxRetry, _ := asynq.GetMaxRetry(ctx)
+	if _, limit, ok := types.TaskRetryMetadataFromContext(ctx); ok {
+		maxRetry, nativeBudget = limit, true
+	}
+	if types.IsGeneralSyncWorker(ctx) || nativeBudget {
 		source, err := s.dsRepo.FindByID(ctx, payload.DataSourceID)
 		if err != nil {
 			return err
@@ -39,7 +44,11 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 			return fmt.Errorf("%w: invalid source binding", asynq.SkipRetry)
 		}
 		if types.FeishuConnectorType(source.Type) {
-			return errors.Join(asynq.SkipRetry, types.ErrGeneralSyncCapacityReserved)
+			if types.IsGeneralSyncWorker(ctx) {
+				return errors.Join(asynq.SkipRetry, types.ErrGeneralSyncCapacityReserved)
+			}
+		} else {
+			ctx = types.WithGeneralSyncRetryBudget(ctx, maxRetry)
 		}
 	}
 	repo, err := s.executionRepo()
@@ -208,6 +217,11 @@ func syncTaskCanRetry(ctx context.Context, err error) bool {
 	if err == nil || errors.Is(err, asynq.SkipRetry) || errors.Is(err, types.ErrStaleSyncExecution) ||
 		errors.Is(err, ErrFeishuSharingApproval) {
 		return false
+	}
+	if limit, bounded := types.GeneralSyncRetryBudget(ctx); bounded {
+		if owner, ok := types.SyncExecutionFromContext(ctx); ok && owner.Generation > limit {
+			return false
+		}
 	}
 	attempt, maxRetry, ok := types.TaskRetryMetadataFromContext(ctx)
 	if !ok {

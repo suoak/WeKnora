@@ -44,6 +44,9 @@ func RecoverGeneralSyncCapacity(
 		if json.Unmarshal(info.Payload, &p) != nil || p.TenantID == 0 || p.DataSourceID == "" || p.SyncLogID == "" {
 			continue
 		}
+		if p.ReconciliationPolicyID != "" {
+			continue
+		}
 		var source types.DataSource
 		if err := db.WithContext(ctx).Where("id=? AND tenant_id=? AND deleted_at IS NULL",
 			p.DataSourceID, p.TenantID).Take(&source).Error; err != nil {

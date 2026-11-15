@@ -34,6 +34,12 @@ generation claim allows one execution and makes a later old delivery a harmless
 duplicate. The live-task inspector scans both lanes. Previously attempted
 deliveries cannot receive a fresh budget.
 
+Both queues share the original maximum retry budget through the SQL claim:
+the generation cannot exceed maximum retries plus the first attempt. The final
+permitted execution records terminal failure even if its native queue copy has
+a smaller retry counter. This covers an old delivery starting after the relay
+snapshot and failing before the reserved delivery starts.
+
 Validation includes a real Asynq saturation test with four occupied Feishu
 workers, an old zero-budget Feishu delivery in `sync`, and an ordinary delivery
 on the reserved queue. The ordinary delivery finishes while the four tasks remain
@@ -51,3 +57,7 @@ Release this with the next consolidated deployment. Preserve enabled queues and
 normal-service activation; do not pause Feishu to create general-sync capacity.
 After release verify queued original GitLab run IDs execute and publish through
 the normal generation-fenced path, and verify the additional runtime heartbeat.
+Before starting a release candidate, include the new `general_sync` queue in
+the deployment-owned pause set, then restore its marker with the other owned
+queues. Otherwise startup relay work can advance sources during the release's
+checkpoint comparison.
