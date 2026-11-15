@@ -100,3 +100,16 @@ func TestSharedPauseRecoveryPreservesConcurrentOperatorPause(t *testing.T) {
 	require.True(t, fired)
 	require.Equal(t, "operator_maintenance", f.r.Get(ctx, "asynq:{sync}:paused").Val())
 }
+
+func TestSharedPauseRecoveryRequiresDurableAuditBeforeOpening(t *testing.T) {
+	f := newNormalFixture(t)
+	f.c.Config.DedicatedSyncLane = true
+	ctx := context.Background()
+	f.activateNormal(t)
+	require.NoError(t, f.r.Set(ctx, f.c.Guard.PermitKey(), f.c.Guard.Fingerprint(), time.Minute).Err())
+	require.NoError(t, f.r.Set(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err())
+	require.NoError(t, f.r.Del(ctx, "asynq:{approved_sync}:paused", f.c.prefix+"control_audit").Err())
+	require.NoError(t, f.r.Set(ctx, f.c.prefix+"control_audit", "unavailable_stream", 0).Err())
+	require.Error(t, f.m.resumeNormalQueueAfterHealth(ctx))
+	require.Equal(t, "feishu_safety_stop", f.r.Get(ctx, "asynq:{sync}:paused").Val())
+}
