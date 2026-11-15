@@ -292,6 +292,10 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	} else if !errors.Is(loadErr, repository.ErrKnowledgeNotFound) {
 		return nil, loadErr
 	}
+	if requested, claimed := repository.SourceDocumentReparseOverrides(ctx); claimed && requested != nil {
+		overrides = requested
+		meta["feishu_reparse_process_config"] = "true"
+	}
 	eff, err := resolveFileImportProcessConfig(ctx, kb, fileType, overrides, nil)
 	if err != nil {
 		return nil, err
@@ -302,8 +306,10 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		parserOverrides = MergeParserEngineOverrides(parserOverrides, overrides.ParserEngineOverrides)
 	}
 	applyParserRuleOverrides(parserOverrides, eff.ChunkingConfig, fileType)
-	if err := applyFeishuDocumentParserOverride(ds, item, engine, parserOverrides); err != nil {
-		return nil, err
+	if meta["feishu_reparse_process_config"] != "true" {
+		if err := applyFeishuDocumentParserOverride(ds, item, engine, parserOverrides); err != nil {
+			return nil, err
+		}
 	}
 	if err = validateParserEngineOverrideURLs(parserOverrides); err != nil {
 		return nil, err
@@ -584,6 +590,11 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		FilePath:         path,
 		EmbeddingModelID: kb.EmbeddingModelID,
 		Metadata:         types.JSON(b),
+	}
+	if meta["feishu_reparse_process_config"] == "true" {
+		if err := k.SetProcessOverrides(overrides); err != nil {
+			return nil, err
+		}
 	}
 	m := types.FeishuLegacyManifest{
 		Knowledge:        k,

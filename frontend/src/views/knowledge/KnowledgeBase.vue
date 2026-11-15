@@ -2,6 +2,8 @@
 import FeishuImportDialog from './components/FeishuImportDialog.vue';
 import { takeFeishuDraft } from '@/utils/feishuOAuthFlow';
 import { isFeishuDocumentURL } from '@/api/feishuPersonal';
+import { reparseSourceDocument } from '@/api/datasource';
+import { feishuSourceId, sourceIdFromReparseConflict, type SourceDocumentReparseStatus } from './sourceReparse';
 import { ref, onMounted, onUnmounted, watch, reactive, computed, nextTick } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import DocContent from "@/components/doc-content.vue";
@@ -604,12 +606,15 @@ const awaitBatchReparseReflection = async (ids: string[]) => {
 const confirmBatchReparse = async () => {
   if (batchReparsing.value || batchDeleting.value || batchDownloading.value || selectedIds.value.size === 0) return;
   const allIds = Array.from(selectedIds.value);
+  const sourceItems = allIds.map(id => cardList.value.find(c => c.id === id)).filter(item => item && feishuSourceId(item));
+  const sourceIds = new Set(sourceItems.map(item => item!.id));
   const ids = allIds.filter((id) => {
+    if (sourceIds.has(id)) return false;
     const item = cardList.value.find((c) => c.id === id);
     return !item || !isParseInFlight(item.parse_status);
   });
-  const skipped = allIds.length - ids.length;
-  if (ids.length === 0) {
+  const skipped = allIds.length - ids.length - sourceItems.length;
+  if (ids.length === 0 && sourceItems.length === 0) {
     MessagePlugin.info(t('knowledgeBase.rebuildInProgress'));
     return;
   }
@@ -618,6 +623,14 @@ const confirmBatchReparse = async () => {
   }
   batchReparsing.value = true;
   try {
+    for (const item of sourceItems) {
+      await submitSourceDocumentReparse(item!.id, feishuSourceId(item!)!);
+    }
+    if (ids.length === 0) {
+      clearSelection();
+      batchMode.value = false;
+      return;
+    }
     const res: any = await batchReparseKnowledge(kbId.value, ids);
     if (res?.success) {
       MessagePlugin.success(t('knowledgeBase.batchReparseSuccess', { count: ids.length }));
@@ -1394,6 +1407,8 @@ type KnowledgeCard = {
   file_type?: string;
   isMore?: boolean;
   metadata?: any;
+  channel?: string;
+  source_document_reparse?: SourceDocumentReparseStatus;
   error_message?: string;
   tags?: Array<{ id: string; name: string; color?: string }>;
   last_activity_at?: string;
@@ -1448,6 +1463,7 @@ const updateStatus = (analyzeList: KnowledgeCard[], delay = 1500) => {
           }
 
           const card = cardList.value[index];
+          card.source_document_reparse = item.source_document_reparse;
           card.last_activity_at = item.last_activity_at;
           card.stall_state = item.stall_state;
           card.stalled_minutes = stalledMinutes({ parse_status: parseStatus, last_activity_at: item.last_activity_at });
@@ -1881,6 +1897,16 @@ const confirmRebuildKnowledge = async (index: number, item: KnowledgeCard) => {
     MessagePlugin.warning(t('knowledgeEditor.messages.missingId'));
     return;
   }
+  const source = feishuSourceId(item);
+  if (source) {
+    closeCardMoreMenu(index);
+    try {
+      await submitSourceDocumentReparse(item.id, source);
+    } catch (error: any) {
+      MessagePlugin.error(error?.message || t('knowledgeBase.rebuildFailed'));
+    }
+    return;
+  }
   if (isParseInFlight(item.parse_status)) {
     MessagePlugin.info(t('knowledgeBase.rebuildInProgress'));
     return;
@@ -1933,8 +1959,37 @@ const submitReparse = async (id: string, processConfig?: KnowledgeProcessOverrid
     loadKnowledgeFiles(kbId.value);
     scheduleWikiStatusProbes();
   } catch (error: any) {
+    const source = sourceIdFromReparseConflict(error);
+    if (source && !processConfig) {
+      try {
+        await submitSourceDocumentReparse(id, source);
+      } catch (sourceError: any) {
+        MessagePlugin.error(sourceError?.message || t('knowledgeBase.rebuildFailed'));
+      }
+      return;
+    }
     MessagePlugin.error(error?.message || t('knowledgeBase.rebuildFailed'));
   }
+};
+
+const sourceReparseRequests = new Map<string, Promise<void>>();
+const submitSourceDocumentReparse = (id: string, source: string): Promise<void> => {
+  const existing = sourceReparseRequests.get(id);
+  if (existing) return existing;
+  const request = (async () => {
+    const status = await reparseSourceDocument(source, id);
+    if (status.knowledge_id !== id || !['queued', 'processing', 'completed', 'failed'].includes(status.state)) {
+      throw new Error(t('knowledgeBase.rebuildFailed'));
+    }
+    const item = cardList.value.find(card => card.id === id);
+    if (item) item.source_document_reparse = status;
+    cardList.value = [...cardList.value];
+    MessagePlugin.success(t('knowledgeBase.sourceDocumentReparseSubmitted'));
+    scheduleWikiStatusProbes();
+  })();
+  sourceReparseRequests.set(id, request);
+  void request.finally(() => sourceReparseRequests.delete(id)).catch(() => {});
+  return request;
 };
 
 const handleScroll = () => {
@@ -2221,6 +2276,7 @@ const handleCardAction = (
   if (action === 'download') return downloadKnowledge(item);
   if (action === 'edit') return handleManualEdit(idx, item);
   if (action === 'reparse') {
+    if (feishuSourceId(item)) return confirmRebuildKnowledge(idx, item);
     if (isParseInFlight(item.parse_status)) return onReparseMenuClick(idx, item);
     return confirmRebuildKnowledge(idx, item);
   }
@@ -2654,6 +2710,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
               </div>
               <div class="doc-batch-bar-anchor" v-show="batchMode || selectedIds.size > 0">
                 <DocumentBatchBar :count="selectedIds.size" :delete-loading="batchDeleting"
+                  :source-reparse-only="selectedIds.size > 0 && Array.from(selectedIds).every(id => { const item = cardList.find(c => c.id === id); return item && feishuSourceId(item); })"
                   :reparse-loading="batchReparsing" :tag-loading="batchTagging" :download-loading="batchDownloading"
                   :can-download="canDownloadKnowledge" :can-mutate="canMutateKnowledge" :can-delete="canDeleteKnowledge"
                   :visible="batchMode || selectedIds.size > 0"

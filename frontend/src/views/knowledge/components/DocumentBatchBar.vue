@@ -7,6 +7,7 @@ defineProps<{
   count: number;
   deleteLoading?: boolean;
   reparseLoading?: boolean;
+  sourceReparseOnly?: boolean;
   tagLoading?: boolean;
   downloadLoading?: boolean;
   canDownload?: boolean;
@@ -63,7 +64,8 @@ const folderPickerVisible = ref(false);
             </span>
           </t-tooltip>
 
-          <t-popconfirm v-if="canMutate" theme="warning" :content="t('knowledgeBase.confirmBatchReparseDocument', { count })"
+          <t-popconfirm v-if="canMutate" theme="warning" :content="sourceReparseOnly
+            ? t('knowledgeBase.sourceDocumentReparseConfirm') : t('knowledgeBase.confirmBatchReparseDocument', { count })"
             :confirm-btn="{ content: t('knowledgeBase.confirmBatchReparse'), theme: 'warning' }"
             :cancel-btn="{ content: t('common.cancel') }" placement="top" @confirm="emit('reparse')">
             <t-button theme="default" variant="outline" size="small"

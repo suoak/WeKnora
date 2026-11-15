@@ -1,5 +1,13 @@
 import { get, post, put, del } from '../../utils/request'
 import { VALIDATE_CREDENTIALS_TIMEOUT_MS } from './requestPolicy'
+import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess'
+import type { SourceDocumentReparseStatus } from '@/views/knowledge/sourceReparse'
+
+export async function reparseSourceDocument(source: string, document: string, config?: KnowledgeProcessOverrides) {
+  const response: any = await post(`/api/v1/datasource/${source}/documents/${document}/reparse`,
+    config ? { process_config: config } : {})
+  return (response.data ?? response) as SourceDocumentReparseStatus
+}
 
 // --- Types ---
 

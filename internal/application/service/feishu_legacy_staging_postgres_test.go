@@ -66,6 +66,14 @@ func (*legacyNoCloud) GetWeKnoraCloudCredentials(context.Context) *types.WeKnora
 }
 
 func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
+	testFeishuLegacyRealParserEmbeddingPostgres(t, false)
+}
+
+func TestSourceDocumentReparseRealParserPostgres(t *testing.T) {
+	testFeishuLegacyRealParserEmbeddingPostgres(t, true)
+}
+
+func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool) {
 	if os.Getenv("FEISHU_LEGACY_TEST_DSN") == "" {
 		t.Skip("requires disposable feishu_atomic_test PostgreSQL/ParadeDB")
 	}
@@ -118,6 +126,9 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 		parent bool
 	}{{"feishu", false}, {"feishu_drive", false}, {"feishu", true}, {"feishu_drive", true}} {
 		kind := scenario.kind
+		if reparseOnly && sourceIndex != 0 {
+			continue
+		}
 		t.Run(fmt.Sprintf("%s/parent=%v", kind, scenario.parent), func(t *testing.T) {
 			dsn := feishulegacy.PrivateDSN(t)
 			require.NoError(t, database.RunMigrations(dsn))
@@ -225,6 +236,12 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.NoError(t, e)
 			require.Equal(t, 1024, first.Dimension)
 			require.True(t, first.Created)
+			if reparseOnly {
+				t.Run("source-document-request-reparses-unchanged-content", func(t *testing.T) {
+					testSourceDocumentReparseRoundTrip(ctx, t, db, ks, ds, item, first.KnowledgeID, first.AttemptID)
+				})
+				return
+			}
 			// A proven document-local conflict must not latch the streaming
 			// handler or publish its bytes. A different normal document can
 			// still finish through the real parser, vector writer and receipt.
@@ -466,4 +483,134 @@ func TestFeishuLegacyRealParserEmbeddingPostgres(t *testing.T) {
 			require.ErrorIs(t, e, datasource.ErrLegacyFeishuSyncSuspended)
 		})
 	}
+}
+
+type exactDocumentReparseConnector struct {
+	datasource.Connector
+	kind string
+	item types.FetchedItem
+}
+
+func (c *exactDocumentReparseConnector) Type() string { return c.kind }
+
+func (c *exactDocumentReparseConnector) FetchDocument(
+	_ context.Context, _ *types.DataSourceConfig, root, external string,
+) (*types.FetchedItem, error) {
+	if root != "root" || external != c.item.ExternalID {
+		return nil, fmt.Errorf("unexpected document selection")
+	}
+	item := c.item
+	item.SourceResourceID = root
+	item.CurrentSnapshot = func(context.Context) (*types.FetchedItem, error) {
+		snapshot := item
+		return &snapshot, nil
+	}
+	return &item, nil
+}
+
+func testSourceDocumentReparseRoundTrip(
+	ctx context.Context, t *testing.T, db *gorm.DB, original *knowledgeService,
+	ds *types.DataSource, item *types.FetchedItem, kid, oldAttempt string,
+) {
+	t.Helper()
+	tx := db.Begin()
+	require.NoError(t, tx.Error)
+	defer tx.Rollback()
+	source := *ds
+	source.Config = types.JSON(`{"resource_ids":["root"]}`)
+	source.LegacyAccessState = "active"
+	require.NoError(t, tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Updates(map[string]any{
+		"config": source.Config, "legacy_access_state": "active",
+	}).Error)
+	actor := uuid.NewString()
+	require.NoError(t, tx.Create(&types.User{
+		ID: actor, Username: actor, Email: actor + "@example.invalid", TenantID: ds.TenantID, IsActive: true,
+	}).Error)
+	require.NoError(t, tx.Create(&types.TenantMember{
+		UserID: actor, TenantID: ds.TenantID, Role: types.TenantRoleOwner, Status: types.TenantMemberStatusActive,
+	}).Error)
+	ks := &knowledgeService{
+		config: original.config, repo: repository.NewKnowledgeRepository(tx), kbService: &legacyLiveKB{db: tx},
+		modelService: original.modelService, tenantService: original.tenantService, fileSvc: original.fileSvc,
+	}
+	registry := datasource.NewConnectorRegistry()
+	require.NoError(t, registry.Register(&exactDocumentReparseConnector{kind: ds.Type, item: *item}))
+	svc := &DataSourceService{
+		dsRepo: repository.NewDataSourceRepository(tx), syncLogRepo: repository.NewSyncLogRepository(tx),
+		knowledgeService: ks, kbService: ks.kbService, connectorRegistry: registry,
+		feishuIdentity: &FeishuPersonalService{db: tx},
+	}
+	requestCtx := types.WithCaller(ctx, types.Caller{TenantID: ds.TenantID, UserID: actor, Role: types.TenantRoleOwner})
+	requestCtx = context.WithValue(requestCtx, types.UserIDContextKey, actor)
+	requestCtx = context.WithValue(requestCtx, types.PrincipalContextKey,
+		types.Principal{Type: types.PrincipalWebUser, ID: actor})
+	accepted, err := svc.RequestDocumentReparse(requestCtx, ds.ID, kid, nil)
+	require.NoError(t, err)
+	require.Equal(t, "queued", accepted.State)
+	config, err := source.ParseConfig()
+	require.NoError(t, err)
+	handled, err := svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
+	require.NoError(t, err)
+	require.True(t, handled)
+	store, err := repository.FeishuLegacyStoreFor(ks.repo)
+	require.NoError(t, err)
+	status, err := store.SourceDocumentReparseStatus(ctx, &source, kid)
+	require.NoError(t, err)
+	require.Equal(t, "completed", status.State, status.ErrorCode)
+	var resource types.FeishuLegacyResource
+	require.NoError(t, tx.First(&resource, "knowledge_id=?", kid).Error)
+	require.NotEqual(t, oldAttempt, resource.ActiveAttempt, "unchanged content must receive a new publication")
+	var count int64
+	require.NoError(t, tx.Model(&types.Chunk{}).
+		Where("knowledge_id=? AND is_enabled AND deleted_at IS NULL", kid).Count(&count).Error)
+	require.Positive(t, count)
+	var knowledge types.Knowledge
+	require.NoError(t, tx.First(&knowledge, "id=?", kid).Error)
+	require.Equal(t, int64(len(item.Content)), knowledge.FileSize)
+	require.Equal(t, types.ParseStatusCompleted, knowledge.ParseStatus)
+	// Explicit supported settings become the document's settings. A later
+	// isolated withdrawal must preserve them in its private snapshot.
+	overrides := &types.KnowledgeProcessOverrides{ParserEngineOverrides: map[string]string{"test_setting": "preserved"}}
+	_, err = svc.RequestDocumentReparse(requestCtx, ds.ID, kid, overrides)
+	require.NoError(t, err)
+	handled, err = svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
+	require.NoError(t, err)
+	require.True(t, handled)
+	status, err = store.SourceDocumentReparseStatus(ctx, &source, kid)
+	require.NoError(t, err)
+	require.Equal(t, "completed", status.State, status.ErrorCode)
+	_, err = store.RestrictSource(ctx, &source, item.ExternalID, false)
+	require.NoError(t, err)
+	_, err = svc.RequestDocumentReparse(requestCtx, ds.ID, kid, nil)
+	require.NoError(t, err)
+	handled, err = svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
+	require.NoError(t, err)
+	require.True(t, handled)
+	status, err = store.SourceDocumentReparseStatus(ctx, &source, kid)
+	require.NoError(t, err)
+	require.Equal(t, "completed", status.State, status.ErrorCode)
+	var restored types.Knowledge
+	require.NoError(t, tx.First(&restored, "id=?", kid).Error)
+	restoredConfig, err := restored.ProcessOverrides()
+	require.NoError(t, err)
+	require.Equal(t, overrides, restoredConfig)
+	var beforeRevoke types.FeishuLegacyResource
+	require.NoError(t, tx.First(&beforeRevoke, "knowledge_id=?", kid).Error)
+	_, err = svc.RequestDocumentReparse(requestCtx, ds.ID, kid, nil)
+	require.NoError(t, err)
+	require.NoError(t, tx.Model(&types.User{}).Where("id=?", actor).UpdateColumn("is_active", false).Error)
+	handled, err = svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
+	require.NoError(t, err)
+	require.True(t, handled)
+	status, err = store.SourceDocumentReparseStatus(ctx, &source, kid)
+	require.NoError(t, err)
+	require.Equal(t, "failed", status.State)
+	require.Equal(t, "source_permission_or_configuration_changed", status.ErrorCode)
+	var afterRevoke types.FeishuLegacyResource
+	require.NoError(t, tx.First(&afterRevoke, "knowledge_id=?", kid).Error)
+	require.Equal(t, resource.KnowledgeID, afterRevoke.KnowledgeID)
+	require.Equal(t, beforeRevoke.ActiveAttempt, afterRevoke.ActiveAttempt)
+	var activeAttempt types.FeishuLegacyAttempt
+	require.NoError(t, tx.First(&activeAttempt, "id=?", afterRevoke.ActiveAttempt).Error)
+	require.Equal(t, "published", activeAttempt.Status, "revoked initiators must not replace the serving receipt")
 }

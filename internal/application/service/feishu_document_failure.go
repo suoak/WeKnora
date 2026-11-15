@@ -51,7 +51,8 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 		switch refusal.reason {
 		case "versioned_image_staging_required", "audio_not_supported",
 			"empty_parsed_content", "chunk_count_out_of_bounds", "parser_semantic_row_too_large",
-			"image_enrichment_failed", "image_assets_unavailable", "embedded_workbook_unsupported":
+			"image_enrichment_failed", "image_assets_unavailable", "embedded_workbook_unsupported",
+			"encrypted_file", "file_format_mismatch", "source_address_blocked", "parser_resource_limit":
 			return "safe_staging_" + refusal.reason
 		}
 	}
@@ -78,6 +79,9 @@ func feishuDocumentParserRefusal(parsed *types.ReadResult, fileType string) erro
 				return &feishuStagingRefusal{reason: "parser_semantic_row_too_large"}
 			}
 		}
+	}
+	if code, _, permanent := classifyKnowledgeParseFailure(errors.New(parsed.Error)); permanent {
+		return &feishuStagingRefusal{reason: code}
 	}
 	return &feishuStagingRefusal{reason: "parser_result_unavailable"}
 }

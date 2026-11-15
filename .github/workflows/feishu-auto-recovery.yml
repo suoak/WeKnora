@@ -10,6 +10,11 @@ on:
       - internal/application/service/feishu_legacy_staging.go
       - internal/application/service/feishu_legacy_workbooks*.go
       - internal/application/service/feishu_document_failure*.go
+      - internal/application/service/feishu_document_reparse*.go
+      - internal/application/repository/feishu_document_reparse*.go
+      - internal/application/repository/feishu_legacy_atomic*.go
+      - internal/handler/datasource_document_reparse*.go
+      - internal/types/feishu_document_reparse.go
       - internal/application/service/datasource_service.go
       - internal/application/service/feishu_source_reparse*.go
       - internal/application/service/feishu_personal_exact_reparse*.go
@@ -78,7 +83,7 @@ jobs:
             ./internal/application/service ./internal/application/repository \
             ./internal/datasource/connector/feishu/core ./internal/types ./internal/feishudocx \
             ./internal/handler ./internal/router \
-            -run 'TestFeishuDispatch|TestKnowledgeParseFailure|TestDocumentFetch|TestSourceReparse|TestPersonalReparse|TestReparseKnowledge|TestRunKnowledgeListReparse|TestBatchReparse|TestMovingDocumentAdmission|TestKnowledgeListReparse|TestLegacyWorkbooks|TestExactWorkbook|TestEmbedded|TestDOCXSnapshot|TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
+            -run 'TestSourceDocumentReparse|TestFeishuDocumentReparse|TestFeishuLegacyAtomicPostgres|TestFeishuDispatch|TestKnowledgeParseFailure|TestDocumentFetch|TestSourceReparse|TestPersonalReparse|TestReparseKnowledge|TestRunKnowledgeListReparse|TestBatchReparse|TestMovingDocumentAdmission|TestKnowledgeListReparse|TestLegacyWorkbooks|TestExactWorkbook|TestEmbedded|TestDOCXSnapshot|TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
             -count=1 -timeout=12m | tee recovery-verification.jsonl
       - uses: actions/upload-artifact@v7
         if: always()
