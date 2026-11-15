@@ -1,6 +1,7 @@
 package postgres
 
 import (
+	"context"
 	"fmt"
 	"strings"
 	"testing"
@@ -35,6 +36,10 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 		`CREATE TABLE enterprise_space_policies(tenant_id bigint,state text,policy text,
  content_class text,source_acl_state text)`,
 		`CREATE TABLE tenant_portal_configs(tenant_id bigint,status text)`,
+		`CREATE TABLE task_pending_ops(scope text,scope_id text)`,
+		`CREATE TABLE feishu_legacy_resources(knowledge_base_id text,state text)`,
+		`CREATE TABLE data_sources(knowledge_base_id text,legacy_access_state text)`,
+		`CREATE TABLE feishu_private_kbs(kb_id text,owner_id text)`,
 		`INSERT INTO tenants VALUES(1,'active',NULL),(2,'active',NULL)`,
 		`INSERT INTO knowledge_bases VALUES('kb',1,false,NULL),('foreign',2,false,NULL)`,
 		`INSERT INTO tenant_portal_configs VALUES(1,'published'),(2,'draft')`,
@@ -81,8 +86,18 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
  (13,'chunk2',?,'chunk2','doc','kb','second current text',1024,true,'[0,1,0]'),
  (14,'chunk3',?,'chunk3','doc','kb','third current text',1024,true,'[0.8,0.2,0]')`,
 		types.ChunkSourceType, types.ChunkSourceType).Error)
+	require.NoError(t, db.Exec(`ALTER TABLE embeddings ADD COLUMN tag_id text`).Error)
 	for _, mutation := range []string{
 		"SELECT 1",
+		`INSERT INTO feishu_legacy_resources VALUES(NULL,'hold'),('foreign','revoked')`,
+		`INSERT INTO feishu_legacy_resources VALUES('kb','hold')`,
+		`DELETE FROM feishu_legacy_resources`,
+		`INSERT INTO data_sources VALUES('kb','revoked')`,
+		`DELETE FROM data_sources`,
+		`INSERT INTO task_pending_ops VALUES('personal_exact_receipt_v1','doc')`,
+		`DELETE FROM task_pending_ops`,
+		`INSERT INTO feishu_private_kbs VALUES('kb','other')`,
+		`DELETE FROM feishu_private_kbs`,
 		"UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=1",
 		"UPDATE tenant_portal_configs SET status='published' WHERE tenant_id=1",
 		"UPDATE chunks SET is_enabled=false",
@@ -125,9 +140,45 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 					Order("distance ASC, id ASC").Limit(3).Scan(query.out).Error)
 			}
 			require.Equal(t, oldRank, newRank, "public=%v mutation=%s", public, mutation)
+			for _, limit := range []int{1, 3} {
+				for _, threshold := range []float64{0.1, 2} {
+					assertPortalVectorEquivalent(t, db, public, threshold, limit, mutation)
+				}
+			}
 		}
 		for _, id := range after {
 			require.Contains(t, []int{10, 13, 14}, id, "stale/cross-KB row must not be authorized")
 		}
 	}
+}
+
+func assertPortalVectorEquivalent(t *testing.T, db *gorm.DB,
+	public bool, threshold float64, limit int, mutation string,
+) {
+	t.Helper()
+	const base = `WHERE embeddings.dimension=$2 AND embeddings.knowledge_base_id IN ($5)
+ AND (embeddings.is_enabled IS NULL OR embeddings.is_enabled=true)`
+	privateOld := privateSourceCandidatePredicate("$6")
+	privateNew := portalExcludedSet("embeddings.knowledge_base_id",
+		"SELECT kb_id FROM feishu_private_kbs WHERE kb_id IS NOT NULL AND owner_id <> $6")
+	oldWhere := base + " AND " + portalCanonicalPredicate("$3", public, true) +
+		" AND " + legacySourceCandidatePredicate(context.Background()) + " AND " + privateOld
+	newWhere := base + " AND " + portalOrdinarySourcePredicate() + " AND " + privateNew
+	beforeSQL := fmt.Sprintf(`WITH authorized AS MATERIALIZED (
+ SELECT id,%s AS content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,embedding
+ FROM embeddings %s)
+ SELECT id,content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,
+ 1-(embedding::halfvec(3) <=> $1::halfvec(3)) AS score
+ FROM authorized WHERE $7::int>0 AND (embedding::halfvec(3) <=> $1::halfvec(3)) <= $8
+ ORDER BY (embedding::halfvec(3) <=> $1::halfvec(3)),id LIMIT $9`, portalCanonicalTextProjection(), oldWhere)
+	afterSQL := portalVectorSQL(3, "$3", "acl_c.knowledge_base_id IN ($5)", newWhere, public, true, 7, 8, 9)
+	args := []any{"[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, threshold, limit}
+	var before, after []pgVectorWithScore
+	for _, query := range []struct {
+		sql string
+		out *[]pgVectorWithScore
+	}{{beforeSQL, &before}, {afterSQL, &after}} {
+		require.NoError(t, db.Raw(query.sql, args...).Scan(query.out).Error)
+	}
+	require.Equal(t, before, after, "public=%v limit=%d threshold=%v mutation=%s", public, limit, threshold, mutation)
 }

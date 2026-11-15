@@ -69,3 +69,7 @@ jobs:
         run: >-
           go test -tags sqlite_fts5 -count=1 -timeout=15m -v ./internal/router
           -run '^Test(V1NextPostgresAuthenticatedEightToolsDynamicAndHold|PersonalPerformanceMetricsSurvivePayloadPrivacy)$'
+      - name: Verify exact vector ranking and live source restrictions
+        run: >-
+          go test -race -count=1 -timeout=5m -v ./internal/application/repository/retriever/postgres
+          -run '^TestPortalSQLDimensionAndCanonicalEquivalencePostgres$'

@@ -479,6 +479,9 @@ func (g *pgRepository) vectorRetrieve(
 
 	// Build WHERE conditions for filtering
 	whereParts := make([]string, 0)
+	bulkPortal := bulkPortalVector(ctx)
+	var portalTenantPlaceholder string
+	var portalChunkScopes []string
 	allVars := make([]interface{}, 0)
 
 	// Add query vector first (used in ORDER BY for HNSW index)
@@ -488,7 +491,11 @@ func (g *pgRepository) vectorRetrieve(
 	whereParts = append(whereParts, fmt.Sprintf("dimension = $%d", len(allVars)+1))
 	allVars = append(allVars, dimension)
 	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
-		whereParts = append(whereParts, portalCanonicalPredicate(fmt.Sprintf("$%d", len(allVars)+1), access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)))
+		portalTenantPlaceholder = fmt.Sprintf("$%d", len(allVars)+1)
+		if !bulkPortal {
+			whereParts = append(whereParts, portalCanonicalPredicate(portalTenantPlaceholder,
+				access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)))
+		}
 		allVars = append(allVars, tenant, types.ChunkSourceType)
 	}
 
@@ -509,6 +516,8 @@ func (g *pgRepository) vectorRetrieve(
 		}
 		whereParts = append(whereParts, fmt.Sprintf("knowledge_base_id IN (%s)",
 			strings.Join(placeholders, ", ")))
+		portalChunkScopes = append(portalChunkScopes, fmt.Sprintf("acl_c.knowledge_base_id IN (%s)",
+			strings.Join(placeholders, ", ")))
 	}
 	if len(params.KnowledgeIDs) > 0 {
 		logger.GetLogger(ctx).Debugf(
@@ -522,6 +531,8 @@ func (g *pgRepository) vectorRetrieve(
 			allVars = append(allVars, params.KnowledgeIDs[i])
 		}
 		whereParts = append(whereParts, fmt.Sprintf("knowledge_id IN (%s)",
+			strings.Join(placeholders, ", ")))
+		portalChunkScopes = append(portalChunkScopes, fmt.Sprintf("acl_c.knowledge_id IN (%s)",
 			strings.Join(placeholders, ", ")))
 	}
 	// Filter by tag IDs if specified
@@ -541,11 +552,20 @@ func (g *pgRepository) vectorRetrieve(
 	}
 
 	if types.LegacyReadGuardsEnabled(g.db) {
-		whereParts = append(whereParts, legacySourceCandidatePredicate(ctx))
+		if bulkPortal {
+			whereParts = append(whereParts, portalOrdinarySourcePredicate())
+		} else {
+			whereParts = append(whereParts, legacySourceCandidatePredicate(ctx))
+		}
 	}
 	if types.PrivateKBGuardsEnabled(g.db) {
 		placeholder := fmt.Sprintf("$%d", len(allVars)+1)
-		whereParts = append(whereParts, privateSourceCandidatePredicate(placeholder))
+		if bulkPortal {
+			whereParts = append(whereParts, portalExcludedSet("embeddings.knowledge_base_id",
+				"SELECT kb_id FROM feishu_private_kbs WHERE kb_id IS NOT NULL AND owner_id <> "+placeholder))
+		} else {
+			whereParts = append(whereParts, privateSourceCandidatePredicate(placeholder))
+		}
 		allVars = append(allVars, types.PrivateKBReadUser(ctx))
 	}
 
@@ -612,14 +632,26 @@ func (g *pgRepository) vectorRetrieve(
 	`, dimension, whereClause, subqueryLimitParam, thresholdParam, finalLimitParam)
 
 	if _, protected := access.PortalRetrievalTenant(ctx); protected {
-		querySQL = fmt.Sprintf(`WITH authorized AS MATERIALIZED (
+		if bulkPortal {
+			// Qualify scalar scope columns because the canonical chunk relation
+			// carries the same names. Predicates already qualify other columns.
+			qualified := strings.ReplaceAll(whereClause, "WHERE dimension =", "WHERE embeddings.dimension =")
+			for _, column := range []string{"knowledge_base_id", "knowledge_id", "tag_id"} {
+				qualified = strings.ReplaceAll(qualified, " AND "+column+" IN (", " AND embeddings."+column+" IN (")
+			}
+			querySQL = portalVectorSQL(dimension, portalTenantPlaceholder, strings.Join(portalChunkScopes, " AND "),
+				qualified, access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx),
+				subqueryLimitParam, thresholdParam, finalLimitParam)
+		} else {
+			querySQL = fmt.Sprintf(`WITH authorized AS MATERIALIZED (
 		 SELECT id,%s AS content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,embedding
 		 FROM embeddings %s
 		) SELECT id,content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,
 		 (1-(embedding::halfvec(%d) <=> $1::halfvec(%d))) AS score
 		 FROM authorized WHERE $%d::int > 0 AND (embedding::halfvec(%d) <=> $1::halfvec(%d)) <= $%d
 		 ORDER BY (embedding::halfvec(%d) <=> $1::halfvec(%d)),id LIMIT $%d`,
-			portalCanonicalTextProjection(), whereClause, dimension, dimension, subqueryLimitParam, dimension, dimension, thresholdParam, dimension, dimension, finalLimitParam)
+				portalCanonicalTextProjection(), whereClause, dimension, dimension, subqueryLimitParam, dimension, dimension, thresholdParam, dimension, dimension, finalLimitParam)
+		}
 	}
 
 	allVars = append(allVars, expandedTopK)       // LIMIT in subquery
