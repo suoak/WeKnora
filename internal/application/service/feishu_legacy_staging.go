@@ -146,6 +146,23 @@ func (s *knowledgeService) restrictLegacyUnverifiedChildren(
 // database artifacts survive retries/crashes. It does not call ReparseKnowledge
 // or dispatch the unsafe stable-KID delete/recreate pipeline.
 func (s *knowledgeService) StageFeishuLegacyItem(
+	ctx context.Context, ds *types.DataSource, item *types.FetchedItem, tagIDs []string,
+) (*types.FeishuLegacyReceipt, error) {
+	receipt, err := recoverFeishuSnapshot(ctx, item, func(
+		candidate *types.FetchedItem,
+	) (*types.FeishuLegacyReceipt, error) {
+		return s.stageFeishuLegacyItem(ctx, ds, candidate, tagIDs)
+	})
+	if item != nil && item.AutoRecovered {
+		execution, _ := types.SyncExecutionFromContext(ctx)
+		logger.Infof(ctx, "feishu_auto_recovery cause=latest_source_snapshot_changed outcome=accepted "+
+			"datasource_id=%s sync_log_id=%s execution_generation=%d knowledge_id=%s",
+			ds.ID, execution.SyncLogID, execution.Generation, receipt.KnowledgeID)
+	}
+	return receipt, err
+}
+
+func (s *knowledgeService) stageFeishuLegacyItem(
 	ctx context.Context,
 	ds *types.DataSource,
 	item *types.FetchedItem,

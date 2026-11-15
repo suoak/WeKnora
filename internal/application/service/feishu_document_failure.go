@@ -36,8 +36,13 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 		return "safe_staging_parser_resource_limit"
 	}
 	var fence *repository.LegacyFenceError
-	if errors.As(err, &fence) && fence.Reason == "source_revision_content_conflict" {
-		return fence.Reason
+	if errors.As(err, &fence) {
+		switch fence.Reason {
+		case "source_revision_content_conflict":
+			return fence.Reason
+		case "latest_source_snapshot_changed":
+			return "source_snapshot_changed"
+		}
 	}
 	var refusal *feishuStagingRefusal
 	if errors.As(err, &refusal) {

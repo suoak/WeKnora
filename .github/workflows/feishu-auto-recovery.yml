@@ -1,0 +1,59 @@
+name: Feishu Automatic Recovery Gate
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - internal/application/service/feishu_snapshot_recovery*.go
+      - internal/application/service/feishu_legacy_source_identity*.go
+      - internal/application/service/feishu_legacy_staging.go
+      - internal/application/service/feishu_document_failure*.go
+      - internal/application/service/datasource_service.go
+      - internal/types/datasource*.go
+      - internal/datasource/connector/feishu/core/**
+      - .github/workflows/feishu-auto-recovery.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  snapshot-recovery:
+    name: Feishu bounded recovery and PostgreSQL publication
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-recovery-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:synthetic-recovery-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      FEISHU_SYNC_SAFETY_ENABLED: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26'
+          cache: true
+      - name: Install isolated native dependencies
+        run: sudo apt-get update && sudo apt-get install -y build-essential libsqlite3-dev
+      - name: Bounded recovery, complete snapshot proof and real publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          go test -json -race -p 1 -tags sqlite_fts5 \
+            ./internal/application/service ./internal/application/repository \
+            ./internal/datasource/connector/feishu/core ./internal/types \
+            -run 'TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
+            -count=1 -timeout=12m | tee recovery-verification.jsonl
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: feishu-automatic-recovery-${{ github.event.pull_request.head.sha || github.sha }}
+          path: recovery-verification.jsonl
