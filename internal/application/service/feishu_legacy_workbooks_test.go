@@ -1,6 +1,10 @@
 package service
 
 import (
+	"archive/zip"
+	"bytes"
+	"fmt"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
@@ -22,6 +26,62 @@ func TestLegacyWorkbooksPreserveImagesAndRejectUnknown(t *testing.T) {
 	require.Error(t, expandLegacyWorkbooks(&broken, "docx"))
 	require.Equal(t, before, broken.MarkdownContent)
 	require.Len(t, broken.ImageRefs, 1, "a refusal must not silently drop a package")
+}
+
+func TestLegacyWorkbooksFiveSmallPackagesKeepCompleteCoverage(t *testing.T) {
+	if !anydoc.Available() {
+		t.Skip("requires native XLSX parser")
+	}
+	parsed := &types.ReadResult{}
+	for i := 0; i < 5; i++ {
+		book := excelize.NewFile()
+		label := fmt.Sprintf("complete-workbook-%d-final-cell", i)
+		require.NoError(t, book.SetCellStr("Sheet1", "B2", label))
+		data, err := book.WriteToBuffer()
+		require.NoError(t, err)
+		require.NoError(t, book.Close())
+		name := fmt.Sprintf("workbook-%d.xlsx", i)
+		parsed.MarkdownContent += "before ![book](images/" + name + ") after\n"
+		parsed.ImageRefs = append(parsed.ImageRefs, types.ImageRef{
+			Filename: name, OriginalRef: "images/" + name, MimeType: "application/vnd.ms-ole-object",
+			ImageData: data.Bytes(),
+		})
+	}
+	require.NoError(t, expandLegacyWorkbooks(parsed, "docx"))
+	require.Empty(t, parsed.ImageRefs)
+	for i := 0; i < 5; i++ {
+		require.Contains(t, parsed.MarkdownContent, fmt.Sprintf("complete-workbook-%d-final-cell", i))
+	}
+	require.Equal(t, 5, strings.Count(parsed.MarkdownContent, "before"))
+}
+
+func TestLegacyWorkbooksParentBudgetRejectsBeforeMutation(t *testing.T) {
+	var buffer bytes.Buffer
+	w := zip.NewWriter(&buffer)
+	e, err := w.Create("xl/worksheets/sheet1.xml")
+	require.NoError(t, err)
+	_, err = e.Write(bytes.Repeat([]byte("x"), 8<<20))
+	require.NoError(t, err)
+	require.NoError(t, w.Close())
+	parsed := &types.ReadResult{MarkdownContent: "original parent content"}
+	for i := 0; i < 9; i++ {
+		name := fmt.Sprintf("book-%d.xlsx", i)
+		parsed.ImageRefs = append(parsed.ImageRefs, types.ImageRef{
+			Filename: name, OriginalRef: "images/" + name, MimeType: "application/vnd.ms-ole-object",
+			ImageData: buffer.Bytes(),
+		})
+	}
+	before := *parsed
+	require.ErrorIs(t, expandLegacyWorkbooks(parsed, "docx"), errExactWorkbookUnsupported)
+	require.Equal(t, before, *parsed, "whole-parent allocation refusal must preserve all original references")
+	parsed.ImageRefs = parsed.ImageRefs[:8]
+	require.NoError(t, checkLegacyWorkbookParentBudget(parsed), "existing 64 MiB whole-parent ceiling")
+	duplicate := parsed.ImageRefs[0]
+	parsed.ImageRefs = []types.ImageRef{duplicate, duplicate}
+	require.ErrorIs(t, checkLegacyWorkbookParentBudget(parsed), errExactWorkbookUnsupported)
+	parsed.ImageRefs = []types.ImageRef{duplicate}
+	parsed.ImageRefs[0].ImageData = make([]byte, (8<<20)+1)
+	require.ErrorIs(t, checkLegacyWorkbookParentBudget(parsed), errExactWorkbookUnsupported)
 }
 
 func TestLegacyWorkbooksCompleteCellCoverage(t *testing.T) {

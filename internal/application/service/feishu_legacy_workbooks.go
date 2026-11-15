@@ -15,16 +15,14 @@ func expandLegacyWorkbooks(parsed *types.ReadResult, fileType string) error {
 	if parsed == nil || fileType != "docx" {
 		return nil
 	}
+	if err := checkLegacyWorkbookParentBudget(parsed); err != nil {
+		return err
+	}
 	var workbooks []exactEmbeddedWorkbook
 	converted := &anydoc.Result{Markdown: parsed.MarkdownContent}
 	for _, ref := range parsed.ImageRefs {
 		if ref.MimeType != "application/vnd.ms-ole-object" {
 			continue
-		}
-		if len(workbooks) >= 4 || len(parsed.ParsedChunks) != 0 || len(parsed.ParsedSegments) != 0 ||
-			len(parsed.SourceBlocks) != 0 || !strings.HasPrefix(ref.OriginalRef, anydoc.ImageDir) ||
-			ref.OriginalRef != anydoc.ImageDir+ref.Filename {
-			return errExactWorkbookUnsupported
 		}
 		workbook, err := parseExactEmbeddedWorkbook(
 			fmt.Sprintf("embedded-workbook-%d.xlsx", len(workbooks)+1), ref.ImageData, len(workbooks)+1,
@@ -68,4 +66,29 @@ func expandLegacyWorkbooks(parsed *types.ReadResult, fileType string) error {
 	}
 	parsed.MarkdownContent, parsed.ImageRefs = converted.Markdown, refs
 	return nil
+}
+
+// Apply the same whole-parent bounds as personal exact imports BEFORE native
+// conversion. Count alone rejected small legitimate parents with five packages,
+// while four packages could previously multiply the per-workbook expansion cap.
+func checkLegacyWorkbookParentBudget(parsed *types.ReadResult) error {
+	packages := map[string][]byte{}
+	var compressed uint64
+	for _, ref := range parsed.ImageRefs {
+		if ref.MimeType != "application/vnd.ms-ole-object" {
+			continue
+		}
+		if len(packages) >= 64 || len(parsed.ParsedChunks) != 0 || len(parsed.ParsedSegments) != 0 ||
+			len(parsed.SourceBlocks) != 0 || !strings.HasPrefix(ref.OriginalRef, anydoc.ImageDir) ||
+			ref.OriginalRef != anydoc.ImageDir+ref.Filename || ref.Filename == "" ||
+			packages[ref.Filename] != nil || len(ref.ImageData) == 0 || len(ref.ImageData) > 8<<20 {
+			return errExactWorkbookUnsupported
+		}
+		compressed += uint64(len(ref.ImageData))
+		if compressed > 32<<20 {
+			return errExactWorkbookUnsupported
+		}
+		packages[ref.Filename] = ref.ImageData
+	}
+	return checkExactWorkbookExpansionBudget(packages)
 }
