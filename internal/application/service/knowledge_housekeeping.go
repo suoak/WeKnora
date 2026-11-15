@@ -54,8 +54,9 @@ type HousekeepingService struct {
 	// Wiki op, which a lost trigger would otherwise strand. nil disables it.
 	task interfaces.TaskEnqueuer
 
-	mu      sync.Mutex
-	started bool
+	mu                               sync.Mutex
+	started                          bool
+	sourceDocumentRecoveryRegistered bool
 
 	kickMu    sync.Mutex
 	wikiKicks map[string]time.Time

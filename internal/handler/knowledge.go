@@ -3269,6 +3269,16 @@ func (h *KnowledgeHandler) BatchReparseKnowledge(c *gin.Context) {
 			return
 		}
 	}
+	if validator, ok := h.kgService.(interface {
+		ValidateKnowledgeReparse(context.Context, string) error
+	}); ok {
+		for _, id := range ids {
+			if err := validator.ValidateKnowledgeReparse(ctx, id); err != nil {
+				_ = c.Error(err)
+				return
+			}
+		}
+	}
 
 	taskID, err := h.enqueueKnowledgeListReparse(ctx, effectiveTenantID, kbID, ids, req.ProcessConfig)
 	if err != nil {

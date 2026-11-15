@@ -693,7 +693,14 @@ func (s *knowledgeService) ListKnowledgeByKnowledgeBaseID(ctx context.Context,
 // ListPagedKnowledgeByKnowledgeBaseID returns paginated knowledge entries in a knowledge base
 func (s *knowledgeService) ListPagedKnowledgeByKnowledgeBaseID(ctx context.Context,
 	kbID string, page *types.Pagination, filter types.KnowledgeListFilter,
-) (*types.PageResult, error) {
+) (result *types.PageResult, resultErr error) {
+	defer func() {
+		if resultErr == nil && result != nil {
+			if rows, ok := result.Data.([]*types.Knowledge); ok {
+				s.decorateSourceDocumentReparse(ctx, rows)
+			}
+		}
+	}()
 	if result, handled, err := s.exactPublicKnowledgePage(ctx, kbID, page, filter); handled {
 		return result, err
 	}
@@ -958,7 +965,12 @@ func (s *knowledgeService) UpdateKnowledge(ctx context.Context, knowledge *types
 // GetKnowledgeBatch retrieves multiple knowledge entries by their IDs
 func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 	tenantID uint64, ids []string,
-) ([]*types.Knowledge, error) {
+) (result []*types.Knowledge, resultErr error) {
+	defer func() {
+		if resultErr == nil {
+			s.decorateSourceDocumentReparse(ctx, result)
+		}
+	}()
 	if rows, handled, err := s.exactPublicMetadataBatch(ctx, tenantID, ids); handled {
 		return rows, err
 	}
@@ -976,7 +988,12 @@ func (s *knowledgeService) GetKnowledgeBatch(ctx context.Context,
 // Used when building search targets so that @mentioned files from shared KBs are included.
 func (s *knowledgeService) GetKnowledgeBatchWithSharedAccess(ctx context.Context,
 	tenantID uint64, ids []string,
-) ([]*types.Knowledge, error) {
+) (result []*types.Knowledge, resultErr error) {
+	defer func() {
+		if resultErr == nil {
+			s.decorateSourceDocumentReparse(ctx, result)
+		}
+	}()
 	// Catalog polling is metadata-only even for staging or invalid receipts.
 	// It must not be promoted to a published body read by the batch adapter.
 	if rows, handled, err := s.exactPublicMetadataBatch(ctx, tenantID, ids); handled {

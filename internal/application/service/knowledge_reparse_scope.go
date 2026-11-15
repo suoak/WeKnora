@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	apperrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 )
@@ -25,6 +26,15 @@ func (s *knowledgeService) reparseTaskScope(
 		return ctx, ids, nil
 	}
 	ctx = types.WithExecutionTenant(ctx, payload.TenantID)
+	for _, id := range ids {
+		if err := s.ValidateKnowledgeReparse(ctx, id); err != nil {
+			if app, ok := apperrors.IsAppError(err); ok &&
+				(app.Code == apperrors.ErrConflict || app.Code == apperrors.ErrForbidden) {
+				return ctx, nil, fmt.Errorf("reparse task requires controlled source recovery: %w", asynq.SkipRetry)
+			}
+			return ctx, nil, err
+		}
+	}
 	rows, err := s.repo.GetKnowledgeBatch(ctx, payload.TenantID, ids)
 	if err != nil {
 		return ctx, nil, err

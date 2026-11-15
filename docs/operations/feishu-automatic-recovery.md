@@ -119,3 +119,70 @@ Unknown packages, duplicate names, unsupported relationships and unmapped parser
 semantic offsets still refuse the parent. No partial parent is published: all
 workbooks must prove complete cell coverage and replace exactly one original
 placeholder before the result changes. Literal hyperlinks remain unfetched.
+
+## Controlled source document reparsing
+
+Source-managed Feishu knowledge must never enter ordinary destructive reparse.
+The ordinary path deletes prior indexes/chunks and writes process overrides and
+parse state directly; PostgreSQL correctly rejects those writes with SQLSTATE
+40001 because they do not carry the current staging attempt's capability.
+
+The metadata-only admission recognizes persisted Feishu source bindings and
+version-enrolled resources before any body load, override update or cleanup. An
+authorized editor gets HTTP 409 with reason `feishu_source_sync_required`; an
+unauthorized caller gets no datasource identity. Personal exact import admission
+retains its own controlled recovery protocol. Incoming mixed batches and already
+queued legacy batches are checked in full before any ordinary prefix is queued.
+
+Do not replace the document action with whole-source synchronization. The user
+requires a direct, per-document reparse action with its parsing configuration.
+The earlier full-source UI substitution was withdrawn before deployment.
+
+The connector now has an independently tested exact-document fetch primitive:
+validate the configured root, require an unambiguous current binding, fetch only
+the selected parent, and re-list/re-fetch on every snapshot check. It neither
+changes configured selection nor acknowledges a traversal/deletion cursor.
+`POST /datasource/:id/documents/:knowledge_id/reparse` accepts a durable request
+for one selected source document. The server derives root/external identity from
+persisted metadata, verifies current tenant membership and source ownership, and
+wakes the normal source admission queue. Missing parser settings preserve the
+document's existing settings. Explicit supported parser/chunking/VLM settings
+are bound to the immutable request; unsupported enrichment settings are rejected.
+Concurrent parameter edits fence both preparation and publication.
+
+An unchanged source still receives a new staging attempt. The serving version
+remains until the replacement and request completion commit together. Request
+completion failure rolls publication back. A completed claim cannot force a
+second publication. Three actual attempts survive execution changes and restart;
+delivery-only failures use a separate bounded backoff. An independent five-second
+cron sweep rechecks live authority and wakes at most 32 distinct sources without
+blocking generic document recovery. Source-only runs do not advance inventory
+cursors or `last_sync_at`. Request progress is projected only onto already
+authorized catalog rows and never changes the serving document's parse status.
+
+This endpoint supports enrolled Wiki/Drive sources. Personal exact imports keep
+their separate controlled protocol; the endpoint does not convert them into a
+datasource. These changes require merged-code CI and a consolidated release
+before they can be described as available in production.
+
+No database trigger, source permission or parser resource limit is disabled.
+Do not change parse status or retry protected writes in SQL.
+
+## Actionable parser failures and bounded retries
+
+The pending ordinary-document change persists `metadata.parse_failure_v1` with
+a safe reason code, recovery state, recommended action, actual attempt count and
+queue retry budget. Transport failures and unknown parser errors retain the
+existing finite queue retry budget. Only a current processing task with retries
+remaining may present `retry_scheduled`. Exhausted tasks require attention.
+Known encrypted containers, format mismatches, semantic row limits, blocked
+addresses and exhausted parser allocations stop repeated identical attempts.
+Raw parser diagnostics remain in the processing trace, not the public message.
+Cancellation, deletion and replaced source files must not be revived by this
+failure recorder. This does not replace the separate controlled Feishu protocols.
+
+The blank-underline XLSX compatibility fix is PR #168. It changes only a private
+parser-input copy, preserves original uploads and all shared-string text including
+CR/LF, and leaves worksheet parts byte-identical. Three exact production originals
+passed complete parsing with the existing header/chunk settings. Consolidate its
+eventual deployment with the already merged snapshot and workbook-budget fixes.

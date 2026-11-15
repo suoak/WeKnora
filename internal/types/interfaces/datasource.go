@@ -7,6 +7,13 @@ import (
 	"github.com/hibiken/asynq"
 )
 
+// DataSourceDocumentReparseService submits exact-document requests through controlled source publication.
+type DataSourceDocumentReparseService interface {
+	RequestDocumentReparse(context.Context, string, string, *types.KnowledgeProcessOverrides) (
+		*types.FeishuDocumentReparseStatus, error)
+	DocumentReparseStatus(context.Context, string, string) (*types.FeishuDocumentReparseStatus, error)
+}
+
 // DataSourceDocumentDeferralService authorizes and audits exact-document policy changes.
 type DataSourceDocumentDeferralService interface {
 	ReplaceDocumentDeferrals(context.Context, string, string, []types.SyncDocumentDeferral) (*types.DataSource, error)

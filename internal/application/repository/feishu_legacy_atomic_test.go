@@ -115,7 +115,7 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
 	require.NoError(t, err)
 	boundMetadata, _ := json.Marshal(
-		map[string]string{"datasource_id": ds.ID, "external_id": "same-cloud-id"},
+		map[string]string{"datasource_id": ds.ID, "external_id": "same-cloud-id", "source_resource_id": "root"},
 	)
 	kid := uuid.NewString()
 	baseline := &types.Knowledge{
@@ -196,6 +196,7 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				Type:            "file",
 				Channel:         "feishu",
 				FileName:        "document.md",
+				FileType:        "md",
 				FileHash:        body,
 				Metadata:        types.JSON(boundMetadata),
 			},
@@ -263,6 +264,160 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.NoError(t, json.Unmarshal(wikiOps[0].Payload, &wikiPayload))
 	require.Equal(t, kid, wikiPayload["knowledge_id"])
 	require.NotContains(t, string(wikiOps[0].Payload), "oldcanary", "only an identity enters the Wiki queue")
+	t.Run("source-document-reparse-is-durable-and-publishes-atomically", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		request.ProcessConfig = &types.KnowledgeProcessOverrides{
+			ParserEngineOverrides: map[string]string{"test": "kept"},
+		}
+		accepted, err := local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		require.Equal(t, "queued", accepted.State)
+		repeated, err := local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		require.Equal(t, accepted.ID, repeated.ID, "duplicate clicks must share one durable request")
+		conflict := *request
+		conflict.ProcessConfig = &types.KnowledgeProcessOverrides{}
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, &conflict)
+		require.ErrorIs(t, err, ErrLegacyVersionBusy)
+		_, _, err = local.ClaimSourceDocumentReparse(context.Background(), ds)
+		require.Error(t, err, "a stored request alone is never execution authority")
+		work, claimed, err := local.ClaimSourceDocumentReparse(ctx, ds)
+		require.NoError(t, err)
+		require.Equal(t, accepted.ID, claimed.ID)
+		require.Equal(t, 1, claimed.Attempts)
+		config, ok := SourceDocumentReparseOverrides(work)
+		require.True(t, ok)
+		config.ParserEngineOverrides["test"] = "cannot-change-the-claim"
+		config, _ = SourceDocumentReparseOverrides(work)
+		require.Equal(t, "kept", config.ParserEngineOverrides["test"])
+		item := &types.FetchedItem{
+			ExternalID: "same-cloud-id", SourceResourceID: "root", FileName: "document.md",
+			Content: []byte("oldcanary"), UpdatedAt: time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
+		}
+		hash := sha256.Sum256(item.Content)
+		_, unchanged, err := local.Begin(ctx, ds, item, hex.EncodeToString(hash[:]))
+		require.NoError(t, err)
+		require.Equal(t, "published", unchanged.Status)
+		resource, candidate, err := local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
+		require.NoError(t, err)
+		require.Equal(t, "staging", candidate.Status, "explicit reparse must not reuse an unchanged receipt")
+		require.NotEqual(t, a.ID, candidate.ID)
+		require.Equal(t, kid, resource.KnowledgeID)
+		var manifest types.FeishuLegacyManifest
+		encoded, err := json.Marshal(m)
+		require.NoError(t, err)
+		require.NoError(t, json.Unmarshal(encoded, &manifest))
+		manifest.Chunks[0].ID = uuid.NewString()
+		require.NoError(t, manifest.Knowledge.SetProcessOverrides(request.ProcessConfig))
+		var previous types.Knowledge
+		require.NoError(t, tx.First(&previous, "id=?", kid).Error)
+		concurrent := previous
+		require.NoError(t, concurrent.SetProcessOverrides(&types.KnowledgeProcessOverrides{}))
+		require.ErrorContains(t, sourceReparseProcessMetadata(work, tx, ds, resource,
+			&concurrent, &manifest.Knowledge, true), "knowledge_process_config_changed",
+			"an approved request cannot overwrite a concurrent parameter edit")
+		unapproved := manifest.Knowledge
+		require.NoError(t, unapproved.SetProcessOverrides(&types.KnowledgeProcessOverrides{}))
+		require.ErrorContains(t, sourceReparseProcessMetadata(work, tx, ds, resource,
+			&previous, &unapproved, true), "knowledge_process_config_changed",
+			"the claim permits only the exact parameters accepted from the user")
+		require.NoError(t, local.Prepare(work, ds, candidate, manifest, [][]float32{{1, 0, 0}}))
+		var visibleOld int64
+		require.NoError(t, tx.Model(&types.Chunk{}).Where("id=? AND is_enabled", m.Chunks[0].ID).
+			Count(&visibleOld).Error)
+		require.EqualValues(t, 1, visibleOld, "staging must preserve the serving version")
+		require.NoError(t, tx.Exec(`CREATE FUNCTION reparse_completion_fault() RETURNS trigger
+ LANGUAGE plpgsql AS $$ BEGIN IF NEW.scope='feishu_document_reparse_v1' AND NEW.op='completed'
+ THEN RAISE EXCEPTION 'synthetic completion failure'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER reparse_completion_fault BEFORE UPDATE ON task_pending_ops
+ FOR EACH ROW EXECUTE FUNCTION reparse_completion_fault()`).Error)
+		_, err = local.Publish(work, ds, candidate)
+		require.Error(t, err)
+		status, err := local.SourceDocumentReparseStatus(ctx, ds, kid)
+		require.NoError(t, err)
+		require.Equal(t, "processing", status.State)
+		var stillCurrent types.FeishuLegacyResource
+		require.NoError(t, tx.First(&stillCurrent, "id=?", resource.ID).Error)
+		require.Equal(t, a.ID, stillCurrent.ActiveAttempt, "request ACK failure must roll publication back")
+		require.NoError(t, tx.Exec(`DROP TRIGGER reparse_completion_fault ON task_pending_ops;
+ DROP FUNCTION reparse_completion_fault()`).Error)
+		published, err := local.Publish(work, ds, candidate)
+		require.NoError(t, err)
+		require.Equal(t, candidate.ID, published.AttemptID)
+		status, err = local.SourceDocumentReparseStatus(ctx, ds, kid)
+		require.NoError(t, err)
+		require.Equal(t, "completed", status.State)
+		catalog, err := local.SourceDocumentReparseStatuses(ctx, ds.TenantID, []string{kid})
+		require.NoError(t, err)
+		require.Len(t, catalog, 1)
+		require.Equal(t, "completed", catalog[0].State)
+		projection, err := json.Marshal(catalog)
+		require.NoError(t, err)
+		require.NotContains(t, string(projection), "process_config")
+		require.NotContains(t, string(projection), request.Initiator.UserID)
+		otherTenant, err := local.SourceDocumentReparseStatuses(ctx, ds.TenantID+1, []string{kid})
+		require.NoError(t, err)
+		require.Empty(t, otherTenant)
+		_, _, err = local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
+		require.Error(t, err, "a completed request cannot be replayed to force another candidate")
+	})
+	t.Run("source-document-reparse-retry-budget-survives-new-executions", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		for attempt := 1; attempt <= 3; attempt++ {
+			require.NoError(t, tx.Model(&types.SyncLog{}).Where("id=?", log.ID).
+				UpdateColumn("execution_generation", attempt).Error)
+			generation := types.WithSyncExecution(context.Background(), types.SyncExecution{
+				DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: int64(attempt),
+			})
+			work, accepted, err := local.ClaimSourceDocumentReparse(generation, ds)
+			require.NoError(t, err)
+			require.NotNil(t, accepted)
+			require.Equal(t, attempt, accepted.Attempts)
+			_, duplicate, err := local.ClaimSourceDocumentReparse(generation, ds)
+			require.NoError(t, err)
+			require.Nil(t, duplicate, "one execution cannot claim an already processing request twice")
+			require.NoError(t, local.FinishSourceDocumentReparse(work, ds, "temporary_failure", true, false))
+			status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
+			require.NoError(t, err)
+			if attempt < 3 {
+				require.Equal(t, "queued", status.State)
+				var op types.TaskPendingOp
+				require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
+					sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
+				var persisted types.FeishuDocumentReparse
+				require.NoError(t, json.Unmarshal(op.Payload, &persisted))
+				persisted.RetryAfter = time.Now().Add(-time.Second)
+				payload, err := json.Marshal(persisted)
+				require.NoError(t, err)
+				require.NoError(t, tx.Model(&op).UpdateColumn("payload", json.RawMessage(payload)).Error)
+			} else {
+				require.Equal(t, "failed", status.State)
+			}
+		}
+		pending, err := local.PendingSourceDocumentReparses(ctx)
+		require.NoError(t, err)
+		require.Empty(t, pending, "a later recovery sweep must not reset exhausted parser attempts")
+		var oldChunks int64
+		require.NoError(t, tx.Model(&types.Chunk{}).
+			Where("id=? AND is_enabled", m.Chunks[0].ID).Count(&oldChunks).Error)
+		require.EqualValues(t, 1, oldChunks)
+	})
 	t.Run("permission-refusal-quarantines-one-document-without-stopping-source", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)

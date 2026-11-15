@@ -44,6 +44,9 @@ func (s *knowledgeService) ReplaceKnowledgeFile(ctx context.Context,
 	if file == nil {
 		return nil, werrors.NewBadRequestError("file is required")
 	}
+	if err := s.ValidateKnowledgeReparse(ctx, knowledgeID); err != nil {
+		return nil, err
+	}
 	existing, kb, err := loadKnowledgeWrite(ctx, s.repo, s.kbService, knowledgeID)
 	if err != nil {
 		return nil, err

@@ -28,8 +28,10 @@ func NewConnector(region core.Region) *Connector {
 
 // Feishu supports resumable streaming sync; the service prefers FetchStream over
 // FetchAll/FetchIncremental when a connector implements StreamingConnector.
-var _ datasource.StreamingConnector = (*Connector)(nil)
-var _ datasource.FullStreamingConnector = (*Connector)(nil)
+var (
+	_ datasource.StreamingConnector     = (*Connector)(nil)
+	_ datasource.FullStreamingConnector = (*Connector)(nil)
+)
 
 // Type returns the connector type identifier.
 func (c *Connector) Type() string {
@@ -273,6 +275,23 @@ func (c *Connector) FetchFullStream(
 	cursor *types.SyncCursor, h datasource.StreamHandler,
 ) (*types.SyncCursor, error) {
 	return c.fetchStream(ctx, config, cursor, h, true)
+}
+
+func (c *Connector) FetchDocument(
+	ctx context.Context, config *types.DataSourceConfig, root, externalID string,
+) (*types.FetchedItem, error) {
+	cfg, err := core.ParseFeishuConfig(config, c.region)
+	if err != nil {
+		return nil, err
+	}
+	if links, reference, err := core.ReferenceLinks(config); reference || err != nil {
+		if err != nil {
+			return nil, err
+		}
+		return core.FetchDocumentEngine(ctx, core.NewClient(cfg), config, root, externalID,
+			core.ReferenceLinkOps{Links: links})
+	}
+	return core.FetchDocumentEngine(ctx, core.NewClient(cfg), config, root, externalID, wikiOps{region: c.region})
 }
 
 func (c *Connector) fetchStream(

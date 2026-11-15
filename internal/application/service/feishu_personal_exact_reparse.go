@@ -25,6 +25,9 @@ func (s *knowledgeService) ValidateKnowledgeReparse(ctx context.Context, id stri
 	if row.ID == "" {
 		return nil
 	}
+	if row.LegacySourceManaged {
+		return s.rejectLegacySourceReparse(ctx, row)
+	}
 	p, ok := s.personalRecovery.(*PersonalRecovery)
 	if !ok {
 		return apperrors.NewServiceUnavailableError("Document recovery authorization is unavailable")
@@ -47,4 +50,32 @@ func (s *knowledgeService) ValidateKnowledgeReparse(ctx context.Context, id stri
 	return apperrors.NewConflictError("个人飞书导入文档不能使用普通重建；" +
 		"已发布内容保留，请使用受控来源恢复操作。").
 		WithDetails(map[string]any{"reason": "personal_exact_recovery_required", "destructive_reparse_allowed": false})
+}
+
+func (s *knowledgeService) rejectLegacySourceReparse(
+	ctx context.Context, row *repository.PersonalReparseMetadata,
+) error {
+	caller := types.CallerFromContext(ctx)
+	principal, valid := ctx.Value(types.PrincipalContextKey).(types.Principal)
+	if !valid || principal.Type != types.PrincipalWebUser || principal.ID == "" || principal.ID != caller.UserID ||
+		!caller.Role.HasPermission(types.TenantRoleContributor) {
+		return apperrors.NewForbiddenError("Document operation denied")
+	}
+	if s.kbService == nil {
+		return apperrors.NewServiceUnavailableError("Document source authorization is unavailable")
+	}
+	kb, err := s.kbService.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(ctx, row.KnowledgeBaseID),
+		row.KnowledgeBaseID)
+	if err != nil || kb == nil || kb.TenantID != row.TenantID || kb.ID != row.KnowledgeBaseID {
+		return apperrors.NewForbiddenError("Document operation denied")
+	}
+	if _, err := access.ResolveKB(ctx, access.KBRequest{Caller: caller}, kb,
+		types.OrgRoleEditor, s.kbShareService, nil); err != nil {
+		return apperrors.NewForbiddenError("Document operation denied")
+	}
+	return apperrors.NewConflictError("Feishu source documents must be retried through datasource synchronization.").
+		WithDetails(map[string]any{
+			"reason": "feishu_source_sync_required", "data_source_id": row.DataSourceID,
+			"destructive_reparse_allowed": false,
+		})
 }

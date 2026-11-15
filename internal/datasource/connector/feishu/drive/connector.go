@@ -300,6 +300,16 @@ func (c *DriveConnector) FetchFullStream(
 	return c.fetchStream(ctx, config, cursor, h, true)
 }
 
+func (c *DriveConnector) FetchDocument(
+	ctx context.Context, config *types.DataSourceConfig, root, externalID string,
+) (*types.FetchedItem, error) {
+	cfg, err := core.ParseFeishuConfig(config, c.region)
+	if err != nil {
+		return nil, err
+	}
+	return core.FetchDocumentEngine(ctx, core.NewClient(cfg), config, root, externalID, driveOps{region: c.region})
+}
+
 func (c *DriveConnector) fetchStream(
 	ctx context.Context, config *types.DataSourceConfig,
 	cursor *types.SyncCursor, h datasource.StreamHandler, full bool,
