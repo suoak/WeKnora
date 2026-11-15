@@ -36,6 +36,9 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	}
 	proof, err := baseline.ProveCurrent(item, fresh)
 	if err != nil {
+		if errors.As(err, &fence) && fence.Reason == "latest_source_snapshot_changed" {
+			return nil, nil, &feishuSnapshotChangedError{cause: err, current: fresh}
+		}
 		return nil, nil, err
 	}
 	var identity *types.FeishuLegacySourceIdentity

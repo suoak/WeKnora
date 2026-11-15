@@ -23,6 +23,8 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		code string
 	}{
 		{&repository.LegacyFenceError{Reason: "source_revision_content_conflict"}, "source_revision_content_conflict"},
+		{&repository.LegacyFenceError{Reason: "latest_source_snapshot_changed"}, ""},
+		{errors.New("latest_source_snapshot_changed"), ""},
 		{
 			&feishuStagingRefusal{reason: "versioned_image_staging_required"},
 			"safe_staging_versioned_image_staging_required",

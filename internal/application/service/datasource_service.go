@@ -1357,6 +1357,10 @@ func (s *DataSourceService) applyFetchedItem(
 	}
 
 	isUpdate, err := s.ingestItem(ctx, ds, item, tagIDs)
+	var recoveredDuplicate *types.DuplicateKnowledgeError
+	if item.AutoRecovered && (err == nil || errors.As(err, &recoveredDuplicate)) {
+		result.AutoRecovered++
+	}
 	if err != nil {
 		var fence *apprepo.LegacyFenceError
 		if errors.As(err, &fence) && fence.Reason == "resource_deleted_by_user" {
@@ -1412,6 +1416,9 @@ func (s *DataSourceService) applyFetchedItem(
 			message := "Ingest failed; see server logs"
 			if local == "safe_staging_parser_resource_limit" {
 				message = "Document exceeds parser resource limits; split or simplify the source file and retry"
+			}
+			if local == "source_snapshot_changed" {
+				message = "Document changed during verification; progress retained for the next sync"
 			}
 			recordSyncError(result, types.SyncItemError{
 				Title: item.Title, Code: code, Message: message,

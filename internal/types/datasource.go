@@ -333,6 +333,8 @@ type Resource struct {
 
 // FetchedItem represents a single document/content item fetched from external source
 type FetchedItem struct {
+	// AutoRecovered is set only after live-snapshot recovery has a durable receipt.
+	AutoRecovered bool `json:"-"`
 	// CurrentSnapshot is issued only by the live connector. It cannot be supplied
 	// through JSON, a task payload, or historical connector metadata.
 	CurrentSnapshot func(context.Context) (*FetchedItem, error) `json:"-"`
@@ -441,6 +443,7 @@ type SyncCursor struct {
 
 // SyncResult summarizes the outcome of a sync operation
 type SyncResult struct {
+	AutoRecovered     int                    `json:"auto_recovered,omitempty"`
 	Discovered        int                    `json:"discovered,omitempty"`
 	Unchanged         int                    `json:"unchanged,omitempty"`
 	Unsupported       int                    `json:"unsupported,omitempty"`

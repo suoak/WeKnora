@@ -35,9 +35,16 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.Is(err, anydoc.ErrResourceLimit) {
 		return "safe_staging_parser_resource_limit"
 	}
+	var changed *feishuSnapshotChangedError
+	if item.CurrentSnapshot != nil && errors.As(err, &changed) && sameSnapshotSourceBinding(item, changed.current) {
+		return "source_snapshot_changed"
+	}
 	var fence *repository.LegacyFenceError
-	if errors.As(err, &fence) && fence.Reason == "source_revision_content_conflict" {
-		return fence.Reason
+	if errors.As(err, &fence) {
+		switch fence.Reason {
+		case "source_revision_content_conflict":
+			return fence.Reason
+		}
 	}
 	var refusal *feishuStagingRefusal
 	if errors.As(err, &refusal) {

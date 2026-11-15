@@ -1,6 +1,9 @@
 package types
 
-import "strings"
+import (
+	"encoding/json"
+	"strings"
+)
 
 // DataSourceSyncHealth describes the observed synchronization state without granting access.
 type DataSourceSyncHealth struct {
@@ -42,6 +45,21 @@ func (d *DataSource) DescribeSyncHealth() *DataSourceSyncHealth {
 		}
 		if d.LatestSyncLog.Status == SyncLogStatusPartial {
 			return health("partial", "部分文档同步失败，其他文档继续更新，失败内容未发布", "view_failed_documents")
+		}
+		if d.LatestSyncLog.Status == SyncLogStatusFailed {
+			return health(
+				"needs_attention",
+				"本轮同步已结束，失败文件需要处理；同步进度已保留",
+				"view_failed_documents",
+			)
+		}
+		if d.LatestSyncLog.Status == SyncLogStatusSuccess && d.Status == DataSourceStatusActive {
+			var result struct {
+				AutoRecovered int `json:"auto_recovered"`
+			}
+			if json.Unmarshal(d.LatestSyncLog.Result, &result) == nil && result.AutoRecovered > 0 {
+				return health("healthy", "已自动重新校验最新版本并恢复同步", "view_progress")
+			}
 		}
 	}
 	if d.Status == DataSourceStatusError {

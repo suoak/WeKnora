@@ -44,6 +44,9 @@ pause. The emergency stop remains authoritative.
 
 ## Recovery and lifecycle
 
+Document-level live snapshot recovery and exhausted-run visibility are described
+in [bounded automatic recovery](feishu-automatic-recovery.md).
+
 With `FEISHU_APPROVED_SYNC_LANE_ENABLED=1`, Feishu safety failures pause only
 `approved_sync`. They never create or overwrite the shared `sync` queue pause,
 including invalid Feishu startup configuration. Feishu execution fencing and

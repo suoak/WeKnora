@@ -29,6 +29,7 @@ func TestDocumentFailureContinuesAndRetriesAfterRestart(t *testing.T) {
 	for _, code := range []string{
 		"source_revision_content_conflict", "safe_staging_parser_semantic_row_too_large",
 		"safe_staging_invalid_xlsx_package",
+		"source_snapshot_changed",
 	} {
 		t.Run(code, func(t *testing.T) { documentFailureContinuesAndRetries(t, code) })
 	}
