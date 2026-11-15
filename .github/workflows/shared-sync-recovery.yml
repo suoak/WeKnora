@@ -59,7 +59,7 @@ jobs:
           set -euo pipefail
           go test -json -race -p 1 -tags sqlite_fts5 \
             ./internal/feishusafety ./internal/feishusynccontrol ./internal/handler ./internal/router \
-            -run 'TestRecoveryBudgetAdmissionBindsExactRunAndPersistentMode|TestSharedQueueRelease|TestSteadyHTTPChecksIndependentTargetAuthority|TestRecoveryHTTPAuthorizationBeforePlanOrExecution|TestSyncLiveQueueProbeP0' \
+            -run 'TestRecoveryBudgetAdmissionBindsExactRunAndPersistentMode|TestSharedQueueRelease|TestSteadyHTTPChecksIndependentTargetAuthority|TestRecoveryHTTPAuthorizationBeforePlanOrExecution|TestSyncLiveQueueProbeP0|TestDedicatedFeishuStop|TestDedicatedEmergency|TestNormalHealth|TestSharedPause|TestNormalServiceHealth' \
             -count=1 -timeout=12m | tee shared-queue-safety.jsonl
       - uses: actions/upload-artifact@v7
         if: always()
