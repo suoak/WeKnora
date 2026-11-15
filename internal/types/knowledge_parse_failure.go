@@ -1,0 +1,36 @@
+package types
+
+import "encoding/json"
+
+const KnowledgeParseFailureKey = "parse_failure_v1"
+
+// KnowledgeParseFailure describes server-owned recovery progress without raw
+// parser diagnostics, file paths, source URLs, or credentials.
+type KnowledgeParseFailure struct {
+	Code        string `json:"code"`
+	State       string `json:"state"`
+	Action      string `json:"action"`
+	Attempts    int    `json:"attempts"`
+	MaxAttempts int    `json:"max_attempts"`
+	AutoRetry   bool   `json:"auto_retry"`
+}
+
+func (k *Knowledge) SetParseFailure(failure *KnowledgeParseFailure) error {
+	fields, err := k.Metadata.Map()
+	if err != nil {
+		return err
+	}
+	if fields == nil {
+		fields = map[string]interface{}{}
+	}
+	if failure == nil {
+		delete(fields, KnowledgeParseFailureKey)
+	} else {
+		fields[KnowledgeParseFailureKey] = failure
+	}
+	data, err := json.Marshal(fields)
+	if err == nil {
+		k.Metadata = JSON(data)
+	}
+	return err
+}

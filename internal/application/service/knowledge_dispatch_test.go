@@ -28,6 +28,27 @@ type dispatchFaultRepo struct {
 	readFailure                         error
 }
 
+type terminalDispatchTenantRepo struct {
+	interfaces.TenantRepository
+	cause error
+}
+
+func (r *dispatchFaultRepo) LoadPersonalReparseMetadata(
+	ctx context.Context, id string,
+) (*repository.PersonalReparseMetadata, error) {
+	reader, ok := r.KnowledgeRepository.(interface {
+		LoadPersonalReparseMetadata(context.Context, string) (*repository.PersonalReparseMetadata, error)
+	})
+	if !ok {
+		return nil, errors.New("protocol metadata projection unavailable")
+	}
+	return reader.LoadPersonalReparseMetadata(ctx, id)
+}
+
+func (r terminalDispatchTenantRepo) GetTenantByID(context.Context, uint64) (*types.Tenant, error) {
+	return nil, r.cause
+}
+
 func (r *dispatchFaultRepo) GetKnowledgeByID(
 	ctx context.Context,
 	tenant uint64,
@@ -375,6 +396,52 @@ func feishuDispatchSuite(t *testing.T, dialect string) {
 		require.Zero(t, fs.deleteCalls)
 		count(k.ID)
 	})
+
+	for _, tc := range []struct {
+		name     string
+		retries  int
+		cause    error
+		terminal bool
+	}{
+		{"queue_budget_remaining", 0, errors.New("temporary tenant read failure"), false},
+		{"queue_budget_exhausted", 3, errors.New("temporary tenant read failure"), true},
+		{"permanent_delivery", 0, errors.Join(asynq.SkipRetry, errors.New("permanent refusal")), true},
+	} {
+		t.Run("terminal_failure_outbox_"+tc.name, func(t *testing.T) {
+			s, r, q, fs, k := fixture()
+			_, err := s.acceptFeishuKnowledgeDispatch(ctx, k, fs, nil)
+			require.NoError(t, err)
+			require.NoError(t, db.Model(&types.Knowledge{}).Where("id=?", k.ID).
+				UpdateColumn("parse_status", types.ParseStatusFailed).Error)
+			s.chunkRepo = repository.NewChunkRepository(db)
+			s.tenantRepo = terminalDispatchTenantRepo{cause: tc.cause}
+			work := types.WithTaskRetryMetadata(ctx, tc.retries, 3)
+			require.ErrorIs(t, s.ProcessDocument(work, q.snapshot()[0]), tc.cause)
+			op, err := r.GetKnowledgeDispatch(ctx, 1, k.ID)
+			require.NoError(t, err)
+			if tc.terminal {
+				require.Equal(t, "attention", op.Op)
+				countTarget := func() int {
+					count := 0
+					for _, task := range q.snapshot() {
+						var payload types.DocumentProcessPayload
+						require.NoError(t, json.Unmarshal(task.Payload(), &payload))
+						if payload.KnowledgeID == k.ID {
+							count++
+						}
+					}
+					return count
+				}
+				before := countTarget()
+				restarted := restartKnowledgeServiceForTest(t, s)
+				require.NoError(t, restarted.RecoverKnowledgeDispatches(ctx))
+				require.Equal(t, before, countTarget(), "restart must not reset an exhausted retry budget")
+			} else {
+				require.Equal(t, "recovery", op.Op)
+			}
+			require.Zero(t, fs.deleteCalls)
+		})
+	}
 	t.Run("atomic_transaction_rolls_back_both", func(t *testing.T) {
 		s, r, _, _, k := fixture()
 		op, err := s.dispatchIntent(ctx, k)

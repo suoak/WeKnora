@@ -254,6 +254,7 @@ func finalizeIndexedKnowledgeState(
 func markKnowledgeProcessing(knowledge *types.Knowledge, now time.Time) {
 	knowledge.ParseStatus = types.ParseStatusProcessing
 	knowledge.ErrorMessage = ""
+	_ = knowledge.SetParseFailure(nil)
 	knowledge.UpdatedAt = now
 }
 
@@ -4696,7 +4697,7 @@ func (s *knowledgeService) convert(
 		logger.Errorf(ctx, "[convert] DocReader failed knowledge=%s code=%s: %v", knowledge.ID, code, err)
 		s.failStage(ctx, knowledge.ID, types.StageDocReader,
 			code, message, err)
-		return s.failKnowledge(ctx, knowledge, isLastRetry, "%s", message)
+		return s.recordKnowledgeParseFailure(ctx, knowledge, err, isLastRetry)
 	}
 	sanitizeReadResult(result)
 	if isPersonalFirstCreate(ctx) {
@@ -4721,15 +4722,9 @@ func (s *knowledgeService) convert(
 		logger.Errorf(ctx, "[convert] parser returned error kb=%s knowledge=%s file=%q type=%s "+
 			"engine=%q: %s",
 			kb.ID, knowledge.ID, req.FileName, fileType, parserEngine, result.Error)
-		knowledge.ParseStatus = "failed"
-		knowledge.ErrorMessage = result.Error
-		knowledge.UpdatedAt = time.Now()
-		if err := s.updateKnowledgeUnlessSourceReplaced(ctx, knowledge); err != nil {
-			logger.Errorf(ctx, "failed to persist parser error for %s: %v", knowledge.ID, err)
-		}
 		s.failStage(ctx, knowledge.ID, types.StageDocReader,
-			werrors.ErrCodeDocReaderParseFailed, result.Error, nil)
-		return nil, nil
+			werrors.ErrCodeDocReaderParseFailed, "Parser reported a document failure", errors.New(result.Error))
+		return s.recordKnowledgeParseFailure(ctx, knowledge, errors.New(result.Error), isLastRetry)
 	}
 	if !isURL {
 		attachStructureBlocks(ctx, fileType, req.FileContent, result)
