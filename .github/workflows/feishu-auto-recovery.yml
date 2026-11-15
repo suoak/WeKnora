@@ -12,6 +12,7 @@ on:
       - internal/application/service/datasource_service.go
       - internal/types/datasource*.go
       - internal/datasource/connector/feishu/core/**
+      - internal/feishudocx/**
       - .github/workflows/feishu-auto-recovery.yml
   workflow_dispatch:
 permissions:
@@ -51,8 +52,8 @@ jobs:
           set -euo pipefail
           go test -json -race -p 1 -tags sqlite_fts5 \
             ./internal/application/service ./internal/application/repository \
-            ./internal/datasource/connector/feishu/core ./internal/types \
-            -run 'TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
+            ./internal/datasource/connector/feishu/core ./internal/types ./internal/feishudocx \
+            -run 'TestEmbedded|TestDOCXSnapshot|TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
             -count=1 -timeout=12m | tee recovery-verification.jsonl
       - uses: actions/upload-artifact@v7
         if: always()

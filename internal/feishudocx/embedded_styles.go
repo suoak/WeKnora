@@ -14,7 +14,7 @@ import (
 func normalizeEmbeddedStyleIndexes(parts map[string][]byte) (map[string][]byte, error) {
 	body, ok := parts["xl/styles.xml"]
 	if !ok {
-		return nil, nil
+		return normalizeEmbeddedColumnsWithoutStyles(parts)
 	}
 	root, err := parseXML(body)
 	if err != nil || root.Name != (xml.Name{Space: spreadsheetNS, Local: "styleSheet"}) {
@@ -66,6 +66,9 @@ func normalizeEmbeddedStyleIndexes(parts map[string][]byte) (map[string][]byte, 
 			return nil, err
 		}
 		if err := remapStyleReferences(sheet, "style", "col", styles); err != nil {
+			return nil, err
+		}
+		if err := normalizeEmbeddedColumnOrder(sheet); err != nil {
 			return nil, err
 		}
 		out[name], err = json.Marshal(sheet)
