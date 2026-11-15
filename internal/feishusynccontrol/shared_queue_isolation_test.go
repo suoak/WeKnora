@@ -47,7 +47,8 @@ func TestNormalHealthRecoversLegacySharedFeishuPause(t *testing.T) {
 			require.NoError(t, f.r.Del(ctx, "asynq:{approved_sync}:paused").Err())
 			require.NoError(t, f.c.Step(ctx))
 			switch marker {
-			case "feishu_safety_stop", "invalid_feishu_safety_configuration", "approved_sync_frozen", "feishu_emergency_stop":
+			case "feishu_safety_stop", "invalid_feishu_safety_configuration",
+				"approved_sync_frozen", "feishu_emergency_stop":
 				require.Zero(t, f.r.Exists(ctx, "asynq:{sync}:paused").Val())
 			default:
 				require.Equal(t, marker, f.r.Get(ctx, "asynq:{sync}:paused").Val())
