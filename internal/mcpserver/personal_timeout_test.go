@@ -44,10 +44,11 @@ func TestPersonalRPCTimeoutRealTransport(t *testing.T) {
 	for _, id := range []string{`"query-1"`, `9007199254740993`} {
 		t.Run(id, func(t *testing.T) {
 			m := server.NewMCPServer("timeout-test", "1")
-			m.AddTool(mcp.NewTool("probe"), func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			handler := func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 				<-ctx.Done()
 				return mcp.NewToolResultError("INTERNAL_ERROR_MUST_NOT_ESCAPE"), nil
-			})
+			}
+			m.AddTool(mcp.NewTool("probe"), handler)
 			h := server.NewStreamableHTTPServer(m, server.WithStateLess(true))
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 			defer cancel()
@@ -81,7 +82,8 @@ func TestPersonalRPCTimeoutHandlerAndAccounting(t *testing.T) {
 	ctx, cancel := context.WithTimeout(ctx, 50*time.Millisecond)
 	defer cancel()
 	req := httptest.NewRequest("POST", personalPath, strings.NewReader(
-		`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"search_knowledge","arguments":{"knowledge_base_ids":["selected"],"query":"probe"}}}`,
+		`{"jsonrpc":"2.0","id":17,"method":"tools/call","params":{"name":"search_knowledge",`+
+			`"arguments":{"knowledge_base_ids":["selected"],"query":"probe"}}}`,
 	)).WithContext(ctx)
 	out := httptest.NewRecorder()
 	s.Handler().ServeHTTP(out, req)
@@ -125,7 +127,8 @@ func TestPersonalRPCTimeoutSSEProgressAndFinalResponse(t *testing.T) {
 			w := newPersonalRPCResponse(out, json.RawMessage(`"sse"`))
 			w.Header().Set("Content-Type", "text/event-stream")
 			w.Flush()
-			progress := "event: message\ndata: {\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{}}\n\n"
+			progress := "event: message\ndata: " +
+				"{\"jsonrpc\":\"2.0\",\"method\":\"notifications/progress\",\"params\":{}}\n\n"
 			// Write boundaries need not coincide with SSE frame boundaries.
 			_, err := w.Write([]byte(progress[:30]))
 			require.NoError(t, err)
