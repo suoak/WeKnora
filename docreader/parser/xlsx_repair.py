@@ -6,9 +6,77 @@ import io
 import logging
 import re
 import zipfile
+from xml.etree import ElementTree
 from typing import Callable, Dict, Iterable, Set
 
 logger = logging.getLogger(__name__)
+
+
+def normalize_blank_underline_xlsx(content: bytes) -> bytes | None:
+    """Remove only empty underline declarations from font/rich-text styles.
+
+    Some exporters write ``u val=" "`` in shared strings. openpyxl rejects
+    that style before reading any cell. Never discard a shared string or
+    rewrite worksheet values to recover a presentation-only declaration.
+    The original upload is unchanged; this copy is only parser input.
+    """
+    from defusedxml.ElementTree import fromstring
+
+    if not zipfile.is_zipfile(io.BytesIO(content)):
+        return None
+    namespace = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+    with zipfile.ZipFile(io.BytesIO(content)) as zin:
+        infos = zin.infolist()
+        # A compatibility repair must not add an unbounded ZIP expansion.
+        if len(infos) > 4096 or sum(info.file_size for info in infos) > 64 << 20:
+            return None
+        if len({info.filename for info in infos}) != len(infos):
+            return None
+        patched: dict[str, bytes] = {}
+        for name in ("xl/sharedStrings.xml", "xl/styles.xml"):
+            if name not in zin.namelist():
+                continue
+            if zin.getinfo(name).file_size > 16 << 20:
+                return None
+            raw = zin.read(name)
+            root = fromstring(raw)
+            changed = False
+            for parent in root.iter():
+                if parent.tag not in (namespace + "rPr", namespace + "font"):
+                    continue
+                for element in list(parent):
+                    if (
+                        element.tag == namespace + "u"
+                        and set(element.attrib) == {"val"}
+                        and not element.attrib["val"].strip()
+                        and not len(element)
+                        and not (element.text or "").strip()
+                    ):
+                        # Preserve XML whitespace following the removed style.
+                        if element.tail:
+                            index = list(parent).index(element)
+                            if index:
+                                sibling = parent[index - 1]
+                                sibling.tail = (sibling.tail or "") + element.tail
+                            else:
+                                parent.text = (parent.text or "") + element.tail
+                        parent.remove(element)
+                        changed = True
+            if changed:
+                # XML parsers normalize literal CR on the next read. Escape it
+                # so rich text containing a character-reference CR stays exact.
+                patched[name] = ElementTree.tostring(
+                    root, encoding="utf-8", xml_declaration=True
+                ).replace(b"\r", b"&#13;")
+        if not patched:
+            return None
+        out = io.BytesIO()
+        with zipfile.ZipFile(out, "w") as zout:
+            for info in infos:
+                data = patched[info.filename] if info.filename in patched else zin.read(info)
+                zout.writestr(info, data)
+        logger.info("Normalized blank underline declarations in %d XLSX part(s)", len(patched))
+        return out.getvalue()
 
 SST_PART = "xl/sharedStrings.xml"
 _SST_OVERRIDE_RE = re.compile(
