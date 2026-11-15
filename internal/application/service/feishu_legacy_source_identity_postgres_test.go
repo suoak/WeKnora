@@ -237,61 +237,85 @@ func TestFeishuDOCXSourceIdentityServicePostgresP1(t *testing.T) {
 	item.Content = newContent
 	_, _, err = ks.beginLegacySourceIdentity(ctx, kb, store, ds, item)
 	require.ErrorIs(t, err, repository.ErrLegacyVersionFence)
-	t.Run("bounded-live-snapshot-recovery", func(t *testing.T) {
-		t.Setenv("KNOWHUB_FEISHU_LATEST_CONTENT", "true")
-		item.ExternalID, item.Metadata = "legacy-export", map[string]string{"obj_type": "docx"}
-		item.Content = legacyIdentityServiceDOCX(t, "2026-10-24T03:00:00Z", "intermediatesnapshot")
-		fresh := *item
-		fresh.Content = legacyIdentityServiceDOCX(t, "2026-10-24T04:00:00Z", "snapshotlatestcanary")
-		observations, stages := 0, 0
-		item.CurrentSnapshot = func(context.Context) (*types.FetchedItem, error) {
-			observations++
-			current := fresh
-			return &current, nil
+	for _, finalChange := range []bool{false, true} {
+		name := "bounded-live-snapshot-recovery"
+		if finalChange {
+			name = "bounded-final-snapshot-recovery"
 		}
-		receipt, recoveryErr := recoverFeishuSnapshot(ctx, item, func(
-			candidate *types.FetchedItem,
-		) (*types.FeishuLegacyReceipt, error) {
-			stages++
-			resource, attempt, stageErr := ks.beginLegacySourceIdentity(ctx, kb, store, ds, candidate)
-			if stageErr != nil {
-				return nil, stageErr
-			}
-			candidateManifest := m
-			candidateManifest.Knowledge.ID = resource.KnowledgeID
-			candidateManifest.Knowledge.FilePath, stageErr = ks.fileSvc.SaveBytes(
-				ctx, candidate.Content, tenant.ID, candidate.FileName, false)
-			if stageErr != nil {
-				return nil, stageErr
-			}
-			candidateManifest.Chunks = []*types.Chunk{{
-				ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
-				KnowledgeID: resource.KnowledgeID, ChunkType: "text", Content: "snapshotlatestcanary",
-				IsEnabled: true, Metadata: types.JSON(`{}`),
-			}}
-			if stageErr = store.Prepare(ctx, ds, attempt, candidateManifest, [][]float32{{1, 0, 0}}); stageErr != nil {
-				return nil, stageErr
-			}
-			return store.Publish(ctx, ds, attempt)
-		})
-		require.NoError(t, recoveryErr)
-		require.True(t, legacyReceiptConfirmed(receipt))
-		require.Equal(t, 2, stages)
-		require.Equal(t, 2, observations)
-		require.True(t, item.AutoRecovered)
-		require.Equal(t, fresh.Content, item.Content)
-		var published types.FeishuLegacyResource
-		require.NoError(t, db.First(&published, "id=?", receipt.ResourceID).Error)
-		require.Equal(t, receipt.AttemptID, published.ActiveAttempt)
-		var textCount, vectorCount int64
-		require.NoError(t, db.Model(&types.Chunk{}).
-			Where("knowledge_id=? AND content=? AND is_enabled", receipt.KnowledgeID, "snapshotlatestcanary").
-			Count(&textCount).Error)
-		require.NoError(t, db.Table("embeddings").
-			Where("knowledge_id=?", receipt.KnowledgeID).Count(&vectorCount).Error)
-		require.EqualValues(t, 1, textCount)
-		require.EqualValues(t, 1, vectorCount)
-	})
+		t.Run(name,
+			func(t *testing.T) {
+				t.Setenv("KNOWHUB_FEISHU_LATEST_CONTENT", "true")
+				item.ExternalID, item.Metadata = "legacy-export", map[string]string{"obj_type": "docx"}
+				item.Content = legacyIdentityServiceDOCX(t, "2026-10-24T03:00:00Z", "intermediatesnapshot")
+				fresh := *item
+				latestText := "snapshotlatestcanary"
+				if finalChange {
+					latestText = "finalsnapshotlatestcanary"
+				}
+				fresh.Content = legacyIdentityServiceDOCX(t, "2026-10-24T04:00:00Z", latestText)
+				observations, stages, rejectedPrepared := 0, 0, 0
+				initial := *item
+				item.CurrentSnapshot = func(context.Context) (*types.FetchedItem, error) {
+					observations++
+					current := fresh
+					if finalChange && observations == 1 {
+						current = initial
+					}
+					return &current, nil
+				}
+				receipt, recoveryErr := recoverFeishuSnapshot(ctx, item, func(
+					candidate *types.FetchedItem,
+				) (*types.FeishuLegacyReceipt, error) {
+					stages++
+					resource, attempt, stageErr := ks.beginLegacySourceIdentity(ctx, kb, store, ds, candidate)
+					if stageErr != nil {
+						return nil, stageErr
+					}
+					candidateManifest := m
+					candidateManifest.Knowledge.ID = resource.KnowledgeID
+					candidateManifest.Knowledge.FilePath, stageErr = ks.fileSvc.SaveBytes(
+						ctx, candidate.Content, tenant.ID, candidate.FileName, false)
+					if stageErr != nil {
+						return nil, stageErr
+					}
+					candidateManifest.Chunks = []*types.Chunk{{
+						ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+						KnowledgeID: resource.KnowledgeID, ChunkType: "text", Content: latestText,
+						IsEnabled: true, Metadata: types.JSON(`{}`),
+					}}
+					stageErr = store.Prepare(ctx, ds, attempt, candidateManifest, [][]float32{{1, 0, 0}})
+					if stageErr != nil {
+						return nil, stageErr
+					}
+					if stageErr = verifyFinalFeishuSnapshot(ctx, candidate); stageErr != nil {
+						rejectedPrepared++
+						require.NoError(t, store.Abandon(ctx, attempt))
+						return nil, stageErr
+					}
+					return store.Publish(ctx, ds, attempt)
+				})
+				require.NoError(t, recoveryErr)
+				require.True(t, legacyReceiptConfirmed(receipt))
+				require.Equal(t, 2, stages)
+				require.GreaterOrEqual(t, observations, 3)
+				if finalChange {
+					require.Equal(t, 1, rejectedPrepared)
+				}
+				require.True(t, item.AutoRecovered)
+				require.Equal(t, fresh.Content, item.Content)
+				var published types.FeishuLegacyResource
+				require.NoError(t, db.First(&published, "id=?", receipt.ResourceID).Error)
+				require.Equal(t, receipt.AttemptID, published.ActiveAttempt)
+				var textCount, vectorCount int64
+				require.NoError(t, db.Model(&types.Chunk{}).
+					Where("knowledge_id=? AND content=? AND is_enabled", receipt.KnowledgeID, latestText).
+					Count(&textCount).Error)
+				require.NoError(t, db.Table("embeddings").
+					Where("knowledge_id=?", receipt.KnowledgeID).Count(&vectorCount).Error)
+				require.EqualValues(t, 1, textCount)
+				require.EqualValues(t, 1, vectorCount)
+			})
+	}
 }
 
 func TestLegacyDOCXExportScopeP1(t *testing.T) {

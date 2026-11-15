@@ -18,6 +18,11 @@ new traversal and cannot be adopted through this single-document path.
 The retry repeats capacity, source authority, parser, assets, embedding and
 atomic publication checks. It substitutes the new body/revision only after a
 complete publication receipt; an existing matching receipt is also accepted.
+Both the pre-parse observation and final pre-publication observation use this
+same bounded recovery path. A document that changes while parsing must not
+fall back to the generic whole-source admission retry. The rejected prepared
+candidate is abandoned through its existing owner fence before another candidate
+starts; it is never published to satisfy the cursor.
 The durable SyncResult JSON records `auto_recovered` only for accepted items.
 No source body, credential or private candidate is included in that counter.
 

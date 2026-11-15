@@ -614,14 +614,7 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		return nil, err
 	}
 	if initial.LatestSnapshot != nil {
-		if item.CurrentSnapshot == nil {
-			return nil, ErrFeishuStagingRequired
-		}
-		fresh, checkErr := item.CurrentSnapshot(ctx)
-		if checkErr != nil {
-			return nil, checkErr
-		}
-		if checkErr = repository.MatchLatestFetchedSnapshot(item, fresh); checkErr != nil {
+		if checkErr := verifyFinalFeishuSnapshot(ctx, item); checkErr != nil {
 			return nil, checkErr
 		}
 	}
