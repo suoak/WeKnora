@@ -169,15 +169,24 @@ func (m *RecoveryManager) NormalServiceActive(ctx context.Context) (bool, error)
 
 // A surviving signed normal-service grant can resume only a safety-owned pause
 // after current controller/consumer health has passed. Operator/deployment
-// pauses, emergency trips and the historical shared queue remain independent.
+// pauses and emergency trips remain independent. With a dedicated lane, also
+// release the shared queue pause left by older Feishu controllers.
 func (m *RecoveryManager) resumeNormalQueueAfterHealth(ctx context.Context) error {
 	c := m.controller
 	paused, err := c.Client.Get(ctx, "asynq:{approved_sync}:paused").Result()
-	if errors.Is(err, redis.Nil) || (err == nil && paused != "feishu_safety_stop") {
-		return nil
-	}
-	if err != nil {
+	if err != nil && !errors.Is(err, redis.Nil) {
 		return err
+	}
+	sharedPaused := false
+	if c.Config.DedicatedSyncLane {
+		marker, readErr := c.Client.Get(ctx, "asynq:{sync}:paused").Result()
+		if readErr != nil && !errors.Is(readErr, redis.Nil) {
+			return readErr
+		}
+		sharedPaused = marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" || marker == "approved_sync_frozen"
+	}
+	if paused != "feishu_safety_stop" && paused != "invalid_feishu_safety_configuration" && !sharedPaused {
+		return nil
 	}
 	record, err := m.normalRecord(ctx)
 	if err != nil || record == nil {
@@ -195,15 +204,28 @@ if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
  redis.call('PTTL',KEYS[2])<=0 or redis.call('GET',KEYS[3])~=ARGV[2] or
  redis.call('HLEN',KEYS[4])~=1 or redis.call('HGET',KEYS[4],ARGV[3])~=ARGV[4]
  then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
-if redis.call('GET',KEYS[5])~='feishu_safety_stop' then return 0 end
-redis.call('DEL',KEYS[5])
-redis.call('XADD',KEYS[6],'*','event','normal_service_queue_resumed','grant_id',ARGV[5],
- 'worker_id',ARGV[3],'reason','current_signed_normal_service_health')
-return 1`, []string{
+local resumed=0
+local approvedMarker=redis.call('GET',KEYS[5])
+if approvedMarker=='feishu_safety_stop' or approvedMarker=='invalid_feishu_safety_configuration' then
+ redis.call('XADD',KEYS[6],'*','event','normal_service_queue_resumed','grant_id',ARGV[5],
+  'worker_id',ARGV[3],'reason','current_signed_normal_service_health')
+ redis.call('DEL',KEYS[5])
+ resumed=resumed+1
+end
+if ARGV[6]=='true' then
+ local marker=redis.call('GET',KEYS[7])
+ if marker=='feishu_safety_stop' or marker=='invalid_feishu_safety_configuration' or marker=='approved_sync_frozen' then
+  redis.call('XADD',KEYS[6],'*','event','normal_shared_queue_resumed','grant_id',ARGV[5],
+   'worker_id',ARGV[3],'reason','legacy_feishu_pause_on_shared_queue')
+  redis.call('DEL',KEYS[7])
+  resumed=resumed+1
+ end
+end
+return resumed`, []string{
 		c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "normal_service",
-		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit",
+		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit", "asynq:{sync}:paused",
 	}, c.Guard.Fingerprint(), string(raw), c.Config.WorkerID,
-		c.fingerprint+":"+c.incarnation, record.Authorization.ID).Err()
+		c.fingerprint+":"+c.incarnation, record.Authorization.ID, fmt.Sprint(c.Config.DedicatedSyncLane)).Err()
 }
 
 // Successful signed recovery may release only a safety-owned queue pause.

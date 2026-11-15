@@ -129,11 +129,7 @@ func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error
 	// A separately activated normal service keeps its durable authorization
 	// across graceful worker replacement; it never resumes an operator pause.
 	if types.ApprovedSyncLaneEnabled() && !normal {
-		if err := c.Client.SetNX(context.Background(), "asynq:{sync}:paused", "approved_sync_frozen", 0).
-			Err(); err != nil {
-			return err
-		}
-		if err := c.Client.Set(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).
+		if err := c.Client.SetNX(context.Background(), "asynq:{approved_sync}:paused", "approved_sync_frozen", 0).
 			Err(); err != nil {
 			return err
 		}

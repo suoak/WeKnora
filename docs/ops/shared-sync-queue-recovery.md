@@ -1,5 +1,11 @@
 # Reconcile the shared datasource queue
 
+For installations using the dedicated Feishu lane and signed normal service,
+see [current queue isolation and automatic recovery](../operations/feishu-normal-service.md#recovery-and-lifecycle).
+Feishu-owned historical shared pauses now recover after validated health;
+the steady operating state is all sync and Wiki lanes open. The bounded signed
+procedure below remains for legacy installations and explicit incident review.
+
 The normal signed steady-source policy may include `release_shared_queue: true`
 in `POST /api/v1/datasource/:id/safety-recovery/steady/plan`.
 This is an independently signed bounded reconciliation, not an unconditional

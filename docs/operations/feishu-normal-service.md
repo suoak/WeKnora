@@ -44,6 +44,29 @@ pause. The emergency stop remains authoritative.
 
 ## Recovery and lifecycle
 
+With `FEISHU_APPROVED_SYNC_LANE_ENABLED=1`, Feishu safety failures pause only
+`approved_sync`. They never create or overwrite the shared `sync` queue pause,
+including invalid Feishu startup configuration. Feishu execution fencing and
+outbound denial still apply. Other connectors retain their normal shared worker.
+
+After current signed normal-service authorization, controller membership,
+consumer health and outbound permit pass validation with no emergency trip,
+the periodic controller also releases old shared `sync` pause markers
+`feishu_safety_stop`, `invalid_feishu_safety_configuration` and
+`approved_sync_frozen`. This runs even
+if `approved_sync` is already open. The final ownership check and release are
+atomic and audited as `normal_shared_queue_resumed`. Pending messages, SQL
+claims, cursors, source permissions and published data are not rewritten.
+Unknown/operator/deployment pause markers remain owned by their creator;
+emergency trips are never automatically cleared. Installations without a
+dedicated Feishu lane retain their legacy stop/reconciliation procedure.
+
+The normal operating state is **sync, approved_sync and wiki all unpaused**.
+Do not preserve a historical shared pause after incident recovery. Any temporary
+maintenance pause must be resumed by its owner before deployment acceptance.
+Verify queue state, original task outcomes and scheduled consumption together;
+healthy HTTP responses alone are insufficient.
+
 Historical Hold/revoked sources do not acquire normal read authority. Their
 existing separately signed one-shot reconciliation, SQL Claim and public
 inventory checks remain required. After verified recovery, normal scheduling

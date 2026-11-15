@@ -1,5 +1,10 @@
 # Multi-space normal Feishu synchronization
 
+For the current service authorization and all-queues-enabled operating state,
+see [normal service](feishu-normal-service.md#recovery-and-lifecycle). The shared
+pause retained by the historical incident procedure below is not a normal
+operating requirement when the dedicated Feishu lane is enabled.
+
 This extends the existing recovery controller and `approved_sync` delivery
 adapter. It does not change connectors, legacy source protection, SQL Claim or
 atomic publication. There is no database migration or global Resume operation.
