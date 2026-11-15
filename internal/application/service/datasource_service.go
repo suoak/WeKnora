@@ -1409,8 +1409,12 @@ func (s *DataSourceService) applyFetchedItem(
 			if local != "" {
 				code = local
 			}
+			message := "Ingest failed; see server logs"
+			if local == "safe_staging_parser_resource_limit" {
+				message = "Document exceeds parser resource limits; split or simplify the source file and retry"
+			}
 			recordSyncError(result, types.SyncItemError{
-				Title: item.Title, Code: code, Message: "Ingest failed; see server logs",
+				Title: item.Title, Code: code, Message: message,
 			})
 			if local != "" {
 				if err := s.retainVerifiedFeishuItem(ctx, ds, item); err != nil {

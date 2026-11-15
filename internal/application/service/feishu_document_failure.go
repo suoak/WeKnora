@@ -7,6 +7,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -30,6 +31,9 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	// The final transaction still requires a receipt for every public document.
 	if errors.Is(err, feishudocx.ErrInvalidXLSXPackage) {
 		return "safe_staging_invalid_xlsx_package"
+	}
+	if errors.Is(err, anydoc.ErrResourceLimit) {
+		return "safe_staging_parser_resource_limit"
 	}
 	var fence *repository.LegacyFenceError
 	if errors.As(err, &fence) && fence.Reason == "source_revision_content_conflict" {

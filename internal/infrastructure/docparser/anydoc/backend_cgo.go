@@ -3,6 +3,7 @@
 package anydoc
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -28,7 +29,7 @@ func backendConvert(data []byte, opts Options) (*Result, error) {
 	if !opts.WithAssets {
 		markdown, err := upstream.ToMarkdownBytes(data, format)
 		if err != nil {
-			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", err)
+			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", classifyConversionError(err))
 		}
 		return &Result{Markdown: markdown}, nil
 	}
@@ -40,14 +41,22 @@ func backendConvert(data []byte, opts Options) (*Result, error) {
 	if err != nil {
 		markdown, mdErr := upstream.ToMarkdownBytes(data, format)
 		if mdErr != nil {
-			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", mdErr)
+			return nil, fmt.Errorf("anydoc: markdown conversion failed: %w", classifyConversionError(mdErr))
 		}
 		return &Result{
 			Markdown:    markdown,
-			AssetsError: fmt.Errorf("anydoc: image extraction failed: %w", err),
+			AssetsError: fmt.Errorf("anydoc: image extraction failed: %w", classifyConversionError(err)),
 		}, nil
 	}
 	return &Result{Markdown: markdown, Assets: collectAssets(document)}, nil
+}
+
+func classifyConversionError(err error) error {
+	var converted *upstream.ConvertError
+	if errors.As(err, &converted) && converted != nil && converted.Kind == "resource_limit" {
+		return fmt.Errorf("%w: %w", ErrResourceLimit, err)
+	}
+	return err
 }
 
 // upstreamFormat maps our format name onto the binding's constant. An empty

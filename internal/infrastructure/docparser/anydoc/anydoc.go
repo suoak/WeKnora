@@ -79,6 +79,11 @@ type Options struct {
 // with errors.Is.
 var ErrUnavailable = errors.New("anydoc: binding not built into this binary")
 
+// ErrResourceLimit marks a native converter's typed resource-limit refusal.
+// Limits stay enforced; callers may isolate this document without retrying
+// unrelated work. Error message text alone never creates this classification.
+var ErrResourceLimit = errors.New("anydoc: parser resource limit exceeded")
+
 // supportedExtensions are the file types anydoc converts, mapped to the format
 // name its parser selector uses. The list is static so that engine metadata
 // (file types shown in the UI) is identical whether or not the binding is

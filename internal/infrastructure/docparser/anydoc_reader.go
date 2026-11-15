@@ -2,6 +2,7 @@ package docparser
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -73,6 +74,9 @@ func materializeAnydocResult(ctx context.Context, converted *anydoc.Result,
 ) (*types.ReadResult, error) {
 	if converted.AssetsError != nil {
 		if feishusafety.Scoped(ctx) {
+			if errors.Is(converted.AssetsError, anydoc.ErrResourceLimit) {
+				return nil, fmt.Errorf("anydoc asset conversion refused: %w", converted.AssetsError)
+			}
 			// Native conversion can fall back to text after image extraction
 			// fails. A candidate version must never publish that lossy fallback.
 			return nil, candidateImageInvalid("parser asset extraction failed")
