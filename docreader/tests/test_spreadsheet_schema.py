@@ -30,7 +30,7 @@ class SpreadsheetSchemaTest(unittest.TestCase):
         result["records"][1]["other"] = {"key": "changed"}
         result["records"].pop()
         self.assertEqual(schema.to_dict(), expected)
-        schema.records[-1]["entities"]["Value"] = "changed later"
+        schema.records[999]["entities"]["Value"] = "changed later"
         self.assertEqual(result["records"][-1]["entities"]["Value"], "value-999")
 
     def test_overlapping_suffixes_do_not_rescan_column_pairs(self):
