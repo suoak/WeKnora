@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import statistics
 from functools import lru_cache
-from dataclasses import asdict, dataclass, field
+from dataclasses import dataclass, field
 from typing import Any
 
 import pandas as pd
@@ -31,7 +31,22 @@ class SpreadsheetSchema:
     records: list[dict[str, dict[str, str]]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        # All leaves have already been normalized to immutable strings or
+        # scalar schema fields. Generic dataclass deepcopy walks millions of
+        # cells again on large sheets; copy only the mutable containers here.
+        return {
+            "sheet_name": self.sheet_name,
+            "headers": self.headers.copy(),
+            "common_columns": self.common_columns.copy(),
+            "entity_axis": self.entity_axis,
+            "entity_headers": self.entity_headers.copy(),
+            "entity_count": self.entity_count,
+            "confidence": self.confidence,
+            "records": [
+                {name: values.copy() for name, values in record.items()}
+                for record in self.records
+            ],
+        }
 
 
 def detect_sheet_schema(df: pd.DataFrame, sheet_name: str) -> SpreadsheetSchema:

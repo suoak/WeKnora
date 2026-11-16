@@ -1,12 +1,38 @@
 import unittest
+from dataclasses import asdict
 from unittest.mock import patch
 
 import pandas as pd
 
-from docreader.parser.spreadsheet_schema import detect_sheet_schema
+from docreader.parser.spreadsheet_schema import SpreadsheetSchema, detect_sheet_schema
 
 
 class SpreadsheetSchemaTest(unittest.TestCase):
+    def test_export_preserves_all_cells_and_detaches_mutable_containers(self):
+        schema = SpreadsheetSchema(
+            sheet_name="Records", headers=["ID", "Value"],
+            common_columns=["ID"], entity_axis="rows",
+            entity_headers=[f"item-{i}" for i in range(1001)],
+            entity_count=1001, confidence=0.875,
+            records=[{
+                "common": {"entity": f"item-{i}"},
+                "entities": {"Value": f"value-{i}", "Empty": ""},
+            } for i in range(1001)],
+        )
+        expected = asdict(schema)
+        result = schema.to_dict()
+        self.assertEqual(result, expected)
+        self.assertEqual(result["records"][-1]["entities"]["Value"], "value-1000")
+        for key in ["headers", "common_columns", "entity_headers"]:
+            result[key].append("changed")
+        result["records"][0]["common"]["entity"] = "changed"
+        result["records"][0]["entities"]["Value"] = "changed"
+        result["records"][1]["other"] = {"key": "changed"}
+        result["records"].pop()
+        self.assertEqual(schema.to_dict(), expected)
+        schema.records[-1]["entities"]["Value"] = "changed later"
+        self.assertEqual(result["records"][-1]["entities"]["Value"], "value-999")
+
     def test_overlapping_suffixes_do_not_rescan_column_pairs(self):
         from docreader.parser.excel_wide_table_dry_run import (
             _column_similarity, _profile_columns,
