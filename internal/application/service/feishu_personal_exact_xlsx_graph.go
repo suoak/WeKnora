@@ -71,10 +71,46 @@ func validateStandaloneWorkbookGraph(parts map[string][]byte) error {
 	}
 	for name := range parts {
 		if !seen[name] {
+			// Some Feishu exports retain a complete dynamic-array metadata
+			// part without a workbook relationship even though no cell uses it.
+			// Preserve its validated facts; never infer a missing live binding.
+			if name == "xl/metadata.xml" && standaloneUnusedDynamicMetadata(parts) {
+				continue
+			}
 			return errExactWorkbookUnsupported
 		}
 	}
 	return nil
+}
+
+func standaloneUnusedDynamicMetadata(parts map[string][]byte) bool {
+	if _, _, err := standaloneDynamicMetadata(parts["xl/metadata.xml"]); err != nil {
+		return false
+	}
+	for name, body := range parts {
+		if path.Dir(name) != "xl/worksheets" || !strings.HasSuffix(name, ".xml") {
+			continue
+		}
+		decoder := xml.NewDecoder(bytes.NewReader(body))
+		for {
+			token, err := decoder.Token()
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				return false
+			}
+			if cell, ok := token.(xml.StartElement); ok &&
+				cell.Name.Space == standaloneMainNS && cell.Name.Local == "c" {
+				for _, attr := range cell.Attr {
+					if attr.Name.Local == "cm" || attr.Name.Local == "vm" {
+						return false
+					}
+				}
+			}
+		}
+	}
+	return true
 }
 
 func standaloneRelationTargetAllowed(owner, kind, target string) bool {
@@ -238,7 +274,19 @@ func standaloneContentTypes(parts map[string][]byte) error {
 	}
 	for _, row := range types.Rows {
 		kind := strings.ToLower(row.Type)
-		if row.XMLName.Space != types.XMLName.Space || !allowed[kind] {
+		// The exporter declares BMP support even for packages with no BMP.
+		// This is a declaration-only exception, not support for BMP payloads.
+		unusedBMP := row.XMLName.Local == "Default" &&
+			strings.EqualFold(row.Extension, "bmp") && kind == "image/bmp" && row.Part == ""
+		if unusedBMP {
+			for name := range parts {
+				if strings.EqualFold(path.Ext(name), ".bmp") {
+					unusedBMP = false
+					break
+				}
+			}
+		}
+		if row.XMLName.Space != types.XMLName.Space || (!allowed[kind] && !unusedBMP) {
 			return errExactWorkbookUnsupported
 		}
 		switch row.XMLName.Local {
