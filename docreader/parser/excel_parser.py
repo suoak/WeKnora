@@ -422,10 +422,10 @@ def _literal_cell_image_markup(value: str) -> str:
 
 
 def _render_fields(fields: Sequence[Tuple[str, str]]) -> str:
-    return ",".join(
-        f"{_literal_cell_image_markup(key)}: {_literal_cell_image_markup(value)}"
-        for key, value in fields
-    ) + "\n"
+    # Apply once per rendered record rather than twice per cell. Delimiters
+    # prevent a new image opener from being formed across field boundaries.
+    rendered = ",".join(f"{key}: {value}" for key, value in fields) + "\n"
+    return _literal_cell_image_markup(rendered)
 
 
 def _split_semantic_excel_row(
