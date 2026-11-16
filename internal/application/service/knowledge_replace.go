@@ -261,6 +261,9 @@ func mergeKnowledgeMetadata(current types.JSON, updates map[string]string) (type
 		merged = map[string]interface{}{}
 	}
 	for k, v := range updates {
+		if k == "submitter" {
+			continue
+		}
 		merged[k] = v
 	}
 	b, err := json.Marshal(merged)

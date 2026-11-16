@@ -28,6 +28,7 @@ interface KnowledgeItem {
   summary_status?: string;
   updated_at?: string;
   source?: string;
+  metadata?: { submitter?: { name?: string } };
   description?: string;
   channel?: string;
   isMore?: boolean;
@@ -290,6 +291,8 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
               </template>
               <span class="meta-sep" aria-hidden="true">·</span>
               <span :title="t('knowledgeBase.columnUpdatedAt')">{{ formatTime(item.updated_at) }}</span>
+              <span class="meta-sep" aria-hidden="true">&middot;</span>
+              <span>{{ t('knowledgeBase.submitter') }}: {{ item.metadata?.submitter?.name || t('knowledgeBase.unknownSubmitter') }}</span>
             </span>
             <button v-if="showFolderPath && item.folder_path" type="button" class="row-file-folder"
               :title="item.folder_path" @click.stop="emit('open-folder', item.folder_path)">

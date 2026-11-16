@@ -411,6 +411,9 @@ const messages = {
     sharedTooltip: '共有スペース経由で外部ワークスペースからアクセス'
   },
   knowledgeBase: {
+    submitter: '投稿者',
+    unknownSubmitter: '不明（記録なし）',
+    resizeFolderPane: 'フォルダー幅を調整',
     documentCount: '全 {count} 件のドキュメント',
     filters: 'フィルター',
     clearFilters: 'フィルターをクリア',

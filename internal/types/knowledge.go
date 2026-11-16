@@ -317,6 +317,30 @@ func (k *Knowledge) BeforeCreate(tx *gorm.DB) (err error) {
 	if len(k.CustomMetadata) == 0 {
 		k.CustomMetadata = JSON(`{}`)
 	}
+	// Attribution comes only from the authenticated request, never upload metadata.
+	fields, err := k.Metadata.Map()
+	if err != nil {
+		return err
+	}
+	if fields == nil {
+		fields = map[string]interface{}{}
+	}
+	delete(fields, "submitter")
+	if tx != nil && tx.Statement != nil && tx.Statement.Context != nil {
+		ctx := tx.Statement.Context
+		user, _ := ctx.Value(UserContextKey).(*User)
+		caller := CallerFromContext(ctx)
+		if user != nil && user.ID == caller.UserID && !IsSyntheticUserID(user.ID) {
+			name := strings.TrimSpace(user.Username)
+			if name != "" {
+				fields["submitter"] = map[string]string{"user_id": user.ID, "name": name}
+			}
+		}
+	}
+	if len(fields) > 0 || len(k.Metadata) > 0 {
+		k.Metadata, err = json.Marshal(fields)
+		return err
+	}
 	return nil
 }
 
@@ -424,6 +448,17 @@ func (k *Knowledge) SetManualMetadata(meta *ManualKnowledgeMetadata) error {
 	old, err := k.Metadata.Map()
 	if err != nil {
 		return err
+	}
+	if submitter, ok := old["submitter"]; ok {
+		fields, err := jsonValue.Map()
+		if err != nil {
+			return err
+		}
+		fields["submitter"] = submitter
+		jsonValue, err = json.Marshal(fields)
+		if err != nil {
+			return err
+		}
 	}
 	if hash, ok := old["creation_request_hash"]; ok {
 		fields, err := jsonValue.Map()

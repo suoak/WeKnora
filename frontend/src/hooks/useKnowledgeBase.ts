@@ -21,6 +21,7 @@ export default function (knowledgeBaseId?: string) {
   const details = reactive({
     title: "",
     time: "",
+    submitter_name: "",
     md: [] as any[],
     id: "",
     total: 0,
@@ -116,6 +117,7 @@ export default function (knowledgeBaseId?: string) {
     Object.assign(details, {
       title: item.file_name || item.title || t('knowledgeBase.untitledDocument'),
       time: "",
+    submitter_name: "",
       md: [],
       total: 0,
       detailLoading: true,
@@ -143,6 +145,7 @@ export default function (knowledgeBaseId?: string) {
             title: data.file_name || data.title || data.source || t('knowledgeBase.untitledDocument'),
             time: formatStringDate(new Date(data.updated_at)),
             id: data.id,
+            submitter_name: data.metadata?.submitter?.name || "",
             type: data.type || 'file',
             source: data.source || '',
             channel: data.channel || '',

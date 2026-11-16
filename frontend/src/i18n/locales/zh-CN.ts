@@ -7046,6 +7046,9 @@ export default {
     }
   },
   knowledgeBase: {
+    submitter: '提交人',
+    unknownSubmitter: '未知（历史记录未留存）',
+    resizeFolderPane: '调整目录宽度',
     documentCount: '共 {count} 个文档',
     filters: '筛选',
     clearFilters: '清除筛选',
