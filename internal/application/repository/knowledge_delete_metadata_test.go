@@ -61,6 +61,17 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	require.EqualValues(t, 1, affected)
 	_, err = repo.GetKnowledgeBatch(ctx, tenant.ID, []string{k.ID})
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "folder placement must not unlock content")
+	for _, column := range []string{"title", "description", "knowledge_base_id", "channel", "metadata"} {
+		value := interface{}("forged")
+		if column == "metadata" {
+			value = types.JSON(`{"content":"forged"}`)
+		}
+		err := db.Model(&types.Knowledge{}).Where("id = ?", k.ID).Update(column, value).Error
+		require.Error(t, err, "folder-only exception must still reject %s changes", column)
+	}
+	rows, err = repo.GetKnowledgeDeletionMetadata(ctx, tenant.ID, []string{k.ID})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	wrongTenant, err := repo.GetKnowledgeDeletionMetadata(ctx, tenant.ID+1, []string{k.ID})
 	require.NoError(t, err)
 	require.Empty(t, wrongTenant)
