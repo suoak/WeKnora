@@ -380,7 +380,10 @@ def _is_conservative_row_table(
         # describes records; row-aware remains available as an explicit opt-in.
         return False
     expected_values = tuple(zip(active_columns, normalized_header))
-    for values in nonempty_data.to_numpy():
+    row_values = nonempty_data.to_numpy()
+    if row_values.dtype.kind in {"M", "m"}:
+        row_values = (row.array for _, row in nonempty_data.iterrows())
+    for values in row_values:
         # Same common-dtype values used by iterrows, without a Series per row.
         matches_header = True
         nonnull_count = 0

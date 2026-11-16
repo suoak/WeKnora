@@ -33,6 +33,12 @@ class ExcelRowScanTest(unittest.TestCase):
         frame = pd.DataFrame({"A": [1], "B": [2.0]}, index=[99])
         self.assertFalse(_is_conservative_row_table(["1.0", "2.0"], frame))
 
+    def test_datetime_and_timedelta_repeated_headers_remain_rejected(self):
+        for values in ([pd.Timestamp('2025-01-02'), pd.Timestamp('2025-02-03')],
+                       [pd.Timedelta(seconds=1), pd.Timedelta(seconds=2)]):
+            frame = pd.DataFrame([values])
+            self.assertFalse(_is_conservative_row_table([str(v) for v in values], frame))
+
     def test_float32_scalar_spelling_is_preserved(self):
         frame = pd.DataFrame([[0.1, 0.2]], dtype=np.float32)
         self.assertFalse(_is_conservative_row_table(["0.1", "0.2"], frame))
