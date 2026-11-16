@@ -19,7 +19,10 @@ import (
 )
 
 func TestMergeKnowledgeMetadataPreservesSubmitter(t *testing.T) {
-	merged, err := mergeKnowledgeMetadata(types.JSON(`{"submitter":{"user_id":"alice","name":"Alice"},"source_id":"old"}`), map[string]string{"submitter": "forged", "source_id": "new"})
+	merged, err := mergeKnowledgeMetadata(
+		types.JSON(`{"submitter":{"user_id":"alice","name":"Alice"},"source_id":"old"}`),
+		map[string]string{"submitter": "forged", "source_id": "new"},
+	)
 	require.NoError(t, err)
 	require.JSONEq(t, `{"submitter":{"user_id":"alice","name":"Alice"},"source_id":"new"}`, string(merged))
 }
