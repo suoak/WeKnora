@@ -15,7 +15,9 @@ class ExcelRowScanTest(unittest.TestCase):
         for row in itertools.product((None, "Key", "Value", "Tail", "field"), repeat=3):
             frame = pd.DataFrame([["first", "record", "data"], row])
             full_row = ["" if pd.isna(v) else str(v).strip() for v in row]
-            expected = sum(pd.notna(v) for v in row) >= 2 and full_row != headers
+            present = sum(pd.notna(v) for v in row)
+            # Entirely empty rows are excluded before record admission.
+            expected = present == 0 or (present >= 2 and full_row != headers)
             self.assertEqual(_is_conservative_row_table(headers, frame), expected, row)
 
     def test_final_repeated_header_and_sparse_note_are_rejected(self):
