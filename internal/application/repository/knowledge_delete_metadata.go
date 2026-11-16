@@ -9,7 +9,8 @@ import (
 	"gorm.io/gorm"
 )
 
-// GetKnowledgeDeletionMetadata is for cleanup of already-admitted document IDs.
+// GetKnowledgeDeletionMetadata projects identity for cleanup and folder placement
+// of already-admitted document IDs. It does not authorize either mutation.
 // Scan deliberately avoids content-read AfterFind hooks. The projection excludes
 // descriptions, profiles and custom metadata; no chunk body is read. Callers must
 // validate every persisted KB binding before mutating anything. Ordinary read

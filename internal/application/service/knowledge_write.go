@@ -96,6 +96,17 @@ func loadKnowledgeWriteBatch(
 	lookup knowledgeBaseWriteLookup,
 	ids []string,
 ) ([]*types.Knowledge, error) {
+	return loadKnowledgeWriteBatchWith(ctx, lookup, ids, repo.GetKnowledgeBatch)
+}
+
+// The loader may project identity and move fences for metadata-only operations.
+// Every persisted tenant/KB binding and write grant is still checked below.
+func loadKnowledgeWriteBatchWith(
+	ctx context.Context,
+	lookup knowledgeBaseWriteLookup,
+	ids []string,
+	load func(context.Context, uint64, []string) ([]*types.Knowledge, error),
+) ([]*types.Knowledge, error) {
 	ids, err := writeResourceIDs(ids)
 	if err != nil || len(ids) == 0 {
 		return nil, err
@@ -104,7 +115,7 @@ func loadKnowledgeWriteBatch(
 	if err != nil {
 		return nil, err
 	}
-	rows, err := repo.GetKnowledgeBatch(ctx, tenant, ids)
+	rows, err := load(ctx, tenant, ids)
 	if err != nil {
 		return nil, err
 	}

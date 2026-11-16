@@ -1527,13 +1527,9 @@ func (h *KnowledgeHandler) MoveKnowledgeToFolder(c *gin.Context) {
 	}
 	ctx = types.WithExecutionTenant(c.Request.Context(), effectiveTenantID)
 
-	// Guard against cross-KB moves: the service layer scopes by tenant, so the
-	// handler must confirm every entry belongs to the requested knowledge base.
-	if err := h.requireKnowledgeInKB(ctx, effectiveTenantID, kbID, ids); err != nil {
-		c.Error(err)
-		return
-	}
-
+	// The service validates the entire batch's persisted tenant/KB bindings
+	// and write grants before changing folders. A content-read preflight here
+	// would incorrectly require Feishu source publication for classification.
 	affected, err := h.kgService.MoveKnowledgeToFolder(ctx, kbID, ids, req.FolderPath)
 	if err != nil {
 		if appErr, ok := errors.IsAppError(err); ok {
