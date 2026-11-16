@@ -169,6 +169,9 @@ func (g *pgRepository) BatchSave(
 	}
 	write := func(tx *gorm.DB) error { return saveExactDocumentVectors(ctx, tx, indexInfoDBList) }
 	var err error
+	if handled, ordinaryErr := types.OrdinaryEmbeddingWrite(ctx, g.db, write); handled {
+		return ordinaryErr
+	}
 	if tenant, knowledge, kb, scoped := types.ExactDocumentIdentity(ctx); scoped {
 		// A document capability covers one identity. Validate every input,
 		// including rows superseded by deduplication, before opening the tx.

@@ -55,11 +55,13 @@ func TestDeadLetterCallbackRespectsSupersededAttempt(t *testing.T) {
 	for _, tc := range []struct {
 		id             string
 		payloadAttempt int
+		ordinaryID     int64
 		latestAttempt  int
 		wantFailed     bool
 		wantFinalized  []finalizedAttempt
 	}{
 		{id: "superseded", payloadAttempt: 1, latestAttempt: 2, wantFailed: false},
+		{id: "ordinary-window", payloadAttempt: 2, latestAttempt: 2, ordinaryID: 19, wantFailed: false},
 		{
 			id: "latest", payloadAttempt: 2, latestAttempt: 2, wantFailed: true,
 			wantFinalized: []finalizedAttempt{{"latest", 2, types.SpanStatusFailed}},
@@ -76,6 +78,7 @@ func TestDeadLetterCallbackRespectsSupersededAttempt(t *testing.T) {
 			callback := newDeadLetterKnowledgeFailer(transferFailureKnowledge{repo: repo}, tracker)
 			payload, err := json.Marshal(deadLetterKnowledgePayload{
 				TenantID: 7, KnowledgeBaseID: "kb", KnowledgeID: tc.id, Attempt: tc.payloadAttempt,
+				OrdinaryEmbeddingID: tc.ordinaryID,
 			})
 			require.NoError(t, err)
 

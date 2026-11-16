@@ -328,6 +328,10 @@ type ExtractChunkPayload struct {
 
 // DocumentProcessPayload represents the document process task payload
 type DocumentProcessPayload struct {
+	// OrdinaryEmbeddingID continues a server-owned indexing plan. It never
+	// grants access to personal/managed source publication or supplied text.
+	OrdinaryEmbeddingID int64  `json:"ordinary_embedding_id,omitempty"`
+	EmbeddingCursor     int    `json:"embedding_cursor,omitempty"`
 	FirstCreate         bool   `json:"first_create,omitempty"`
 	FeishuAuthMode      string `json:"feishu_auth_mode,omitempty"`
 	FeishuApplicationID string `json:"feishu_application_id,omitempty"`
