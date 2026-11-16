@@ -16,7 +16,6 @@ def install_readonly_merge_fill(content: bytes, excel_file) -> bool:
     and unrelated cell graphs are never loaded into a mutable workbook.
     Unknown reader layouts retain the existing package-rewrite path.
     """
-    from defusedxml.ElementTree import XMLParser
     from openpyxl.utils.cell import range_boundaries
     from inspect import signature
     from weakref import ref
@@ -38,13 +37,8 @@ def install_readonly_merge_fill(content: bytes, excel_file) -> bool:
             path = getattr(sheet, "_worksheet_path", None)
             if not isinstance(path, str) or path not in archive.namelist():
                 return False
-            target = _MergeRanges()
-            parser = XMLParser(target=target)
             with archive.open(path) as source:
-                while block := source.read(64 << 10):
-                    parser.feed(block)
-                parser.close()
-            bounds = [range_boundaries(ref) for ref in target.refs]
+                bounds = [range_boundaries(value) for value in _read_merge_ranges(source)]
             # Overlapping merges have order-dependent/invalid legacy behavior;
             # do not invent a different interpretation in the optimized path.
             active = []
@@ -94,6 +88,32 @@ def install_readonly_merge_fill(content: bytes, excel_file) -> bool:
 
     reader.get_sheet_data = get_sheet_data
     return True
+
+
+def _read_merge_ranges(source):
+    """Validate complete XML without constructing or retaining cell elements."""
+    from xml.parsers.expat import ParserCreate
+
+    target = _MergeRanges()
+    parser = ParserCreate(namespace_separator="}")
+
+    def start(tag, attributes):
+        target.start("{" + tag if "}" in tag else tag, attributes)
+
+    def forbidden(*args):
+        raise ValueError("XML entities and external references are forbidden")
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = target.end
+    parser.EntityDeclHandler = forbidden
+    parser.ExternalEntityRefHandler = forbidden
+    # Parameter entities are never fetched; declarations are rejected above.
+    from xml.parsers.expat import XML_PARAM_ENTITY_PARSING_NEVER
+    parser.SetParamEntityParsing(XML_PARAM_ENTITY_PARSING_NEVER)
+    while block := source.read(64 << 10):
+        parser.Parse(block, False)
+    parser.Parse(b"", True)
+    return target.refs
 
 
 class _MergeRanges:

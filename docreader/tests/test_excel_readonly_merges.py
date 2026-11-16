@@ -37,6 +37,28 @@ def workbook_bytes():
 
 
 class ReadonlyMergedFramesTests(unittest.TestCase):
+    def test_integer_length_variance_matches_exact_statistics(self):
+        import random
+        import statistics
+        from docreader.parser.excel_wide_table_dry_run import _length_variance
+        rng = random.Random(17)
+        groups = [[], [0], [2**54, 2**54 + 1], [1] * 100001]
+        groups += [[rng.randrange(32768) for _ in range(rng.randrange(2, 100))] for _ in range(100)]
+        for values in groups:
+            expected = statistics.pvariance(values) if len(values) > 1 else 0.0
+            self.assertEqual(_length_variance(values), expected)
+
+    def test_merge_scan_refuses_entities_and_malformed_tail(self):
+        from docreader.parser.xlsx_merge import _read_merge_ranges
+        for content in (
+            b'<!DOCTYPE worksheet [<!ENTITY x "secret">]><worksheet>&x;</worksheet>',
+            b'<!DOCTYPE worksheet [<!ENTITY x SYSTEM "file:///unreadable">]><worksheet>&x;</worksheet>',
+            b'<worksheet></worksheet><unclosed>',
+        ):
+            with self.subTest(content=content):
+                with self.assertRaises(Exception):
+                    _read_merge_ranges(io.BytesIO(content))
+
     def test_fill_comparison_matches_complete_rowwise_reference(self):
         import itertools
         from docreader.parser.excel_wide_table_dry_run import _FillPattern, _fill_similarity
@@ -114,7 +136,7 @@ class ReadonlyMergedFramesTests(unittest.TestCase):
                         expected = parser.parse_into_text(content)
                     with patch("docreader.parser.excel_parser.READONLY_MERGE_FILL_MIN_BYTES", 0):
                         actual = parser.parse_into_text(content)
-                    self.assertEqual(actual, expected)
+                    self.assertEqual(actual.model_dump(), expected.model_dump())
 
     def test_optimized_reader_never_builds_mutable_workbook(self):
         original = openpyxl.load_workbook

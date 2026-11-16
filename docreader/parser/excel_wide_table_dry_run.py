@@ -184,7 +184,7 @@ def _profile_columns(df: pd.DataFrame) -> list[ColumnProfile]:
             numeric_with_unit_ratio=shapes.get("number_unit", 0) / len(values) if values else 0.0,
             boolean_enum_ratio=(shapes.get("boolean", 0) + repeated) / (2 * len(values)) if values else 0.0,
             median_value_length=statistics.median(lengths) if lengths else 0.0,
-            value_length_variance=statistics.pvariance(lengths) if len(lengths) > 1 else 0.0,
+            value_length_variance=_length_variance(lengths),
             dominant_value_shape=dominant,
             dominant_shape_ratio=dominant_count / len(values) if values else 0.0,
             header_unicode_shape=_unicode_shape(str(df.columns[index])),
@@ -192,6 +192,18 @@ def _profile_columns(df: pd.DataFrame) -> list[ColumnProfile]:
             fill_pattern=_FillPattern(pd.notna(v) and not _is_image_function(v) for v in series.tolist()),
         ))
     return profiles
+
+
+def _length_variance(lengths: list[int]) -> float:
+    # Lengths are integers: keep all arithmetic exact until the final division.
+    # This is the same population variance as statistics.pvariance, avoiding
+    # per-cell Fraction construction and floating-point cancellation.
+    count = len(lengths)
+    if count < 2:
+        return 0.0
+    total = sum(lengths)
+    squares = sum(value * value for value in lengths)
+    return (count * squares - total * total) / (count * count)
 
 
 def _ratio_similarity(left: float, right: float, scale: float = 1.0) -> float:
