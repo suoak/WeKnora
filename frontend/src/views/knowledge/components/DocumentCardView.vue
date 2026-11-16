@@ -1171,6 +1171,8 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 }
 
 .knowledge-card {
+  height: 172px;
+
   .card-content {
     padding: 13px 16px 10px;
   }
@@ -1203,5 +1205,5 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 </style>
 
 <style scoped>
-.card-submitter { display: block; padding: 0 16px 6px; flex-shrink: 0; font-size: 12px; color: var(--td-text-color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-submitter { display: block; padding: 0 16px 6px; flex-shrink: 0; font-size: 12px; line-height: 18px; color: var(--td-text-color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>
