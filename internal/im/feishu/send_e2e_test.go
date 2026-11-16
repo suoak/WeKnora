@@ -136,7 +136,10 @@ func TestSendReply_EndToEnd_UsesRegionCloud(t *testing.T) {
 	if err := json.Unmarshal([]byte(raw), &content); err != nil {
 		t.Fatalf("content is not a JSON string: %q", raw)
 	}
-	if len(content.Chinese.Content) != 1 || len(content.Chinese.Content[0]) != 1 || content.Chinese.Content[0][0].Tag != "md" || content.Chinese.Content[0][0].Text != "hello lark" {
+	if len(content.Chinese.Content) != 1 || len(content.Chinese.Content[0]) != 1 {
+		t.Fatalf("unexpected post Markdown shape: %#v", content)
+	}
+	if node := content.Chinese.Content[0][0]; node.Tag != "md" || node.Text != "hello lark" {
 		t.Fatalf("unexpected post Markdown content: %#v", content)
 	}
 }

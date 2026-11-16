@@ -20,8 +20,10 @@ func TestMarkdownReplyPreservesFormattingThroughThreadFallback(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	answer := "# ELOG 操作单\n\n**风险等级**：中\n\n| 项 | 命令 |\n|---|---|\n| 验证 | `docker ps` |\n\n```bash\nprintf '%s\\n' '$HOME'\n```\n\n[来源](https://example.com/doc)"
-	err = a.SendReply(context.Background(), &im.IncomingMessage{MessageID: "om_test", ChatType: im.ChatTypeGroup, ChatID: "oc_test"}, &im.ReplyMessage{Content: answer, IsFinal: true})
+	answer := "# ELOG 操作单\n\n**风险等级**：中\n\n| 项 | 命令 |\n|---|---|\n| 验证 | `docker ps` |\n\n" +
+		"```bash\nprintf '%s\\n' '$HOME'\n```\n\n[来源](https://example.com/doc)"
+	incoming := &im.IncomingMessage{MessageID: "om_test", ChatType: im.ChatTypeGroup, ChatID: "oc_test"}
+	err = a.SendReply(context.Background(), incoming, &im.ReplyMessage{Content: answer, IsFinal: true})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -80,7 +82,11 @@ func TestMarkdownReplyLongFencesAndTables(t *testing.T) {
 }
 
 func TestMarkdownReplyLongLineMakesProgress(t *testing.T) {
-	for _, text := range []string{strings.Repeat("中文", 10000), strings.Repeat("\x00", 10000), "```" + strings.Repeat("x", 5000) + "\n"} {
+	for _, text := range []string{
+		strings.Repeat("中文", 10000),
+		strings.Repeat("\x00", 10000),
+		"```" + strings.Repeat("x", 5000) + "\n",
+	} {
 		parts := splitMarkdownReply(text)
 		if strings.Join(parts, "") != text {
 			t.Fatal("long line changed")
