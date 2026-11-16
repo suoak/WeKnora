@@ -83,6 +83,46 @@ func TestUnsegmentedHTMLStillNormalizesBeforeImages(t *testing.T) {
 	require.Contains(t, result.MarkdownContent, "42")
 }
 
+func TestParserSpreadsheetCellsKeepLiteralImageExamples(t *testing.T) {
+	text := "ID: 末行,代码: <img src=\"https://example.test/image.png\"> ![example](https://example.test/a.png)\n"
+	result := preserveResult([]string{text})
+	result.Metadata = map[string]string{"parser.type": "xlsx"}
+	result.ParsedChunks[0].Metadata = map[string]string{"parser.source_kind": "excel_row"}
+	_, controlled, err := materializeParserDefinedChunks(result, 7500)
+	require.NoError(t, err)
+	require.True(t, parserHasLiteralSpreadsheetCells(result, controlled))
+	normalizeParserDocumentContent(result, controlled)
+	require.Equal(t, text, result.MarkdownContent)
+	// An actual parser-supplied image is never silently dropped by this rule.
+	result.ImageRefs = []types.ImageRef{{OriginalRef: "embedded.png", ImageData: []byte("parser image")}}
+	require.False(t, parserHasLiteralSpreadsheetCells(result, controlled))
+}
+
+func TestParserSpreadsheetLiteralRuleDoesNotCoverMixedOrUnknownOutput(t *testing.T) {
+	row := types.ParserChunkSpan{
+		Seq: 0, Start: 0, End: 4,
+		Metadata: map[string]string{"parser.source_kind": "excel_row"},
+	}
+	result := &types.ReadResult{
+		Metadata: map[string]string{"parser.type": "xlsx"},
+		ParsedSegments: []types.ParserDefinedSegment{{
+			Seq: 0, Start: 0, End: 4,
+			ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks, ParsedChunks: []types.ParserChunkSpan{row},
+			Metadata: map[string]string{"parser.segment_kind": "excel_sheet"},
+		}},
+	}
+	require.True(t, parserHasLiteralSpreadsheetCells(result, true))
+	require.False(t, parserHasLiteralSpreadsheetCells(result, false))
+	result.ParsedSegments = append(result.ParsedSegments, types.ParserDefinedSegment{
+		Seq: 1, Start: 4, End: 8, ChunkingPolicy: types.ChunkingPolicyDefault,
+	})
+	require.False(t, parserHasLiteralSpreadsheetCells(result, true))
+	result.ParsedSegments = result.ParsedSegments[:1]
+	result.ParsedSegments[0].ParsedChunks[0].Metadata = nil
+	require.False(t, parserHasLiteralSpreadsheetCells(result, true))
+	require.False(t, parserHasLiteralSpreadsheetCells(nil, true))
+}
+
 func TestMaterializeParserDefinedChunks_NormalizesEachSpanAndRebuildsRuneOffsets(t *testing.T) {
 	t.Parallel()
 	parts := []string{

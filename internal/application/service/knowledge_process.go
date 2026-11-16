@@ -3857,6 +3857,37 @@ func normalizeParserDocumentContent(result *types.ReadResult, parserControlled b
 	}
 }
 
+// A completely preserved Excel row stream is cell text. Markdown/HTML image
+// syntax inside those cells is not an image discovered by the parser. Keep it
+// literal instead of downloading URLs or interpreting embedded code samples.
+// Explicit parser images and mixed/free-form segments keep the existing path.
+func parserHasLiteralSpreadsheetCells(result *types.ReadResult, parserControlled bool) bool {
+	if result == nil || !parserControlled || result.Metadata["parser.type"] != "xlsx" || len(result.ImageRefs) != 0 {
+		return false
+	}
+	isRows := func(spans []types.ParserChunkSpan) bool {
+		if len(spans) == 0 {
+			return false
+		}
+		for _, span := range spans {
+			if span.Metadata["parser.source_kind"] != "excel_row" {
+				return false
+			}
+		}
+		return true
+	}
+	if len(result.ParsedSegments) == 0 {
+		return result.ChunkingPolicy == types.ChunkingPolicyPreserveParserChunks && isRows(result.ParsedChunks)
+	}
+	for _, segment := range result.ParsedSegments {
+		if segment.ChunkingPolicy != types.ChunkingPolicyPreserveParserChunks ||
+			segment.Metadata["parser.segment_kind"] != "excel_sheet" || !isRows(segment.ParsedChunks) {
+			return false
+		}
+	}
+	return true
+}
+
 // ProcessDocument handles Asynq document processing tasks
 func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) error {
 	var payload types.DocumentProcessPayload
@@ -4382,7 +4413,8 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 		}
 	}
 
-	if s.imageResolver != nil && convertResult != nil && !exactImages {
+	if s.imageResolver != nil && convertResult != nil && !exactImages &&
+		!parserHasLiteralSpreadsheetCells(convertResult, parserControlled) {
 		fileSvc := s.resolveFileService(ctx, kb)
 		tenantID, _ := ctx.Value(types.TenantIDContextKey).(uint64)
 		updatedMarkdown, images, resolveErr := s.imageResolver.ResolveAndStore(
