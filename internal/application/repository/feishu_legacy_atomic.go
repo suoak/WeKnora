@@ -126,7 +126,11 @@ func (s *FeishuLegacyStore) ModelStamp(ctx context.Context, id string) (string, 
 	return hash, err
 }
 
-func (s *FeishuLegacyStore) StorageStamp(ctx context.Context, tenant uint64, id string) (string, error) {
+func (s *FeishuLegacyStore) StorageStamp(
+	ctx context.Context,
+	tenant uint64,
+	id string,
+) (string, error) {
 	var stamp string
 	err := s.db.WithContext(ctx).
 		Raw("SELECT md5(row_to_json(b)::text) FROM storage_backends b WHERE id=? AND "+
@@ -152,7 +156,11 @@ func (s *FeishuLegacyStore) CheckOwner(
 // Lock ordering matches sync execution: datasource, synclog, resource, knowledge.
 // The row lock is retained through the actual public index write, not released
 // after a preflight check. Database triggers protect old unmodified workers too.
-func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *types.DataSource) error {
+func (s *FeishuLegacyStore) execution(
+	tx *gorm.DB,
+	ctx context.Context,
+	ds *types.DataSource,
+) error {
 	if err := s.executionFence(ctx, tx, ds); err != nil {
 		return err
 	}
@@ -180,16 +188,22 @@ func (s *FeishuLegacyStore) execution(tx *gorm.DB, ctx context.Context, ds *type
 // Restrictive operations retain the same configuration, generation and claim
 // fence, while remaining possible after the remote credential is withdrawn.
 // Restoring access and publishing still require execution's credential guard.
-func (s *FeishuLegacyStore) executionFence(ctx context.Context, tx *gorm.DB, ds *types.DataSource) error {
+func (s *FeishuLegacyStore) executionFence(
+	ctx context.Context,
+	tx *gorm.DB,
+	ds *types.DataSource,
+) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
-	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID || tx.Dialector.Name() != "postgres" {
+	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID ||
+		tx.Dialector.Name() != "postgres" {
 		return legacyFence("execution_context_invalid")
 	}
 	current, err := lockSyncDataSource(tx, ds.ID, ds.TenantID)
 	if err != nil {
 		return err
 	}
-	if current.Status == types.DataSourceStatusPaused || current.KnowledgeBaseID != ds.KnowledgeBaseID ||
+	if current.Status == types.DataSourceStatusPaused ||
+		current.KnowledgeBaseID != ds.KnowledgeBaseID ||
 		current.Type != ds.Type ||
 		!legacyConfigEqual(current.Config, ds.Config) {
 		return legacyFence("source_configuration_changed_or_paused")
@@ -250,7 +264,8 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		return nil, nil, legacyFence("source_identity_algorithm_unconfirmed")
 	}
 	if identity != nil {
-		docx := legacyDOCXIdentityAlgorithmValid(identity.Algorithm) && item.Metadata["obj_type"] == "docx" &&
+		docx := legacyDOCXIdentityAlgorithmValid(identity.Algorithm) &&
+			item.Metadata["obj_type"] == "docx" &&
 			strings.EqualFold(path.Ext(item.FileName), ".docx")
 		xlsx := identity.Algorithm == legacyXLSXIdentityAlgorithm &&
 			(item.Metadata["obj_type"] == "sheet" || item.Metadata["obj_type"] == "bitable") &&
@@ -270,7 +285,13 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 			return e
 		}
 		id := legacyResourceID(ds, item.ExternalID)
-		lockIdentity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID)
+		lockIdentity := fmt.Sprintf(
+			"%d:%s:%s:%s",
+			ds.TenantID,
+			ds.KnowledgeBaseID,
+			ds.ID,
+			item.ExternalID,
+		)
 		if e := tx.Exec("SELECT pg_advisory_xact_lock(hashtextextended(?,0))", lockIdentity).Error; e != nil {
 			return e
 		}
@@ -457,7 +478,14 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 			if item.UpdatedAt.Before(previous) {
 				return legacyFence("source_revision_regressed")
 			}
-			matched, matchErr := legacyAttemptSourceMatches(tx, r, &active, sourceHash, identity, proof)
+			matched, matchErr := legacyAttemptSourceMatches(
+				tx,
+				r,
+				&active,
+				sourceHash,
+				identity,
+				proof,
+			)
 			if matchErr != nil {
 				return matchErr
 			}
@@ -575,7 +603,8 @@ func (s *FeishuLegacyStore) owned(
 	if !valid {
 		return nil, nil, legacyFence("attempt_lease_expired")
 	}
-	if r.CurrentAttempt != a.ID || r.Generation != a.Generation || owner.Generation != a.Generation ||
+	if r.CurrentAttempt != a.ID || r.Generation != a.Generation ||
+		owner.Generation != a.Generation ||
 		owner.OwnerNonce != a.OwnerNonce ||
 		r.State == "revoked" ||
 		(a.Status != "staging" && a.Status != "ready") {
@@ -592,7 +621,8 @@ func (s *FeishuLegacyStore) Prepare(
 	m types.FeishuLegacyManifest,
 	vectors [][]float32,
 ) error {
-	if len(m.Chunks) == 0 || len(m.Chunks) > 10000 || m.Dimension < 1 || m.Dimension > 4096 {
+	if len(m.Chunks) == 0 || len(m.Chunks) > LargeFeishuChunkLimit || m.Dimension < 1 ||
+		m.Dimension > 4096 {
 		return legacyFence("manifest_shape_invalid")
 	}
 	indexed, err := legacyIndexedChunks(m.Chunks)
@@ -610,6 +640,21 @@ func (s *FeishuLegacyStore) Prepare(
 		if a.Status != "staging" {
 			return legacyFence("attempt_not_staging")
 		}
+		if len(m.Chunks) > 10000 {
+			if m.Knowledge.FileType != "xlsx" {
+				return legacyFence("large_checkpoint_file_type")
+			}
+			c, checkpointErr := embeddingCheckpoint(a)
+			if checkpointErr != nil {
+				return checkpointErr
+			}
+			if !largeCheckpointShape(c) {
+				return legacyFence("large_checkpoint_missing")
+			}
+			if checkpointErr = checkLargeCheckpointClaim(ctx, tx, ds, r, c); checkpointErr != nil {
+				return checkpointErr
+			}
+		}
 		var initial types.FeishuLegacyManifest
 		if e = json.Unmarshal(a.Manifest, &initial); e != nil {
 			return e
@@ -620,7 +665,8 @@ func (s *FeishuLegacyStore) Prepare(
 				return legacyFence("source_identity_manifest_unconfirmed")
 			}
 		}
-		if m.SourceIdentity != nil && !legacyIdentityEqual(m.SourceIdentity, initial.SourceIdentity) {
+		if m.SourceIdentity != nil &&
+			!legacyIdentityEqual(m.SourceIdentity, initial.SourceIdentity) {
 			return legacyFence("source_identity_manifest_changed")
 		}
 		if m.LatestSnapshot != nil &&
@@ -683,7 +729,8 @@ func (s *FeishuLegacyStore) Prepare(
 			}
 			var norm float64
 			for _, v := range vectors[i] {
-				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) || math.Abs(float64(v)) > 65504 {
+				if math.IsNaN(float64(v)) || math.IsInf(float64(v), 0) ||
+					math.Abs(float64(v)) > 65504 {
 					return legacyFence("vector_value_invalid")
 				}
 				norm += float64(v) * float64(v)
@@ -707,7 +754,9 @@ func (s *FeishuLegacyStore) Prepare(
 		if e != nil {
 			return e
 		}
-		return tx.Model(a).Updates(map[string]any{"manifest": json.RawMessage(b), "status": "ready"}).Error
+		return tx.Model(a).
+			Updates(map[string]any{"manifest": json.RawMessage(b), "status": "ready"}).
+			Error
 	})
 }
 func buildLegacyIndexContent(title, body string) string { return title + "\n\n" + body }
@@ -749,7 +798,8 @@ func (s *FeishuLegacyStore) Publish(
 			r.TenantID).Error; e != nil {
 			return e
 		}
-		if kb.EmbeddingModelID != m.EmbeddingModelID || LegacyKBConfigHash(&kb) != m.KBConfigSHA256 ||
+		if kb.EmbeddingModelID != m.EmbeddingModelID ||
+			LegacyKBConfigHash(&kb) != m.KBConfigSHA256 ||
 			kb.VectorStoreID != nil ||
 			kb.Type != types.KnowledgeBaseTypeDocument {
 			return fmt.Errorf(
@@ -1101,11 +1151,15 @@ func (s *FeishuLegacyStore) Receipt(
 			// the live graph, never repaired by trusting loose count inequalities.
 			out.IndexedChunks, out.ParentChunks = indexedCount, parents
 		}
-		if out.Chunks != int64(len(manifest.Chunks)) || out.Chunks != out.ParentChunks+out.IndexedChunks ||
-			out.ParentChunks != parents || out.IndexedChunks != indexedCount ||
+		if out.Chunks != int64(len(manifest.Chunks)) ||
+			out.Chunks != out.ParentChunks+out.IndexedChunks ||
+			out.ParentChunks != parents ||
+			out.IndexedChunks != indexedCount ||
 			int64(
 				len(publicIndexed),
-			) != indexedCount || out.Vectors != indexedCount || out.BM25Rows != indexedCount {
+			) != indexedCount ||
+			out.Vectors != indexedCount ||
+			out.BM25Rows != indexedCount {
 			return legacyFence("receipt_graph_count_mismatch")
 		}
 		manifestByID := make(map[string]*types.Chunk, len(manifest.Chunks))
@@ -1148,7 +1202,10 @@ func (s *FeishuLegacyStore) Abandon(ctx context.Context, owner *types.FeishuLega
 
 func validateLegacyCursorReceipts(tx *gorm.DB, ctx context.Context) error {
 	receipts := types.LegacyReceipts(ctx)
-	sort.Slice(receipts, func(i, j int) bool { return receipts[i].ResourceID < receipts[j].ResourceID })
+	sort.Slice(
+		receipts,
+		func(i, j int) bool { return receipts[i].ResourceID < receipts[j].ResourceID },
+	)
 	for _, receipt := range receipts {
 		if receipt.ResourceID == "" || receipt.Chunks < 1 {
 			return legacyFence("cursor_receipt_invalid")

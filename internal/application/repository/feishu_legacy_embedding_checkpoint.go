@@ -31,15 +31,21 @@ func embeddingCheckpointHash(c types.FeishuLegacyEmbeddingCheckpoint) string {
 	return LegacyEmbeddingInputHash(string(b))
 }
 
-func embeddingCheckpoint(a *types.FeishuLegacyAttempt) (*types.FeishuLegacyEmbeddingCheckpoint, error) {
+func embeddingCheckpoint(
+	a *types.FeishuLegacyAttempt,
+) (*types.FeishuLegacyEmbeddingCheckpoint, error) {
 	var p legacyEmbeddingProgress
 	if json.Unmarshal(a.Receipt, &p) != nil || p.Checkpoint == nil {
 		return nil, legacyFence("embedding_checkpoint_missing")
 	}
 	c := p.Checkpoint
-	if c.Version != 1 || c.ResourceID != a.ResourceID || c.SourceHash != a.SourceHash ||
-		c.SHA256 != embeddingCheckpointHash(*c) || c.Dimension < 1 || c.Dimension > 4096 ||
-		len(c.Inputs) == 0 || len(c.Inputs) > 10000 {
+	if (c.Version != 1 && !largeCheckpointShape(c)) || c.ResourceID != a.ResourceID ||
+		c.SourceHash != a.SourceHash ||
+		c.SHA256 != embeddingCheckpointHash(*c) ||
+		c.Dimension < 1 ||
+		c.Dimension > 4096 ||
+		len(c.Inputs) == 0 ||
+		(len(c.Inputs) > 10000 && !largeCheckpointShape(c)) {
 		return nil, legacyFence("embedding_checkpoint_invalid")
 	}
 	return c, nil
@@ -51,7 +57,8 @@ func (s *FeishuLegacyStore) StartEmbeddingCheckpoint(
 	c types.FeishuLegacyEmbeddingCheckpoint,
 ) error {
 	if c.ModelID == "" || c.ModelStamp == "" || len(c.KBConfigSHA256) != 64 ||
-		c.Dimension < 1 || c.Dimension > 4096 || len(c.Inputs) == 0 || len(c.Inputs) > 10000 {
+		c.Dimension < 1 || c.Dimension > 4096 || len(c.Inputs) == 0 ||
+		(len(c.Inputs) > 10000 && !largeCheckpointShape(&c)) {
 		return legacyFence("embedding_checkpoint_shape")
 	}
 	seen := map[string]bool{}
@@ -64,17 +71,26 @@ func (s *FeishuLegacyStore) StartEmbeddingCheckpoint(
 		seen[input.ChunkID] = true
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		_, a, err := s.owned(ctx, tx, ds, owner)
+		r, a, err := s.owned(ctx, tx, ds, owner)
 		if err != nil {
 			return err
 		}
 		if a.Status != "staging" {
 			return legacyFence("attempt_not_staging")
 		}
-		c.Version, c.ResourceID, c.SourceHash = 1, a.ResourceID, a.SourceHash
+		if len(c.Inputs) <= 10000 {
+			c.Version = 1
+		} else {
+			c.Version = 2
+		}
+		if err = checkLargeCheckpointClaim(ctx, tx, ds, r, &c); err != nil {
+			return err
+		}
+		c.ResourceID, c.SourceHash = a.ResourceID, a.SourceHash
 		c.SHA256 = embeddingCheckpointHash(c)
 		var envelope map[string]json.RawMessage
-		if json.Unmarshal(a.Receipt, &envelope) == nil && envelope["embedding_checkpoint_v1"] != nil {
+		if json.Unmarshal(a.Receipt, &envelope) == nil &&
+			envelope["embedding_checkpoint_v1"] != nil {
 			prior, e := embeddingCheckpoint(a)
 			if e != nil {
 				return e
@@ -120,7 +136,7 @@ func (s *FeishuLegacyStore) SaveEmbeddingCheckpoint(
 		return err
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		_, a, err := s.owned(ctx, tx, ds, owner)
+		r, a, err := s.owned(ctx, tx, ds, owner)
 		if err != nil {
 			return err
 		}
@@ -129,6 +145,9 @@ func (s *FeishuLegacyStore) SaveEmbeddingCheckpoint(
 		}
 		c, err := embeddingCheckpoint(a)
 		if err != nil {
+			return err
+		}
+		if err = checkLargeCheckpointClaim(ctx, tx, ds, r, c); err != nil {
 			return err
 		}
 		byHash := map[string][]string{}
@@ -184,6 +203,9 @@ func (s *FeishuLegacyStore) ReusableEmbeddingCheckpoint(
 		if err != nil {
 			return err
 		}
+		if err = checkLargeCheckpointClaim(ctx, tx, ds, r, current); err != nil {
+			return err
+		}
 		var initial types.FeishuLegacyManifest
 		if json.Unmarshal(a.Manifest, &initial) != nil {
 			return legacyFence("embedding_checkpoint_manifest")
@@ -199,9 +221,10 @@ WHERE old.resource_id=? AND old.status IN ('staging','ready','obsolete')
 AND old.receipt->'embedding_checkpoint_v1'->>'model_stamp'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'model_id'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'kb_config_sha256'=?
+AND (?='' OR (old.receipt->'embedding_checkpoint_v1'->>'request_id'=? AND old.source_hash=?))
 ORDER BY (SELECT count(*) FROM feishu_legacy_index_candidates i WHERE i.attempt_id=old.id) DESC,
 old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
-			current.KBConfigSHA256).Scan(&candidates).Error; err != nil {
+			current.KBConfigSHA256, current.RequestID, current.RequestID, current.SourceHash).Scan(&candidates).Error; err != nil {
 			return err
 		}
 		candidates = append(candidates, *a)
@@ -225,12 +248,17 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 				hash, e := LegacyManifestHash(m)
 				var receipt types.FeishuLegacyReceipt
 				if e != nil || hash != m.SHA256 || json.Unmarshal(previous.Receipt, &receipt) != nil ||
-					receipt.ManifestSHA256 != m.SHA256 || receipt.ResourceID != r.ID ||
-					receipt.AttemptID != previous.ID || receipt.Generation != previous.Generation ||
-					receipt.KnowledgeID != r.KnowledgeID || m.EmbeddingModelID != current.ModelID ||
-					m.Knowledge.ID != r.KnowledgeID || m.Knowledge.TenantID != r.TenantID ||
+					receipt.ManifestSHA256 != m.SHA256 ||
+					receipt.ResourceID != r.ID ||
+					receipt.AttemptID != previous.ID ||
+					receipt.Generation != previous.Generation ||
+					receipt.KnowledgeID != r.KnowledgeID ||
+					m.EmbeddingModelID != current.ModelID ||
+					m.Knowledge.ID != r.KnowledgeID ||
+					m.Knowledge.TenantID != r.TenantID ||
 					m.Knowledge.KnowledgeBaseID != r.KnowledgeBaseID ||
-					m.ModelStamp != current.ModelStamp || m.KBConfigSHA256 != current.KBConfigSHA256 ||
+					m.ModelStamp != current.ModelStamp ||
+					m.KBConfigSHA256 != current.KBConfigSHA256 ||
 					m.Dimension != current.Dimension {
 					continue
 				}
@@ -249,6 +277,10 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 					c.KBConfigSHA256 != current.KBConfigSHA256 || c.Dimension != current.Dimension {
 					continue
 				}
+				if current.Version == 2 && (c.RequestID != current.RequestID ||
+					c.SourceConfig != current.SourceConfig || c.SourceHash != current.SourceHash) {
+					continue
+				}
 				// A changed spreadsheet revision must not discard identical model work.
 				// These are private typed model-response checkpoints for this same resource,
 				// not publication receipts. Only hashes freshly registered by the current
@@ -259,16 +291,18 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 			}
 			var rows []legacyCheckpointRow
 			if err = tx.Table("feishu_legacy_index_candidates").Where("attempt_id=?", previous.ID).
-				Limit(10001).Find(&rows).Error; err != nil {
+				Limit(LargeFeishuChunkLimit + 1).Find(&rows).Error; err != nil {
 				return err
 			}
-			if len(rows) > 10000 {
+			if len(rows) > 10000 &&
+				(!largeCheckpointShape(current) || len(rows) > LargeFeishuChunkLimit) {
 				return legacyFence("embedding_checkpoint_rows_exceeded")
 			}
 			for _, row := range rows {
 				digest := LegacyEmbeddingInputHash(row.Content)
 				vector := row.Embedding.Slice()
-				if wanted[digest] && expected[row.ChunkID] == digest && row.Dimension == current.Dimension &&
+				if wanted[digest] && expected[row.ChunkID] == digest &&
+					row.Dimension == current.Dimension &&
 					validCheckpointVector(vector, current.Dimension) {
 					out[digest] = append([]float32(nil), vector...)
 				}
@@ -297,7 +331,9 @@ func validateEmbeddingCheckpointForPrepare(
 	for i, chunk := range indexed {
 		chunk.ContextHeader = m.ChunkHeaders[chunk.ID]
 		if c.Inputs[i].ChunkID != chunk.ID || c.Inputs[i].SHA256 !=
-			LegacyEmbeddingInputHash(buildLegacyIndexContent(m.Knowledge.Title, chunk.EmbeddingContent())) {
+			LegacyEmbeddingInputHash(
+				buildLegacyIndexContent(m.Knowledge.Title, chunk.EmbeddingContent()),
+			) {
 			return false, legacyFence("embedding_checkpoint_publication_input")
 		}
 	}

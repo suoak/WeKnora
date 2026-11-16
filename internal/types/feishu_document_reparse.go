@@ -21,6 +21,9 @@ type FeishuDocumentReparse struct {
 	RequestedAt         time.Time                  `json:"requested_at"`
 	RetryAfter          time.Time                  `json:"retry_after,omitempty"`
 	Attempts            int                        `json:"attempts"`
+	ProgressWindows     int                        `json:"progress_windows,omitempty"`
+	CompletedChunks     int                        `json:"completed_chunks,omitempty"`
+	TotalChunks         int                        `json:"total_chunks,omitempty"`
 	DeliveryAttempts    int                        `json:"delivery_attempts"`
 	ExecutionID         string                     `json:"execution_id,omitempty"`
 	Generation          int64                      `json:"execution_generation,omitempty"`
@@ -30,9 +33,11 @@ type FeishuDocumentReparse struct {
 
 // FeishuDocumentReparseStatus is the content-free shape exposed to an authorized editor.
 type FeishuDocumentReparseStatus struct {
-	ID          string `json:"id"`
-	KnowledgeID string `json:"knowledge_id"`
-	State       string `json:"state"`
-	Attempts    int    `json:"attempts"`
-	ErrorCode   string `json:"error_code,omitempty"`
+	ID              string `json:"id"`
+	KnowledgeID     string `json:"knowledge_id"`
+	State           string `json:"state"`
+	Attempts        int    `json:"attempts"`
+	CompletedChunks int    `json:"completed_chunks,omitempty"`
+	TotalChunks     int    `json:"total_chunks,omitempty"`
+	ErrorCode       string `json:"error_code,omitempty"`
 }

@@ -25,7 +25,12 @@ func (s *DataSourceService) documentReparseAuthority(
 	if s.feishuIdentity == nil || s.feishuIdentity.db == nil {
 		return apperrors.NewServiceUnavailableError("Document reparse authorization is unavailable")
 	}
-	authority, err := feishusynccontrol.SourceManagementFromDatabase(ctx, s.feishuIdentity.db, ds.ID, actor)
+	authority, err := feishusynccontrol.SourceManagementFromDatabase(
+		ctx,
+		s.feishuIdentity.db,
+		ds.ID,
+		actor,
+	)
 	if err != nil {
 		if errors.Is(err, feishusynccontrol.ErrRecoveryRejected) {
 			return apperrors.NewForbiddenError("Document reparse permission denied")
@@ -35,7 +40,9 @@ func (s *DataSourceService) documentReparseAuthority(
 	if authority.TenantID != ds.TenantID || authority.KBID != ds.KnowledgeBaseID ||
 		authority.AccessState != "active" || !legacyWikiDrive(ds.Type) || !safeLegacyIncrementalEnabled() ||
 		(ds.Status != types.DataSourceStatusActive && ds.Status != types.DataSourceStatusError) {
-		return apperrors.NewConflictError("The source must be active and verified before document reparsing")
+		return apperrors.NewConflictError(
+			"The source must be active and verified before document reparsing",
+		)
 	}
 	config, err := ds.ParseConfig()
 	if err != nil {
@@ -57,7 +64,8 @@ func (s *DataSourceService) RequestDocumentReparse(
 ) (*types.FeishuDocumentReparseStatus, error) {
 	caller := types.CallerFromContext(ctx)
 	principal, valid := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if !valid || principal.Type != types.PrincipalWebUser || principal.ID == "" || principal.ID != caller.UserID {
+	if !valid || principal.Type != types.PrincipalWebUser || principal.ID == "" ||
+		principal.ID != caller.UserID {
 		return nil, apperrors.NewForbiddenError("Document reparse requires an authenticated editor")
 	}
 	ds, err := s.GetDataSource(ctx, source)
@@ -72,7 +80,9 @@ func (s *DataSourceService) RequestDocumentReparse(
 		return nil, err
 	}
 	if _, ok := connector.(datasource.DocumentConnector); !ok {
-		return nil, apperrors.NewServiceUnavailableError("The source does not support document reparsing")
+		return nil, apperrors.NewServiceUnavailableError(
+			"The source does not support document reparsing",
+		)
 	}
 	store, err := repository.FeishuLegacyStoreFor(s.knowledgeService.GetRepository())
 	if err != nil {
@@ -84,10 +94,14 @@ func (s *DataSourceService) RequestDocumentReparse(
 	}
 	config, err := ds.ParseConfig()
 	if err != nil || config == nil || !slices.Contains(config.ResourceIDs, request.RootID) {
-		return nil, apperrors.NewConflictError("Document binding is outside the configured source selection")
+		return nil, apperrors.NewConflictError(
+			"Document binding is outside the configured source selection",
+		)
 	}
-	kb, err := s.kbService.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID),
-		ds.KnowledgeBaseID)
+	kb, err := s.kbService.GetKnowledgeBaseByID(
+		types.WithLegacyKBAdminMetadata(ctx, ds.KnowledgeBaseID),
+		ds.KnowledgeBaseID,
+	)
 	if err != nil || kb == nil || kb.TenantID != ds.TenantID {
 		return nil, apperrors.NewForbiddenError("Document reparse permission denied")
 	}
@@ -96,7 +110,9 @@ func (s *DataSourceService) RequestDocumentReparse(
 	}
 	request.Initiator = types.TaskInitiatorFromContext(ctx)
 	if request.Initiator.UserID != caller.UserID {
-		return nil, apperrors.NewForbiddenError("Document reparse initiator does not match the authenticated editor")
+		return nil, apperrors.NewForbiddenError(
+			"Document reparse initiator does not match the authenticated editor",
+		)
 	}
 	request.ProcessConfig, request.KBConfigHash = overrides, repository.LegacyKBConfigHash(kb)
 	status, err := store.QueueSourceDocumentReparse(ctx, ds, request)
@@ -106,18 +122,28 @@ func (s *DataSourceService) RequestDocumentReparse(
 	// A delivery failure cannot lose the accepted SQL intent. The independent
 	// recovery sweep re-admits it through this same normal source queue.
 	if _, err := s.ManualSync(context.WithValue(ctx, documentReparseRunKey{}, true), ds.ID); err != nil {
-		logger.Warnf(ctx, "Document reparse wake-up deferred source=%s request=%s", ds.ID, status.ID)
+		logger.Warnf(
+			ctx,
+			"Document reparse wake-up deferred source=%s request=%s",
+			ds.ID,
+			status.ID,
+		)
 	}
 	return status, nil
 }
 
 func validateSourceDocumentReparseConfig(
-	ctx context.Context, kb *types.KnowledgeBase, fileType string, overrides *types.KnowledgeProcessOverrides,
+	ctx context.Context,
+	kb *types.KnowledgeBase,
+	fileType string,
+	overrides *types.KnowledgeProcessOverrides,
 ) error {
 	if overrides != nil && (overrides.SummaryEnabled != nil || overrides.GraphEnabled != nil ||
 		overrides.QuestionGenerationConfig != nil || overrides.ASRConfig != nil || overrides.ExtractConfig != nil ||
 		overrides.ImageAttrsEnabled != nil || overrides.ImageActions != nil) {
-		return apperrors.NewBadRequestError("Source document reparsing supports parser, chunking and VLM settings")
+		return apperrors.NewBadRequestError(
+			"Source document reparsing supports parser, chunking and VLM settings",
+		)
 	}
 	_, err := resolveFileImportProcessConfig(ctx, kb, fileType, overrides, nil)
 	return err
@@ -132,7 +158,9 @@ func (s *DataSourceService) DocumentReparseStatus(
 		return nil, apperrors.NewForbiddenError("Document reparse permission denied")
 	}
 	if s.feishuIdentity == nil || s.feishuIdentity.db == nil {
-		return nil, apperrors.NewServiceUnavailableError("Document reparse authorization is unavailable")
+		return nil, apperrors.NewServiceUnavailableError(
+			"Document reparse authorization is unavailable",
+		)
 	}
 	if _, err := feishusynccontrol.SourceManagementFromDatabase(ctx, s.feishuIdentity.db, ds.ID,
 		types.CallerFromContext(ctx).UserID); err != nil {
@@ -174,8 +202,10 @@ func (s *DataSourceService) drainSourceDocumentReparse(
 	err = s.documentReparseAuthority(work, ds, request.Initiator.UserID)
 	if err == nil {
 		var kb *types.KnowledgeBase
-		kb, err = s.kbService.GetKnowledgeBaseByID(types.WithLegacyKBAdminMetadata(work, ds.KnowledgeBaseID),
-			ds.KnowledgeBaseID)
+		kb, err = s.kbService.GetKnowledgeBaseByID(
+			types.WithLegacyKBAdminMetadata(work, ds.KnowledgeBaseID),
+			ds.KnowledgeBaseID,
+		)
 		if err == nil && (kb == nil || kb.TenantID != ds.TenantID ||
 			request.KBConfigHash != repository.LegacyKBConfigHash(kb)) {
 			err = &repository.LegacyFenceError{Reason: "kb_configuration_changed"}
@@ -187,7 +217,10 @@ func (s *DataSourceService) drainSourceDocumentReparse(
 		if err != nil {
 			failed := &types.FetchedItem{
 				ExternalID: request.ExternalID, SourceResourceID: request.RootID,
-				Metadata: core.FeishuErrorItemMeta(err, map[string]string{"failure_stage": "fetch_document"}),
+				Metadata: core.FeishuErrorItemMeta(
+					err,
+					map[string]string{"failure_stage": "fetch_document"},
+				),
 			}
 			if legacyItemNeedsHold(failed) {
 				if restrictErr := s.restrictFailedFeishuItem(work, ds, failed); restrictErr != nil {
@@ -213,6 +246,10 @@ func (s *DataSourceService) drainSourceDocumentReparse(
 	}
 	if checkErr := feishusafety.Check(work); checkErr != nil {
 		return true, checkErr
+	}
+	var progress *repository.FeishuEmbeddingProgress
+	if errors.As(err, &progress) {
+		return true, store.YieldSourceDocumentReparse(work, ds, progress)
 	}
 	code, _, permanent := classifyKnowledgeParseFailure(err)
 	if local := feishuDocumentFailureCode(ds, &types.FetchedItem{ExternalID: request.ExternalID}, err); local != "" {
@@ -279,17 +316,28 @@ func (s *DataSourceService) RecoverSourceDocumentReparses(ctx context.Context) e
 		if readErr == nil && ds != nil {
 			authorityErr := s.documentReparseAuthority(work, ds, request.Initiator.UserID)
 			if app, ok := apperrors.IsAppError(authorityErr); ok && app.HTTPCode < 500 {
-				_ = store.RejectSourceDocumentReparse(work, &request, "source_permission_or_configuration_changed")
+				_ = store.RejectSourceDocumentReparse(
+					work,
+					&request,
+					"source_permission_or_configuration_changed",
+				)
 				cancel()
 				continue
 			}
 			if repository.LegacySourceReparseConfigHash(ds) != request.ConfigHash {
-				_ = store.RejectSourceDocumentReparse(work, &request, "source_configuration_changed")
+				_ = store.RejectSourceDocumentReparse(
+					work,
+					&request,
+					"source_configuration_changed",
+				)
 				cancel()
 				continue
 			}
 		}
-		_, wakeErr := s.ManualSync(context.WithValue(work, documentReparseRunKey{}, true), request.DataSourceID)
+		_, wakeErr := s.ManualSync(
+			context.WithValue(work, documentReparseRunKey{}, true),
+			request.DataSourceID,
+		)
 		cancel()
 		if wakeErr != nil {
 			logger.Warnf(ctx, "Document reparse recovery deferred source=%s", request.DataSourceID)

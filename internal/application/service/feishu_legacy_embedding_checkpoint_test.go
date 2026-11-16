@@ -20,7 +20,10 @@ type checkpointMemoryStore struct {
 }
 
 func (s *checkpointMemoryStore) StartEmbeddingCheckpoint(
-	context.Context, *types.DataSource, *types.FeishuLegacyAttempt, types.FeishuLegacyEmbeddingCheckpoint,
+	context.Context,
+	*types.DataSource,
+	*types.FeishuLegacyAttempt,
+	types.FeishuLegacyEmbeddingCheckpoint,
 ) error {
 	return nil
 }
@@ -36,7 +39,11 @@ func (s *checkpointMemoryStore) ReusableEmbeddingCheckpoint(
 }
 
 func (s *checkpointMemoryStore) SaveEmbeddingCheckpoint(
-	_ context.Context, _ *types.DataSource, _ *types.FeishuLegacyAttempt, inputs []string, vectors [][]float32,
+	_ context.Context,
+	_ *types.DataSource,
+	_ *types.FeishuLegacyAttempt,
+	inputs []string,
+	vectors [][]float32,
 ) error {
 	if s.revoked {
 		return types.ErrLegacySourceRestricted
@@ -48,7 +55,11 @@ func (s *checkpointMemoryStore) SaveEmbeddingCheckpoint(
 	return nil
 }
 
-func (s *checkpointMemoryStore) Renew(context.Context, *types.DataSource, *types.FeishuLegacyAttempt) error {
+func (s *checkpointMemoryStore) Renew(
+	context.Context,
+	*types.DataSource,
+	*types.FeishuLegacyAttempt,
+) error {
 	if s.revoked {
 		return types.ErrLegacySourceRestricted
 	}
@@ -62,7 +73,10 @@ type checkpointTestEmbedder struct {
 	err   error
 }
 
-func (m *checkpointTestEmbedder) BatchEmbed(_ context.Context, texts []string) ([][]float32, error) {
+func (m *checkpointTestEmbedder) BatchEmbed(
+	_ context.Context,
+	texts []string,
+) ([][]float32, error) {
 	m.calls = append(m.calls, append([]string(nil), texts...))
 	if m.err != nil {
 		return nil, m.err
@@ -99,12 +113,86 @@ func TestLegacyEmbeddingCheckpointRestartReusesCompletedInputs(t *testing.T) {
 		&types.FeishuLegacyAttempt{}, second, header, texts)
 	require.NoError(t, err)
 	require.Len(t, vectors, 3)
-	require.Equal(t, [][]string{{"second"}}, second.calls, "completed and duplicate inputs must not be billed again")
+	require.Equal(
+		t,
+		[][]string{{"second"}},
+		second.calls,
+		"completed and duplicate inputs must not be billed again",
+	)
 	store.revoked = true
 	_, err = embedLegacyCheckpointed(context.Background(), store, &types.DataSource{},
 		&types.FeishuLegacyAttempt{}, second, header, texts)
 	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
 	require.Len(t, second.calls, 1, "revocation cannot be bypassed by the cache")
+}
+
+func TestLegacyLargeEmbeddingYieldsAndResumesWithoutRepeatingModelWork(t *testing.T) {
+	store := &checkpointMemoryStore{cache: map[string][]float32{}}
+	header := types.FeishuLegacyEmbeddingCheckpoint{Version: 2}
+	texts := make([]string, 10001)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("input-%d", i)
+		header.Inputs = append(header.Inputs, types.FeishuLegacyEmbeddingInput{
+			ChunkID: fmt.Sprintf("c%d", i), SHA256: repository.LegacyEmbeddingInputHash(texts[i]),
+		})
+	}
+	model := &checkpointTestEmbedder{store: store}
+	var complete [][]float32
+	for window := 0; window < 11; window++ {
+		vectors, err := embedLegacyCheckpointed(context.Background(), store, &types.DataSource{},
+			&types.FeishuLegacyAttempt{ID: "owner"}, model, header, texts)
+		if window < 10 {
+			var progress *repository.FeishuEmbeddingProgress
+			require.ErrorAs(t, err, &progress)
+			require.Equal(t, (window+1)*1000, progress.Completed)
+			require.Equal(t, len(texts), progress.Total)
+			require.Nil(t, vectors)
+		} else {
+			require.NoError(t, err)
+			complete = vectors
+		}
+	}
+	require.Len(t, complete, len(texts))
+	count := 0
+	for _, call := range model.calls {
+		count += len(call)
+	}
+	require.Equal(t, len(texts), count, "resume must not repeat billed inputs")
+	require.Len(t, store.cache, len(texts))
+}
+
+func TestLegacyLargeEmbeddingFinishesWhenTheRemainingRowsRepeatCachedInputs(t *testing.T) {
+	store := &checkpointMemoryStore{cache: map[string][]float32{}}
+	model := &checkpointTestEmbedder{store: store}
+	header := types.FeishuLegacyEmbeddingCheckpoint{Version: 2}
+	texts := make([]string, 10001)
+	for i := range texts {
+		texts[i] = fmt.Sprintf("input-%d", i%1000)
+		header.Inputs = append(header.Inputs, types.FeishuLegacyEmbeddingInput{
+			ChunkID: fmt.Sprintf("c%d", i), SHA256: repository.LegacyEmbeddingInputHash(texts[i]),
+		})
+	}
+	vectors, err := embedLegacyCheckpointed(
+		context.Background(),
+		store,
+		&types.DataSource{},
+		&types.FeishuLegacyAttempt{},
+		model,
+		header,
+		texts,
+	)
+	require.NoError(
+		t,
+		err,
+		"a complete checkpoint must proceed to publication instead of yielding forever",
+	)
+	require.Len(t, vectors, len(texts))
+	require.Len(t, store.cache, 1000)
+	count := 0
+	for _, call := range model.calls {
+		count += len(call)
+	}
+	require.Equal(t, 1000, count)
 }
 
 func TestLegacyEmbeddingCheckpointRetriesAreBoundedAndPermissionAware(t *testing.T) {

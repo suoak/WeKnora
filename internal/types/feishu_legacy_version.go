@@ -20,8 +20,8 @@ type FeishuLegacyResource struct {
 	CurrentAttempt     string
 	ActiveAttempt      string
 	SourceRevision     string
-	OriginalFilePath   string          `json:"-"`
-	QuarantineSnapshot json.RawMessage `json:"-" gorm:"type:jsonb"`
+	OriginalFilePath   string          `                  json:"-"`
+	QuarantineSnapshot json.RawMessage `gorm:"type:jsonb" json:"-"`
 	UpdatedAt          time.Time
 }
 
@@ -31,7 +31,7 @@ type FeishuLegacyAttempt struct {
 	ID           string `gorm:"primaryKey"`
 	ResourceID   string
 	Generation   int64
-	OwnerNonce   string `json:"-"`
+	OwnerNonce   string `                  json:"-"`
 	LeaseUntil   time.Time
 	Status       string
 	Revision     string
@@ -67,6 +67,8 @@ type FeishuLegacyManifest struct {
 // exact inputs. It is not a publication receipt or a grant to read source data.
 type FeishuLegacyEmbeddingCheckpoint struct {
 	Version        int                          `json:"version"`
+	RequestID      string                       `json:"request_id,omitempty"`
+	SourceConfig   string                       `json:"source_config_sha256,omitempty"`
 	ResourceID     string                       `json:"resource_id"`
 	SourceHash     string                       `json:"source_hash"`
 	ModelID        string                       `json:"model_id"`
