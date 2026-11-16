@@ -35,7 +35,10 @@ type legacyLiveKB struct {
 	db *gorm.DB
 }
 
-func (s *legacyLiveKB) GetKnowledgeBaseByID(ctx context.Context, id string) (*types.KnowledgeBase, error) {
+func (s *legacyLiveKB) GetKnowledgeBaseByID(
+	ctx context.Context,
+	id string,
+) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
 	err := s.db.WithContext(ctx).First(&kb, "id=?", id).Error
 	kb.EnsureDefaults()
@@ -173,7 +176,10 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			kb.ChunkingConfig.ChildChunkSize = 1024
 			chunkConfig, err := json.Marshal(kb.ChunkingConfig)
 			require.NoError(t, err)
-			require.NoError(t, db.Model(kb).UpdateColumn("chunking_config", types.JSON(chunkConfig)).Error)
+			require.NoError(
+				t,
+				db.Model(kb).UpdateColumn("chunking_config", types.JSON(chunkConfig)).Error,
+			)
 			if kind == "feishu_drive" {
 				backend := &types.StorageBackend{
 					TenantID: tenant.ID,
@@ -182,11 +188,21 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 					Config:   types.StorageBackendConfig{},
 					Status:   types.StorageBackendStatusActive,
 				}
-				require.NoError(t, repository.NewStorageBackendRepository(db).Create(context.Background(), backend))
+				require.NoError(
+					t,
+					repository.NewStorageBackendRepository(db).
+						Create(context.Background(), backend),
+				)
 				kb.StorageBackendID = &backend.ID
 				tenant.DefaultStorageBackendID = &backend.ID
-				require.NoError(t, db.Model(kb).UpdateColumn("storage_backend_id", backend.ID).Error)
-				require.NoError(t, db.Model(tenant).UpdateColumn("default_storage_backend_id", backend.ID).Error)
+				require.NoError(
+					t,
+					db.Model(kb).UpdateColumn("storage_backend_id", backend.ID).Error,
+				)
+				require.NoError(
+					t,
+					db.Model(tenant).UpdateColumn("default_storage_backend_id", backend.ID).Error,
+				)
 				ks.resourceCatalog = NewResourceCatalog(repository.NewResourceRepository(db))
 				ks.storageResolver = NewStorageBackendServiceWithResources(
 					repository.NewStorageBackendRepository(db),
@@ -217,7 +233,12 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			ctx := types.WithLegacyReceiptSet(
 				types.WithSyncExecution(
 					context.Background(),
-					types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
+					types.SyncExecution{
+						DataSourceID: ds.ID,
+						SyncLogID:    log.ID,
+						TenantID:     tenant.ID,
+						Generation:   1,
+					},
 				),
 			)
 			ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenant)
@@ -238,14 +259,26 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			require.True(t, first.Created)
 			if reparseOnly {
 				t.Run("source-document-request-reparses-unchanged-content", func(t *testing.T) {
-					testSourceDocumentReparseRoundTrip(ctx, t, db, ks, ds, item, first.KnowledgeID, first.AttemptID)
+					testSourceDocumentReparseRoundTrip(
+						ctx,
+						t,
+						db,
+						ks,
+						ds,
+						item,
+						first.KnowledgeID,
+						first.AttemptID,
+					)
 				})
 				return
 			}
 			// A proven document-local conflict must not latch the streaming
 			// handler or publish its bytes. A different normal document can
 			// still finish through the real parser, vector writer and receipt.
-			isolated := &DataSourceService{knowledgeService: ks, syncLogRepo: repository.NewSyncLogRepository(db)}
+			isolated := &DataSourceService{
+				knowledgeService: ks,
+				syncLogRepo:      repository.NewSyncLogRepository(db),
+			}
 			isolatedResult := &types.SyncResult{}
 			handler := newStreamHandler(isolated, ds, isolatedResult, log)
 			conflicting := *item
@@ -264,13 +297,23 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			require.NoError(t, db.First(&protected, "id=?", first.KnowledgeID).Error)
 			require.Equal(t, int64(len(item.Content)), protected.FileSize)
 			var unsafeRows int64
-			require.NoError(t, db.Raw("SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE ?",
-				first.KnowledgeID, "%same revision conflicting content%").Scan(&unsafeRows).Error)
+			require.NoError(
+				t,
+				db.Raw(
+					"SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE ?",
+					first.KnowledgeID,
+					"%same revision conflicting content%",
+				).Scan(&unsafeRows).Error,
+			)
 			require.Zero(t, unsafeRows)
 			var oldPath string
 			require.NoError(
 				t,
-				db.Model(&types.Knowledge{}).Select("file_path").Where("id=?", first.KnowledgeID).Scan(&oldPath).Error,
+				db.Model(&types.Knowledge{}).
+					Select("file_path").
+					Where("id=?", first.KnowledgeID).
+					Scan(&oldPath).
+					Error,
 			)
 			item.Content = []byte("# Normal knowledge\n\nnewparsercanary updated content.")
 			if scenario.parent {
@@ -285,7 +328,9 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			// not only the direct staging writer or its duplicate fast path.
 			ingest := &DataSourceService{knowledgeService: ks}
 			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
-			item.Content = append(item.Content, []byte("\n\nconfirmed datasource receipt update")...)
+			item.Content = append(
+				item.Content,
+				[]byte("\n\nconfirmed datasource receipt update")...)
 			updated, e := ingest.ingestItem(ctx, ds, item, nil)
 			require.NoError(t, e, "published parent context must pass durable receipt admission")
 			require.True(t, updated)
@@ -297,7 +342,11 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			// A cron-only service update must preserve access and real recall.
 			guardedScheduleDB := types.EnableLegacyReadGuards(db)
 			scheduleRepo := repository.NewDataSourceRepository(guardedScheduleDB)
-			schedule := datasource.NewScheduler(scheduleRepo, repository.NewSyncLogRepository(db), nil)
+			schedule := datasource.NewScheduler(
+				scheduleRepo,
+				repository.NewSyncLogRepository(db),
+				nil,
+			)
 			admin := &DataSourceService{dsRepo: scheduleRepo, scheduler: schedule}
 			_, e = admin.UpdateDataSource(context.Background(), &types.DataSource{
 				ID: ds.ID, Type: ds.Type, SyncSchedule: "0 30 * * * *", Config: ds.Config,
@@ -310,17 +359,26 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			for _, kind := range []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType} {
 				query := make([]float32, 1024)
 				query[0] = 1
-				rows, e := engine.Retrieve(types.WithLegacyReadScope(context.Background()), types.RetrieveParams{
-					Query: "newparsercanary", Embedding: query, KnowledgeBaseIDs: []string{kb.ID},
-					KnowledgeIDs: []string{first.KnowledgeID}, TopK: 5, Threshold: 0, RetrieverType: kind,
-				})
+				rows, e := engine.Retrieve(
+					types.WithLegacyReadScope(context.Background()),
+					types.RetrieveParams{
+						Query: "newparsercanary", Embedding: query, KnowledgeBaseIDs: []string{kb.ID},
+						KnowledgeIDs: []string{
+							first.KnowledgeID,
+						}, TopK: 5, Threshold: 0, RetrieverType: kind,
+					},
+				)
 				require.NoError(t, e)
 				found := 0
 				for _, row := range rows {
 					require.NoError(t, row.Error)
 					found += len(row.Results)
 				}
-				require.Positive(t, found, "cron-only updates preserve actual BM25/vector retrieval")
+				require.Positive(
+					t,
+					found,
+					"cron-only updates preserve actual BM25/vector retrieval",
+				)
 			}
 			if scenario.parent {
 				require.Greater(t, second.Chunks, second.Vectors)
@@ -342,7 +400,11 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 						Scan(&invalid).
 						Error,
 				)
-				require.Zero(t, invalid, "parent-child children must retain ordinary ingestion adjacency semantics")
+				require.Zero(
+					t,
+					invalid,
+					"parent-child children must retain ordinary ingestion adjacency semantics",
+				)
 				require.NoError(
 					t,
 					db.Raw("SELECT count(*) FROM embeddings e JOIN chunks c ON c.id=e.chunk_id WHERE "+
@@ -369,7 +431,12 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			item.SourceResourceID = "another-configured-root"
 			_, e = ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.ErrorAs(t, e, &duplicate)
-			require.Equal(t, before, calls.Load(), "root location alone must not rebuild unchanged content")
+			require.Equal(
+				t,
+				before,
+				calls.Load(),
+				"root location alone must not rebuild unchanged content",
+			)
 			var oldChunks, oldVectors, oldKnowledge string
 			const knowledgeSQL = "SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?"
 			const chunksSQL = "SELECT coalesce(jsonb_agg(to_jsonb(c) ORDER BY c.id)::text,'[]') " +
@@ -381,9 +448,13 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			require.NoError(t, db.Raw(vectorsSQL, first.KnowledgeID).Scan(&oldVectors).Error)
 			// More than 20 default-sized chunks force a successful first batch
 			// followed by an injected second-batch failure, before publication.
-			item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content. ", 10000))
+			item.Content = []byte(
+				strings.Repeat("mustnotpublish embedding failure content. ", 10000),
+			)
 			if scenario.parent {
-				item.Content = []byte(strings.Repeat("mustnotpublish embedding failure content.\n\n", 10000))
+				item.Content = []byte(
+					strings.Repeat("mustnotpublish embedding failure content.\n\n", 10000),
+				)
 			}
 			item.UpdatedAt = item.UpdatedAt.Add(time.Minute)
 			failureCalls.Store(0)
@@ -393,12 +464,30 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			fail.Store(false)
 			require.EqualValues(t, 2, failureCalls.Load(), "failure must occur in the middle batch")
 			var currentChunks, currentVectors, currentKnowledge string
-			require.NoError(t, db.Raw(knowledgeSQL, first.KnowledgeID).Scan(&currentKnowledge).Error)
+			require.NoError(
+				t,
+				db.Raw(knowledgeSQL, first.KnowledgeID).Scan(&currentKnowledge).Error,
+			)
 			require.NoError(t, db.Raw(chunksSQL, first.KnowledgeID).Scan(&currentChunks).Error)
 			require.NoError(t, db.Raw(vectorsSQL, first.KnowledgeID).Scan(&currentVectors).Error)
-			require.JSONEq(t, oldChunks, currentChunks, "old chunks unchanged after candidate failure")
-			require.JSONEq(t, oldVectors, currentVectors, "old searchable vectors unchanged after candidate failure")
-			require.JSONEq(t, oldKnowledge, currentKnowledge, "old document and its metadata must remain unchanged")
+			require.JSONEq(
+				t,
+				oldChunks,
+				currentChunks,
+				"old chunks unchanged after candidate failure",
+			)
+			require.JSONEq(
+				t,
+				oldVectors,
+				currentVectors,
+				"old searchable vectors unchanged after candidate failure",
+			)
+			require.JSONEq(
+				t,
+				oldKnowledge,
+				currentKnowledge,
+				"old document and its metadata must remain unchanged",
+			)
 			require.NoError(t, db.Raw(
 				"SELECT count(*) FROM embeddings WHERE knowledge_id=? AND content LIKE "+
 					"'%mustnotpublish%'",
@@ -456,6 +545,26 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			})
 			_, e = store.RestrictSource(ctx, ds, item.ExternalID, false)
 			require.NoError(t, e)
+			webCaller := types.Caller{TenantID: tenant.ID, UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+			webContext := types.WithCaller(context.Background(), webCaller)
+			webContext = context.WithValue(webContext, types.PrincipalContextKey,
+				types.Principal{Type: types.PrincipalWebUser, ID: webCaller.UserID})
+			webDB := guardDB.WithContext(webContext)
+			var healthyKnowledge types.Knowledge
+			require.NoError(
+				t,
+				db.Raw("SELECT id FROM knowledges WHERE tenant_id=? AND knowledge_base_id=? "+
+					"AND metadata->>'external_id'=? AND deleted_at IS NULL",
+					tenant.ID, kb.ID, healthy.ExternalID).Scan(&healthyKnowledge.ID).Error,
+			)
+			require.NotEmpty(t, healthyKnowledge.ID)
+			require.NoError(
+				t,
+				types.CheckLegacySourceRead(webDB, healthyKnowledge.ID, kb.ID),
+				"a document-local restriction must leave an independently verified sibling readable",
+			)
+			require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, healthyKnowledge.ID, kb.ID),
+				types.ErrLegacySourceRestricted, "anonymous reads must retain the conservative KB boundary")
 			for _, p := range []string{
 				currentPath,
 				physical,
@@ -469,11 +578,17 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 			recovered, e := ks.StageFeishuLegacyItem(ctx, ds, item, nil)
 			require.NoError(t, e)
 			require.Equal(t, first.KnowledgeID, recovered.KnowledgeID)
+			require.NoError(
+				t,
+				types.CheckLegacySourceRead(webDB, first.KnowledgeID, kb.ID),
+				"an independently reverified document must not wait for an unrelated source-wide traversal",
+			)
+			_, e = fileGate.CheckLegacyFileRead(context.Background(), tenant.ID, currentPath)
 			require.ErrorIs(
 				t,
-				types.CheckLegacySourceRead(guardDB, first.KnowledgeID, kb.ID),
+				e,
 				types.ErrLegacySourceRestricted,
-				"one recovered document must not release a source before full reconciliation",
+				"the replaced file must stay unreadable after recovery",
 			)
 			exerciseLegacyProcessSync(t, guardDB, ks, ds, item, first.KnowledgeID)
 			require.NoError(t, types.CheckLegacySourceRead(guardDB, first.KnowledgeID, kb.ID))
@@ -534,13 +649,21 @@ func testSourceDocumentReparseRoundTrip(
 		modelService: original.modelService, tenantService: original.tenantService, fileSvc: original.fileSvc,
 	}
 	registry := datasource.NewConnectorRegistry()
-	require.NoError(t, registry.Register(&exactDocumentReparseConnector{kind: ds.Type, item: *item}))
+	require.NoError(
+		t,
+		registry.Register(&exactDocumentReparseConnector{kind: ds.Type, item: *item}),
+	)
 	svc := &DataSourceService{
-		dsRepo: repository.NewDataSourceRepository(tx), syncLogRepo: repository.NewSyncLogRepository(tx),
+		dsRepo: repository.NewDataSourceRepository(
+			tx,
+		), syncLogRepo: repository.NewSyncLogRepository(tx),
 		knowledgeService: ks, kbService: ks.kbService, connectorRegistry: registry,
 		feishuIdentity: &FeishuPersonalService{db: tx},
 	}
-	requestCtx := types.WithCaller(ctx, types.Caller{TenantID: ds.TenantID, UserID: actor, Role: types.TenantRoleOwner})
+	requestCtx := types.WithCaller(
+		ctx,
+		types.Caller{TenantID: ds.TenantID, UserID: actor, Role: types.TenantRoleOwner},
+	)
 	requestCtx = context.WithValue(requestCtx, types.UserIDContextKey, actor)
 	requestCtx = context.WithValue(requestCtx, types.PrincipalContextKey,
 		types.Principal{Type: types.PrincipalWebUser, ID: actor})
@@ -559,7 +682,12 @@ func testSourceDocumentReparseRoundTrip(
 	require.Equal(t, "completed", status.State, status.ErrorCode)
 	var resource types.FeishuLegacyResource
 	require.NoError(t, tx.First(&resource, "knowledge_id=?", kid).Error)
-	require.NotEqual(t, oldAttempt, resource.ActiveAttempt, "unchanged content must receive a new publication")
+	require.NotEqual(
+		t,
+		oldAttempt,
+		resource.ActiveAttempt,
+		"unchanged content must receive a new publication",
+	)
 	var count int64
 	require.NoError(t, tx.Model(&types.Chunk{}).
 		Where("knowledge_id=? AND is_enabled AND deleted_at IS NULL", kid).Count(&count).Error)
@@ -570,7 +698,9 @@ func testSourceDocumentReparseRoundTrip(
 	require.Equal(t, types.ParseStatusCompleted, knowledge.ParseStatus)
 	// Explicit supported settings become the document's settings. A later
 	// isolated withdrawal must preserve them in its private snapshot.
-	overrides := &types.KnowledgeProcessOverrides{ParserEngineOverrides: map[string]string{"test_setting": "preserved"}}
+	overrides := &types.KnowledgeProcessOverrides{
+		ParserEngineOverrides: map[string]string{"test_setting": "preserved"},
+	}
 	_, err = svc.RequestDocumentReparse(requestCtx, ds.ID, kid, overrides)
 	require.NoError(t, err)
 	handled, err = svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
@@ -598,7 +728,10 @@ func testSourceDocumentReparseRoundTrip(
 	require.NoError(t, tx.First(&beforeRevoke, "knowledge_id=?", kid).Error)
 	_, err = svc.RequestDocumentReparse(requestCtx, ds.ID, kid, nil)
 	require.NoError(t, err)
-	require.NoError(t, tx.Model(&types.User{}).Where("id=?", actor).UpdateColumn("is_active", false).Error)
+	require.NoError(
+		t,
+		tx.Model(&types.User{}).Where("id=?", actor).UpdateColumn("is_active", false).Error,
+	)
 	handled, err = svc.drainSourceDocumentReparse(ctx, &source, config, nil, nil)
 	require.NoError(t, err)
 	require.True(t, handled)
@@ -612,5 +745,10 @@ func testSourceDocumentReparseRoundTrip(
 	require.Equal(t, beforeRevoke.ActiveAttempt, afterRevoke.ActiveAttempt)
 	var activeAttempt types.FeishuLegacyAttempt
 	require.NoError(t, tx.First(&activeAttempt, "id=?", afterRevoke.ActiveAttempt).Error)
-	require.Equal(t, "published", activeAttempt.Status, "revoked initiators must not replace the serving receipt")
+	require.Equal(
+		t,
+		"published",
+		activeAttempt.Status,
+		"revoked initiators must not replace the serving receipt",
+	)
 }
