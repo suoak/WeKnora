@@ -171,6 +171,7 @@ func (p *GRPCDocumentReader) readStream(
 			result.ChunkingPolicy = chunkingPolicyFromProto(meta.GetChunkingPolicy())
 			result.ParsedChunks = parserChunkSpansFromProto(meta.GetParsedChunks())
 			result.ParsedSegments = parserSegmentsFromProto(meta.GetParsedSegments())
+			result.SourceBlocks = sourceBlocksFromProto(meta.GetSourceBlocks())
 			if n := meta.GetImageCount(); n > 0 {
 				result.ImageRefs = make([]types.ImageRef, 0, n)
 			}
@@ -212,6 +213,7 @@ func (p *GRPCDocumentReader) readUnary(
 		ChunkingPolicy:  chunkingPolicyFromProto(resp.GetChunkingPolicy()),
 		ParsedChunks:    parserChunkSpansFromProto(resp.GetParsedChunks()),
 		ParsedSegments:  parserSegmentsFromProto(resp.GetParsedSegments()),
+		SourceBlocks:    sourceBlocksFromProto(resp.GetSourceBlocks()),
 	}
 	if refs := resp.GetImageRefs(); len(refs) > 0 {
 		result.ImageRefs = make([]types.ImageRef, 0, len(refs))

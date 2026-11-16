@@ -57,6 +57,7 @@ type httpReadResponse struct {
 	ChunkingPolicy  string               `json:"chunking_policy,omitempty"`
 	ParsedChunks    []httpParsedTextSpan `json:"parsed_chunks,omitempty"`
 	ParsedSegments  []httpParsedSegment  `json:"parsed_segments,omitempty"`
+	SourceBlocks    []wireSourceBlock    `json:"source_blocks,omitempty"`
 }
 
 type httpParsedTextSpan struct {
@@ -201,6 +202,7 @@ func fromHTTPReadResponse(resp *httpReadResponse) *types.ReadResult {
 		Metadata:        resp.Metadata,
 		Error:           resp.Error,
 		ChunkingPolicy:  types.ChunkingPolicy(resp.ChunkingPolicy),
+		SourceBlocks:    sourceBlocksFromWire(resp.SourceBlocks),
 	}
 	if result.ChunkingPolicy == "" {
 		result.ChunkingPolicy = types.ChunkingPolicyDefault
