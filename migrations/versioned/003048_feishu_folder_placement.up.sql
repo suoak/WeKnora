@@ -56,7 +56,7 @@ BEGIN
   END IF;
   -- Classification does not publish source content. Compare the complete row
   -- so no identity, content, permission, transfer or lifecycle field can change.
-  IF TG_OP='UPDATE' AND TG_TABLE_NAME='knowledges'
+  IF TG_OP='UPDATE' AND TG_TABLE_NAME='knowledges' AND r.state<>'deleted'
     AND to_jsonb(OLD)->>'deleted_at' IS NULL
     AND to_jsonb(OLD)->>'parse_status' IS DISTINCT FROM 'deleting'
     AND (to_jsonb(NEW)-ARRAY['folder_path','updated_at']) =
