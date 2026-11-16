@@ -179,7 +179,8 @@ func exerciseLegacyHTTPConnector(
 	var kid string
 	require.NoError(
 		t,
-		db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=? AND metadata->>'external_id'='http-document'", ds.ID).
+		db.Raw("SELECT id FROM knowledges WHERE metadata->>'datasource_id'=? "+
+			"AND metadata->>'external_id'='http-document'", ds.ID).
 			Scan(&kid).
 			Error,
 	)

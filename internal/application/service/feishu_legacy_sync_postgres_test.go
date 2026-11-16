@@ -147,6 +147,7 @@ func exerciseLegacyProcessSync(
 	require.NoError(t, err)
 	require.Equal(t, types.SyncLogStatusSuccess, log.Status)
 	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
-	require.Equal(t, "active", saved.LegacyAccessState, "the complete verified reconciliation releases source uncertainty")
+	require.Equal(t, "active", saved.LegacyAccessState,
+		"the complete verified reconciliation releases source uncertainty")
 	require.NoError(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID))
 }
