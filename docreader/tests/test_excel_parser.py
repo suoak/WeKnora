@@ -248,6 +248,55 @@ class XlsxRepairTest(unittest.TestCase):
 
 
 class XlsxMergeFillTest(unittest.TestCase):
+    def test_unmerged_workbook_never_loads_mutable_cell_graph(self):
+        wb = openpyxl.Workbook()
+        wb.active.append(["Key", "Value"])
+        wb.active.append(["final-key", "final-value"])
+        bio = io.BytesIO()
+        wb.save(bio)
+        content = bio.getvalue()
+        with patch("openpyxl.load_workbook", wraps=openpyxl.load_workbook) as load:
+            self.assertEqual(fill_merged_cells_xlsx(content), content)
+        self.assertTrue(load.call_args_list)
+        self.assertTrue(all(call.kwargs.get("read_only") for call in load.call_args_list))
+
+    def test_merge_in_last_worksheet_with_custom_part_path_is_filled(self):
+        wb = openpyxl.Workbook()
+        wb.active.append(["plain"])
+        sheet = wb.create_sheet("Last")
+        sheet["D3"] = "final-master"
+        sheet.merge_cells("D3:E4")
+        bio = io.BytesIO()
+        wb.save(bio)
+        source = zipfile.ZipFile(io.BytesIO(bio.getvalue()))
+        rewritten = io.BytesIO()
+        with source, zipfile.ZipFile(rewritten, "w", zipfile.ZIP_DEFLATED) as target:
+            for entry in source.infolist():
+                name = entry.filename
+                raw = source.read(name)
+                if name in {"xl/_rels/workbook.xml.rels", "[Content_Types].xml"}:
+                    raw = raw.replace(b"/xl/worksheets/sheet2.xml", b"/xl/custom-last.xml")
+                if name == "xl/worksheets/sheet2.xml":
+                    name = "xl/custom-last.xml"
+                target.writestr(name, raw)
+        filled = fill_merged_cells_xlsx(rewritten.getvalue())
+        result = openpyxl.load_workbook(io.BytesIO(filled), data_only=True)
+        self.assertEqual(result["Last"]["E4"].value, "final-master")
+
+    def test_unmerged_fast_path_rejects_malformed_xml_after_cells(self):
+        content = _xlsx_with_sheet_fragment("")
+        out = io.BytesIO()
+        with zipfile.ZipFile(io.BytesIO(content)) as source, zipfile.ZipFile(out, "w") as target:
+            for entry in source.infolist():
+                raw = source.read(entry.filename)
+                if entry.filename == "xl/worksheets/sheet1.xml":
+                    raw = raw.replace(b"</worksheet>", b"")
+                target.writestr(entry, raw)
+        from xml.etree.ElementTree import ParseError
+
+        with self.assertRaises(ParseError):
+            fill_merged_cells_xlsx(out.getvalue())
+
     @staticmethod
     def _workbook_with_merged_cells_and_chart() -> bytes:
         wb = openpyxl.Workbook()
