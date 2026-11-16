@@ -87,7 +87,11 @@ func TestWordContainerUsesPackageEvidenceWithoutChangingTheSource(t *testing.T) 
 		_, err = NewAnydocReader(
 			nil,
 			nil,
-		).Read(t.Context(), &types.ReadRequest{FileName: "protected." + declared, FileType: declared, FileContent: testWordCompound("EncryptedPackage")})
+		).Read(t.Context(), &types.ReadRequest{
+			FileName:    "protected." + declared,
+			FileType:    declared,
+			FileContent: testWordCompound("EncryptedPackage"),
+		})
 		require.ErrorContains(
 			t,
 			err,
@@ -98,7 +102,11 @@ func TestWordContainerUsesPackageEvidenceWithoutChangingTheSource(t *testing.T) 
 }
 
 func TestWordContainerDoesNotPromoteUnrelatedOrAmbiguousPackages(t *testing.T) {
-	for _, data := range [][]byte{testWordZip(t, "xl/workbook.xml"), []byte("plain text"), testWordCompound("Workbook")} {
+	for _, data := range [][]byte{
+		testWordZip(t, "xl/workbook.xml"),
+		[]byte("plain text"),
+		testWordCompound("Workbook"),
+	} {
 		format, err := wordContainerFormat(t.Context(), data, "doc")
 		require.NoError(t, err)
 		require.Equal(t, "doc", format)
