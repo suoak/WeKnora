@@ -75,6 +75,17 @@ class ReadonlyMergedFramesTests(unittest.TestCase):
                 with self.assertRaises(Exception):
                     _read_merge_ranges(io.BytesIO(content))
 
+    def test_merge_scan_validates_cells_and_resumes_at_worksheet_metadata(self):
+        from docreader.parser.xlsx_merge import _read_merge_ranges
+        start = b'<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        end = b'</worksheet>'
+        cells = b'<sheetData><row><c><mergeCells><mergeCell ref="A1:Z9"/></mergeCells></c></row></sheetData>'
+        merges = b'<mergeCells><mergeCell ref="A1:B2"/></mergeCells>'
+        self.assertEqual(_read_merge_ranges(io.BytesIO(start + cells + merges + end)), ['A1:B2'])
+        for bad in (b'<sheetData><row></sheetData>', b'<sheetData><sheetData/></sheetData>'):
+            with self.assertRaises(Exception):
+                _read_merge_ranges(io.BytesIO(start + bad + end))
+
     def test_fill_comparison_matches_complete_rowwise_reference(self):
         import itertools
         from docreader.parser.excel_wide_table_dry_run import _FillPattern, _fill_similarity

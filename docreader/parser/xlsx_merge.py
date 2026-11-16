@@ -96,9 +96,25 @@ def _read_merge_ranges(source):
 
     target = _MergeRanges()
     parser = ParserCreate(namespace_separator="}")
+    sheet_data = "http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData"
+
+    def skip_cell_start(tag, attributes):
+        if tag == sheet_data:
+            raise ValueError("Nested worksheet cell data is invalid")
+
+    def skip_cell_end(tag):
+        if tag == sheet_data:
+            target.end(tag)
+            parser.StartElementHandler = start
+            parser.EndElementHandler = target.end
 
     def start(tag, attributes):
         target.start("{" + tag if "}" in tag else tag, attributes)
+        if target.depth == 2 and target.worksheet and tag == sheet_data:
+            # Expat still validates every byte, element and attribute. Cell
+            # descendants cannot contain worksheet-level merge metadata.
+            parser.StartElementHandler = skip_cell_start
+            parser.EndElementHandler = skip_cell_end
 
     def forbidden(*args):
         raise ValueError("XML entities and external references are forbidden")
