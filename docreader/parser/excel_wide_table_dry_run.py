@@ -126,7 +126,7 @@ class WorkbookWideTableDryRun:
 
 
 def _clean_values(series: pd.Series) -> list[Any]:
-    return [v for v in series.tolist() if pd.notna(v) and not _is_image_function(v)]
+    return [v for v in series.tolist() if (isinstance(v, str) or pd.notna(v)) and not _is_image_function(v)]
 
 
 def _value_shape(value: Any) -> str:
@@ -189,7 +189,7 @@ def _profile_columns(df: pd.DataFrame) -> list[ColumnProfile]:
             dominant_shape_ratio=dominant_count / len(values) if values else 0.0,
             header_unicode_shape=_unicode_shape(str(df.columns[index])),
             value_shape_distribution=distribution,
-            fill_pattern=_FillPattern(pd.notna(v) and not _is_image_function(v) for v in series.tolist()),
+            fill_pattern=_FillPattern((isinstance(v, str) or pd.notna(v)) and not _is_image_function(v) for v in series.tolist()),
         ))
     return profiles
 

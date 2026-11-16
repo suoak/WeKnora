@@ -90,7 +90,8 @@ func (s *FeishuLegacyStore) YieldSourceDocumentReparse(ctx context.Context, ds *
 			return legacyFence("large_checkpoint_request_missing")
 		}
 		var count int64
-		if err = tx.Table("feishu_legacy_index_candidates").Where("attempt_id=?", a.ID).Count(&count).Error; err != nil {
+		if err = tx.Table("feishu_legacy_index_candidates").Where("attempt_id=?", a.ID).
+			Count(&count).Error; err != nil {
 			return err
 		}
 		request := claim.request

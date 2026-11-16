@@ -198,7 +198,7 @@ func (s *FeishuLegacyStore) ClaimSourceDocumentReparse(
 ) (context.Context, *types.FeishuDocumentReparse, error) {
 	claim := &sourceDocumentReparseClaim{}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+		if err := s.execution(ctx, tx, ds); err != nil {
 			return err
 		}
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(

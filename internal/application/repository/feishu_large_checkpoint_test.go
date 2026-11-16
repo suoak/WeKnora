@@ -28,7 +28,8 @@ func TestLegacyLargeCheckpointResourceBoundsAndClaimBudget(t *testing.T) {
 	_, _, ok := LargeSourceReparseRequest(context.Background())
 	require.False(t, ok)
 	claim := &sourceDocumentReparseClaim{request: types.FeishuDocumentReparse{
-		ID: "request", FileType: "xlsx", ConfigHash: strings.Repeat("1", 64), ProgressWindows: LargeFeishuProgressWindows - 1,
+		ID: "request", FileType: "xlsx", ConfigHash: strings.Repeat("1", 64),
+		ProgressWindows: LargeFeishuProgressWindows - 1,
 	}}
 	ctx := context.WithValue(context.Background(), sourceDocumentReparseKey{}, claim)
 	id, _, ok := LargeSourceReparseRequest(ctx)

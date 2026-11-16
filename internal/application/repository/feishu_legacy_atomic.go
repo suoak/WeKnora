@@ -37,6 +37,14 @@ func legacySourceKind(kind string) bool {
 
 type FeishuLegacyStore struct{ db *gorm.DB }
 
+type legacyPreparedIndexRow struct {
+	AttemptID string
+	ChunkID   string
+	Content   string
+	Dimension int
+	Embedding pgvector.HalfVector
+}
+
 func NewFeishuLegacyStore(db *gorm.DB) *FeishuLegacyStore {
 	return &FeishuLegacyStore{db: db.Session(&gorm.Session{Logger: gormlog.Discard})}
 }
@@ -126,6 +134,7 @@ func (s *FeishuLegacyStore) ModelStamp(ctx context.Context, id string) (string, 
 	return hash, err
 }
 
+// StorageStamp binds the complete active local-storage configuration.
 func (s *FeishuLegacyStore) StorageStamp(
 	ctx context.Context,
 	tenant uint64,
@@ -157,8 +166,8 @@ func (s *FeishuLegacyStore) CheckOwner(
 // The row lock is retained through the actual public index write, not released
 // after a preflight check. Database triggers protect old unmodified workers too.
 func (s *FeishuLegacyStore) execution(
-	tx *gorm.DB,
 	ctx context.Context,
+	tx *gorm.DB,
 	ds *types.DataSource,
 ) error {
 	if err := s.executionFence(ctx, tx, ds); err != nil {
@@ -195,7 +204,7 @@ func (s *FeishuLegacyStore) executionFence(
 ) error {
 	e, ok := types.SyncExecutionFromContext(ctx)
 	if !ok || e.DataSourceID != ds.ID || e.TenantID != ds.TenantID ||
-		tx.Dialector.Name() != "postgres" {
+		tx.Name() != "postgres" {
 		return legacyFence("execution_context_invalid")
 	}
 	current, err := lockSyncDataSource(tx, ds.ID, ds.TenantID)
@@ -281,7 +290,7 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 	r = &types.FeishuLegacyResource{}
 	a = &types.FeishuLegacyAttempt{}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if e := s.execution(tx, ctx, ds); e != nil {
+		if e := s.execution(ctx, tx, ds); e != nil {
 			return e
 		}
 		id := legacyResourceID(ds, item.ExternalID)
@@ -562,7 +571,7 @@ func (s *FeishuLegacyStore) owned(
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
-	if err := s.execution(tx, ctx, ds); err != nil {
+	if err := s.execution(ctx, tx, ds); err != nil {
 		return nil, nil, err
 	}
 	var r types.FeishuLegacyResource
@@ -723,6 +732,7 @@ func (s *FeishuLegacyStore) Prepare(
 				return e
 			}
 		}
+		pending := make([]legacyPreparedIndexRow, 0, 100)
 		for i, c := range indexed {
 			if len(vectors[i]) != m.Dimension {
 				return legacyFence("vector_dimension_mismatch")
@@ -739,15 +749,16 @@ func (s *FeishuLegacyStore) Prepare(
 				return legacyFence("vector_zero_norm")
 			}
 			c.ContextHeader = m.ChunkHeaders[c.ID]
-			if e = tx.Exec("INSERT INTO feishu_legacy_index_candidates(attempt_id,chunk_id,co"+
-				"ntent,dimension,embedding) VALUES(?,?,?,?,?)",
-				a.ID,
-				c.ID,
-				buildLegacyIndexContent(m.Knowledge.Title,
-					c.EmbeddingContent()),
-				m.Dimension,
-				pgvector.NewHalfVector(vectors[i])).Error; e != nil {
-				return e
+			pending = append(pending, legacyPreparedIndexRow{
+				AttemptID: a.ID, ChunkID: c.ID,
+				Content:   buildLegacyIndexContent(m.Knowledge.Title, c.EmbeddingContent()),
+				Dimension: m.Dimension, Embedding: pgvector.NewHalfVector(vectors[i]),
+			})
+			if len(pending) == 100 || i == len(indexed)-1 {
+				if e = tx.Table("feishu_legacy_index_candidates").CreateInBatches(pending, 100).Error; e != nil {
+					return e
+				}
+				pending = pending[:0]
 			}
 		}
 		b, e := json.Marshal(m)
@@ -783,6 +794,18 @@ func (s *FeishuLegacyStore) Publish(
 		var m types.FeishuLegacyManifest
 		if e = json.Unmarshal(a.Manifest, &m); e != nil {
 			return e
+		}
+		if len(m.Chunks) > 10000 {
+			checkpoint, checkpointErr := embeddingCheckpoint(a)
+			if checkpointErr != nil {
+				return checkpointErr
+			}
+			if !largeCheckpointShape(checkpoint) {
+				return legacyFence("large_checkpoint_missing")
+			}
+			if checkpointErr = checkLargeCheckpointClaim(ctx, tx, ds, r, checkpoint); checkpointErr != nil {
+				return checkpointErr
+			}
 		}
 		h, e := LegacyManifestHash(m)
 		if e != nil || h != m.SHA256 {
@@ -995,9 +1018,9 @@ func (s *FeishuLegacyStore) Publish(
 			c.ContextHeader = m.ChunkHeaders[c.ID]
 			c.SourceContent = c.Content
 			c.SeqID = 0
-			if e = tx.Select("*").Create(c).Error; e != nil {
-				return e
-			}
+		}
+		if e = tx.Select("*").CreateInBatches(m.Chunks, 100).Error; e != nil {
+			return e
 		}
 		if e = tx.Exec(`INSERT INTO embeddings(source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,
 content,dimension,embedding,is_enabled)

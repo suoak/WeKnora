@@ -224,7 +224,8 @@ AND old.receipt->'embedding_checkpoint_v1'->>'kb_config_sha256'=?
 AND (?='' OR (old.receipt->'embedding_checkpoint_v1'->>'request_id'=? AND old.source_hash=?))
 ORDER BY (SELECT count(*) FROM feishu_legacy_index_candidates i WHERE i.attempt_id=old.id) DESC,
 old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
-			current.KBConfigSHA256, current.RequestID, current.RequestID, current.SourceHash).Scan(&candidates).Error; err != nil {
+			current.KBConfigSHA256, current.RequestID, current.RequestID, current.SourceHash).
+			Scan(&candidates).Error; err != nil {
 			return err
 		}
 		candidates = append(candidates, *a)

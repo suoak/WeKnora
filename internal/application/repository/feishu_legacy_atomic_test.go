@@ -319,7 +319,8 @@ WHERE scope=? AND dedup_key=? AND op='queued'`, sourceDocumentReparseScope, kid)
 		require.NoError(t, err)
 		checkpoint := types.FeishuLegacyEmbeddingCheckpoint{
 			Version: 2, RequestID: claimed.ID, SourceConfig: claimed.ConfigHash,
-			ModelID: m.EmbeddingModelID, ModelStamp: m.ModelStamp, KBConfigSHA256: m.KBConfigSHA256, Dimension: m.Dimension,
+			ModelID: m.EmbeddingModelID, ModelStamp: m.ModelStamp,
+			KBConfigSHA256: m.KBConfigSHA256, Dimension: m.Dimension,
 		}
 		for i := 0; i < 10001; i++ {
 			text := fmt.Sprintf("input-%d", i)
@@ -465,6 +466,109 @@ WHERE scope=? AND dedup_key=? AND op='queued'`, sourceDocumentReparseScope, kid)
 		require.Equal(t, 2, status.CompletedChunks)
 		require.Zero(t, status.Attempts)
 	})
+	t.Run(
+		"large-checkpoint-publication-requires-the-live-request-and-complete-input-set",
+		func(t *testing.T) {
+			tx := db.Begin()
+			require.NoError(t, tx.Error)
+			defer tx.Rollback()
+			local := NewFeishuLegacyStore(tx)
+			request, err := local.SourceReparseTarget(ctx, ds, kid)
+			require.NoError(t, err)
+			request.Initiator = types.TaskInitiator{
+				UserID: uuid.NewString(),
+				Role:   types.TenantRoleAdmin,
+			}
+			request.KBConfigHash = LegacyKBConfigHash(kb)
+			_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+			require.NoError(t, err)
+			require.NoError(
+				t,
+				tx.Exec(
+					`UPDATE task_pending_ops SET payload=jsonb_set(payload,'{file_type}','"xlsx"')
+WHERE scope=? AND dedup_key=? AND op='queued'`,
+					sourceDocumentReparseScope,
+					kid,
+				).Error,
+			)
+			work, claimed, err := local.ClaimSourceDocumentReparse(ctx, ds)
+			require.NoError(t, err)
+			item := &types.FetchedItem{
+				ExternalID:       "same-cloud-id",
+				SourceResourceID: "root",
+				FileName:         "document.md",
+				Content:          []byte("oldcanary"),
+				UpdatedAt:        time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
+			}
+			hash := sha256.Sum256(item.Content)
+			_, owner, err := local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
+			require.NoError(t, err)
+			manifest := m
+			manifest.Chunks = nil
+			manifest.Knowledge.FileType = "xlsx"
+			checkpoint := types.FeishuLegacyEmbeddingCheckpoint{
+				Version:        2,
+				RequestID:      claimed.ID,
+				SourceConfig:   claimed.ConfigHash,
+				ModelID:        m.EmbeddingModelID,
+				ModelStamp:     m.ModelStamp,
+				KBConfigSHA256: m.KBConfigSHA256,
+				Dimension:      3,
+			}
+			vectors := make([][]float32, 10001)
+			for i := range vectors {
+				body := "largecanary"
+				if i == len(vectors)-1 {
+					body = "lastlargecanary"
+				}
+				chunk := *m.Chunks[0]
+				chunk.ID = uuid.NewString()
+				chunk.Content = body
+				chunk.ChunkIndex = i
+				manifest.Chunks = append(manifest.Chunks, &chunk)
+				vectors[i] = []float32{1, 0, 0}
+				checkpoint.Inputs = append(
+					checkpoint.Inputs,
+					types.FeishuLegacyEmbeddingInput{
+						ChunkID: chunk.ID,
+						SHA256: LegacyEmbeddingInputHash(
+							buildLegacyIndexContent(m.Knowledge.Title, body),
+						),
+					},
+				)
+			}
+			require.NoError(t, local.StartEmbeddingCheckpoint(work, ds, owner, checkpoint))
+			require.NoError(t, local.SaveEmbeddingCheckpoint(work, ds, owner, []string{
+				buildLegacyIndexContent(
+					m.Knowledge.Title,
+					"largecanary",
+				), buildLegacyIndexContent(m.Knowledge.Title, "lastlargecanary"),
+			}, [][]float32{{1, 0, 0}, {1, 0, 0}}))
+			require.Error(
+				t,
+				local.Prepare(ctx, ds, owner, manifest, vectors),
+				"the normal sync context cannot prepare a large request",
+			)
+			require.NoError(t, local.Prepare(work, ds, owner, manifest, vectors))
+			_, err = local.Publish(ctx, ds, owner)
+			require.Error(t, err, "a prepared manifest alone is not publication authority")
+			receipt, err := local.Publish(work, ds, owner)
+			require.NoError(t, err)
+			require.EqualValues(t, 10001, receipt.Chunks)
+			var publicCount int64
+			require.NoError(
+				t,
+				tx.Model(&types.Chunk{}).
+					Where("knowledge_id=? AND deleted_at IS NULL", kid).
+					Count(&publicCount).
+					Error,
+			)
+			require.EqualValues(t, 10001, publicCount)
+			status, err := local.SourceDocumentReparseStatus(work, ds, kid)
+			require.NoError(t, err)
+			require.Equal(t, "completed", status.State)
+		},
+	)
 	t.Run("source-document-reparse-is-durable-and-publishes-atomically", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
