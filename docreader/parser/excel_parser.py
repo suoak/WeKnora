@@ -9,6 +9,7 @@ sheets and handles various Excel formats using pandas.
 import json
 import logging
 import re
+import zipfile
 from io import BytesIO
 from typing import Any, List, Sequence, Tuple
 
@@ -22,7 +23,7 @@ from docreader.parser.excel_convert import (
     engine_for_format,
     normalize_excel_bytes,
 )
-from docreader.parser.xlsx_merge import fill_merged_cells_xlsx
+from docreader.parser.xlsx_merge import fill_merged_cells_xlsx, install_readonly_merge_fill
 from docreader.parser.xlsx_repair import (
     normalize_blank_underline_xlsx,
     repair_xlsx_bytes,
@@ -41,6 +42,7 @@ _XLSX_CHUNKING_MODES = {
     XLSX_CHUNKING_MODE_LEGACY,
 }
 DEFAULT_PARSER_SEMANTIC_CHUNK_MAX_CHARS = 7500
+READONLY_MERGE_FILL_MIN_BYTES = 8 << 20
 
 # Pattern to detect Excel image function strings that should be excluded from
 # parsed text content.  WPS uses =DISPIMG("ID",mode) to embed images in cells;
@@ -130,11 +132,12 @@ class ExcelParser(BaseParser):
         saw_nonempty_sheet = False
 
         excel_file = _open_excel_file(content, file_type=self.file_type)
-        sheets: List[Tuple[str, pd.DataFrame, ChunkingPolicy]] = []
         spreadsheet_schemas: List[dict[str, Any]] = []
+        segments: List[ParsedSegment] = []
+        all_sheets_preserved = True
 
-        # Inspect every sheet before rendering. In non-legacy modes each
-        # non-empty sheet becomes an independent parser-defined segment.
+        # Render each sheet before reading the next one; retaining every frame
+        # makes mixed workbooks pay for all cell graphs at once.
         for excel_sheet_name in excel_file.sheet_names:
             use_header = self.xlsx_first_row_as_header or (
                 self.xlsx_chunking_mode == XLSX_CHUNKING_MODE_ROW_AWARE
@@ -167,6 +170,7 @@ class ExcelParser(BaseParser):
                 spreadsheet_schemas.append(
                     detect_sheet_schema(schema_df, excel_sheet_name).to_dict()
                 )
+            del schema_df
 
             sheet_policy = ChunkingPolicy.DEFAULT
             if self.xlsx_chunking_mode == XLSX_CHUNKING_MODE_ROW_AWARE:
@@ -180,22 +184,18 @@ class ExcelParser(BaseParser):
                 if self.xlsx_first_row_as_header and header_applied and row_table_safe:
                     sheet_policy = ChunkingPolicy.PRESERVE_PARSER_CHUNKS
 
-            sheets.append((excel_sheet_name, df, sheet_policy))
-
-        # Process each sheet in workbook order.
-        segments: List[ParsedSegment] = []
-        all_sheets_preserved = saw_nonempty_sheet
-        for excel_sheet_name, df, sheet_policy in sheets:
             segment_start = end
             segment_chunks: List[Chunk] = []
             segment_cursor = 0
             preserve_sheet = sheet_policy == ChunkingPolicy.PRESERVE_PARSER_CHUNKS
             all_sheets_preserved = all_sheets_preserved and preserve_sheet
             # Process each row in the DataFrame
-            for row_index, row in df.iterrows():
+            # iterrows constructs a Series from these same common-dtype array
+            # rows. Use the array directly, preserving numeric coercion.
+            for row_index, row in _iter_frame_rows(df):
                 page_fields: List[Tuple[str, str]] = []
                 # Build key-value pairs for non-null values
-                for k, v in row.items():
+                for k, v in zip(df.columns, row):
                     if pd.notna(v) and not _is_image_function(v):
                         page_fields.append((str(k), str(v)))
 
@@ -273,10 +273,16 @@ class ExcelParser(BaseParser):
                         },
                     )
                 )
+            # The final NumPy row is a view retaining its full backing matrix.
+            # Release it as well as the frame before reading another sheet.
+            del row, df
+        excel_file.close()
+        del excel_file
         # Combine all text and return as Document
         policy = ChunkingPolicy.DEFAULT
         if (
             self.xlsx_chunking_mode != XLSX_CHUNKING_MODE_LEGACY
+            and saw_nonempty_sheet
             and all_sheets_preserved
         ):
             policy = ChunkingPolicy.PRESERVE_PARSER_CHUNKS
@@ -294,6 +300,18 @@ class ExcelParser(BaseParser):
             source_blocks=source_blocks,
             metadata=document_metadata,
         )
+
+
+def _iter_frame_rows(df: pd.DataFrame):
+    values = df.to_numpy()
+    if values.dtype.kind in {"M", "m"}:
+        # NumPy tolist converts nanosecond datetimes/timedeltas to integers;
+        # pandas preserves Timestamp/Timedelta when constructing row Series.
+        for index, row in df.iterrows():
+            yield index, row.tolist()
+    else:
+        for index, row in zip(df.index, values):
+            yield index, row.tolist()
 
 
 def _read_sheet_dataframe(
@@ -361,21 +379,31 @@ def _is_conservative_row_table(
         # multi-row header. Auto mode cannot safely decide which header level
         # describes records; row-aware remains available as an explicit opt-in.
         return False
-    for _, row in nonempty_data.iterrows():
-        # Keep the Series' scalar types (and its numeric coercion) while
-        # avoiding pandas' positional indexer for every individual cell.
-        values = row.array
-        normalized_row = [
-            "" if pd.isna(values[idx]) else str(values[idx]).strip()
-            for idx in active_columns
-        ]
-        if normalized_row == normalized_header:
+    expected_values = tuple(zip(active_columns, normalized_header))
+    row_values = nonempty_data.to_numpy()
+    if row_values.dtype.kind in {"M", "m"}:
+        row_values = (row.array for _, row in nonempty_data.iterrows())
+    for values in row_values:
+        # Same common-dtype values used by iterrows, without a Series per row.
+        matches_header = True
+        nonnull_count = 0
+        for idx, expected in expected_values:
+            value = values[idx]
+            nonnull = bool(pd.notna(value))
+            nonnull_count += nonnull
+            if matches_header:
+                matches_header = (str(value).strip() if nonnull else "") == expected
+            # Once a row differs from the header and has two non-null cells,
+            # later columns cannot reverse either admission fact.
+            if not matches_header and nonnull_count >= 2:
+                break
+        if matches_header:
             # A repeated header inside the data region usually marks multiple
             # table blocks rather than one homogeneous record stream.
             return False
         # Check every row, including note/title lines late in a large sheet.
         # This uses the same non-null rule as the original second full scan.
-        if sum(pd.notna(values[idx]) for idx in active_columns) < 2:
+        if nonnull_count < 2:
             return False
     return True
 
@@ -501,7 +529,7 @@ def _parse_positive_int(value: Any, name: str, default: int) -> int:
     return parsed
 
 
-def _prepare_xlsx_bytes(data: bytes) -> bytes:
+def _prepare_xlsx_bytes(data: bytes, *, fill_merges: bool = True) -> bytes:
     normalized = normalize_blank_underline_xlsx(data)
     if normalized is not None:
         data = normalized
@@ -511,6 +539,8 @@ def _prepare_xlsx_bytes(data: bytes) -> bytes:
     readable = strip_unreadable_ranges_xlsx(data)
     if readable is not None:
         data = readable
+    if not fill_merges:
+        return data
     try:
         return fill_merged_cells_xlsx(data)
     except TypeError:
@@ -554,11 +584,36 @@ def _open_excel_file(content: bytes, file_type: str | None = None) -> pd.ExcelFi
                 continue
 
         engine = engine_for_format(ext)
+        readonly_merges = False
         if ext == "xlsx":
-            data = _prepare_xlsx_bytes(data)
+            with zipfile.ZipFile(BytesIO(data)) as archive:
+                readonly_merges = (
+                    sum(info.file_size for info in archive.infolist())
+                    >= READONLY_MERGE_FILL_MIN_BYTES
+                )
+            data = _prepare_xlsx_bytes(data, fill_merges=not readonly_merges)
             engine = "openpyxl"
         try:
-            return pd.ExcelFile(BytesIO(data), engine=engine)
+            excel_file = pd.ExcelFile(BytesIO(data), engine=engine)
+            if readonly_merges:
+                try:
+                    installed = install_readonly_merge_fill(data, excel_file)
+                except Exception:
+                    excel_file.close()
+                    raise
+                if not installed:
+                    excel_file.close()
+                    data = _prepare_xlsx_bytes(data)
+                    return pd.ExcelFile(BytesIO(data), engine=engine)
+            return excel_file
+        except TypeError:
+            if engine != "openpyxl":
+                raise
+            sanitized = sanitize_xlsx_styles(data)
+            if sanitized is None:
+                raise
+            data = sanitized
+            continue
         except ImportError as exc:
             raise ValueError(
                 f"Excel engine {engine!r} is not available for .{ext} files"

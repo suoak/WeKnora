@@ -36,6 +36,21 @@ MIN_PAYLOAD_WIDTH = 5
 MIN_PAYLOAD_FRACTION = 0.15
 _NUMBER_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d+)?|\.\d+)$")
 _NUMBER_UNIT_RE = re.compile(r"^[+-]?(?:\d+(?:\.\d+)?|\.\d+)\s*[^\d\s].*$")
+_SPACE_RE = re.compile(r"\s")
+
+
+class _FillPattern(tuple):
+    """Tuple-compatible complete fill pattern with an exact comparison mask.
+
+    A byte per row holds only 0/1. XOR therefore has one set bit for each
+    differing row. Keep the mask on this sheet-local value, never a global
+    cache; dataclass/JSON output still has the original boolean sequence.
+    """
+
+    def __new__(cls, values):
+        value = super().__new__(cls, values)
+        value.mask = int.from_bytes(bytes(value), "little")
+        return value
 
 
 @dataclass(frozen=True)
@@ -126,7 +141,7 @@ def _value_shape(value: Any) -> str:
         return "number"
     if _NUMBER_UNIT_RE.fullmatch(text):
         return "number_unit"
-    if any(char.isspace() for char in text):
+    if _SPACE_RE.search(text):
         return "text_with_space"
     if len(text) <= 32 and any(char.isdigit() for char in text):
         return "identifier"
@@ -145,13 +160,18 @@ def _unicode_shape(value: str) -> str:
 
 
 def _profile_columns(df: pd.DataFrame) -> list[ColumnProfile]:
+    from functools import lru_cache
+
+    # Workbook values often repeat across rows/columns. Keep this cache local
+    # and bounded; every cell still contributes to the complete profile.
+    value_shape = lru_cache(maxsize=8192, typed=True)(_value_shape)
     row_count = max(len(df.index), 1)
     profiles: list[ColumnProfile] = []
     for index in range(len(df.columns)):
         series = df.iloc[:, index]
         values = _clean_values(series)
         texts = [str(v).strip() for v in values]
-        shapes = Counter(_value_shape(v) for v in values)
+        shapes = Counter(value_shape(v) for v in values)
         dominant, dominant_count = shapes.most_common(1)[0] if shapes else ("empty", 0)
         distribution = ({shape: count / len(values) for shape, count in shapes.items()}
                         if values else {"empty": 1.0})
@@ -164,14 +184,26 @@ def _profile_columns(df: pd.DataFrame) -> list[ColumnProfile]:
             numeric_with_unit_ratio=shapes.get("number_unit", 0) / len(values) if values else 0.0,
             boolean_enum_ratio=(shapes.get("boolean", 0) + repeated) / (2 * len(values)) if values else 0.0,
             median_value_length=statistics.median(lengths) if lengths else 0.0,
-            value_length_variance=statistics.pvariance(lengths) if len(lengths) > 1 else 0.0,
+            value_length_variance=_length_variance(lengths),
             dominant_value_shape=dominant,
             dominant_shape_ratio=dominant_count / len(values) if values else 0.0,
             header_unicode_shape=_unicode_shape(str(df.columns[index])),
             value_shape_distribution=distribution,
-            fill_pattern=tuple(pd.notna(v) and not _is_image_function(v) for v in series.tolist()),
+            fill_pattern=_FillPattern(pd.notna(v) and not _is_image_function(v) for v in series.tolist()),
         ))
     return profiles
+
+
+def _length_variance(lengths: list[int]) -> float:
+    # Lengths are integers: keep all arithmetic exact until the final division.
+    # This is the same population variance as statistics.pvariance, avoiding
+    # per-cell Fraction construction and floating-point cancellation.
+    count = len(lengths)
+    if count < 2:
+        return 0.0
+    total = sum(lengths)
+    squares = sum(value * value for value in lengths)
+    return (count * squares - total * total) / (count * count)
 
 
 def _ratio_similarity(left: float, right: float, scale: float = 1.0) -> float:
@@ -184,6 +216,11 @@ def _distribution_similarity(left: dict[str, float], right: dict[str, float]) ->
 
 
 def _fill_similarity(left: tuple[bool, ...], right: tuple[bool, ...]) -> float:
+    if len(left) == len(right) and isinstance(left, _FillPattern) and isinstance(right, _FillPattern):
+        differences = (left.mask ^ right.mask).bit_count()
+        return (len(left) - differences) / len(left) if left else 1.0
+    if left == right:
+        return 1.0
     return sum(a == b for a, b in zip(left, right)) / len(left) if left else 1.0
 
 

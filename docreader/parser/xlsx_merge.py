@@ -9,6 +9,158 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
+def install_readonly_merge_fill(content: bytes, excel_file) -> bool:
+    """Fill merge values before pandas type inference, using its read-only reader.
+
+    Only the sheet currently being parsed is materialized. Pivot caches, charts
+    and unrelated cell graphs are never loaded into a mutable workbook.
+    Unknown reader layouts retain the existing package-rewrite path.
+    """
+    from openpyxl.utils.cell import range_boundaries
+    from inspect import signature
+    from weakref import ref
+
+    reader = getattr(excel_file, "_reader", None)
+    original = getattr(reader, "get_sheet_data", None)
+    workbook = getattr(excel_file, "book", None)
+    if not callable(original) or not getattr(workbook, "read_only", False):
+        return False
+    if list(signature(original).parameters) != ["sheet", "file_rows_needed"]:
+        return False
+    implementation = getattr(original, "__func__", None)
+    if not callable(implementation):
+        return False
+    reader_ref = ref(reader)
+    ranges = {}
+    with zipfile.ZipFile(BytesIO(content)) as archive:
+        for sheet in workbook.worksheets:
+            path = getattr(sheet, "_worksheet_path", None)
+            if not isinstance(path, str) or path not in archive.namelist():
+                return False
+            with archive.open(path) as source:
+                bounds = [range_boundaries(value) for value in _read_merge_ranges(source)]
+            # Overlapping merges have order-dependent/invalid legacy behavior;
+            # do not invent a different interpretation in the optimized path.
+            active = []
+            for cell_range in sorted(bounds, key=lambda b: b[1]):
+                left, top, right, bottom = cell_range
+                if None in cell_range:
+                    return False
+                active = [b for b in active if b[3] >= top]
+                if any(left <= b[2] and b[0] <= right for b in active):
+                    return False
+                active.append(cell_range)
+            ranges[sheet.title] = bounds
+
+    def get_sheet_data(sheet, file_rows_needed=None):
+        owner = reader_ref()
+        if owner is None:
+            raise RuntimeError("Excel reader is no longer available")
+        rows = implementation(owner, sheet, file_rows_needed)
+        sheet_ranges = ranges.get(sheet.title, ())
+        if not sheet_ranges:
+            return rows
+        for left, top, right, bottom in sheet_ranges:
+            value = ""
+            if top <= len(rows) and left <= len(rows[top - 1]):
+                value = rows[top - 1][left - 1]
+            row_end = min(bottom, file_rows_needed) if file_rows_needed else bottom
+            if value != "":
+                while len(rows) < row_end:
+                    rows.append([])
+            for index in range(top - 1, min(row_end, len(rows))):
+                row = rows[index]
+                end = right if value != "" else min(right, len(row))
+                if len(row) < end:
+                    row.extend([""] * (end - len(row)))
+                row[left - 1:end] = [value] * max(0, end - left + 1)
+        # Match openpyxl/pandas' trimming and rectangular padding after merge
+        # expansion, including blank masters and ranges past stored dimensions.
+        for row in rows:
+            while row and row[-1] == "":
+                row.pop()
+        while rows and not rows[-1]:
+            rows.pop()
+        width = max((len(row) for row in rows), default=0)
+        for row in rows:
+            row.extend([""] * (width - len(row)))
+        return rows
+
+    reader.get_sheet_data = get_sheet_data
+    return True
+
+
+def _read_merge_ranges(source):
+    """Validate complete XML without constructing or retaining cell elements."""
+    from xml.parsers.expat import ParserCreate
+
+    target = _MergeRanges()
+    parser = ParserCreate(namespace_separator="}")
+    sheet_data = "http://schemas.openxmlformats.org/spreadsheetml/2006/main}sheetData"
+
+    def skip_cell_start(tag, attributes):
+        if tag == sheet_data:
+            raise ValueError("Nested worksheet cell data is invalid")
+
+    def skip_cell_end(tag):
+        if tag == sheet_data:
+            target.end(tag)
+            parser.StartElementHandler = start
+            parser.EndElementHandler = target.end
+
+    def start(tag, attributes):
+        target.start("{" + tag if "}" in tag else tag, attributes)
+        if target.depth == 2 and target.worksheet and tag == sheet_data:
+            # Expat still validates every byte, element and attribute. Cell
+            # descendants cannot contain worksheet-level merge metadata.
+            parser.StartElementHandler = skip_cell_start
+            parser.EndElementHandler = skip_cell_end
+
+    def forbidden(*args):
+        raise ValueError("XML entities and external references are forbidden")
+
+    parser.StartElementHandler = start
+    parser.EndElementHandler = target.end
+    parser.EntityDeclHandler = forbidden
+    parser.ExternalEntityRefHandler = forbidden
+    # Parameter entities are never fetched; declarations are rejected above.
+    from xml.parsers.expat import XML_PARAM_ENTITY_PARSING_NEVER
+    parser.SetParamEntityParsing(XML_PARAM_ENTITY_PARSING_NEVER)
+    while block := source.read(64 << 10):
+        parser.Parse(block, False)
+    parser.Parse(b"", True)
+    return target.refs
+
+
+class _MergeRanges:
+    def __init__(self):
+        self.refs = []
+        self.depth = 0
+        self.worksheet = False
+        self.in_merges = False
+
+    def start(self, tag, attributes):
+        self.depth += 1
+        ns = "{http://schemas.openxmlformats.org/spreadsheetml/2006/main}"
+        if self.depth == 1:
+            self.worksheet = tag == ns + "worksheet"
+        elif self.depth == 2:
+            self.in_merges = self.worksheet and tag == ns + "mergeCells"
+        elif self.depth == 3 and self.in_merges and tag == ns + "mergeCell":
+            self.refs.append(attributes["ref"])
+
+    def end(self, tag):
+        if self.depth == 2:
+            self.in_merges = False
+        self.depth -= 1
+
+    def data(self, text):
+        pass
+
+    def close(self):
+        pass
+
+
 class _MergeProbe:
     """SAX target: scan complete worksheet XML without retaining cell trees."""
 
