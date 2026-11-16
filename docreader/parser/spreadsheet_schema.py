@@ -159,7 +159,7 @@ def _detect_row_entity_axis(
 def _wide_records(df: pd.DataFrame, start: int, end: int,
                   headers: list[str]) -> list[dict[str, dict[str, str]]]:
     records: list[dict[str, dict[str, str]]] = []
-    for _, row in df.iterrows():
+    for row in df.to_numpy():
         common: dict[str, str] = {}
         entities: dict[str, str] = {}
         for index, value in enumerate(row.tolist()):
@@ -178,8 +178,8 @@ def _wide_records(df: pd.DataFrame, start: int, end: int,
 def _row_records(df: pd.DataFrame, entity_index: int,
                  headers: list[str]) -> list[dict[str, dict[str, str]]]:
     records: list[dict[str, dict[str, str]]] = []
-    for _, row in df.iterrows():
-        entity = _cell_text(row.iloc[entity_index])
+    for row in df.to_numpy():
+        entity = _cell_text(row[entity_index])
         if not entity:
             continue
         fields = {
