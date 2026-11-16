@@ -34,7 +34,7 @@ func wordContainerFormat(ctx context.Context, data []byte, declared string) (str
 			return "", fmt.Errorf("not a zip file: invalid Word package: %w", err)
 		}
 		if len(archive.File) > 4096 {
-			return "", fmt.Errorf("Word package resource limit exceeded")
+			return "", fmt.Errorf("word package resource limit exceeded")
 		}
 		word, manifest := false, false
 		for _, file := range archive.File {
@@ -42,7 +42,7 @@ func wordContainerFormat(ctx context.Context, data []byte, declared string) (str
 				return "", err
 			}
 			if file.Flags&1 != 0 {
-				return "", fmt.Errorf("Word file is encrypted; password required")
+				return "", fmt.Errorf("word file is encrypted; password required")
 			}
 			switch file.Name {
 			case "word/document.xml":
@@ -66,11 +66,11 @@ func wordContainerFormat(ctx context.Context, data []byte, declared string) (str
 		return declared, nil
 	}
 	if len(data) < 512 {
-		return "", fmt.Errorf("Word compound header is truncated")
+		return "", fmt.Errorf("word compound header is truncated")
 	}
 	shift := binary.LittleEndian.Uint16(data[30:32])
 	if shift != 9 && shift != 12 {
-		return "", fmt.Errorf("Word compound sector size is invalid")
+		return "", fmt.Errorf("word compound sector size is invalid")
 	}
 	sectors := len(data)/(1<<shift) - 1
 	// The library allocates some tables from header counts. Validate them
@@ -78,12 +78,12 @@ func wordContainerFormat(ctx context.Context, data []byte, declared string) (str
 	for _, offset := range []int{40, 44, 64, 72} {
 		if sectors < 0 ||
 			uint64(binary.LittleEndian.Uint32(data[offset:offset+4])) > uint64(sectors) {
-			return "", fmt.Errorf("Word compound resource limit exceeded")
+			return "", fmt.Errorf("word compound resource limit exceeded")
 		}
 	}
 	reader, err := mscfb.New(bytes.NewReader(data))
 	if err != nil {
-		return "", fmt.Errorf("Word compound inspection failed: %w", err)
+		return "", fmt.Errorf("word compound inspection failed: %w", err)
 	}
 	word := false
 	for count := 0; ; count++ {
@@ -91,14 +91,14 @@ func wordContainerFormat(ctx context.Context, data []byte, declared string) (str
 			return "", err
 		}
 		if count >= 4096 {
-			return "", fmt.Errorf("Word compound resource limit exceeded")
+			return "", fmt.Errorf("word compound resource limit exceeded")
 		}
 		entry, nextErr := reader.Next()
 		if nextErr == io.EOF {
 			break
 		}
 		if nextErr != nil {
-			return "", fmt.Errorf("Word compound directory failed: %w", nextErr)
+			return "", fmt.Errorf("word compound directory failed: %w", nextErr)
 		}
 		if len(entry.Path) != 0 || entry.FileInfo().IsDir() {
 			continue
