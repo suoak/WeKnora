@@ -34,7 +34,9 @@ func TestBatchPoolOrderedResults(t *testing.T) {
 		}
 		return out, nil
 	}}
-	out, err := NewBatchEmbedder(pool).BatchEmbedWithPool(context.Background(), model, []string{"0", "1", "2", "3", "4"})
+	out, err := NewBatchEmbedder(
+		pool,
+	).BatchEmbedWithPool(context.Background(), model, []string{"0", "1", "2", "3", "4"})
 	require.NoError(t, err)
 	require.Equal(t, [][]float32{{0}, {1}, {2}, {3}, {4}}, out)
 }
@@ -74,7 +76,9 @@ func TestBatchPoolCancelledAndMalformedProvider(t *testing.T) {
 	require.NoError(t, err)
 	defer pool.Release()
 	var called atomic.Int32
-	model := &batchPoolModel{run: func(context.Context, []string) ([][]float32, error) { called.Add(1); return nil, nil }}
+	model := &batchPoolModel{
+		run: func(context.Context, []string) ([][]float32, error) { called.Add(1); return nil, nil },
+	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, err = NewBatchEmbedder(pool).BatchEmbedWithPool(ctx, model, []string{"a"})

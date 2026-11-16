@@ -73,7 +73,9 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 				return
 			}
 			if len(embedding) != len(texts) {
-				recordError(fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(texts)))
+				recordError(
+					fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(texts)),
+				)
 				return
 			}
 			mu.Lock()

@@ -31,10 +31,27 @@ func (s *knowledgeService) ordinaryEmbeddingStore() *repository.OrdinaryEmbeddin
 	return nil
 }
 
-func (s *knowledgeService) deferOrdinaryEmbedding(ctx context.Context, kb *types.KnowledgeBase, k *types.Knowledge, chunks []*types.Chunk, model embedding.Embedder, engine *retriever.CompositeRetrieveEngine, options ProcessChunksOptions, bytes int64) (bool, error) {
+func (s *knowledgeService) deferOrdinaryEmbedding(
+	ctx context.Context,
+	kb *types.KnowledgeBase,
+	k *types.Knowledge,
+	chunks []*types.Chunk,
+	model embedding.Embedder,
+	engine *retriever.CompositeRetrieveEngine,
+	options ProcessChunksOptions,
+	bytes int64,
+) (bool, error) {
 	store := s.ordinaryEmbeddingStore()
 	parent, admitted := ctx.Value(ordinaryEmbeddingTaskKey{}).(types.DocumentProcessPayload)
-	if !admitted || parent.Attempt < 1 || parent.OrdinaryEmbeddingID != 0 || store == nil || k.Channel != "web" || k.Type != "file" || kb.HasVectorStore() || len(chunks) < 1000 || len(chunks) > 100000 || options.EnableMultimodel || len(options.StoredImages) > 0 || !engine.SupportsOrdinaryEmbedding() || attemptFromCtx(ctx) < 1 {
+	if !admitted || parent.Attempt < 1 || parent.OrdinaryEmbeddingID != 0 || store == nil || k.Channel != "web" ||
+		k.Type != "file" ||
+		kb.HasVectorStore() ||
+		len(chunks) < 1000 ||
+		len(chunks) > 100000 ||
+		options.EnableMultimodel ||
+		len(options.StoredImages) > 0 ||
+		!engine.SupportsOrdinaryEmbedding() ||
+		attemptFromCtx(ctx) < 1 {
 		return false, nil
 	}
 	if _, _, _, exact := types.ExactDocumentIdentity(ctx); exact {
@@ -43,10 +60,26 @@ func (s *knowledgeService) deferOrdinaryEmbedding(ctx context.Context, kb *types
 	if _, guarded := types.FeishuSourceGuardFromContext(ctx); guarded {
 		return false, nil
 	}
-	plan := types.OrdinaryEmbeddingPlan{Task: types.DocumentProcessPayload{TenantID: k.TenantID, KnowledgeID: k.ID, KnowledgeBaseID: k.KnowledgeBaseID, FilePath: k.FilePath, FileName: k.FileName, FileType: k.FileType, Attempt: attemptFromCtx(ctx), Language: types.LanguageFromContextOrDefault(ctx)}, StorageBytes: bytes, Dimension: model.GetDimensions()}
+	plan := types.OrdinaryEmbeddingPlan{
+		Task: types.DocumentProcessPayload{
+			TenantID:        k.TenantID,
+			KnowledgeID:     k.ID,
+			KnowledgeBaseID: k.KnowledgeBaseID,
+			FilePath:        k.FilePath,
+			FileName:        k.FileName,
+			FileType:        k.FileType,
+			Attempt:         attemptFromCtx(ctx),
+			Language:        types.LanguageFromContextOrDefault(ctx),
+		},
+		StorageBytes: bytes,
+		Dimension:    model.GetDimensions(),
+	}
 	plan.KBStamp = repository.OrdinaryEmbeddingKBStamp(kb)
 	for _, chunk := range chunks {
-		plan.Inputs = append(plan.Inputs, types.OrdinaryEmbeddingInput{ChunkID: chunk.ID, SHA256: repository.OrdinaryEmbeddingChunkStamp(chunk)})
+		plan.Inputs = append(
+			plan.Inputs,
+			types.OrdinaryEmbeddingInput{ChunkID: chunk.ID, SHA256: repository.OrdinaryEmbeddingChunkStamp(chunk)},
+		)
 	}
 	op, err := store.Start(ctx, k, plan)
 	if err != nil {
@@ -61,6 +94,9 @@ func (s *knowledgeService) deferOrdinaryEmbedding(ctx context.Context, kb *types
 }
 
 func (s *knowledgeService) publishOrdinaryEmbedding(ctx context.Context, op *types.TaskPendingOp) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	plan, err := repository.DecodeOrdinaryEmbedding(op)
 	if err != nil {
 		return err
@@ -78,14 +114,23 @@ func (s *knowledgeService) publishOrdinaryEmbedding(ctx context.Context, op *typ
 	if err != nil {
 		return err
 	}
-	_, err = s.task.Enqueue(asynq.NewTask(types.TypeDocumentProcess, data), asynq.Queue(types.QueueDefault), asynq.TaskID(fmt.Sprintf("ordinary-embed:%d:%d", op.ID, plan.Cursor)), asynq.MaxRetry(3), asynq.Timeout(2*time.Hour))
+	_, err = s.task.Enqueue(
+		asynq.NewTask(types.TypeDocumentProcess, data),
+		asynq.Queue(types.QueueDefault),
+		asynq.TaskID(fmt.Sprintf("ordinary-embed:%d:%d", op.ID, plan.Cursor)),
+		asynq.MaxRetry(3),
+		asynq.Timeout(2*time.Hour),
+	)
 	if errors.Is(err, asynq.ErrTaskIDConflict) || errors.Is(err, asynq.ErrDuplicateTask) {
 		return nil
 	}
 	return err
 }
 
-func (s *knowledgeService) resumeOrdinaryEmbedding(ctx context.Context, payload types.DocumentProcessPayload) (bool, error) {
+func (s *knowledgeService) resumeOrdinaryEmbedding(
+	ctx context.Context,
+	payload types.DocumentProcessPayload,
+) (bool, error) {
 	store := s.ordinaryEmbeddingStore()
 	if store == nil || payload.Attempt < 1 {
 		return false, nil
@@ -105,7 +150,9 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 	if store == nil {
 		return errors.New("ordinary embedding store unavailable")
 	}
-	if payload.PersonalAttemptID != "" || payload.DispatchID != "" || payload.FeishuAuthMode != "" || payload.FirstCreate || payload.OrdinaryEmbeddingID < 1 {
+	if payload.PersonalAttemptID != "" || payload.DispatchID != "" || payload.FeishuAuthMode != "" ||
+		payload.FirstCreate ||
+		payload.OrdinaryEmbeddingID < 1 {
 		return asynq.SkipRetry
 	}
 	op, err := store.Find(ctx, payload.TenantID, payload.KnowledgeID, payload.Attempt)
@@ -119,7 +166,10 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 	if err != nil {
 		return errors.Join(asynq.SkipRetry, err)
 	}
-	if plan.Task.KnowledgeBaseID != payload.KnowledgeBaseID || plan.Cursor != payload.EmbeddingCursor || op.Op == "completed" || op.Op == "attention" || op.Op == "cancelled" {
+	if plan.Task.KnowledgeBaseID != payload.KnowledgeBaseID || plan.Cursor != payload.EmbeddingCursor ||
+		op.Op == "completed" ||
+		op.Op == "attention" ||
+		op.Op == "cancelled" {
 		return nil
 	}
 	ctx = types.WithExecutionTenant(ctx, payload.TenantID)
@@ -172,9 +222,12 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 		}
 	}()
 	defer func() { cancel(); <-done }()
-	writeCtx := types.WithOrdinaryEmbeddingWrite(leaseCtx, func(ctx context.Context, db *gorm.DB, write func(*gorm.DB) error) error {
-		return store.WithWrite(ctx, db, op.ID, payload.TenantID, plan.Cursor, plan.LeaseToken, write)
-	})
+	writeCtx := types.WithOrdinaryEmbeddingWrite(
+		leaseCtx,
+		func(ctx context.Context, db *gorm.DB, write func(*gorm.DB) error) error {
+			return store.WithWrite(ctx, db, op.ID, payload.TenantID, plan.Cursor, plan.LeaseToken, write)
+		},
+	)
 	k, err := s.repo.GetKnowledgeByID(writeCtx, payload.TenantID, payload.KnowledgeID)
 	if err == nil {
 		var model embedding.Embedder
@@ -184,14 +237,31 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 		}
 		if err == nil {
 			var engine *retriever.CompositeRetrieveEngine
-			engine, err = retriever.CreateRetrieveEngineForKB(writeCtx, s.retrieveEngine, s.ownership, payload.TenantID, kb.VectorStoreID)
+			engine, err = retriever.CreateRetrieveEngineForKB(
+				writeCtx,
+				s.retrieveEngine,
+				s.ownership,
+				payload.TenantID,
+				kb.VectorStoreID,
+			)
 			if err == nil && !engine.SupportsOrdinaryEmbedding() {
 				err = repository.ErrOrdinaryEmbeddingChanged
 			}
 			if err == nil && len(chunks) > 0 {
 				infos := make([]*types.IndexInfo, 0, len(chunks))
 				for _, chunk := range chunks {
-					infos = append(infos, &types.IndexInfo{Content: buildKnowledgeIndexContent(k, chunk.EmbeddingContent()), SourceID: chunk.ID, ChunkID: chunk.ID, SourceType: types.ChunkSourceType, KnowledgeID: k.ID, KnowledgeBaseID: k.KnowledgeBaseID, IsEnabled: true})
+					infos = append(
+						infos,
+						&types.IndexInfo{
+							Content:         buildKnowledgeIndexContent(k, chunk.EmbeddingContent()),
+							SourceID:        chunk.ID,
+							ChunkID:         chunk.ID,
+							SourceType:      types.ChunkSourceType,
+							KnowledgeID:     k.ID,
+							KnowledgeBaseID: k.KnowledgeBaseID,
+							IsEnabled:       true,
+						},
+					)
 				}
 				err = engine.BatchIndex(writeCtx, model, infos)
 			}
@@ -205,14 +275,27 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 		// Cleanup only this still-owned lease, using a bounded independent
 		// context after a native deadline. Never delete chunks or vectors.
 		releaseCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-		releaseErr := store.Release(releaseCtx, payload.OrdinaryEmbeddingID, payload.TenantID, plan.Cursor, plan.LeaseToken, permanent)
+		releaseErr := store.Release(
+			releaseCtx,
+			payload.OrdinaryEmbeddingID,
+			payload.TenantID,
+			plan.Cursor,
+			plan.LeaseToken,
+			permanent,
+		)
 		stop()
 		if permanent {
 			return errors.Join(asynq.SkipRetry, releaseErr)
 		}
 		return errors.Join(err, releaseErr)
 	}
-	logger.Infof(ctx, "Ordinary embedding persisted: knowledge=%s completed=%d total=%d", payload.KnowledgeID, min(plan.Cursor+repository.OrdinaryEmbeddingWindow, len(plan.Inputs)), len(plan.Inputs))
+	logger.Infof(
+		ctx,
+		"Ordinary embedding persisted: knowledge=%s completed=%d total=%d",
+		payload.KnowledgeID,
+		min(plan.Cursor+repository.OrdinaryEmbeddingWindow, len(plan.Inputs)),
+		len(plan.Inputs),
+	)
 	if op.Op == "indexed" {
 		plan, _ = repository.DecodeOrdinaryEmbedding(op)
 		return s.finishOrdinaryEmbedding(ctx, store, op, plan)
@@ -225,7 +308,12 @@ func (s *knowledgeService) processOrdinaryEmbedding(ctx context.Context, payload
 	return nil
 }
 
-func (s *knowledgeService) finishOrdinaryEmbedding(ctx context.Context, store *repository.OrdinaryEmbeddingStore, op *types.TaskPendingOp, plan types.OrdinaryEmbeddingPlan) error {
+func (s *knowledgeService) finishOrdinaryEmbedding(
+	ctx context.Context,
+	store *repository.OrdinaryEmbeddingStore,
+	op *types.TaskPendingOp,
+	plan types.OrdinaryEmbeddingPlan,
+) error {
 	k, err := store.Finish(ctx, op.ID, op.TenantID)
 	if errors.Is(err, repository.ErrOrdinaryEmbeddingChanged) || errors.Is(err, gorm.ErrRecordNotFound) {
 		return store.Reject(ctx, op.ID, op.TenantID, plan.Cursor)
@@ -236,9 +324,20 @@ func (s *knowledgeService) finishOrdinaryEmbedding(ctx context.Context, store *r
 	if k.ParseStatus == types.ParseStatusFinalizing || k.ParseStatus == types.ParseStatusCompleted {
 		return store.DispatchedPostprocess(ctx, op.ID, op.TenantID)
 	}
-	s.endStage(ctx, k.ID, types.StageEmbedding, types.JSONMap{"vectors_written": len(plan.Inputs), "storage_bytes": plan.StorageBytes})
+	s.endStage(
+		ctx,
+		k.ID,
+		types.StageEmbedding,
+		types.JSONMap{"vectors_written": len(plan.Inputs), "storage_bytes": plan.StorageBytes},
+	)
 	s.skipStage(ctx, k.ID, types.StageMultimodal, "skipped")
-	post := types.KnowledgePostProcessPayload{TenantID: k.TenantID, KnowledgeID: k.ID, KnowledgeBaseID: k.KnowledgeBaseID, Attempt: plan.Task.Attempt, Language: plan.Task.Language}
+	post := types.KnowledgePostProcessPayload{
+		TenantID:        k.TenantID,
+		KnowledgeID:     k.ID,
+		KnowledgeBaseID: k.KnowledgeBaseID,
+		Attempt:         plan.Task.Attempt,
+		Language:        plan.Task.Language,
+	}
 	data, err := json.Marshal(post)
 	if err != nil {
 		return err

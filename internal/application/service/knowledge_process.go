@@ -785,7 +785,9 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			return abortRetryErr(ctx, knowledge.ID, status)
 		}
 
-		if deferred, deferErr := s.deferOrdinaryEmbedding(ctx, kb, knowledge, textChunks, embeddingModel, retrieveEngine, options, totalStorageSize); deferred {
+		if deferred, deferErr := s.deferOrdinaryEmbedding(
+			ctx, kb, knowledge, textChunks, embeddingModel, retrieveEngine, options, totalStorageSize,
+		); deferred {
 			return deferErr
 		}
 		err = retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfoList)

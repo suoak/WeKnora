@@ -31,7 +31,7 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 		require.NoError(t, err)
 		pool, err := admin.DB()
 		require.NoError(t, err)
-		defer pool.Close()
+		defer func() { require.NoError(t, pool.Close()) }()
 		require.NoError(t, admin.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error)
 	})
 	root, err := filepath.Abs("../../..")
@@ -43,28 +43,89 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	require.NoError(t, db.Exec("CREATE INDEX ordinary_hnsw3 ON embeddings USING hnsw ((embedding::halfvec(3)) halfvec_cosine_ops) WHERE dimension=3").Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE INDEX ordinary_hnsw3 ON embeddings USING hnsw "+
+				"((embedding::halfvec(3)) halfvec_cosine_ops) WHERE dimension=3",
+		).Error,
+	)
 	tenant := &types.Tenant{ID: 809937, Name: "ordinary-private", Status: "active"}
 	require.NoError(t, db.Create(tenant).Error)
-	model := &types.Model{ID: uuid.NewString(), TenantID: tenant.ID, Name: "ordinary", Type: types.ModelTypeEmbedding, Status: types.ModelStatusActive}
+	model := &types.Model{
+		ID:       uuid.NewString(),
+		TenantID: tenant.ID,
+		Name:     "ordinary",
+		Type:     types.ModelTypeEmbedding,
+		Status:   types.ModelStatusActive,
+	}
 	require.NoError(t, db.Create(model).Error)
-	kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "ordinary", Type: "document", EmbeddingModelID: model.ID}
+	kb := &types.KnowledgeBase{
+		ID:               uuid.NewString(),
+		TenantID:         tenant.ID,
+		Name:             "ordinary",
+		Type:             "document",
+		EmbeddingModelID: model.ID,
+	}
 	require.NoError(t, db.Create(kb).Error)
 	ctx := types.WithExecutionTenant(context.Background(), tenant.ID)
 	store := &OrdinaryEmbeddingStore{db: db}
 	fixture := func(t *testing.T) (*types.Knowledge, *types.TaskPendingOp, []*types.Chunk) {
-		k := &types.Knowledge{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Channel: "web", Type: "file", FilePath: "opaque-original-source", FileHash: "original-sha", ParseStatus: types.ParseStatusProcessing}
+		k := &types.Knowledge{
+			ID:              uuid.NewString(),
+			TenantID:        tenant.ID,
+			KnowledgeBaseID: kb.ID,
+			Channel:         "web",
+			Type:            "file",
+			FilePath:        "opaque-original-source",
+			FileHash:        "original-sha",
+			ParseStatus:     types.ParseStatusProcessing,
+		}
 		require.NoError(t, db.Create(k).Error)
-		require.NoError(t, db.Create(&types.KnowledgeProcessingSpan{KnowledgeID: k.ID, Attempt: 1, SpanID: uuid.NewString(), Name: "parse", Kind: "stage", Status: "running"}).Error)
-		plan := types.OrdinaryEmbeddingPlan{Task: types.DocumentProcessPayload{TenantID: tenant.ID, KnowledgeID: k.ID, KnowledgeBaseID: kb.ID, Attempt: 1}, StorageBytes: 1234, Dimension: 3}
+		require.NoError(
+			t,
+			db.Create(
+				&types.KnowledgeProcessingSpan{
+					KnowledgeID: k.ID,
+					Attempt:     1,
+					SpanID:      uuid.NewString(),
+					Name:        "parse",
+					Kind:        "stage",
+					Status:      "running",
+				},
+			).Error,
+		)
+		plan := types.OrdinaryEmbeddingPlan{
+			Task: types.DocumentProcessPayload{
+				TenantID:        tenant.ID,
+				KnowledgeID:     k.ID,
+				KnowledgeBaseID: kb.ID,
+				Attempt:         1,
+			},
+			StorageBytes: 1234,
+			Dimension:    3,
+		}
 		var currentKB types.KnowledgeBase
 		require.NoError(t, db.First(&currentKB, "id=?", kb.ID).Error)
 		plan.KBStamp = OrdinaryEmbeddingKBStamp(&currentKB)
 		chunks := make([]*types.Chunk, 1000)
 		for i := range chunks {
-			c := &types.Chunk{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeID: k.ID, KnowledgeBaseID: kb.ID, Content: "unaltered text", Metadata: types.JSON(`{"z":1,"longer_key":{"b":2,"a":9007199254740993}}`), ChunkIndex: i, ChunkType: types.ChunkTypeText, IsEnabled: true}
+			c := &types.Chunk{
+				ID:              uuid.NewString(),
+				TenantID:        tenant.ID,
+				KnowledgeID:     k.ID,
+				KnowledgeBaseID: kb.ID,
+				Content:         "unaltered text",
+				Metadata:        types.JSON(`{"z":1,"longer_key":{"b":2,"a":9007199254740993}}`),
+				ChunkIndex:      i,
+				ChunkType:       types.ChunkTypeText,
+				IsEnabled:       true,
+			}
 			chunks[i] = c
-			plan.Inputs = append(plan.Inputs, types.OrdinaryEmbeddingInput{ChunkID: c.ID, SHA256: OrdinaryEmbeddingChunkStamp(c)})
+			plan.Inputs = append(
+				plan.Inputs,
+				types.OrdinaryEmbeddingInput{ChunkID: c.ID, SHA256: OrdinaryEmbeddingChunkStamp(c)},
+			)
 		}
 		require.NoError(t, db.CreateInBatches(chunks, 100).Error)
 		op, err := store.Start(ctx, k, plan)
@@ -75,15 +136,30 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 		infos := make([]*types.IndexInfo, 0, len(chunks))
 		vectors := map[string][]float32{}
 		for _, c := range chunks {
-			infos = append(infos, &types.IndexInfo{SourceID: c.ID, SourceType: types.ChunkSourceType, ChunkID: c.ID, KnowledgeID: c.KnowledgeID, KnowledgeBaseID: c.KnowledgeBaseID, Content: c.Content, IsEnabled: true})
+			infos = append(
+				infos,
+				&types.IndexInfo{
+					SourceID:        c.ID,
+					SourceType:      types.ChunkSourceType,
+					ChunkID:         c.ID,
+					KnowledgeID:     c.KnowledgeID,
+					KnowledgeBaseID: c.KnowledgeBaseID,
+					Content:         c.Content,
+					IsEnabled:       true,
+				},
+			)
 			vectors[c.ID] = []float32{1, 0, 0}
 		}
-		return pgretrieve.NewPostgresRetrieveEngineRepository(db).BatchSave(ctx, infos, map[string]any{"embedding": vectors})
+		return pgretrieve.NewPostgresRetrieveEngineRepository(db).
+			BatchSave(ctx, infos, map[string]any{"embedding": vectors})
 	}
 	guarded := func(op *types.TaskPendingOp, p types.OrdinaryEmbeddingPlan) context.Context {
-		return types.WithOrdinaryEmbeddingWrite(ctx, func(ctx context.Context, indexDB *gorm.DB, fn func(*gorm.DB) error) error {
-			return store.WithWrite(ctx, indexDB, op.ID, tenant.ID, p.Cursor, p.LeaseToken, fn)
-		})
+		return types.WithOrdinaryEmbeddingWrite(
+			ctx,
+			func(ctx context.Context, indexDB *gorm.DB, fn func(*gorm.DB) error) error {
+				return store.WithWrite(ctx, indexDB, op.ID, tenant.ID, p.Cursor, p.LeaseToken, fn)
+			},
+		)
 	}
 	count := func(k *types.Knowledge) int64 {
 		var n int64
@@ -115,7 +191,11 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, 100, nextPlan.Cursor)
 		require.Zero(t, nextPlan.BatchAttempts)
-		require.ErrorIs(t, restarted.Release(ctx, op.ID, tenant.ID, 0, p2.LeaseToken, false), ErrOrdinaryEmbeddingChanged)
+		require.ErrorIs(
+			t,
+			restarted.Release(ctx, op.ID, tenant.ID, 0, p2.LeaseToken, false),
+			ErrOrdinaryEmbeddingChanged,
+		)
 		_, _, missing, err = restarted.Claim(ctx, op.ID, tenant.ID, 100)
 		require.NoError(t, err)
 		require.Len(t, missing, 100)
@@ -131,7 +211,19 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 			case "cancel":
 				require.NoError(t, db.Model(k).UpdateColumn("parse_status", types.ParseStatusCancelled).Error)
 			case "new-attempt":
-				require.NoError(t, db.Create(&types.KnowledgeProcessingSpan{KnowledgeID: k.ID, Attempt: 2, SpanID: uuid.NewString(), Name: "parse", Kind: "stage", Status: "running"}).Error)
+				require.NoError(
+					t,
+					db.Create(
+						&types.KnowledgeProcessingSpan{
+							KnowledgeID: k.ID,
+							Attempt:     2,
+							SpanID:      uuid.NewString(),
+							Name:        "parse",
+							Kind:        "stage",
+							Status:      "running",
+						},
+					).Error,
+				)
 			case "chunk-edit":
 				require.NoError(t, db.Model(chunks[0]).UpdateColumn("content", "edited").Error)
 			case "source-edit":
@@ -182,8 +274,20 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 		require.NoError(t, err)
 		otherPool, err := other.DB()
 		require.NoError(t, err)
-		defer otherPool.Close()
-		require.ErrorIs(t, store.WithWrite(ctx, other, op.ID, tenant.ID, 0, p.LeaseToken, func(*gorm.DB) error { t.Fatal("foreign pool reached write"); return nil }), ErrOrdinaryEmbeddingChanged)
+		defer func() { require.NoError(t, otherPool.Close()) }()
+		require.ErrorIs(
+			t,
+			store.WithWrite(
+				ctx,
+				other,
+				op.ID,
+				tenant.ID,
+				0,
+				p.LeaseToken,
+				func(*gorm.DB) error { t.Fatal("foreign pool reached write"); return nil },
+			),
+			ErrOrdinaryEmbeddingChanged,
+		)
 		p.LeaseUntil = time.Now().Add(-time.Second)
 		data, err := json.Marshal(p)
 		require.NoError(t, err)
@@ -230,7 +334,13 @@ func TestOrdinaryEmbeddingPostgres(t *testing.T) {
 }
 
 func TestOrdinaryEmbeddingKBStampNormalizesWithoutTransientState(t *testing.T) {
-	kb := &types.KnowledgeBase{ID: "kb", TenantID: 7, Type: types.KnowledgeBaseTypeDocument, EmbeddingModelID: "model", ExtractConfig: &types.ExtractConfig{Enabled: true}}
+	kb := &types.KnowledgeBase{
+		ID:               "kb",
+		TenantID:         7,
+		Type:             types.KnowledgeBaseTypeDocument,
+		EmbeddingModelID: "model",
+		ExtractConfig:    &types.ExtractConfig{Enabled: true},
+	}
 	raw := OrdinaryEmbeddingKBStamp(kb)
 	require.False(t, kb.IndexingStrategy.GraphEnabled, "hashing must not mutate the caller")
 	kb.EnsureDefaults()

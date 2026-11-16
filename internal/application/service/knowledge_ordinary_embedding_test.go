@@ -43,7 +43,12 @@ type ordinaryTestModel struct {
 }
 
 func (m *ordinaryTestModel) GetDimensions() int { return 3 }
-func (m *ordinaryTestModel) BatchEmbedWithPool(ctx context.Context, _ embedding.Embedder, texts []string) ([][]float32, error) {
+
+func (m *ordinaryTestModel) BatchEmbedWithPool(
+	ctx context.Context,
+	_ embedding.Embedder,
+	texts []string,
+) ([][]float32, error) {
 	m.calls.Add(1)
 	if m.fail {
 		return nil, errors.New("provider unavailable")
@@ -69,7 +74,7 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 		require.NoError(t, err)
 		pool, err := admin.DB()
 		require.NoError(t, err)
-		defer pool.Close()
+		defer func() { require.NoError(t, pool.Close()) }()
 		require.NoError(t, admin.Exec("DROP DATABASE "+name+" WITH (FORCE)").Error)
 	})
 	root, err := filepath.Abs("../../..")
@@ -81,12 +86,39 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	require.NoError(t, db.Exec("CREATE INDEX ordinary_service_hnsw3 ON embeddings USING hnsw ((embedding::halfvec(3)) halfvec_cosine_ops) WHERE dimension=3").Error)
-	tenant := &types.Tenant{ID: 809938, Name: "ordinary-service", Status: "active", RetrieverEngines: types.RetrieverEngines{Engines: []types.RetrieverEngineParams{{RetrieverEngineType: types.PostgresRetrieverEngineType, RetrieverType: types.VectorRetrieverType}}}}
+	require.NoError(
+		t,
+		db.Exec(
+			"CREATE INDEX ordinary_service_hnsw3 ON embeddings USING hnsw "+
+				"((embedding::halfvec(3)) halfvec_cosine_ops) WHERE dimension=3",
+		).Error,
+	)
+	tenant := &types.Tenant{
+		ID:     809938,
+		Name:   "ordinary-service",
+		Status: "active",
+		RetrieverEngines: types.RetrieverEngines{
+			Engines: []types.RetrieverEngineParams{
+				{RetrieverEngineType: types.PostgresRetrieverEngineType, RetrieverType: types.VectorRetrieverType},
+			},
+		},
+	}
 	require.NoError(t, db.Create(tenant).Error)
-	modelRow := &types.Model{ID: uuid.NewString(), TenantID: tenant.ID, Name: "ordinary", Type: types.ModelTypeEmbedding, Status: types.ModelStatusActive}
+	modelRow := &types.Model{
+		ID:       uuid.NewString(),
+		TenantID: tenant.ID,
+		Name:     "ordinary",
+		Type:     types.ModelTypeEmbedding,
+		Status:   types.ModelStatusActive,
+	}
 	require.NoError(t, db.Create(modelRow).Error)
-	kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "ordinary", Type: "document", EmbeddingModelID: modelRow.ID}
+	kb := &types.KnowledgeBase{
+		ID:               uuid.NewString(),
+		TenantID:         tenant.ID,
+		Name:             "ordinary",
+		Type:             "document",
+		EmbeddingModelID: modelRow.ID,
+	}
 	require.NoError(t, db.Create(kb).Error)
 	require.NoError(t, db.First(kb, "id=?", kb.ID).Error)
 	base := repository.NewKnowledgeRepository(db)
@@ -94,16 +126,59 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 		OrdinaryEmbeddingStore() *repository.OrdinaryEmbeddingStore
 	}).OrdinaryEmbeddingStore()
 	ctx := types.WithExecutionTenant(context.Background(), tenant.ID)
-	k := &types.Knowledge{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Type: "file", Channel: "web", FilePath: "original-source", FileHash: "original-sha", ParseStatus: types.ParseStatusProcessing}
+	k := &types.Knowledge{
+		ID:              uuid.NewString(),
+		TenantID:        tenant.ID,
+		KnowledgeBaseID: kb.ID,
+		Type:            "file",
+		Channel:         "web",
+		FilePath:        "original-source",
+		FileHash:        "original-sha",
+		ParseStatus:     types.ParseStatusProcessing,
+	}
 	require.NoError(t, db.Create(k).Error)
-	require.NoError(t, db.Create(&types.KnowledgeProcessingSpan{KnowledgeID: k.ID, Attempt: 1, SpanID: uuid.NewString(), Name: "parse", Kind: "stage", Status: "running"}).Error)
+	require.NoError(
+		t,
+		db.Create(
+			&types.KnowledgeProcessingSpan{
+				KnowledgeID: k.ID,
+				Attempt:     1,
+				SpanID:      uuid.NewString(),
+				Name:        "parse",
+				Kind:        "stage",
+				Status:      "running",
+			},
+		).Error,
+	)
 	kb.EnsureDefaults()
-	plan := types.OrdinaryEmbeddingPlan{Task: types.DocumentProcessPayload{TenantID: tenant.ID, KnowledgeID: k.ID, KnowledgeBaseID: kb.ID, Attempt: 1}, StorageBytes: 1234, Dimension: 3, KBStamp: repository.OrdinaryEmbeddingKBStamp(kb)}
+	plan := types.OrdinaryEmbeddingPlan{
+		Task: types.DocumentProcessPayload{
+			TenantID:        tenant.ID,
+			KnowledgeID:     k.ID,
+			KnowledgeBaseID: kb.ID,
+			Attempt:         1,
+		},
+		StorageBytes: 1234,
+		Dimension:    3,
+		KBStamp:      repository.OrdinaryEmbeddingKBStamp(kb),
+	}
 	chunks := make([]*types.Chunk, 1000)
 	for i := range chunks {
-		c := &types.Chunk{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeID: k.ID, KnowledgeBaseID: kb.ID, Content: "original row", ChunkIndex: i, ChunkType: types.ChunkTypeText, IsEnabled: true}
+		c := &types.Chunk{
+			ID:              uuid.NewString(),
+			TenantID:        tenant.ID,
+			KnowledgeID:     k.ID,
+			KnowledgeBaseID: kb.ID,
+			Content:         "original row",
+			ChunkIndex:      i,
+			ChunkType:       types.ChunkTypeText,
+			IsEnabled:       true,
+		}
 		chunks[i] = c
-		plan.Inputs = append(plan.Inputs, types.OrdinaryEmbeddingInput{ChunkID: c.ID, SHA256: repository.OrdinaryEmbeddingChunkStamp(c)})
+		plan.Inputs = append(
+			plan.Inputs,
+			types.OrdinaryEmbeddingInput{ChunkID: c.ID, SHA256: repository.OrdinaryEmbeddingChunkStamp(c)},
+		)
 	}
 	require.NoError(t, db.CreateInBatches(chunks, 100).Error)
 	op, err := store.Start(ctx, k, plan)
@@ -117,10 +192,14 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 	// parent must resume the committed intent without touching any of them.
 	require.Error(t, svc.ProcessDocument(ctx, asynq.NewTask(types.TypeDocumentProcess, parentBytes)))
 	queue.setDown(false)
-	svc = &knowledgeService{repo: base, task: queue, personalRecovery: &deadlinePersonalReconciler{reconcile: func(context.Context) error {
-		require.NotEmpty(t, queue.snapshot(), "ordinary delivery must precede a failing personal reconciliation")
-		return context.DeadlineExceeded
-	}}}
+	svc = &knowledgeService{
+		repo: base,
+		task: queue,
+		personalRecovery: &deadlinePersonalReconciler{reconcile: func(context.Context) error {
+			require.NotEmpty(t, queue.snapshot(), "ordinary delivery must precede a failing personal reconciliation")
+			return context.DeadlineExceeded
+		}},
+	}
 	require.ErrorIs(t, svc.RecoverKnowledgeDispatches(ctx), context.DeadlineExceeded)
 	tasks := queue.snapshot()
 	require.Len(t, tasks, 1)
@@ -131,9 +210,9 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 
 	redisFixture := miniredis.RunT(t)
 	client := asynq.NewClient(asynq.RedisClientOpt{Addr: redisFixture.Addr()})
-	defer client.Close()
+	defer func() { require.NoError(t, client.Close()) }()
 	inspector := asynq.NewInspector(asynq.RedisClientOpt{Addr: redisFixture.Addr()})
-	defer inspector.Close()
+	defer func() { require.NoError(t, inspector.Close()) }()
 	svc.task = client
 	require.NoError(t, svc.publishOrdinaryEmbedding(ctx, op))
 	require.NoError(t, svc.publishOrdinaryEmbedding(ctx, op))
@@ -145,9 +224,19 @@ func TestOrdinaryEmbeddingServicePostgres(t *testing.T) {
 	// Real hybrid indexer + PG repository, bounded synthetic provider. Each
 	// restart advances the same original attempt without reparsing its rows.
 	emb := &ordinaryTestModel{}
-	engine := retriever.NewKVHybridRetrieveEngine(pgretrieve.NewPostgresRetrieveEngineRepository(db), types.PostgresRetrieverEngineType)
+	engine := retriever.NewKVHybridRetrieveEngine(
+		pgretrieve.NewPostgresRetrieveEngineRepository(db),
+		types.PostgresRetrieverEngineType,
+	)
 	for cursor := 0; cursor < 1000; cursor += 100 {
-		svc = &knowledgeService{repo: base, task: queue, tenantRepo: ordinaryTestTenant{tenant: tenant}, kbService: dispatchActualKB{kb: kb}, modelService: parentChildModelService{embedder: emb}, retrieveEngine: parentChildRetrieveRegistry{engine: engine}}
+		svc = &knowledgeService{
+			repo:           base,
+			task:           queue,
+			tenantRepo:     ordinaryTestTenant{tenant: tenant},
+			kbService:      dispatchActualKB{kb: kb},
+			modelService:   parentChildModelService{embedder: emb},
+			retrieveEngine: parentChildRetrieveRegistry{engine: engine},
+		}
 		payload.EmbeddingCursor = cursor
 		require.NoError(t, svc.processOrdinaryEmbedding(ctx, payload))
 		// An old delivery must not re-run the provider or rewind the cursor.

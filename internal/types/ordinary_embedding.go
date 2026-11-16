@@ -8,6 +8,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// OrdinaryEmbeddingScope separates ordinary file work from managed sources.
 const OrdinaryEmbeddingScope = "ordinary_embedding_v1"
 
 // OrdinaryEmbeddingPlan is server-owned durable work, never upload metadata.
@@ -28,6 +29,7 @@ type OrdinaryEmbeddingPlan struct {
 	LastError     string                   `json:"last_error,omitempty"`
 }
 
+// OrdinaryEmbeddingInput records the identity and immutable digest of one chunk.
 type OrdinaryEmbeddingInput struct {
 	ChunkID string `json:"chunk_id"`
 	SHA256  string `json:"sha256"`
@@ -37,10 +39,14 @@ type ordinaryEmbeddingWriteKey struct{}
 
 // WithOrdinaryEmbeddingWrite binds PG vector writes to the owning workflow
 // transaction. A callback must recheck ownership under the same row locks.
-func WithOrdinaryEmbeddingWrite(ctx context.Context, guard func(context.Context, *gorm.DB, func(*gorm.DB) error) error) context.Context {
+func WithOrdinaryEmbeddingWrite(
+	ctx context.Context,
+	guard func(context.Context, *gorm.DB, func(*gorm.DB) error) error,
+) context.Context {
 	return context.WithValue(ctx, ordinaryEmbeddingWriteKey{}, guard)
 }
 
+// OrdinaryEmbeddingWrite invokes the SQL fence when an ordinary consumer owns the context.
 func OrdinaryEmbeddingWrite(ctx context.Context, db *gorm.DB, write func(*gorm.DB) error) (bool, error) {
 	guard, ok := ctx.Value(ordinaryEmbeddingWriteKey{}).(func(context.Context, *gorm.DB, func(*gorm.DB) error) error)
 	if !ok {
