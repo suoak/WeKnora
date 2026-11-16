@@ -18,6 +18,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestMergeKnowledgeMetadataPreservesSubmitter(t *testing.T) {
+	merged, err := mergeKnowledgeMetadata(
+		types.JSON(`{"submitter":{"user_id":"alice","name":"Alice"},"source_id":"old"}`),
+		map[string]string{"submitter": "forged", "source_id": "new"},
+	)
+	require.NoError(t, err)
+	require.JSONEq(t, `{"submitter":{"user_id":"alice","name":"Alice"},"source_id":"new"}`, string(merged))
+}
+
 // replaceFileRepo is a single-row knowledge store. UpdateKnowledgeColumns can
 // fail on a chosen call, either before applying the write or after it (a write
 // that committed but reported an error).

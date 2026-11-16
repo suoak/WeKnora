@@ -1520,24 +1520,6 @@ const getParentContent = (item: any) => {
   return parentContextCache.value.get(item.parent_chunk_id) || '';
 };
 
-const summaryExpanded = ref(false);
-const summaryRef = ref<HTMLElement>();
-const summaryOverflow = ref(false);
-
-const checkSummaryOverflow = () => {
-  nextTick(() => {
-    const el = summaryRef.value;
-    if (!el) { summaryOverflow.value = false; return; }
-    summaryOverflow.value = el.scrollHeight > el.clientHeight + 1;
-  });
-};
-
-watch(() => props.details?.description, () => {
-  summaryExpanded.value = false;
-  checkSummaryOverflow();
-});
-watch(summaryRef, () => checkSummaryOverflow());
-
 const downloadFile = () => {
   downKnowledgeDetails(props.details.id)
     .then((result) => {
@@ -1638,6 +1620,10 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
         <section v-if="details.id" class="setting-drawer__section">
           <h4 class="setting-drawer__section-title">{{ $t('knowledgeBase.detailSectionMeta') }}</h4>
           <div class="doc-detail-rows">
+            <div class="doc-detail-row">
+              <span class="doc-detail-label">{{ $t('knowledgeBase.submitter') }}</span>
+              <span class="doc-detail-value">{{ details.submitter_name || $t('knowledgeBase.unknownSubmitter') }}</span>
+            </div>
             <div v-if="details.time" class="doc-detail-row">
               <span class="doc-detail-label">{{ getTimeLabel() }}</span>
               <span class="doc-detail-value">{{ details.time }}</span>
@@ -1782,16 +1768,8 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
               </t-button>
             </div>
           </div>
-          <div v-else-if="details.description" class="summary_wrapper"
-            :class="{ 'summary_clickable': summaryOverflow || summaryExpanded }"
-            @click="(summaryOverflow || summaryExpanded) && (summaryExpanded = !summaryExpanded)">
-            <div ref="summaryRef" :class="['summary_content', { 'summary_collapsed': !summaryExpanded }]">{{
-              details.description
-            }}</div>
-            <div v-if="(summaryOverflow && !summaryExpanded) || summaryExpanded" class="summary_fade"
-              :class="{ 'summary_fade_expanded': summaryExpanded }">
-              <t-icon :name="summaryExpanded ? 'chevron-up' : 'chevron-down'" size="14px" class="summary_fade_icon" />
-            </div>
+          <div v-else-if="details.description" class="summary_wrapper">
+            <div class="summary_content">{{ details.description }}</div>
           </div>
           <div v-else class="summary_loading">
             <template v-if="details.summary_status === 'pending' || details.summary_status === 'processing'">

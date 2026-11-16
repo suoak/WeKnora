@@ -506,6 +506,9 @@ export default {
     sharedTooltip: 'Accessed from an external workspace via a shared space'
   },
   knowledgeBase: {
+    submitter: 'Submitted by',
+    unknownSubmitter: 'Unknown (not recorded)',
+    resizeFolderPane: 'Resize folder pane',
     documentCount: '{count} documents total',
     filters: 'Filters',
     clearFilters: 'Clear filters',

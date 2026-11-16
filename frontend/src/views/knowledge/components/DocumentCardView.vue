@@ -594,6 +594,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
         </div>
       </div>
 
+        <span class="card-submitter" :title="t('knowledgeBase.submitter')">{{ t('knowledgeBase.submitter') }}: {{ item.metadata?.submitter?.name || t('knowledgeBase.unknownSubmitter') }}</span>
       <div class="card-bottom">
         <KnowledgeTagPopover v-if="canEdit || item.tags?.length" class="card-tags-anchor"
           :kb-id="kbId" :knowledge-id="item.id" :tags="item.tags || []" :disabled="!canEdit"
@@ -1170,6 +1171,8 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
 }
 
 .knowledge-card {
+  height: 172px;
+
   .card-content {
     padding: 13px 16px 10px;
   }
@@ -1199,4 +1202,8 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
     color: var(--td-text-color-secondary);
   }
 }
+</style>
+
+<style scoped>
+.card-submitter { display: block; padding: 0 16px 6px; flex-shrink: 0; font-size: 12px; line-height: 18px; color: var(--td-text-color-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 </style>

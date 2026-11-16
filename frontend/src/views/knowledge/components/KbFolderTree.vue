@@ -1,5 +1,10 @@
 <template>
-  <aside class="kb-folder-tree" :class="{ 'is-collapsed': collapsed }">
+  <aside ref="paneRef" class="kb-folder-tree" :class="{ 'is-collapsed': collapsed }" :style="{ '--folder-pane-width': `${paneWidth}px` }">
+    <div v-if="!collapsed" class="kb-folder-tree__resize" role="separator" tabindex="0"
+      aria-orientation="vertical" :aria-label="t('knowledgeBase.resizeFolderPane')"
+      :aria-valuenow="paneWidth" :aria-valuemin="180" :aria-valuemax="maxPaneWidth()"
+      @pointerdown="startResize" @pointermove="moveResize" @pointerup="endResize" @pointercancel="endResize"
+      @lostpointercapture="dragStart = null" @keydown="resizeWithKeyboard" />
     <div class="kb-folder-tree__header">
       <template v-if="!collapsed">
         <span class="kb-folder-tree__title">{{ t('knowledgeBase.folderTree.title') }}</span>
@@ -167,6 +172,47 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+const paneRef = ref<HTMLElement>()
+const widthStorageKey = 'knowhub-folder-pane-width'
+const savedPaneWidth = () => {
+  try {
+    const value = Number(localStorage.getItem(widthStorageKey))
+    return Number.isFinite(value) && value >= 180 ? Math.min(value, 800) : 220
+  } catch { return 220 }
+}
+const paneWidth = ref(savedPaneWidth())
+let dragStart: { x: number; width: number } | null = null
+const maxPaneWidth = () => Math.max(180, Math.min(800, (paneRef.value?.parentElement?.clientWidth || 1160) - 360))
+const setPaneWidth = (width: number) => {
+  paneWidth.value = Math.max(180, Math.min(maxPaneWidth(), width))
+}
+const savePaneWidth = () => {
+  try { localStorage.setItem(widthStorageKey, String(paneWidth.value)) } catch { /* storage may be disabled */ }
+}
+const startResize = (event: PointerEvent) => {
+  if (event.button !== 0) return
+  event.preventDefault()
+  dragStart = { x: event.clientX, width: paneRef.value?.getBoundingClientRect().width || paneWidth.value }
+  ;(event.currentTarget as HTMLElement).setPointerCapture(event.pointerId)
+}
+const moveResize = (event: PointerEvent) => {
+  if (dragStart) setPaneWidth(dragStart.width + event.clientX - dragStart.x)
+}
+const endResize = (event: PointerEvent) => {
+  if (!dragStart) return
+  dragStart = null
+  savePaneWidth()
+  const handle = event.currentTarget as HTMLElement
+  if (handle.hasPointerCapture(event.pointerId)) handle.releasePointerCapture(event.pointerId)
+}
+const resizeWithKeyboard = (event: KeyboardEvent) => {
+  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+  event.preventDefault()
+  setPaneWidth(event.key === 'Home' ? 180 : event.key === 'End' ? maxPaneWidth() : paneWidth.value + (event.key === 'ArrowRight' ? 20 : -20))
+  savePaneWidth()
+}
+
+
 // The root starts expanded so the uploaded structure is visible without a click.
 const expanded = ref(new Set<string>([ROOT_FOLDER_PATH]))
 // null, not '', because '' is the root's own path: a falsy sentinel would put
@@ -257,7 +303,9 @@ watch(
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  width: 220px;
+  position: relative;
+  width: var(--folder-pane-width, 220px);
+  max-width: max(180px, calc(100% - 360px));
   min-height: 0;
   padding-right: 12px;
   margin-right: 16px;
@@ -503,5 +551,23 @@ watch(
   font-family: var(--app-font-family);
   font-size: var(--app-text-md);
   outline: none;
+}
+</style>
+
+<style scoped lang="less">
+.kb-folder-tree__resize {
+  position: absolute;
+  top: 0;
+  right: -5px;
+  bottom: 0;
+  width: 10px;
+  z-index: 2;
+  cursor: col-resize;
+  touch-action: none;
+  &:hover, &:focus-visible { background: var(--td-brand-color-light); outline: 1px solid var(--td-brand-color); }
+}
+@media (max-width: 1000px) {
+  .kb-folder-tree { max-width: none; }
+  .kb-folder-tree__resize { display: none; }
 }
 </style>

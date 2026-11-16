@@ -6961,6 +6961,9 @@ const messages = {
     }
   },
   knowledgeBase: {
+    submitter: '제출자',
+    unknownSubmitter: '알 수 없음',
+    resizeFolderPane: '폴더 너비 조정',
     documentCount: '총 {count}개 문서',
     filters: '필터',
     clearFilters: '필터 지우기',

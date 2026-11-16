@@ -6961,6 +6961,9 @@ const messages = {
     }
   },
   knowledgeBase: {
+    submitter: 'Автор загрузки',
+    unknownSubmitter: 'Неизвестно',
+    resizeFolderPane: 'Изменить ширину папок',
     documentCount: 'Всего документов: {count}',
     filters: 'Фильтры',
     clearFilters: 'Сбросить фильтры',
