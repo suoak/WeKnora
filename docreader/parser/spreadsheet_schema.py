@@ -9,6 +9,7 @@ product names are never part of the decision.
 from __future__ import annotations
 
 import statistics
+from functools import lru_cache
 from dataclasses import asdict, dataclass, field
 from typing import Any
 
@@ -46,7 +47,12 @@ def detect_sheet_schema(df: pd.DataFrame, sheet_name: str) -> SpreadsheetSchema:
     if len(headers) < 2 or df.dropna(how="all").empty:
         return result
 
-    interval, confidence = _detect_wide_entity_interval(df)
+    # Profiling examines every value. Reuse the same complete profiles for
+    # the row fallback instead of scanning a large sheet a second time.
+    from docreader.parser.excel_wide_table_dry_run import _profile_columns
+
+    profiles = _profile_columns(df)
+    interval, confidence = _detect_wide_entity_interval(df, profiles)
     if interval is not None:
         start, end = interval
         entities = _unique_nonempty(headers[start:end])
@@ -59,7 +65,7 @@ def detect_sheet_schema(df: pd.DataFrame, sheet_name: str) -> SpreadsheetSchema:
             result.records = _wide_records(df, start, end, headers)
             return result
 
-    row_axis = _detect_row_entity_axis(df)
+    row_axis = _detect_row_entity_axis(df, profiles)
     if row_axis is not None:
         index, confidence = row_axis
         entities = _unique_nonempty(_clean_texts(df.iloc[:, index]))
@@ -73,7 +79,9 @@ def detect_sheet_schema(df: pd.DataFrame, sheet_name: str) -> SpreadsheetSchema:
     return result
 
 
-def _detect_wide_entity_interval(df: pd.DataFrame) -> tuple[tuple[int, int] | None, float]:
+def _detect_wide_entity_interval(
+    df: pd.DataFrame, profiles: list[Any] | None = None,
+) -> tuple[tuple[int, int] | None, float]:
     # Lazy import avoids an import cycle: the diagnostic module imports the
     # Excel parser, while the parser calls this detector only after module init.
     from docreader.parser.excel_wide_table_dry_run import (
@@ -83,7 +91,8 @@ def _detect_wide_entity_interval(df: pd.DataFrame) -> tuple[tuple[int, int] | No
         _profile_columns,
     )
 
-    profiles = _profile_columns(df)
+    if profiles is None:
+        profiles = _profile_columns(df)
     best, _, _, reason = _infer_payload_interval(profiles, XLSX_RETRIEVAL_MODE_AUTO)
     if best is not None and not reason:
         return (best.start, best.end), best.score
@@ -93,17 +102,24 @@ def _detect_wide_entity_interval(df: pd.DataFrame) -> tuple[tuple[int, int] | No
     # fixture has four), so evaluate homogeneous suffixes with the same column
     # similarity primitive and conservative thresholds.
     candidates: list[tuple[float, float, float, int]] = []
+
+    @lru_cache(maxsize=8192)
+    def similarity(left: int, right: int) -> float:
+        # Suffixes overlap. A comparison scans both full fill patterns, so
+        # cache it within this detection only, with bounded extra memory.
+        return _column_similarity(profiles[left], profiles[right])
+
     for start in range(1, len(profiles) - 2):
         payload = profiles[start:]
         pairs = [
-            _column_similarity(payload[i], payload[j])
+            similarity(start + i, start + j)
             for i in range(len(payload))
             for j in range(i + 1, len(payload))
         ]
         if not pairs:
             continue
         homogeneity = statistics.fmean(pairs)
-        boundary = 1.0 - _column_similarity(profiles[start - 1], profiles[start])
+        boundary = 1.0 - similarity(start - 1, start)
         filled = statistics.fmean(p.fill_rate for p in payload)
         score = 0.68 * homogeneity + 0.20 * min(1.0, boundary * 2.5) + 0.12 * filled
         candidates.append((score, homogeneity, boundary, start))
@@ -115,10 +131,13 @@ def _detect_wide_entity_interval(df: pd.DataFrame) -> tuple[tuple[int, int] | No
     return (start, len(profiles)), score
 
 
-def _detect_row_entity_axis(df: pd.DataFrame) -> tuple[int, float] | None:
+def _detect_row_entity_axis(
+    df: pd.DataFrame, profiles: list[Any] | None = None,
+) -> tuple[int, float] | None:
     from docreader.parser.excel_wide_table_dry_run import _profile_columns
 
-    profiles = _profile_columns(df)
+    if profiles is None:
+        profiles = _profile_columns(df)
     row_count = len(df.dropna(how="all").index)
     if row_count < 3:
         return None

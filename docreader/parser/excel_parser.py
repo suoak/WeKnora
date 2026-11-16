@@ -362,21 +362,22 @@ def _is_conservative_row_table(
         # describes records; row-aware remains available as an explicit opt-in.
         return False
     for _, row in nonempty_data.iterrows():
+        # Keep the Series' scalar types (and its numeric coercion) while
+        # avoiding pandas' positional indexer for every individual cell.
+        values = row.array
         normalized_row = [
-            "" if pd.isna(row.iloc[idx]) else str(row.iloc[idx]).strip()
+            "" if pd.isna(values[idx]) else str(values[idx]).strip()
             for idx in active_columns
         ]
         if normalized_row == normalized_header:
             # A repeated header inside the data region usually marks multiple
             # table blocks rather than one homogeneous record stream.
             return False
-
-    # A record-shaped row must carry at least two fields. Requiring this for
-    # every non-empty row rejects note/title lines embedded in a data region.
-    return all(
-        sum(pd.notna(row.iloc[idx]) for idx in active_columns) >= 2
-        for _, row in nonempty_data.iterrows()
-    )
+        # Check every row, including note/title lines late in a large sheet.
+        # This uses the same non-null rule as the original second full scan.
+        if sum(pd.notna(values[idx]) for idx in active_columns) < 2:
+            return False
+    return True
 
 
 def _render_fields(fields: Sequence[Tuple[str, str]]) -> str:

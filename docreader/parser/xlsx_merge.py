@@ -9,6 +9,53 @@ from io import BytesIO
 logger = logging.getLogger(__name__)
 
 
+class _MergeProbe:
+    """SAX target: scan complete worksheet XML without retaining cell trees."""
+
+    found = False
+
+    def start(self, tag, attributes):
+        if tag.rsplit("}", 1)[-1] in {"mergeCell", "mergeCells"}:
+            self.found = True
+
+    def end(self, tag):
+        pass
+
+    def data(self, text):
+        pass
+
+    def close(self):
+        pass
+
+
+def _has_merged_cells(content: bytes) -> bool:
+    from defusedxml.ElementTree import XMLParser
+    from openpyxl import load_workbook
+
+    # Read-only loading still validates packaging, shared strings and styles.
+    # In particular, preserve the caller's malformed-style repair path.
+    workbook = load_workbook(BytesIO(content), read_only=True, data_only=True)
+    try:
+        with zipfile.ZipFile(BytesIO(content)) as archive:
+            for sheet in workbook.worksheets:
+                # Use the path openpyxl resolved from workbook relationships;
+                # worksheet parts need not use conventional sheetN.xml names.
+                path = getattr(sheet, "_worksheet_path", None)
+                if not isinstance(path, str) or path not in archive.namelist():
+                    return True  # Unknown reader layout retains the full path.
+                target = _MergeProbe()
+                parser = XMLParser(target=target)
+                with archive.open(path) as source:
+                    while block := source.read(64 << 10):
+                        parser.feed(block)
+                        if target.found:
+                            return True
+                    parser.close()  # Also reject malformed XML late in a sheet.
+        return False
+    finally:
+        workbook.close()
+
+
 def fill_merged_cells_xlsx(content: bytes) -> bytes:
     """Unmerge ranges and copy the master cell value into every covered cell.
 
@@ -16,6 +63,8 @@ def fill_merged_cells_xlsx(content: bytes) -> bytes:
     sees NaN in the rest. Filling makes row-wise RAG chunks retain context.
     """
     if not zipfile.is_zipfile(BytesIO(content)):
+        return content
+    if not _has_merged_cells(content):
         return content
 
     from openpyxl import load_workbook
