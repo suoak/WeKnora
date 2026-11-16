@@ -532,8 +532,8 @@ func (a *Adapter) ParseCallback(c *gin.Context) (*im.IncomingMessage, error) {
 // type), we retry once via the plain "send message" API so the reply still
 // reaches the user.
 func (a *Adapter) SendReply(ctx context.Context, incoming *im.IncomingMessage, reply *im.ReplyMessage) error {
-	for _, text := range splitTextReply(reply.Content) {
-		if err := a.sendTextReply(ctx, incoming, text); err != nil {
+	for _, text := range splitMarkdownReply(reply.Content) {
+		if err := a.sendMarkdownReply(ctx, incoming, text); err != nil {
 			return err
 		}
 	}
@@ -560,18 +560,25 @@ func splitTextReply(text string) []string {
 	return append(parts, text)
 }
 
-func (a *Adapter) sendTextReply(ctx context.Context, incoming *im.IncomingMessage, text string) error {
+func (a *Adapter) sendMarkdownReply(ctx context.Context, incoming *im.IncomingMessage, text string) error {
 	accessToken, err := a.getTenantAccessToken(ctx)
 	if err != nil {
 		return fmt.Errorf("get access token: %w", err)
 	}
 
-	// Build text message content
-	content, _ := json.Marshal(map[string]string{"text": text})
+	// Native post/md supports headings, GFM tables and code fences without
+	// requiring CardKit. In particular, a failed streaming card must not turn
+	// the final answer into literal Markdown in a text message.
+	content, _ := json.Marshal(map[string]interface{}{
+		"zh_cn": map[string]interface{}{
+			"title":   "",
+			"content": [][]map[string]string{{{"tag": "md", "text": text}}},
+		},
+	})
 
 	// Reply payload (no receive_id — the path message_id locates the chat)
 	replyPayload := map[string]interface{}{
-		"msg_type": "text",
+		"msg_type": "post",
 		"content":  string(content),
 	}
 
@@ -579,7 +586,7 @@ func (a *Adapter) sendTextReply(ctx context.Context, incoming *im.IncomingMessag
 	receiveIDType, receiveID := a.resolveReceiveID(incoming)
 	fallbackPayload := map[string]interface{}{
 		"receive_id": receiveID,
-		"msg_type":   "text",
+		"msg_type":   "post",
 		"content":    string(content),
 	}
 

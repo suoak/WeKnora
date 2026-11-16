@@ -120,19 +120,27 @@ func TestSendReply_EndToEnd_UsesRegionCloud(t *testing.T) {
 	if fake.replyAuth != "Bearer t-lark-xyz" {
 		t.Errorf("reply Authorization = %q, want %q", fake.replyAuth, "Bearer t-lark-xyz")
 	}
-	if got := fake.replyBody["msg_type"]; got != "text" {
-		t.Errorf("msg_type = %v, want text", got)
+	if got := fake.replyBody["msg_type"]; got != "post" {
+		t.Errorf("msg_type = %v, want post", got)
 	}
 	// content is a JSON-encoded string, per the Open Platform contract.
 	var content struct {
-		Text string `json:"text"`
+		Chinese struct {
+			Content [][]struct {
+				Tag  string `json:"tag"`
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"zh_cn"`
 	}
 	raw, _ := fake.replyBody["content"].(string)
 	if err := json.Unmarshal([]byte(raw), &content); err != nil {
 		t.Fatalf("content is not a JSON string: %q", raw)
 	}
-	if content.Text != "hello lark" {
-		t.Errorf("text = %q, want %q", content.Text, "hello lark")
+	if len(content.Chinese.Content) != 1 || len(content.Chinese.Content[0]) != 1 {
+		t.Fatalf("unexpected post Markdown shape: %#v", content)
+	}
+	if node := content.Chinese.Content[0][0]; node.Tag != "md" || node.Text != "hello lark" {
+		t.Fatalf("unexpected post Markdown content: %#v", content)
 	}
 }
 
