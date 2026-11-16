@@ -408,8 +408,24 @@ def _is_conservative_row_table(
     return True
 
 
+_CELL_IMAGE_HTML_START_RE = re.compile(r"<(?=img\b)", re.IGNORECASE)
+
+
+def _literal_cell_image_markup(value: str) -> str:
+    # Spreadsheet cells and headers are literal text. A bug report may quote
+    # Markdown/HTML image syntax without supplying an image asset. Keep the
+    # text visible while preventing downstream image resolution or downloads.
+    if "![" not in value and "<" not in value:
+        return value
+    value = value.replace("![", "!\\[")
+    return _CELL_IMAGE_HTML_START_RE.sub("&lt;", value)
+
+
 def _render_fields(fields: Sequence[Tuple[str, str]]) -> str:
-    return ",".join(f"{key}: {value}" for key, value in fields) + "\n"
+    # Apply once per rendered record rather than twice per cell. Delimiters
+    # prevent a new image opener from being formed across field boundaries.
+    rendered = ",".join(f"{key}: {value}" for key, value in fields) + "\n"
+    return _literal_cell_image_markup(rendered)
 
 
 def _split_semantic_excel_row(
