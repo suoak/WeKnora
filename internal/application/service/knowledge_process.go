@@ -785,6 +785,11 @@ func (s *knowledgeService) processChunks(ctx context.Context,
 			return abortRetryErr(ctx, knowledge.ID, status)
 		}
 
+		if deferred, deferErr := s.deferOrdinaryEmbedding(
+			ctx, kb, knowledge, textChunks, embeddingModel, retrieveEngine, options, totalStorageSize,
+		); deferred {
+			return deferErr
+		}
 		err = retrieveEngine.BatchIndex(ctx, embeddingModel, indexInfoList)
 		if err != nil {
 			if isPersonalFirstCreate(ctx) {
@@ -3894,6 +3899,12 @@ func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) e
 	if err := json.Unmarshal(t.Payload(), &payload); err != nil {
 		return nil
 	}
+	if payload.OrdinaryEmbeddingID != 0 {
+		if t.Type() != types.TypeDocumentProcess {
+			return asynq.SkipRetry
+		}
+		return s.processOrdinaryEmbedding(ctx, payload)
+	}
 	if payload.FeishuAuthMode == types.FeishuApplicationGrant ||
 		t.Type() == types.TypeFeishuApplicationProcess {
 		if payload.FeishuAuthMode != types.FeishuApplicationGrant || payload.FeishuApplicationID == "" ||
@@ -3943,6 +3954,11 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	ctx = logger.WithRequestID(ctx, payload.RequestId)
 	ctx = logger.WithField(ctx, "document_process", payload.KnowledgeID)
 	ctx = types.WithExecutionTenant(ctx, payload.TenantID)
+	// An accepted outbox owns this parse. Duplicate parent deliveries must
+	// never reset status or delete the persisted manifest, even after failure.
+	if resumed, resumeErr := s.resumeOrdinaryEmbedding(ctx, payload); resumed {
+		return resumeErr
+	}
 	if payload.Language != "" {
 		ctx = context.WithValue(ctx, types.LanguageContextKey, payload.Language)
 	}
@@ -4098,6 +4114,7 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 		}
 	}
 	ctx = withAttempt(ctx, attempt)
+	ctx = context.WithValue(ctx, ordinaryEmbeddingTaskKey{}, payload)
 
 	// 检查多模态配置（仅对文件导入）
 	if payload.FilePath != "" && !payload.EnableMultimodel && IsImageType(payload.FileType) {

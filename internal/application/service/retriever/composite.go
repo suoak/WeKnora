@@ -27,6 +27,14 @@ type CompositeRetrieveEngine struct {
 	engineInfos []*engineInfo
 }
 
+// SupportsOrdinaryEmbedding requires a single PG repository so a durable
+// window and its vector writes can share the same database ownership fence.
+func (c *CompositeRetrieveEngine) SupportsOrdinaryEmbedding() bool {
+	return c != nil && len(c.engineInfos) == 1 && c.engineInfos[0] != nil &&
+		c.engineInfos[0].retrieveEngine.EngineType() == types.PostgresRetrieverEngineType &&
+		slices.Contains(c.engineInfos[0].retrieverType, types.VectorRetrieverType)
+}
+
 // Retrieve performs retrieval operations by delegating to the appropriate engine
 // based on the retriever type specified in the parameters
 func (c *CompositeRetrieveEngine) Retrieve(ctx context.Context,

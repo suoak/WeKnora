@@ -384,6 +384,12 @@ func (s *knowledgeService) ResumeKnowledgeDispatch(ctx context.Context, k *types
 }
 
 func (s *knowledgeService) RecoverKnowledgeDispatches(ctx context.Context) (result error) {
+	// Give ordinary continuation delivery its own bounded turn before a
+	// slow source reconciliation can consume the shared scan deadline.
+	bounded, cancel := context.WithTimeout(ctx, 5*time.Second)
+	ordinaryErr := s.recoverOrdinaryEmbeddings(bounded)
+	cancel()
+	defer func() { result = errors.Join(result, ordinaryErr) }()
 	// Publish already committed intents before maintenance of unrelated imports
 	// can consume the scan deadline. Each personal intent still performs its own
 	// live source preflight; delivery and publication retain their Claim fences.

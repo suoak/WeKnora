@@ -405,7 +405,8 @@ type deadLetterKnowledgePayload struct {
 	// — extracted here so the dead-letter callback can also close the
 	// matching root span as failed. Older in-flight payloads without
 	// this field decode as 0 and the tracker call no-ops.
-	Attempt int `json:"attempt,omitempty"`
+	Attempt             int   `json:"attempt,omitempty"`
+	OrdinaryEmbeddingID int64 `json:"ordinary_embedding_id,omitempty"`
 }
 
 // taskTypesAffectingKnowledgeStatus enumerates the asynq task types whose
@@ -466,6 +467,12 @@ func newDeadLetterKnowledgeFailer(
 		if err := json.Unmarshal(t.Payload(), &probe); err != nil || probe.KnowledgeID == "" ||
 			probe.KnowledgeBaseID == "" ||
 			probe.TenantID == 0 {
+			return
+		}
+		// A window has its own durable retry/ownership fence. An archived
+		// delivery can be older than the plan's current cursor or consumer;
+		// only that reconciler may fail the parent after its bounded budget.
+		if probe.OrdinaryEmbeddingID != 0 {
 			return
 		}
 		row, err := repo.GetKnowledgeByID(ctx, probe.TenantID, probe.KnowledgeID)

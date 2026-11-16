@@ -25,6 +25,8 @@ type textEmbedding struct {
 }
 
 func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, texts []string) ([][]float32, error) {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
 	// Create goroutine pool for concurrent processing of document chunks
 	var wg sync.WaitGroup
 	var mu sync.Mutex  // For synchronizing access to error
@@ -34,9 +36,18 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 		batchSizeStr = "5"
 	}
 	batchSize, err := strconv.Atoi(batchSizeStr)
-	if err != nil {
-		return nil, err
+	if err != nil || batchSize < 1 || e.pool == nil {
+		return nil, fmt.Errorf("invalid embedding batch configuration")
 	}
+	recordError := func(err error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if firstErr == nil {
+			firstErr = err
+			cancel()
+		}
+	}
+	stopped := func() bool { mu.Lock(); defer mu.Unlock(); return firstErr != nil }
 	textEmbeddings := utils.MapSlice(texts, func(text string) *textEmbedding {
 		return &textEmbedding{text: text}
 	})
@@ -46,7 +57,11 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 		return func() {
 			defer wg.Done()
 			// If an error has already occurred, don't continue processing
-			if firstErr != nil {
+			if stopped() {
+				return
+			}
+			if err := ctx.Err(); err != nil {
+				recordError(err)
 				return
 			}
 			// Embed text
@@ -54,19 +69,13 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 				return text.text
 			}))
 			if err != nil {
-				mu.Lock()
-				if firstErr == nil {
-					firstErr = err
-				}
-				mu.Unlock()
+				recordError(err)
 				return
 			}
 			if len(embedding) != len(texts) {
-				mu.Lock()
-				if firstErr == nil {
-					firstErr = fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(texts))
-				}
-				mu.Unlock()
+				recordError(
+					fmt.Errorf("embedding model returned %d embeddings for %d inputs", len(embedding), len(texts)),
+				)
 				return
 			}
 			mu.Lock()
@@ -82,10 +91,19 @@ func (e *batchEmbedder) BatchEmbedWithPool(ctx context.Context, model Embedder, 
 
 	// Submit all tasks to the goroutine pool
 	for _, texts := range utils.ChunkSlice(textEmbeddings, batchSize) {
+		if stopped() {
+			break
+		}
+		if err := ctx.Err(); err != nil {
+			recordError(err)
+			break
+		}
 		wg.Add(1)
 		err := e.pool.Submit(processChunk(texts))
 		if err != nil {
-			return nil, err
+			wg.Done()
+			recordError(err)
+			break
 		}
 	}
 
