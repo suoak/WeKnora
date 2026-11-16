@@ -40,7 +40,10 @@ func NewAnydocReader(overrides map[string]string, fallback interfaces.DocReader)
 }
 
 // Read converts the document carried by the request.
-func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types.ReadResult, error) {
+func (r *AnydocReader) Read(
+	ctx context.Context,
+	req *types.ReadRequest,
+) (*types.ReadResult, error) {
 	if req.URL != "" && len(req.FileContent) == 0 {
 		return nil, fmt.Errorf("anydoc engine reads uploaded documents, not URLs")
 	}
@@ -48,6 +51,11 @@ func (r *AnydocReader) Read(ctx context.Context, req *types.ReadRequest) (*types
 	format, ok := anydoc.FormatForFile(req.FileType, req.FileName)
 	if !ok {
 		return nil, fmt.Errorf("anydoc engine does not support file type %q", fileTypeOf(req))
+	}
+	var formatErr error
+	format, formatErr = wordContainerFormat(ctx, req.FileContent, format)
+	if formatErr != nil {
+		return nil, formatErr
 	}
 	if result, handled, err := r.readWordML(ctx, req, format); handled {
 		return result, err
@@ -103,16 +111,26 @@ func pdfMarkdownIsEmpty(converted *anydoc.Result, err error) bool {
 	return strings.TrimSpace(converted.Markdown) == ""
 }
 
-func (r *AnydocReader) readScannedPDF(ctx context.Context, req *types.ReadRequest, convertErr error) (*types.ReadResult, error) {
+func (r *AnydocReader) readScannedPDF(
+	ctx context.Context,
+	req *types.ReadRequest,
+	convertErr error,
+) (*types.ReadResult, error) {
 	if !r.canFallback() {
 		if convertErr != nil {
 			return nil, fmt.Errorf("anydoc conversion failed for %q: %w", req.FileName, convertErr)
 		}
-		return nil, fmt.Errorf("anydoc conversion failed for %q: PDF has no extractable text; OCR is required", req.FileName)
+		return nil, fmt.Errorf(
+			"anydoc conversion failed for %q: PDF has no extractable text; OCR is required",
+			req.FileName,
+		)
 	}
 
-	logger.Infof(ctx, "[anydoc] %q contains pages requiring OCR, falling back to builtin for scanned-PDF OCR",
-		req.FileName)
+	logger.Infof(
+		ctx,
+		"[anydoc] %q contains pages requiring OCR, falling back to builtin for scanned-PDF OCR",
+		req.FileName,
+	)
 	fallbackReq := *req
 	fallbackReq.ParserEngine = BuiltinEngineName
 	result, err := r.fallback.Read(ctx, &fallbackReq)
@@ -120,7 +138,10 @@ func (r *AnydocReader) readScannedPDF(ctx context.Context, req *types.ReadReques
 		return nil, fmt.Errorf("anydoc scanned-PDF fallback failed for %q: %w", req.FileName, err)
 	}
 	if result == nil {
-		return nil, fmt.Errorf("anydoc scanned-PDF fallback returned no result for %q", req.FileName)
+		return nil, fmt.Errorf(
+			"anydoc scanned-PDF fallback returned no result for %q",
+			req.FileName,
+		)
 	}
 	if result.Metadata == nil {
 		result.Metadata = map[string]string{}
