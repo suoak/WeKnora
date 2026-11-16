@@ -37,12 +37,18 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	require.NoError(t, db.Create(ds).Error)
 	k := &types.Knowledge{
 		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
-		Title: "metadata", Description: "body-derived summary must not be read or overwritten",
+		Channel: types.ChannelFeishuDrive,
+		Title:   "metadata", Description: "body-derived summary must not be read or overwritten",
 		ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", StorageSize: 123,
 		Metadata: types.JSON(`{"content":"private manual body","keep":"original",
  "_knowledge_transfer":{"operation":"copy","phase":"complete","wiki_summary":"private summary"}}`),
 	}
 	require.NoError(t, db.Create(k).Error)
+	require.NoError(t, db.Create(&types.FeishuLegacyResource{
+		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+		DataSourceID: ds.ID, ExternalID: "held-document", KnowledgeID: k.ID, State: "hold",
+		QuarantineSnapshot: []byte(`{}`),
+	}).Error)
 	db = types.EnableLegacyReadGuards(db)
 	repo := NewKnowledgeRepository(db)
 	ctx := context.Background()
@@ -56,6 +62,22 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	require.Empty(t, rows[0].CustomMetadata)
 	require.JSONEq(t, `{"_knowledge_transfer":{"operation":"copy","phase":"complete"}}`, string(rows[0].Metadata))
 	require.NoError(t, access.RejectMovingKnowledge(rows[0]))
+	affected, err := repo.UpdateKnowledgeFolderPath(ctx, tenant.ID, kb.ID, []string{k.ID}, "reorganized")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, affected)
+	_, err = repo.GetKnowledgeBatch(ctx, tenant.ID, []string{k.ID})
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "folder placement must not unlock content")
+	for _, column := range []string{"title", "description", "knowledge_base_id", "channel", "metadata"} {
+		value := interface{}("forged")
+		if column == "metadata" {
+			value = types.JSON(`{"content":"forged"}`)
+		}
+		err := db.Model(&types.Knowledge{}).Where("id = ?", k.ID).Update(column, value).Error
+		require.Error(t, err, "folder-only exception must still reject %s changes", column)
+	}
+	rows, err = repo.GetKnowledgeDeletionMetadata(ctx, tenant.ID, []string{k.ID})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
 	wrongTenant, err := repo.GetKnowledgeDeletionMetadata(ctx, tenant.ID+1, []string{k.ID})
 	require.NoError(t, err)
 	require.Empty(t, wrongTenant)

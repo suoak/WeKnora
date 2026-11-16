@@ -771,7 +771,10 @@ func (s *knowledgeService) MoveKnowledgeToFolder(ctx context.Context,
 	if err != nil {
 		return 0, err
 	}
-	rows, err := loadKnowledgeWriteBatch(ctx, s.repo, s.kbService, ids)
+	// Folder placement needs identity and transfer fences, not source content.
+	// Use the restricted projection also used by cleanup; ordinary reads retain
+	// their Feishu publication/verification guards.
+	rows, err := loadKnowledgeWriteBatchWith(ctx, s.kbService, ids, s.repo.GetKnowledgeDeletionMetadata)
 	if err != nil {
 		return 0, err
 	}

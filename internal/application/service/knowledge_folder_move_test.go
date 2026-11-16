@@ -127,6 +127,14 @@ func TestRenameKnowledgeFolderValidatesPaths(t *testing.T) {
 
 func (r *folderMoveRepoStub) GetKnowledgeBatch(
 	_ context.Context,
+	_ uint64,
+	_ []string,
+) ([]*types.Knowledge, error) {
+	return nil, types.ErrLegacySourceRestricted
+}
+
+func (r *folderMoveRepoStub) GetKnowledgeDeletionMetadata(
+	_ context.Context,
 	tenant uint64,
 	ids []string,
 ) ([]*types.Knowledge, error) {
@@ -135,4 +143,44 @@ func (r *folderMoveRepoStub) GetKnowledgeBatch(
 		rows = append(rows, &types.Knowledge{ID: id, TenantID: tenant, KnowledgeBaseID: "kb-1"})
 	}
 	return rows, nil
+}
+
+type folderRestrictedContentRepo struct {
+	interfaces.KnowledgeRepository
+}
+
+func (r folderRestrictedContentRepo) GetKnowledgeBatch(
+	context.Context, uint64, []string,
+) ([]*types.Knowledge, error) {
+	return nil, types.ErrLegacySourceRestricted
+}
+
+func TestFolderPlacementDoesNotReadRestrictedSourceContent(t *testing.T) {
+	f := newDocumentWriteFixture(t)
+	metadata := types.JSON(`{"content":"private body","datasource_id":"held-source"}`)
+	require.NoError(t, f.db.Model(&types.Knowledge{}).Where("id = ?", "doc").Updates(map[string]any{
+		"channel": "feishu_drive", "description": "private summary", "metadata": metadata,
+	}).Error)
+	f.svc.repo = folderRestrictedContentRepo{KnowledgeRepository: f.repo}
+	_, err := f.svc.repo.GetKnowledgeBatch(f.ctx, 7, []string{"doc"})
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+
+	affected, err := f.svc.MoveKnowledgeToFolder(f.ctx, "kb", []string{"doc"}, "new/folder")
+	require.NoError(t, err)
+	require.EqualValues(t, 1, affected)
+	stored, err := f.repo.GetKnowledgeByID(f.ctx, 7, "doc")
+	require.NoError(t, err)
+	require.Equal(t, "new/folder", stored.FolderPath)
+	require.Equal(t, "private summary", stored.Description)
+	require.JSONEq(t, string(metadata), string(stored.Metadata))
+	_, err = f.svc.repo.GetKnowledgeBatch(f.ctx, 7, []string{"doc"})
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+
+	for _, invalid := range []string{"other-doc", "missing"} {
+		_, err := f.svc.MoveKnowledgeToFolder(f.ctx, "kb", []string{"doc", invalid}, "invalid")
+		require.Error(t, err)
+		stored, err := f.repo.GetKnowledgeByID(f.ctx, 7, "doc")
+		require.NoError(t, err)
+		require.Equal(t, "new/folder", stored.FolderPath)
+	}
 }
