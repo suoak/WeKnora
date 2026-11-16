@@ -22,6 +22,107 @@ func TestMaterializeParserDefinedChunks_DefaultIsUntouched(t *testing.T) {
 	require.Equal(t, "a\r\nb", result.MarkdownContent)
 }
 
+func TestParserControlledHTMLCellSurvivesImagePreparation(t *testing.T) {
+	row := "ID: 最后一行🙂,说明: <table><tr><td>原始单元格</td></tr></table>\r\n"
+	result := preserveResult([]string{row})
+	chunks, controlled, err := materializeParserDefinedChunks(result, 7500)
+	require.NoError(t, err)
+	require.True(t, controlled)
+	canonical := result.MarkdownContent
+	normalizeParserDocumentContent(result, controlled)
+	require.NoError(t, validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent))
+	require.Len(t, chunks, 1)
+	require.Equal(t, strings.ReplaceAll(row, "\r\n", "\n"), chunks[0].Content)
+	require.Equal(t, chunks[0].Content, result.MarkdownContent)
+	require.Contains(t, result.MarkdownContent, "<table>")
+
+	// An image or other later rewrite still has to preserve synchronized spans.
+	require.ErrorContains(t,
+		validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent+"extra"),
+		"without synchronized chunk spans")
+}
+
+func TestParserControlledMixedSegmentsKeepCanonicalHTMLCells(t *testing.T) {
+	first := "ID: 甲,说明: <table><tr><td>单元格</td></tr></table>\r\n"
+	second := "自由正文\r\n最后一段🙂"
+	result := &types.ReadResult{
+		MarkdownContent: first + second,
+		ParsedSegments: []types.ParserDefinedSegment{
+			{
+				Seq: 0, Start: 0, End: utf8.RuneCountInString(first),
+				ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks,
+				ParsedChunks:   []types.ParserChunkSpan{{Seq: 0, Start: 0, End: utf8.RuneCountInString(first)}},
+			},
+			{
+				Seq: 1, Start: utf8.RuneCountInString(first), End: utf8.RuneCountInString(first + second),
+				ChunkingPolicy: types.ChunkingPolicyDefault,
+			},
+		},
+	}
+	segments, controlled, err := materializeParserDefinedSegments(result, 7500)
+	require.NoError(t, err)
+	require.True(t, controlled)
+	canonical := result.MarkdownContent
+	normalizeParserDocumentContent(result, controlled)
+	require.NoError(t, validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent))
+	config := chunker.NormalizeSplitterConfig(chunker.SplitterConfig{ChunkSize: 1000})
+	chunks, _, err := splitMaterializedParserSegments(segments, config, false, config, config)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(chunks), 2)
+	require.Equal(t, strings.ReplaceAll(first, "\r\n", "\n"), chunks[0].Content)
+	require.Contains(t, result.MarkdownContent, "最后一段🙂")
+}
+
+func TestUnsegmentedHTMLStillNormalizesBeforeImages(t *testing.T) {
+	result := &types.ReadResult{MarkdownContent: "正文\r\n<table><tr><td>项目</td><td>数值</td></tr>" +
+		"<tr><td>末行</td><td>42</td></tr></table>"}
+	normalizeParserDocumentContent(result, false)
+	require.NotContains(t, result.MarkdownContent, "\r")
+	require.NotContains(t, result.MarkdownContent, "<table>")
+	require.Contains(t, result.MarkdownContent, "|")
+	require.Contains(t, result.MarkdownContent, "42")
+}
+
+func TestParserSpreadsheetCellsKeepLiteralImageExamples(t *testing.T) {
+	text := "ID: 末行,代码: <img src=\"https://example.test/image.png\"> ![example](https://example.test/a.png)\n"
+	result := preserveResult([]string{text})
+	result.Metadata = map[string]string{"parser.type": "xlsx"}
+	result.ParsedChunks[0].Metadata = map[string]string{"parser.source_kind": "excel_row"}
+	_, controlled, err := materializeParserDefinedChunks(result, 7500)
+	require.NoError(t, err)
+	require.True(t, parserHasLiteralSpreadsheetCells(result, controlled))
+	normalizeParserDocumentContent(result, controlled)
+	require.Equal(t, text, result.MarkdownContent)
+	// An actual parser-supplied image is never silently dropped by this rule.
+	result.ImageRefs = []types.ImageRef{{OriginalRef: "embedded.png", ImageData: []byte("parser image")}}
+	require.False(t, parserHasLiteralSpreadsheetCells(result, controlled))
+}
+
+func TestParserSpreadsheetLiteralRuleDoesNotCoverMixedOrUnknownOutput(t *testing.T) {
+	row := types.ParserChunkSpan{
+		Seq: 0, Start: 0, End: 4,
+		Metadata: map[string]string{"parser.source_kind": "excel_row"},
+	}
+	result := &types.ReadResult{
+		Metadata: map[string]string{"parser.type": "xlsx"},
+		ParsedSegments: []types.ParserDefinedSegment{{
+			Seq: 0, Start: 0, End: 4,
+			ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks, ParsedChunks: []types.ParserChunkSpan{row},
+			Metadata: map[string]string{"parser.segment_kind": "excel_sheet"},
+		}},
+	}
+	require.True(t, parserHasLiteralSpreadsheetCells(result, true))
+	require.False(t, parserHasLiteralSpreadsheetCells(result, false))
+	result.ParsedSegments = append(result.ParsedSegments, types.ParserDefinedSegment{
+		Seq: 1, Start: 4, End: 8, ChunkingPolicy: types.ChunkingPolicyDefault,
+	})
+	require.False(t, parserHasLiteralSpreadsheetCells(result, true))
+	result.ParsedSegments = result.ParsedSegments[:1]
+	result.ParsedSegments[0].ParsedChunks[0].Metadata = nil
+	require.False(t, parserHasLiteralSpreadsheetCells(result, true))
+	require.False(t, parserHasLiteralSpreadsheetCells(nil, true))
+}
+
 func TestMaterializeParserDefinedChunks_NormalizesEachSpanAndRebuildsRuneOffsets(t *testing.T) {
 	t.Parallel()
 	parts := []string{
