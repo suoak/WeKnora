@@ -3843,6 +3843,20 @@ func (s *knowledgeService) ProcessManualUpdate(ctx context.Context, t *asynq.Tas
 	return s.triggerManualProcessing(ctx, kb, knowledge, payload.Content, true)
 }
 
+// A parser-controlled document has already normalized each validated span.
+// Rewriting HTML inside a spreadsheet cell here changes that canonical text
+// without updating spans and makes the later integrity check reject the row.
+// Ordinary unsegmented output still needs normalization before image handling.
+func normalizeParserDocumentContent(result *types.ReadResult, parserControlled bool) {
+	if result == nil || parserControlled {
+		return
+	}
+	result.MarkdownContent = chunker.NormalizeLineEndings(result.MarkdownContent)
+	if result.MarkdownContent != "" {
+		result.MarkdownContent = docparser.NormalizeHTMLTables(result.MarkdownContent)
+	}
+}
+
 // ProcessDocument handles Asynq document processing tasks
 func (s *knowledgeService) ProcessDocument(ctx context.Context, t *asynq.Task) error {
 	var payload types.DocumentProcessPayload
@@ -4325,12 +4339,7 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 		}
 	}
 	sanitizeReadResult(convertResult)
-	if convertResult != nil {
-		convertResult.MarkdownContent = chunker.NormalizeLineEndings(convertResult.MarkdownContent)
-		if convertResult.MarkdownContent != "" {
-			convertResult.MarkdownContent = docparser.NormalizeHTMLTables(convertResult.MarkdownContent)
-		}
-	}
+	normalizeParserDocumentContent(convertResult, parserControlled)
 
 	// Step 2: Store images and update markdown references
 	var storedImages []docparser.StoredImage

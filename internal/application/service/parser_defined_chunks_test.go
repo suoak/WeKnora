@@ -22,6 +22,67 @@ func TestMaterializeParserDefinedChunks_DefaultIsUntouched(t *testing.T) {
 	require.Equal(t, "a\r\nb", result.MarkdownContent)
 }
 
+func TestParserControlledHTMLCellSurvivesImagePreparation(t *testing.T) {
+	row := "ID: 最后一行🙂,说明: <table><tr><td>原始单元格</td></tr></table>\r\n"
+	result := preserveResult([]string{row})
+	chunks, controlled, err := materializeParserDefinedChunks(result, 7500)
+	require.NoError(t, err)
+	require.True(t, controlled)
+	canonical := result.MarkdownContent
+	normalizeParserDocumentContent(result, controlled)
+	require.NoError(t, validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent))
+	require.Len(t, chunks, 1)
+	require.Equal(t, strings.ReplaceAll(row, "\r\n", "\n"), chunks[0].Content)
+	require.Equal(t, chunks[0].Content, result.MarkdownContent)
+	require.Contains(t, result.MarkdownContent, "<table>")
+
+	// An image or other later rewrite still has to preserve synchronized spans.
+	require.ErrorContains(t,
+		validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent+"extra"),
+		"without synchronized chunk spans")
+}
+
+func TestParserControlledMixedSegmentsKeepCanonicalHTMLCells(t *testing.T) {
+	first := "ID: 甲,说明: <table><tr><td>单元格</td></tr></table>\r\n"
+	second := "自由正文\r\n最后一段🙂"
+	result := &types.ReadResult{
+		MarkdownContent: first + second,
+		ParsedSegments: []types.ParserDefinedSegment{
+			{
+				Seq: 0, Start: 0, End: utf8.RuneCountInString(first),
+				ChunkingPolicy: types.ChunkingPolicyPreserveParserChunks,
+				ParsedChunks:   []types.ParserChunkSpan{{Seq: 0, Start: 0, End: utf8.RuneCountInString(first)}},
+			},
+			{
+				Seq: 1, Start: utf8.RuneCountInString(first), End: utf8.RuneCountInString(first + second),
+				ChunkingPolicy: types.ChunkingPolicyDefault,
+			},
+		},
+	}
+	segments, controlled, err := materializeParserDefinedSegments(result, 7500)
+	require.NoError(t, err)
+	require.True(t, controlled)
+	canonical := result.MarkdownContent
+	normalizeParserDocumentContent(result, controlled)
+	require.NoError(t, validateParserDefinedContentUnchanged(controlled, canonical, result.MarkdownContent))
+	config := chunker.NormalizeSplitterConfig(chunker.SplitterConfig{ChunkSize: 1000})
+	chunks, _, err := splitMaterializedParserSegments(segments, config, false, config, config)
+	require.NoError(t, err)
+	require.GreaterOrEqual(t, len(chunks), 2)
+	require.Equal(t, strings.ReplaceAll(first, "\r\n", "\n"), chunks[0].Content)
+	require.Contains(t, result.MarkdownContent, "最后一段🙂")
+}
+
+func TestUnsegmentedHTMLStillNormalizesBeforeImages(t *testing.T) {
+	result := &types.ReadResult{MarkdownContent: "正文\r\n<table><tr><td>项目</td><td>数值</td></tr>" +
+		"<tr><td>末行</td><td>42</td></tr></table>"}
+	normalizeParserDocumentContent(result, false)
+	require.NotContains(t, result.MarkdownContent, "\r")
+	require.NotContains(t, result.MarkdownContent, "<table>")
+	require.Contains(t, result.MarkdownContent, "|")
+	require.Contains(t, result.MarkdownContent, "42")
+}
+
 func TestMaterializeParserDefinedChunks_NormalizesEachSpanAndRebuildsRuneOffsets(t *testing.T) {
 	t.Parallel()
 	parts := []string{
