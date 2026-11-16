@@ -26,7 +26,7 @@ func (s *FeishuLegacyStore) SetSourceUncertain(
 		if uncertain {
 			err = s.executionFence(ctx, tx, ds)
 		} else {
-			err = s.execution(tx, ctx, ds)
+			err = s.execution(ctx, tx, ds)
 		}
 		if err != nil {
 			return err
@@ -118,7 +118,7 @@ func (s *FeishuLegacyStore) restrictSourceResource(
 		}
 	}
 	err = s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if e := s.execution(tx, ctx, ds); e != nil {
+		if e := s.execution(ctx, tx, ds); e != nil {
 			return e
 		}
 		identity := fmt.Sprintf("%d:%s:%s:%s", ds.TenantID, ds.KnowledgeBaseID, ds.ID, external)

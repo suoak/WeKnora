@@ -29,7 +29,13 @@ type legacySyncFixture struct {
 }
 
 func (f *legacySyncFixture) Type() string { return f.kind }
-func (f *legacySyncFixture) FetchStream(ctx context.Context, _ *types.DataSourceConfig, _ *types.SyncCursor, h datasource.StreamHandler) (*types.SyncCursor, error) {
+
+func (f *legacySyncFixture) FetchStream(
+	ctx context.Context,
+	_ *types.DataSourceConfig,
+	_ *types.SyncCursor,
+	h datasource.StreamHandler,
+) (*types.SyncCursor, error) {
 	f.calls++
 	if f.err != nil {
 		return nil, f.err
@@ -45,26 +51,63 @@ func (f *legacySyncFixture) FetchStream(ctx context.Context, _ *types.DataSource
 	}
 	return cursor, nil
 }
-func (f *legacySyncFixture) FetchFullStream(ctx context.Context, c *types.DataSourceConfig, p *types.SyncCursor, h datasource.StreamHandler) (*types.SyncCursor, error) {
+
+func (f *legacySyncFixture) FetchFullStream(
+	ctx context.Context,
+	c *types.DataSourceConfig,
+	p *types.SyncCursor,
+	h datasource.StreamHandler,
+) (*types.SyncCursor, error) {
 	return f.FetchStream(ctx, c, p, h)
 }
 
 type legacyNoAutoTag struct{ interfaces.KnowledgeTagService }
 
-func (*legacyNoAutoTag) FindOrCreateTagByName(context.Context, string, string) (*types.KnowledgeTag, error) {
+func (*legacyNoAutoTag) FindOrCreateTagByName(
+	context.Context,
+	string,
+	string,
+) (*types.KnowledgeTag, error) {
 	return nil, errors.New("synthetic tag unavailable")
 }
 
-func exerciseLegacyProcessSync(t *testing.T, db *gorm.DB, ks *knowledgeService, ds *types.DataSource, item *types.FetchedItem, kid string) {
+func exerciseLegacyProcessSync(
+	t *testing.T,
+	db *gorm.DB,
+	ks *knowledgeService,
+	ds *types.DataSource,
+	item *types.FetchedItem,
+	kid string,
+) {
 	t.Helper()
 	fixture := &legacySyncFixture{kind: ds.Type, item: item}
 	registry := datasource.NewConnectorRegistry()
 	require.NoError(t, registry.Register(fixture))
-	svc := &DataSourceService{dsRepo: repository.NewDataSourceRepository(db), syncLogRepo: repository.NewSyncLogRepository(db), knowledgeService: ks, kbService: ks.kbService, tenantRepo: repository.NewTenantRepository(db), tagService: &legacyNoAutoTag{}, connectorRegistry: registry}
+	svc := &DataSourceService{
+		dsRepo:            repository.NewDataSourceRepository(db),
+		syncLogRepo:       repository.NewSyncLogRepository(db),
+		knowledgeService:  ks,
+		kbService:         ks.kbService,
+		tenantRepo:        repository.NewTenantRepository(db),
+		tagService:        &legacyNoAutoTag{},
+		connectorRegistry: registry,
+	}
 	run := func(full bool) (*types.SyncLog, *asynq.Task, error) {
-		log := &types.SyncLog{ID: uuid.NewString(), DataSourceID: ds.ID, TenantID: ds.TenantID, Status: types.SyncLogStatusRunning}
+		log := &types.SyncLog{
+			ID:           uuid.NewString(),
+			DataSourceID: ds.ID,
+			TenantID:     ds.TenantID,
+			Status:       types.SyncLogStatusRunning,
+		}
 		require.NoError(t, db.Create(log).Error)
-		payload, _ := json.Marshal(types.DataSourceSyncPayload{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: ds.TenantID, ForceFull: full})
+		payload, _ := json.Marshal(
+			types.DataSourceSyncPayload{
+				DataSourceID: ds.ID,
+				SyncLogID:    log.ID,
+				TenantID:     ds.TenantID,
+				ForceFull:    full,
+			},
+		)
 		task := asynq.NewTask("datasource:sync", payload)
 		err := svc.ProcessSync(context.Background(), task)
 		require.NoError(t, db.First(log, "id=?", log.ID).Error)
@@ -76,6 +119,7 @@ func exerciseLegacyProcessSync(t *testing.T, db *gorm.DB, ks *knowledgeService, 
 	var saved types.DataSource
 	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
 	confirmed := string(saved.LastSyncCursor)
+	accessBefore := saved.LegacyAccessState
 	require.Contains(t, confirmed, "verified_run")
 	calls := fixture.calls
 	require.NoError(t, svc.ProcessSync(context.Background(), task))
@@ -92,13 +136,18 @@ func exerciseLegacyProcessSync(t *testing.T, db *gorm.DB, ks *knowledgeService, 
 	require.Error(t, err)
 	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
 	require.Equal(t, confirmed, string(saved.LastSyncCursor))
-	require.Equal(t, "hold", saved.LegacyAccessState)
-	require.ErrorIs(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID), types.ErrLegacySourceRestricted)
+	// An unlocalized connector refusal is not a trusted document-withdrawal
+	// event. Preserve its checkpoint and the previously verified local version;
+	// explicit document restrictions and credential-reference guards are tested
+	// separately. It must not quarantine unrelated source documents.
+	require.Equal(t, accessBefore, saved.LegacyAccessState)
+	require.NoError(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID))
 	fixture.err = nil
 	log, _, err = run(true)
 	require.NoError(t, err)
 	require.Equal(t, types.SyncLogStatusSuccess, log.Status)
 	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
-	require.Equal(t, "active", saved.LegacyAccessState)
+	require.Equal(t, "active", saved.LegacyAccessState,
+		"the complete verified reconciliation releases source uncertainty")
 	require.NoError(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID))
 }

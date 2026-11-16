@@ -38,7 +38,7 @@ func (s *FeishuLegacyStore) LatestSnapshotBaseline(
 		return nil, legacyFence("execution_context_invalid")
 	}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+		if err := s.execution(ctx, tx, ds); err != nil {
 			return err
 		}
 		return tx.Where("id=? AND data_source_id=? AND tenant_id=? AND knowledge_base_id=?",

@@ -19,7 +19,13 @@ type legacyEmbeddingCheckpointStore interface {
 	ReusableEmbeddingCheckpoint(
 		context.Context, *types.DataSource, *types.FeishuLegacyAttempt,
 	) (map[string][]float32, error)
-	SaveEmbeddingCheckpoint(context.Context, *types.DataSource, *types.FeishuLegacyAttempt, []string, [][]float32) error
+	SaveEmbeddingCheckpoint(
+		context.Context,
+		*types.DataSource,
+		*types.FeishuLegacyAttempt,
+		[]string,
+		[][]float32,
+	) error
 	Renew(context.Context, *types.DataSource, *types.FeishuLegacyAttempt) error
 }
 
@@ -52,6 +58,7 @@ func embedLegacyCheckpointed(
 	if err != nil {
 		return nil, err
 	}
+	initialCachedInputs := len(cache)
 	saved := map[string]bool{}
 	completed, reused := 0, 0
 	multiplicity := map[string]int{}
@@ -65,8 +72,15 @@ func embedLegacyCheckpointed(
 			reused++
 		}
 	}
-	logger.Infof(ctx, "Feishu embedding checkpoint source=%s attempt=%s total=%d reused=%d unique_inputs=%d",
-		ds.ID, owner.ID, len(texts), reused, len(multiplicity))
+	logger.Infof(
+		ctx,
+		"Feishu embedding checkpoint source=%s attempt=%s total=%d reused=%d unique_inputs=%d",
+		ds.ID,
+		owner.ID,
+		len(texts),
+		reused,
+		len(multiplicity),
+	)
 	save := func(check context.Context, inputs []string, vectors [][]float32) error {
 		if feishusafety.Scoped(check) {
 			if err := feishusafety.Default().Check(check); err != nil {
@@ -84,11 +98,19 @@ func embedLegacyCheckpointed(
 				saved[digest] = true
 			}
 		}
-		logger.Infof(check, "Feishu embedding checkpoint saved source=%s attempt=%s completed=%d total=%d reused=%d",
-			ds.ID, owner.ID, completed, len(texts), reused)
+		logger.Infof(
+			check,
+			"Feishu embedding checkpoint saved source=%s attempt=%s completed=%d total=%d reused=%d",
+			ds.ID,
+			owner.ID,
+			completed,
+			len(texts),
+			reused,
+		)
 		return nil
 	}
 	ctx = embedding.WithBatchCheckpoint(ctx, save)
+	newInputs := 0
 	for start := 0; start < len(texts); start += 20 {
 		end := min(start+20, len(texts))
 		// One exact input is embedded once even if several chunks repeat it.
@@ -116,6 +138,7 @@ func embedLegacyCheckpointed(
 				break
 			}
 			vectors, callErr := model.BatchEmbed(ctx, missing)
+			newInputs += len(missing)
 			if callErr == nil {
 				if len(vectors) != len(missing) {
 					return nil, fmt.Errorf("embedding checkpoint response cardinality mismatch")
@@ -137,11 +160,26 @@ func embedLegacyCheckpointed(
 				break
 			}
 			if !errors.Is(callErr, feishusafety.ErrBudgetBusy) || retry >= 2 {
+				if checkpoint.Version == 2 && errors.Is(callErr, feishusafety.ErrBudgetBusy) &&
+					len(cache) > initialCachedInputs {
+					return nil, &repository.FeishuEmbeddingProgress{
+						Owner:     owner,
+						Completed: completed,
+						Total:     len(texts),
+					}
+				}
 				return nil, callErr
 			}
-			logger.Warnf(ctx,
+			logger.Warnf(
+				ctx,
 				"Feishu embedding backpressure source=%s attempt=%s retry=%d completed=%d total=%d error=%v",
-				ds.ID, owner.ID, retry+1, completed, len(texts), callErr)
+				ds.ID,
+				owner.ID,
+				retry+1,
+				completed,
+				len(texts),
+				callErr,
+			)
 			timer := time.NewTimer(time.Duration(retry+1) * time.Second)
 			select {
 			case <-ctx.Done():
@@ -161,6 +199,17 @@ func embedLegacyCheckpointed(
 		if len(inputs) > 0 {
 			if err = save(ctx, inputs, vectors); err != nil {
 				return nil, err
+			}
+		}
+		if checkpoint.Version == 2 && newInputs >= 1000 && end < len(texts) {
+			for _, text := range texts[end:] {
+				if _, ready := cache[repository.LegacyEmbeddingInputHash(text)]; !ready {
+					return nil, &repository.FeishuEmbeddingProgress{
+						Owner:     owner,
+						Completed: end,
+						Total:     len(texts),
+					}
+				}
 			}
 		}
 	}

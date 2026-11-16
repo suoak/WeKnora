@@ -118,7 +118,7 @@ func (s *FeishuLegacyStore) SourceIdentityBaseline(
 ) (*LegacySourceIdentityBaseline, error) {
 	b := &LegacySourceIdentityBaseline{}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+		if err := s.execution(ctx, tx, ds); err != nil {
 			return err
 		}
 		if err := tx.First(&b.resource, "id=?", legacyResourceID(ds, externalID)).Error; err != nil {

@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -28,7 +29,10 @@ type legacyAckLossPool struct {
 	armed *atomic.Bool
 }
 
-func (p *legacyAckLossPool) BeginTx(ctx context.Context, opts *sql.TxOptions) (gorm.ConnPool, error) {
+func (p *legacyAckLossPool) BeginTx(
+	ctx context.Context,
+	opts *sql.TxOptions,
+) (gorm.ConnPool, error) {
 	tx, err := p.DB.BeginTx(ctx, opts)
 	if err != nil {
 		return nil, err
@@ -109,13 +113,22 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.NoError(t, db.Create(log).Error)
 	ctx := types.WithSyncExecution(
 		context.Background(),
-		types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
+		types.SyncExecution{
+			DataSourceID: ds.ID,
+			SyncLogID:    log.ID,
+			TenantID:     tenant.ID,
+			Generation:   1,
+		},
 	)
 	store := NewFeishuLegacyStore(db)
 	stamp, err := store.ModelStamp(ctx, kb.EmbeddingModelID)
 	require.NoError(t, err)
 	boundMetadata, _ := json.Marshal(
-		map[string]string{"datasource_id": ds.ID, "external_id": "same-cloud-id", "source_resource_id": "root"},
+		map[string]string{
+			"datasource_id":      ds.ID,
+			"external_id":        "same-cloud-id",
+			"source_resource_id": "root",
+		},
 	)
 	kid := uuid.NewString()
 	baseline := &types.Knowledge{
@@ -251,7 +264,11 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	require.NoError(t, err)
 	require.EqualValues(t, 1, receipt.Chunks)
 	require.EqualValues(t, 1, visible("oldcanary"))
-	require.Zero(t, visible("rc3baselinecanary"), "old committed version must not mix with the new version")
+	require.Zero(
+		t,
+		visible("rc3baselinecanary"),
+		"old committed version must not mix with the new version",
+	)
 	_, err = store.Receipt(ctx, r, a)
 	require.NoError(t, err, "lost-ACK reconciliation must use durable receipt")
 	var wikiOps []types.TaskPendingOp
@@ -263,7 +280,295 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 	var wikiPayload map[string]string
 	require.NoError(t, json.Unmarshal(wikiOps[0].Payload, &wikiPayload))
 	require.Equal(t, kid, wikiPayload["knowledge_id"])
-	require.NotContains(t, string(wikiOps[0].Payload), "oldcanary", "only an identity enters the Wiki queue")
+	require.NotContains(
+		t,
+		string(wikiOps[0].Payload),
+		"oldcanary",
+		"only an identity enters the Wiki queue",
+	)
+	t.Run("large-checkpoint-yield-requires-live-request-and-progress", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{
+			UserID: uuid.NewString(),
+			Role:   types.TenantRoleAdmin,
+		}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		// Install a typed spreadsheet claim in the isolated private test store.
+		// The shared fixture's published document is markdown; no API or public
+		// source binding is modified by this checkpoint-protocol test.
+		require.NoError(
+			t,
+			tx.Exec(`UPDATE task_pending_ops SET payload=jsonb_set(payload,'{file_type}','"xlsx"')
+WHERE scope=? AND dedup_key=? AND op='queued'`, sourceDocumentReparseScope, kid).Error,
+		)
+		work, claimed, err := local.ClaimSourceDocumentReparse(ctx, ds)
+		require.NoError(t, err)
+		item := &types.FetchedItem{
+			ExternalID: "same-cloud-id", SourceResourceID: "root", FileName: "document.md",
+			Content: []byte("oldcanary"), UpdatedAt: time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
+		}
+		hash := sha256.Sum256(item.Content)
+		_, candidate, err := local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
+		require.NoError(t, err)
+		checkpoint := types.FeishuLegacyEmbeddingCheckpoint{
+			Version: 2, RequestID: claimed.ID, SourceConfig: claimed.ConfigHash,
+			ModelID: m.EmbeddingModelID, ModelStamp: m.ModelStamp,
+			KBConfigSHA256: m.KBConfigSHA256, Dimension: m.Dimension,
+		}
+		for i := 0; i < 10001; i++ {
+			text := fmt.Sprintf("input-%d", i)
+			checkpoint.Inputs = append(checkpoint.Inputs, types.FeishuLegacyEmbeddingInput{
+				ChunkID: uuid.NewString(), SHA256: LegacyEmbeddingInputHash(text),
+			})
+		}
+		require.Error(
+			t,
+			local.StartEmbeddingCheckpoint(ctx, ds, candidate, checkpoint),
+			"ordinary sync must retain its original limit",
+		)
+		require.NoError(t, local.StartEmbeddingCheckpoint(work, ds, candidate, checkpoint))
+		require.Error(
+			t,
+			local.SaveEmbeddingCheckpoint(
+				ctx,
+				ds,
+				candidate,
+				[]string{"input-0"},
+				[][]float32{{1, 0, 0}},
+			),
+		)
+		require.NoError(
+			t,
+			local.SaveEmbeddingCheckpoint(
+				work,
+				ds,
+				candidate,
+				[]string{"input-0"},
+				[][]float32{{1, 0, 0}},
+			),
+		)
+		progress := &FeishuEmbeddingProgress{Owner: candidate, Completed: 1, Total: 10001}
+		// No new progress may reset the failure counter.
+		claim := work.Value(sourceDocumentReparseKey{}).(*sourceDocumentReparseClaim)
+		claim.request.CompletedChunks = 1
+		payload, err := json.Marshal(claim.request)
+		require.NoError(t, err)
+		require.NoError(
+			t,
+			tx.Model(&types.TaskPendingOp{}).
+				Where("id=?", claim.op.ID).
+				Update("payload", json.RawMessage(payload)).
+				Error,
+		)
+		require.Error(t, local.YieldSourceDocumentReparse(work, ds, progress))
+		claim.request.CompletedChunks = 0
+		payload, err = json.Marshal(claim.request)
+		require.NoError(t, err)
+		require.NoError(
+			t,
+			tx.Model(&types.TaskPendingOp{}).
+				Where("id=?", claim.op.ID).
+				Update("payload", json.RawMessage(payload)).
+				Error,
+		)
+		require.NoError(t, local.YieldSourceDocumentReparse(work, ds, progress))
+		status, err := local.SourceDocumentReparseStatus(ctx, ds, kid)
+		require.NoError(t, err)
+		require.Equal(t, "queued", status.State)
+		require.Equal(t, 0, status.Attempts)
+		require.Equal(t, 1, status.CompletedChunks)
+		require.Equal(t, 10001, status.TotalChunks)
+		require.Error(
+			t,
+			local.SaveEmbeddingCheckpoint(
+				work,
+				ds,
+				candidate,
+				[]string{"input-1"},
+				[][]float32{{0, 1, 0}},
+			),
+			"released owner cannot write",
+		)
+		// A new valid source execution must reclaim the durable intent, not its old context.
+		var op types.TaskPendingOp
+		require.NoError(t, tx.First(&op, "id=?", claim.op.ID).Error)
+		var saved types.FeishuDocumentReparse
+		require.NoError(t, json.Unmarshal(op.Payload, &saved))
+		require.Equal(t, 1, saved.ProgressWindows)
+		require.True(t, saved.RetryAfter.After(time.Now()))
+		saved.RetryAfter = time.Now().Add(-time.Minute)
+		payload, err = json.Marshal(saved)
+		require.NoError(t, err)
+		require.NoError(
+			t,
+			tx.Model(&types.TaskPendingOp{}).
+				Where("id=?", op.ID).
+				Update("payload", json.RawMessage(payload)).
+				Error,
+		)
+		execution, ok := types.SyncExecutionFromContext(ctx)
+		require.True(t, ok)
+		execution.Generation++
+		require.NoError(
+			t,
+			tx.Model(&types.SyncLog{}).
+				Where("id=?", execution.SyncLogID).
+				Update("execution_generation", execution.Generation).
+				Error,
+		)
+		nextCtx := types.WithSyncExecution(context.Background(), execution)
+		nextWork, nextRequest, err := local.ClaimSourceDocumentReparse(nextCtx, ds)
+		require.NoError(t, err)
+		require.NotNil(t, nextRequest)
+		require.Equal(t, 1, nextRequest.Attempts)
+		_, nextOwner, err := local.Begin(nextWork, ds, item, hex.EncodeToString(hash[:]))
+		require.NoError(t, err)
+		require.NotEqual(t, candidate.ID, nextOwner.ID)
+		for i := range checkpoint.Inputs {
+			checkpoint.Inputs[i].ChunkID = uuid.NewString()
+		}
+		require.NoError(t, local.StartEmbeddingCheckpoint(nextWork, ds, nextOwner, checkpoint))
+		cache, err := local.ReusableEmbeddingCheckpoint(nextWork, ds, nextOwner)
+		require.NoError(t, err)
+		require.Equal(t, []float32{1, 0, 0}, cache[LegacyEmbeddingInputHash("input-0")])
+		require.NoError(t, local.SaveEmbeddingCheckpoint(nextWork, ds, nextOwner,
+			[]string{"input-0", "input-1"}, [][]float32{{1, 0, 0}, {0, 1, 0}}))
+		require.NoError(
+			t,
+			local.YieldSourceDocumentReparse(
+				nextWork,
+				ds,
+				&FeishuEmbeddingProgress{Owner: nextOwner, Completed: 2, Total: 10001},
+			),
+		)
+		var oldRows int64
+		require.NoError(
+			t,
+			tx.Table("feishu_legacy_index_candidates").
+				Where("attempt_id=?", candidate.ID).
+				Count(&oldRows).
+				Error,
+		)
+		require.Zero(
+			t,
+			oldRows,
+			"the imported predecessor must not accumulate private duplicate vector rows",
+		)
+		status, err = local.SourceDocumentReparseStatus(nextCtx, ds, kid)
+		require.NoError(t, err)
+		require.Equal(t, 2, status.CompletedChunks)
+		require.Zero(t, status.Attempts)
+	})
+	t.Run(
+		"large-checkpoint-publication-requires-the-live-request-and-complete-input-set",
+		func(t *testing.T) {
+			tx := db.Begin()
+			require.NoError(t, tx.Error)
+			defer tx.Rollback()
+			local := NewFeishuLegacyStore(tx)
+			request, err := local.SourceReparseTarget(ctx, ds, kid)
+			require.NoError(t, err)
+			request.Initiator = types.TaskInitiator{
+				UserID: uuid.NewString(),
+				Role:   types.TenantRoleAdmin,
+			}
+			request.KBConfigHash = LegacyKBConfigHash(kb)
+			_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+			require.NoError(t, err)
+			require.NoError(
+				t,
+				tx.Exec(
+					`UPDATE task_pending_ops SET payload=jsonb_set(payload,'{file_type}','"xlsx"')
+WHERE scope=? AND dedup_key=? AND op='queued'`,
+					sourceDocumentReparseScope,
+					kid,
+				).Error,
+			)
+			work, claimed, err := local.ClaimSourceDocumentReparse(ctx, ds)
+			require.NoError(t, err)
+			item := &types.FetchedItem{
+				ExternalID:       "same-cloud-id",
+				SourceResourceID: "root",
+				FileName:         "document.md",
+				Content:          []byte("oldcanary"),
+				UpdatedAt:        time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
+			}
+			hash := sha256.Sum256(item.Content)
+			_, owner, err := local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
+			require.NoError(t, err)
+			manifest := m
+			manifest.Chunks = nil
+			manifest.Knowledge.FileType = "xlsx"
+			checkpoint := types.FeishuLegacyEmbeddingCheckpoint{
+				Version:        2,
+				RequestID:      claimed.ID,
+				SourceConfig:   claimed.ConfigHash,
+				ModelID:        m.EmbeddingModelID,
+				ModelStamp:     m.ModelStamp,
+				KBConfigSHA256: m.KBConfigSHA256,
+				Dimension:      3,
+			}
+			vectors := make([][]float32, 10001)
+			for i := range vectors {
+				body := "largecanary"
+				if i == len(vectors)-1 {
+					body = "lastlargecanary"
+				}
+				chunk := *m.Chunks[0]
+				chunk.ID = uuid.NewString()
+				chunk.Content = body
+				chunk.ChunkIndex = i
+				manifest.Chunks = append(manifest.Chunks, &chunk)
+				vectors[i] = []float32{1, 0, 0}
+				checkpoint.Inputs = append(
+					checkpoint.Inputs,
+					types.FeishuLegacyEmbeddingInput{
+						ChunkID: chunk.ID,
+						SHA256: LegacyEmbeddingInputHash(
+							buildLegacyIndexContent(m.Knowledge.Title, body),
+						),
+					},
+				)
+			}
+			require.NoError(t, local.StartEmbeddingCheckpoint(work, ds, owner, checkpoint))
+			require.NoError(t, local.SaveEmbeddingCheckpoint(work, ds, owner, []string{
+				buildLegacyIndexContent(
+					m.Knowledge.Title,
+					"largecanary",
+				), buildLegacyIndexContent(m.Knowledge.Title, "lastlargecanary"),
+			}, [][]float32{{1, 0, 0}, {1, 0, 0}}))
+			require.Error(
+				t,
+				local.Prepare(ctx, ds, owner, manifest, vectors),
+				"the normal sync context cannot prepare a large request",
+			)
+			require.NoError(t, local.Prepare(work, ds, owner, manifest, vectors))
+			_, err = local.Publish(ctx, ds, owner)
+			require.Error(t, err, "a prepared manifest alone is not publication authority")
+			receipt, err := local.Publish(work, ds, owner)
+			require.NoError(t, err)
+			require.EqualValues(t, 10001, receipt.Chunks)
+			var publicCount int64
+			require.NoError(
+				t,
+				tx.Model(&types.Chunk{}).
+					Where("knowledge_id=? AND deleted_at IS NULL", kid).
+					Count(&publicCount).
+					Error,
+			)
+			require.EqualValues(t, 10001, publicCount)
+			status, err := local.SourceDocumentReparseStatus(work, ds, kid)
+			require.NoError(t, err)
+			require.Equal(t, "completed", status.State)
+		},
+	)
 	t.Run("source-document-reparse-is-durable-and-publishes-atomically", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
@@ -271,7 +576,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		local := NewFeishuLegacyStore(tx)
 		request, err := local.SourceReparseTarget(ctx, ds, kid)
 		require.NoError(t, err)
-		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.Initiator = types.TaskInitiator{
+			UserID: uuid.NewString(),
+			Role:   types.TenantRoleAdmin,
+		}
 		request.KBConfigHash = LegacyKBConfigHash(kb)
 		request.ProcessConfig = &types.KnowledgeProcessOverrides{
 			ParserEngineOverrides: map[string]string{"test": "kept"},
@@ -281,7 +589,12 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.Equal(t, "queued", accepted.State)
 		repeated, err := local.QueueSourceDocumentReparse(ctx, ds, request)
 		require.NoError(t, err)
-		require.Equal(t, accepted.ID, repeated.ID, "duplicate clicks must share one durable request")
+		require.Equal(
+			t,
+			accepted.ID,
+			repeated.ID,
+			"duplicate clicks must share one durable request",
+		)
 		conflict := *request
 		conflict.ProcessConfig = &types.KnowledgeProcessOverrides{}
 		_, err = local.QueueSourceDocumentReparse(ctx, ds, &conflict)
@@ -307,7 +620,12 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.Equal(t, "published", unchanged.Status)
 		resource, candidate, err := local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
 		require.NoError(t, err)
-		require.Equal(t, "staging", candidate.Status, "explicit reparse must not reuse an unchanged receipt")
+		require.Equal(
+			t,
+			"staging",
+			candidate.Status,
+			"explicit reparse must not reuse an unchanged receipt",
+		)
 		require.NotEqual(t, a.ID, candidate.ID)
 		require.Equal(t, kid, resource.KnowledgeID)
 		var manifest types.FeishuLegacyManifest
@@ -345,7 +663,12 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.Equal(t, "processing", status.State)
 		var stillCurrent types.FeishuLegacyResource
 		require.NoError(t, tx.First(&stillCurrent, "id=?", resource.ID).Error)
-		require.Equal(t, a.ID, stillCurrent.ActiveAttempt, "request ACK failure must roll publication back")
+		require.Equal(
+			t,
+			a.ID,
+			stillCurrent.ActiveAttempt,
+			"request ACK failure must roll publication back",
+		)
 		require.NoError(t, tx.Exec(`DROP TRIGGER reparse_completion_fault ON task_pending_ops;
  DROP FUNCTION reparse_completion_fault()`).Error)
 		published, err := local.Publish(work, ds, candidate)
@@ -375,7 +698,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		local := NewFeishuLegacyStore(tx)
 		request, err := local.SourceReparseTarget(ctx, ds, kid)
 		require.NoError(t, err)
-		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.Initiator = types.TaskInitiator{
+			UserID: uuid.NewString(),
+			Role:   types.TenantRoleAdmin,
+		}
 		request.KBConfigHash = LegacyKBConfigHash(kb)
 		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
 		require.NoError(t, err)
@@ -391,8 +717,15 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			require.Equal(t, attempt, accepted.Attempts)
 			_, duplicate, err := local.ClaimSourceDocumentReparse(generation, ds)
 			require.NoError(t, err)
-			require.Nil(t, duplicate, "one execution cannot claim an already processing request twice")
-			require.NoError(t, local.FinishSourceDocumentReparse(work, ds, "temporary_failure", true, false))
+			require.Nil(
+				t,
+				duplicate,
+				"one execution cannot claim an already processing request twice",
+			)
+			require.NoError(
+				t,
+				local.FinishSourceDocumentReparse(work, ds, "temporary_failure", true, false),
+			)
 			status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
 			require.NoError(t, err)
 			if attempt < 3 {
@@ -405,7 +738,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				persisted.RetryAfter = time.Now().Add(-time.Second)
 				payload, err := json.Marshal(persisted)
 				require.NoError(t, err)
-				require.NoError(t, tx.Model(&op).UpdateColumn("payload", json.RawMessage(payload)).Error)
+				require.NoError(
+					t,
+					tx.Model(&op).UpdateColumn("payload", json.RawMessage(payload)).Error,
+				)
 			} else {
 				require.Equal(t, "failed", status.State)
 			}
@@ -418,33 +754,45 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			Where("id=? AND is_enabled", m.Chunks[0].ID).Count(&oldChunks).Error)
 		require.EqualValues(t, 1, oldChunks)
 	})
-	t.Run("permission-refusal-quarantines-one-document-without-stopping-source", func(t *testing.T) {
-		tx := db.Begin()
-		require.NoError(t, tx.Error)
-		defer tx.Rollback()
-		local := NewFeishuLegacyStore(tx)
-		guardedExecution := types.WithReconciliationCommitGuard(ctx, func(check *gorm.DB) error {
-			var current types.DataSource
-			if err := check.First(&current, "id=?", ds.ID).Error; err != nil {
-				return err
-			}
-			if current.LegacyAccessState != ds.LegacyAccessState {
-				return errors.New("signed source identity changed during document quarantine")
-			}
-			return nil
-		})
-		require.NoError(t, local.RestrictDocument(guardedExecution, ds, "same-cloud-id"))
-		var source types.DataSource
-		require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
-		require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
-		var quarantined types.FeishuLegacyResource
-		require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
-		require.Equal(t, "hold", quarantined.State)
-		require.Greater(t, len(quarantined.QuarantineSnapshot), 2)
-		guarded := types.EnableLegacyReadGuards(tx)
-		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
-			types.ErrLegacySourceRestricted, "old derived content stays closed until safe regeneration")
-	})
+	t.Run(
+		"permission-refusal-quarantines-one-document-without-stopping-source",
+		func(t *testing.T) {
+			tx := db.Begin()
+			require.NoError(t, tx.Error)
+			defer tx.Rollback()
+			local := NewFeishuLegacyStore(tx)
+			guardedExecution := types.WithReconciliationCommitGuard(
+				ctx,
+				func(check *gorm.DB) error {
+					var current types.DataSource
+					if err := check.First(&current, "id=?", ds.ID).Error; err != nil {
+						return err
+					}
+					if current.LegacyAccessState != ds.LegacyAccessState {
+						return errors.New(
+							"signed source identity changed during document quarantine",
+						)
+					}
+					return nil
+				},
+			)
+			require.NoError(t, local.RestrictDocument(guardedExecution, ds, "same-cloud-id"))
+			var source types.DataSource
+			require.NoError(t, tx.First(&source, "id=?", ds.ID).Error)
+			require.Equal(t, ds.LegacyAccessState, source.LegacyAccessState)
+			var quarantined types.FeishuLegacyResource
+			require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
+			require.Equal(t, "hold", quarantined.State)
+			require.Greater(t, len(quarantined.QuarantineSnapshot), 2)
+			guarded := types.EnableLegacyReadGuards(tx)
+			require.ErrorIs(
+				t,
+				types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
+				types.ErrLegacySourceRestricted,
+				"old derived content stays closed until safe regeneration",
+			)
+		},
+	)
 	t.Run("document-deny-survives-cleanup-guard-failure", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
@@ -461,8 +809,11 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		require.NoError(t, tx.First(&quarantined, "id=?", r.ID).Error)
 		require.Equal(t, "hold", quarantined.State)
 		guarded := types.EnableLegacyReadGuards(tx)
-		require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
-			types.ErrLegacySourceRestricted)
+		require.ErrorIs(
+			t,
+			types.CheckLegacySourceRead(guarded.WithContext(context.Background()), "", kb.ID),
+			types.ErrLegacySourceRestricted,
+		)
 	})
 	t.Run("document-failure-retains-only-a-verified-active-version", func(t *testing.T) {
 		item := &types.FetchedItem{
@@ -514,17 +865,23 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				FileHash: "config-before", ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled",
 			}
 			no, yes := false, true
-			require.NoError(t, old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &no}))
+			require.NoError(
+				t,
+				old.SetProcessOverrides(&types.KnowledgeProcessOverrides{SummaryEnabled: &no}),
+			)
 			require.NoError(t, db.Create(&old).Error)
 			chunk := &types.Chunk{
 				ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
 				KnowledgeID: old.ID, ChunkType: types.ChunkTypeText, Content: "configbeforecanary", IsEnabled: true,
 			}
 			require.NoError(t, db.Create(chunk).Error)
-			require.NoError(t, db.Exec(`INSERT INTO embeddings(source_id,source_type,chunk_id,knowledge_id,
+			require.NoError(
+				t,
+				db.Exec(`INSERT INTO embeddings(source_id,source_type,chunk_id,knowledge_id,
 				knowledge_base_id,content,dimension,embedding,is_enabled)
 				VALUES(?,0,?,?,?,'configbeforecanary',3,'[1,0,0]'::halfvec,true)`,
-				chunk.ID, chunk.ID, old.ID, kb.ID).Error)
+					chunk.ID, chunk.ID, old.ID, kb.ID).Error,
+			)
 			candidateHash := sha256.Sum256([]byte("config-next"))
 			_, attempt, e := store.Begin(ctx, ds, &types.FetchedItem{
 				ExternalID: "config-" + window, UpdatedAt: time.Date(2026, 10, 21, 1, 1, 0, 0, time.UTC),
@@ -549,7 +906,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 				Dimension:        3,
 			}
 			if window == "publish" {
-				require.NoError(t, store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}))
+				require.NoError(
+					t,
+					store.Prepare(ctx, ds, attempt, manifest, [][]float32{{1, 0, 0}}),
+				)
 			}
 			require.NoError(
 				t,
@@ -561,7 +921,10 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 			// disabling any trigger or changing the source generation.
 			require.Error(
 				t,
-				db.Model(&types.Knowledge{}).Where("id=?", old.ID).Update("metadata", old.Metadata).Error,
+				db.Model(&types.Knowledge{}).
+					Where("id=?", old.ID).
+					Update("metadata", old.Metadata).
+					Error,
 			)
 			require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
 				if e := tx.Exec(`SELECT set_config('knowhub.feishu_attempt',?,true),
@@ -639,10 +1002,18 @@ func TestFeishuLegacyAtomicPostgres(t *testing.T) {
 		_, _, e = store.Begin(
 			ctx,
 			ds,
-			&types.FetchedItem{ExternalID: "same-cloud-id", UpdatedAt: candidateTime.Add(5 * time.Second)},
+			&types.FetchedItem{
+				ExternalID: "same-cloud-id",
+				UpdatedAt:  candidateTime.Add(5 * time.Second),
+			},
 			hex.EncodeToString(oldHash[:]),
 		)
-		require.ErrorIs(t, e, ErrLegacyVersionBusy, "duplicate active bytes cannot overtake a live candidate")
+		require.ErrorIs(
+			t,
+			e,
+			ErrLegacyVersionBusy,
+			"duplicate active bytes cannot overtake a live candidate",
+		)
 		var watermark string
 		require.NoError(
 			t,
@@ -729,7 +1100,8 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, e)
 		require.NoError(
 			t,
-			reader.QueryRow("SELECT content FROM embeddings WHERE knowledge_id=$1", kid).Scan(&body),
+			reader.QueryRow("SELECT content FROM embeddings WHERE knowledge_id=$1", kid).
+				Scan(&body),
 		)
 		require.True(t, strings.Contains(body, "oldcanary"))
 		require.NoError(t, reader.Rollback())
@@ -777,7 +1149,9 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		oldTx := db.Begin()
 		require.NoError(t, oldTx.Error)
 		defer oldTx.Rollback()
-		meta, _ := json.Marshal(map[string]string{"datasource_id": other.ID, "external_id": "inflight-cloud"})
+		meta, _ := json.Marshal(
+			map[string]string{"datasource_id": other.ID, "external_id": "inflight-cloud"},
+		)
 		inflightKID := uuid.NewString()
 		require.NoError(
 			t,
@@ -856,7 +1230,12 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		ds.LastSyncCursor = types.JSON(`{"must_not_persist":true}`)
 		_, e := NewSyncLogRepository(db).(*SyncLogRepository).WriteExecution(
 			checkpointCtx,
-			types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
+			types.SyncExecution{
+				DataSourceID: ds.ID,
+				SyncLogID:    log.ID,
+				TenantID:     tenant.ID,
+				Generation:   1,
+			},
 			ds,
 			log,
 			false,
@@ -884,7 +1263,11 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, store.Prepare(ctx, ds, current, next, [][]float32{{1, 0, 0}}))
 		_, e = store.Publish(ctx, ds, current)
 		require.NoError(t, e)
-		require.NoError(t, store.Abandon(ctx, stale), "stale cleanup must not mutate current publication")
+		require.NoError(
+			t,
+			store.Abandon(ctx, stale),
+			"stale cleanup must not mutate current publication",
+		)
 		require.EqualValues(t, 1, visible("takeovercanary"))
 	})
 	t.Run("model-change-blocks-staged-publication", func(t *testing.T) {
@@ -892,7 +1275,10 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, store.Prepare(ctx, ds, attempt, candidate, [][]float32{{1, 0, 0}}))
 		require.NoError(
 			t,
-			db.Model(&types.Model{}).Where("id=?", model.ID).UpdateColumn("name", "different-binding").Error,
+			db.Model(&types.Model{}).
+				Where("id=?", model.ID).
+				UpdateColumn("name", "different-binding").
+				Error,
 		)
 		_, e := store.Publish(ctx, ds, attempt)
 		require.ErrorIs(t, e, ErrLegacyVersionFence)
@@ -911,7 +1297,10 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_fail_insert();`,
 		require.NoError(t, db.First(&before, "id=?", tenant.ID).Error)
 		require.NoError(
 			t,
-			db.Model(&types.Tenant{}).Where("id=?", tenant.ID).UpdateColumn("storage_quota", 1).Error,
+			db.Model(&types.Tenant{}).
+				Where("id=?", tenant.ID).
+				UpdateColumn("storage_quota", 1).
+				Error,
 		)
 		_, e := store.Publish(ctx, ds, attempt)
 		require.ErrorContains(t, e, "quota")
@@ -995,8 +1384,12 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_redaction_fault();`,
 		)
 		_, e := store.RestrictSource(ctx, ds, "same-cloud-id", false)
 		require.Error(t, e)
-		require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID), types.ErrLegacySourceRestricted,
-			"failed redaction must retain the independently committed deny")
+		require.ErrorIs(
+			t,
+			types.CheckLegacySourceRead(guardDB, kid, kb.ID),
+			types.ErrLegacySourceRestricted,
+			"failed redaction must retain the independently committed deny",
+		)
 		search(true)
 		require.NoError(
 			t,
@@ -1008,8 +1401,16 @@ FOR EACH ROW EXECUTE FUNCTION feishu_test_redaction_fault();`,
 		terminal, e := store.RestrictSource(ctx, ds, "same-cloud-id", false)
 		require.NoError(t, e)
 		require.False(t, terminal, "absence is not confirmed permanent deletion")
-		require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, kid, kb.ID), types.ErrLegacySourceRestricted)
-		require.ErrorIs(t, store.SetSourceUncertain(ctx, ds, false), types.ErrLegacySourceRestricted)
+		require.ErrorIs(
+			t,
+			types.CheckLegacySourceRead(guardDB, kid, kb.ID),
+			types.ErrLegacySourceRestricted,
+		)
+		require.ErrorIs(
+			t,
+			store.SetSourceUncertain(ctx, ds, false),
+			types.ErrLegacySourceRestricted,
+		)
 		var bodies int64
 		require.NoError(
 			t,

@@ -53,7 +53,12 @@ func fullFeishuReconciliationContext(
 // A completed signed traversal may contain only isolated private refusals.
 // Let its final publication transaction prove the entire public inventory;
 // that transaction still refuses any missing public receipt or held resource.
-func feishuTraversalFailure(ctx context.Context, ds *types.DataSource, full bool, result *types.SyncResult) error {
+func feishuTraversalFailure(
+	ctx context.Context,
+	ds *types.DataSource,
+	full bool,
+	result *types.SyncResult,
+) error {
 	if types.LegacyFullReconciliation(fullFeishuReconciliationContext(ctx, ds, full, result)) {
 		return nil
 	}
@@ -75,7 +80,11 @@ func legacyItemNeedsHold(item *types.FetchedItem) bool {
 }
 
 // Only server-owned sync executions can change persistent source quarantine.
-func (s *DataSourceService) legacySourceUncertain(ctx context.Context, ds *types.DataSource, uncertain bool) error {
+func (s *DataSourceService) legacySourceUncertain(
+	ctx context.Context,
+	ds *types.DataSource,
+	uncertain bool,
+) error {
 	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) {
 		return nil
 	}
@@ -155,9 +164,15 @@ func (s *knowledgeService) StageFeishuLegacyItem(
 	})
 	if item != nil && item.AutoRecovered {
 		execution, _ := types.SyncExecutionFromContext(ctx)
-		logger.Infof(ctx, "feishu_auto_recovery cause=latest_source_snapshot_changed outcome=accepted "+
-			"datasource_id=%s sync_log_id=%s execution_generation=%d knowledge_id=%s",
-			ds.ID, execution.SyncLogID, execution.Generation, receipt.KnowledgeID)
+		logger.Infof(
+			ctx,
+			"feishu_auto_recovery cause=latest_source_snapshot_changed outcome=accepted "+
+				"datasource_id=%s sync_log_id=%s execution_generation=%d knowledge_id=%s",
+			ds.ID,
+			execution.SyncLogID,
+			execution.Generation,
+			receipt.KnowledgeID,
+		)
 	}
 	return receipt, err
 }
@@ -185,7 +200,8 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 			)
 		}
 	}()
-	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || len(item.Content) == 0 || item.IsDeleted ||
+	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || len(item.Content) == 0 ||
+		item.IsDeleted ||
 		item.ExternalID == "" {
 		return nil, ErrFeishuStagingRequired
 	}
@@ -199,7 +215,8 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	if err != nil {
 		return nil, err
 	}
-	if kb.TenantID != ds.TenantID || kb.Type != types.KnowledgeBaseTypeDocument || kb.VectorStoreID != nil ||
+	if kb.TenantID != ds.TenantID || kb.Type != types.KnowledgeBaseTypeDocument ||
+		kb.VectorStoreID != nil ||
 		!kb.NeedsEmbeddingModel() {
 		return nil, ErrFeishuStagingRequired
 	}
@@ -251,6 +268,10 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	}
 	defer func() {
 		if err != nil {
+			var progress *repository.FeishuEmbeddingProgress
+			if errors.As(err, &progress) {
+				return
+			}
 			clean, cancel := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
 			defer cancel()
 			_ = store.Abandon(clean, attempt)
@@ -292,7 +313,8 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	} else if !errors.Is(loadErr, repository.ErrKnowledgeNotFound) {
 		return nil, loadErr
 	}
-	if requested, claimed := repository.SourceDocumentReparseOverrides(ctx); claimed && requested != nil {
+	if requested, claimed := repository.SourceDocumentReparseOverrides(ctx); claimed &&
+		requested != nil {
 		overrides = requested
 		meta["feishu_reparse_process_config"] = "true"
 	}
@@ -303,7 +325,10 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	engine := eff.ChunkingConfig.ResolveParserEngine(fileType)
 	parserOverrides := MergeParserEngineOverrides(s.getParserEngineOverridesFromContext(ctx), nil)
 	if overrides != nil {
-		parserOverrides = MergeParserEngineOverrides(parserOverrides, overrides.ParserEngineOverrides)
+		parserOverrides = MergeParserEngineOverrides(
+			parserOverrides,
+			overrides.ParserEngineOverrides,
+		)
 	}
 	applyParserRuleOverrides(parserOverrides, eff.ChunkingConfig, fileType)
 	if meta["feishu_reparse_process_config"] != "true" {
@@ -369,7 +394,10 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	}
 	sanitizeReadResult(parsed)
 	// Reuse the production parser span validation and segment boundaries.
-	segments, segmented, err := materializeParserDefinedSegments(parsed, eff.ChunkingConfig.ParserSemanticChunkMaxChars)
+	segments, segmented, err := materializeParserDefinedSegments(
+		parsed,
+		eff.ChunkingConfig.ParserSemanticChunkMaxChars,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -419,7 +447,11 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 			}
 		}
 	}
-	if len(parts) == 0 || len(parts)+len(parents) > 10000 {
+	chunkLimit := 10000
+	if _, _, ok := repository.LargeSourceReparseRequest(ctx); ok && fileType == "xlsx" {
+		chunkLimit = repository.LargeFeishuChunkLimit
+	}
+	if len(parts) == 0 || len(parts)+len(parents) > chunkLimit {
 		return nil, &feishuStagingRefusal{reason: "chunk_count_out_of_bounds"}
 	}
 	chunks := make([]*types.Chunk, len(parts))
@@ -537,15 +569,30 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	leaseModel := &legacyLeaseEmbedder{Embedder: model, renew: func(check context.Context) error {
 		return store.Renew(check, ds, attempt)
 	}, progress: func(check context.Context, completed int) {
-		logger.Infof(check, "Feishu candidate embedding progress source=%s attempt=%s completed=%d total=%d",
-			ds.ID, attempt.ID, completed, len(texts))
+		logger.Infof(
+			check,
+			"Feishu candidate embedding progress source=%s attempt=%s completed=%d total=%d",
+			ds.ID,
+			attempt.ID,
+			completed,
+			len(texts),
+		)
 	}}
+	checkpoint := types.FeishuLegacyEmbeddingCheckpoint{
+		ModelID: kb.EmbeddingModelID, ModelStamp: stamp,
+		KBConfigSHA256: repository.LegacyKBConfigHash(kb), Dimension: model.GetDimensions(),
+		Inputs: embeddingInputs,
+	}
+	if len(embeddingInputs) > 10000 {
+		requestID, configHash, ok := repository.LargeSourceReparseRequest(ctx)
+		if !ok || len(chunks) > repository.LargeFeishuChunkLimit ||
+			int64(len(embeddingInputs))*int64(model.GetDimensions())*4 > 512<<20 {
+			return nil, &feishuStagingRefusal{reason: "chunk_count_out_of_bounds"}
+		}
+		checkpoint.Version, checkpoint.RequestID, checkpoint.SourceConfig = 2, requestID, configHash
+	}
 	vectors, err := embedLegacyCheckpointed(ctx, store, ds, attempt, leaseModel,
-		types.FeishuLegacyEmbeddingCheckpoint{
-			ModelID: kb.EmbeddingModelID, ModelStamp: stamp,
-			KBConfigSHA256: repository.LegacyKBConfigHash(kb), Dimension: model.GetDimensions(),
-			Inputs: embeddingInputs,
-		}, texts)
+		checkpoint, texts)
 	if err != nil {
 		return nil, err
 	}
@@ -639,11 +686,19 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	return store.Receipt(ctx, resource, attempt)
 }
 
-func (s *knowledgeService) wakeFeishuPublishedWiki(ctx context.Context, kb *types.KnowledgeBase) error {
+func (s *knowledgeService) wakeFeishuPublishedWiki(
+	ctx context.Context,
+	kb *types.KnowledgeBase,
+) error {
 	if !kb.IsWikiEnabled() || s.taskPendingRepo == nil {
 		return nil
 	}
-	pending, err := s.taskPendingRepo.PendingCount(ctx, types.TypeWikiIngest, types.TaskScopeKnowledgeBase, kb.ID)
+	pending, err := s.taskPendingRepo.PendingCount(
+		ctx,
+		types.TypeWikiIngest,
+		types.TaskScopeKnowledgeBase,
+		kb.ID,
+	)
 	if err != nil || pending == 0 {
 		return err
 	}

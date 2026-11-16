@@ -13,6 +13,14 @@ on:
       - internal/application/service/feishu_document_reparse*.go
       - internal/application/repository/feishu_document_reparse*.go
       - internal/application/repository/feishu_legacy_atomic*.go
+      - internal/application/repository/feishu_large_checkpoint*.go
+      - internal/application/repository/feishu_legacy_embedding_checkpoint*.go
+      - internal/application/service/feishu_legacy_embedding_checkpoint*.go
+      - internal/application/service/feishu_large_backpressure*.go
+      - internal/application/service/feishu_legacy_staging_postgres_test.go
+      - internal/application/service/feishu_legacy_sync_postgres_test.go
+      - internal/application/service/feishu_legacy_http_postgres_test.go
+      - internal/types/feishu_legacy_version.go
       - internal/handler/datasource_document_reparse*.go
       - internal/types/feishu_document_reparse.go
       - internal/application/service/datasource_service.go
@@ -92,7 +100,7 @@ jobs:
             ./internal/models/embedding ./internal/application/repository/retriever/postgres \
             ./internal/datasource/connector/feishu/core ./internal/types ./internal/feishudocx \
             ./internal/handler ./internal/router \
-            -run 'TestOrdinaryEmbedding|TestBatchPool|TestConcurrencyEmbedder|TestDeadLetterCallback|TestSourceDocumentReparse|TestFeishuDocumentReparse|TestFeishuLegacyAtomicPostgres|TestFeishuDispatch|TestKnowledgeParseFailure|TestDocumentFetch|TestSourceReparse|TestPersonalReparse|TestReparseKnowledge|TestRunKnowledgeListReparse|TestBatchReparse|TestMovingDocumentAdmission|TestKnowledgeListReparse|TestLegacyWorkbooks|TestExactWorkbook|TestEmbedded|TestDOCXSnapshot|TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
+            -run 'TestFeishuLegacyRealParserEmbeddingPostgres|TestLegacyLarge|TestLegacyEmbeddingCheckpoint|TestFeishuLegacyEmbeddingCheckpoint|TestOrdinaryEmbedding|TestBatchPool|TestConcurrencyEmbedder|TestDeadLetterCallback|TestSourceDocumentReparse|TestFeishuDocumentReparse|TestFeishuLegacyAtomicPostgres|TestFeishuDispatch|TestKnowledgeParseFailure|TestDocumentFetch|TestSourceReparse|TestPersonalReparse|TestReparseKnowledge|TestRunKnowledgeListReparse|TestBatchReparse|TestMovingDocumentAdmission|TestKnowledgeListReparse|TestLegacyWorkbooks|TestExactWorkbook|TestEmbedded|TestDOCXSnapshot|TestFeishuDocumentParser|TestFeishuFinalSnapshot|TestFeishuSnapshot|TestFeishuDOCXSourceIdentityServicePostgresP1|TestFeishuLatestSnapshot|TestDocumentFailure|TestFeishuSyncHealth' \
             -count=1 -timeout=12m | tee recovery-verification.jsonl
       - uses: actions/upload-artifact@v7
         if: always()

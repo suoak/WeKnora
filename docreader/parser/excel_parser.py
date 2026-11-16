@@ -196,7 +196,7 @@ class ExcelParser(BaseParser):
                 page_fields: List[Tuple[str, str]] = []
                 # Build key-value pairs for non-null values
                 for k, v in zip(df.columns, row):
-                    if pd.notna(v) and not _is_image_function(v):
+                    if (isinstance(v, str) or pd.notna(v)) and not _is_image_function(v):
                         page_fields.append((str(k), str(v)))
 
                 # Skip rows with no valid content

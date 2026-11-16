@@ -22,7 +22,9 @@ const (
 
 // LegacySourceReparseConfigHash binds a request to the complete persisted source selection and identity.
 func LegacySourceReparseConfigHash(ds *types.DataSource) string {
-	data, _ := json.Marshal([]any{ds.ID, ds.TenantID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.Config})
+	data, _ := json.Marshal(
+		[]any{ds.ID, ds.TenantID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.Config},
+	)
 	digest := sha256.Sum256(data)
 	return hex.EncodeToString(digest[:])
 }
@@ -75,10 +77,14 @@ func (s *FeishuLegacyStore) SourceReparseTarget(
 	}, nil
 }
 
-func reparseStatus(op *types.TaskPendingOp, request *types.FeishuDocumentReparse) *types.FeishuDocumentReparseStatus {
+func reparseStatus(
+	op *types.TaskPendingOp,
+	request *types.FeishuDocumentReparse,
+) *types.FeishuDocumentReparseStatus {
 	return &types.FeishuDocumentReparseStatus{
 		ID: request.ID, KnowledgeID: request.KnowledgeID,
 		State: op.Op, Attempts: request.Attempts, ErrorCode: request.ErrorCode,
+		CompletedChunks: request.CompletedChunks, TotalChunks: request.TotalChunks,
 	}
 }
 
@@ -86,8 +92,10 @@ func reparseStatus(op *types.TaskPendingOp, request *types.FeishuDocumentReparse
 func (s *FeishuLegacyStore) QueueSourceDocumentReparse(
 	ctx context.Context, ds *types.DataSource, request *types.FeishuDocumentReparse,
 ) (*types.FeishuDocumentReparseStatus, error) {
-	if request == nil || request.KnowledgeID == "" || request.ExternalID == "" || request.RootID == "" ||
-		request.Initiator.UserID == "" || types.IsSyntheticUserID(request.Initiator.UserID) {
+	if request == nil || request.KnowledgeID == "" || request.ExternalID == "" ||
+		request.RootID == "" ||
+		request.Initiator.UserID == "" ||
+		types.IsSyntheticUserID(request.Initiator.UserID) {
 		return nil, legacyFence("document_request_invalid")
 	}
 	var result *types.FeishuDocumentReparseStatus
@@ -99,11 +107,15 @@ func (s *FeishuLegacyStore) QueueSourceDocumentReparse(
 		if err != nil {
 			return err
 		}
-		if request.ConfigHash != LegacySourceReparseConfigHash(current) || request.DataSourceID != ds.ID ||
-			request.TenantID != ds.TenantID || request.KnowledgeBaseID != ds.KnowledgeBaseID {
+		if request.ConfigHash != LegacySourceReparseConfigHash(current) ||
+			request.DataSourceID != ds.ID ||
+			request.TenantID != ds.TenantID ||
+			request.KnowledgeBaseID != ds.KnowledgeBaseID {
 			return legacyFence("source_configuration_changed")
 		}
-		target, err := NewFeishuLegacyStore(tx).SourceReparseTarget(ctx, current, request.KnowledgeID)
+		target, err := NewFeishuLegacyStore(
+			tx,
+		).SourceReparseTarget(ctx, current, request.KnowledgeID)
 		if err != nil {
 			return err
 		}
@@ -128,11 +140,14 @@ func (s *FeishuLegacyStore) QueueSourceDocumentReparse(
 			}
 			a, _ := json.Marshal(request.ProcessConfig)
 			b, _ := json.Marshal(accepted.ProcessConfig)
-			if accepted.ConfigHash != request.ConfigHash || accepted.KBConfigHash != request.KBConfigHash ||
-				accepted.RootID != request.RootID || accepted.ExternalID != request.ExternalID ||
+			if accepted.ConfigHash != request.ConfigHash ||
+				accepted.KBConfigHash != request.KBConfigHash ||
+				accepted.RootID != request.RootID ||
+				accepted.ExternalID != request.ExternalID ||
 				accepted.FileType != request.FileType ||
 				accepted.PreviousProcessHash != request.PreviousProcessHash ||
-				accepted.Initiator.UserID != request.Initiator.UserID || !bytes.Equal(a, b) {
+				accepted.Initiator.UserID != request.Initiator.UserID ||
+				!bytes.Equal(a, b) {
 				return ErrLegacyVersionBusy
 			}
 			result = reparseStatus(&existing[0], &accepted)
@@ -183,7 +198,7 @@ func (s *FeishuLegacyStore) ClaimSourceDocumentReparse(
 ) (context.Context, *types.FeishuDocumentReparse, error) {
 	claim := &sourceDocumentReparseClaim{}
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := s.execution(tx, ctx, ds); err != nil {
+		if err := s.execution(ctx, tx, ds); err != nil {
 			return err
 		}
 		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where(
@@ -347,7 +362,11 @@ func SourceDocumentReparseOverrides(ctx context.Context) (*types.KnowledgeProces
 }
 
 func completeSourceDocumentReparse(
-	ctx context.Context, tx *gorm.DB, ds *types.DataSource, r *types.FeishuLegacyResource, attempt string,
+	ctx context.Context,
+	tx *gorm.DB,
+	ds *types.DataSource,
+	r *types.FeishuLegacyResource,
+	attempt string,
 ) error {
 	claim, err := checkSourceReparseClaim(ctx, tx, ds, r)
 	if err != nil || claim == nil {
@@ -355,6 +374,7 @@ func completeSourceDocumentReparse(
 	}
 	request := claim.request
 	request.Published, request.ErrorCode = attempt, ""
+	request.CompletedChunks = request.TotalChunks
 	payload, err := json.Marshal(request)
 	if err != nil {
 		return err
@@ -394,9 +414,12 @@ func (s *FeishuLegacyStore) SourceDocumentReparseStatuses(
 	var results []types.FeishuDocumentReparseStatus
 	err := s.db.WithContext(ctx).Table("task_pending_ops").
 		Select("DISTINCT ON (dedup_key) payload->>'id' AS id,dedup_key AS knowledge_id,op AS state,"+
-			"COALESCE((payload->>'attempts')::int,0) AS attempts,COALESCE(payload->>'error_code','') AS error_code").
+			"COALESCE((payload->>'attempts')::int,0) AS attempts,COALESCE(payload->>'error_code','') AS error_code,"+
+			"COALESCE((payload->>'completed_chunks')::int,0) AS completed_chunks,"+
+			"COALESCE((payload->>'total_chunks')::int,0) AS total_chunks").
 		Where("task_type=? AND scope=? AND tenant_id=? AND dedup_key IN ?", sourceDocumentReparseTask,
-			sourceDocumentReparseScope, tenant, ids).Order("dedup_key,task_pending_ops.id DESC").Scan(&results).Error
+			sourceDocumentReparseScope, tenant, ids).
+		Order("dedup_key,task_pending_ops.id DESC").Scan(&results).Error
 	return results, err
 }
 
@@ -442,7 +465,9 @@ func (s *FeishuLegacyStore) FinishSourceDocumentReparse(
 }
 
 // PendingSourceDocumentReparses returns bounded wake-up identities, never body content or credentials.
-func (s *FeishuLegacyStore) PendingSourceDocumentReparses(ctx context.Context) ([]types.FeishuDocumentReparse, error) {
+func (s *FeishuLegacyStore) PendingSourceDocumentReparses(
+	ctx context.Context,
+) ([]types.FeishuDocumentReparse, error) {
 	var ops []types.TaskPendingOp
 	if err := s.db.WithContext(ctx).Where("task_type=? AND scope=? AND op IN ?",
 		sourceDocumentReparseTask, sourceDocumentReparseScope, []string{"queued", "processing"}).
@@ -498,7 +523,9 @@ func (s *FeishuLegacyStore) DeferSourceDocumentReparse(
 	}
 	snapshot := *request
 	snapshot.DeliveryAttempts = min(snapshot.DeliveryAttempts+1, 64)
-	snapshot.RetryAfter = time.Now().UTC().Add(time.Minute << uint(min(snapshot.DeliveryAttempts-1, 4)))
+	snapshot.RetryAfter = time.Now().
+		UTC().
+		Add(time.Minute << uint(min(snapshot.DeliveryAttempts-1, 4)))
 	snapshot.ErrorCode = "queue_delivery_pending"
 	payload, err := json.Marshal(snapshot)
 	if err != nil {
@@ -507,5 +534,6 @@ func (s *FeishuLegacyStore) DeferSourceDocumentReparse(
 	return s.db.WithContext(ctx).Model(&types.TaskPendingOp{}).
 		Where("scope=? AND scope_id=? AND tenant_id=? AND dedup_key=? AND op='queued' AND payload=?::jsonb",
 			sourceDocumentReparseScope, request.DataSourceID, request.TenantID, request.KnowledgeID,
-			string(expected)).Updates(map[string]any{"payload": json.RawMessage(payload)}).Error
+			string(expected)).
+		Updates(map[string]any{"payload": json.RawMessage(payload)}).Error
 }
