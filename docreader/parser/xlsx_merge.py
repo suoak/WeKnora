@@ -53,10 +53,12 @@ def install_readonly_merge_fill(content: bytes, excel_file) -> bool:
             ranges[sheet.title] = bounds
 
     def get_sheet_data(sheet, file_rows_needed=None):
+        from docreader.parser.xlsx_rows import readonly_sheet_data
+
         owner = reader_ref()
         if owner is None:
             raise RuntimeError("Excel reader is no longer available")
-        rows = implementation(owner, sheet, file_rows_needed)
+        rows = readonly_sheet_data(owner, sheet, file_rows_needed, implementation)
         sheet_ranges = ranges.get(sheet.title, ())
         if not sheet_ranges:
             return rows

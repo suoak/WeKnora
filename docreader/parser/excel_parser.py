@@ -594,7 +594,17 @@ def _open_excel_file(content: bytes, file_type: str | None = None) -> pd.ExcelFi
             data = _prepare_xlsx_bytes(data, fill_merges=not readonly_merges)
             engine = "openpyxl"
         try:
-            excel_file = pd.ExcelFile(BytesIO(data), engine=engine)
+            workbook = None
+            if readonly_merges:
+                from docreader.parser.xlsx_strings import load_readonly_workbook
+
+                workbook = load_readonly_workbook(BytesIO(data))
+            try:
+                excel_file = pd.ExcelFile(workbook if workbook is not None else BytesIO(data), engine=engine)
+            except BaseException:
+                if workbook is not None:
+                    workbook.close()
+                raise
             if readonly_merges:
                 try:
                     installed = install_readonly_merge_fill(data, excel_file)
