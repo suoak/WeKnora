@@ -16,6 +16,7 @@ on:
       - internal/application/repository/feishu_large_checkpoint*.go
       - internal/application/repository/feishu_legacy_embedding_checkpoint*.go
       - internal/application/service/feishu_legacy_embedding_checkpoint*.go
+      - internal/application/service/feishu_large_backpressure*.go
       - internal/application/service/feishu_legacy_staging_postgres_test.go
       - internal/application/service/feishu_legacy_sync_postgres_test.go
       - internal/application/service/feishu_legacy_http_postgres_test.go

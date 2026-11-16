@@ -58,6 +58,7 @@ func embedLegacyCheckpointed(
 	if err != nil {
 		return nil, err
 	}
+	initialCachedInputs := len(cache)
 	saved := map[string]bool{}
 	completed, reused := 0, 0
 	multiplicity := map[string]int{}
@@ -159,6 +160,14 @@ func embedLegacyCheckpointed(
 				break
 			}
 			if !errors.Is(callErr, feishusafety.ErrBudgetBusy) || retry >= 2 {
+				if checkpoint.Version == 2 && errors.Is(callErr, feishusafety.ErrBudgetBusy) &&
+					len(cache) > initialCachedInputs {
+					return nil, &repository.FeishuEmbeddingProgress{
+						Owner:     owner,
+						Completed: completed,
+						Total:     len(texts),
+					}
+				}
 				return nil, callErr
 			}
 			logger.Warnf(
