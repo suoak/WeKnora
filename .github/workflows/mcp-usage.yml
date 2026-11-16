@@ -39,7 +39,7 @@ jobs:
           go test -race -count=1 -timeout=15m
           ./internal/mcpserver ./internal/types ./internal/application/service
           ./internal/application/repository ./internal/handler ./internal/database
-          -run 'TestMCPUsage|TestPersonalAdmission|Test.*UsageAnalytics|TestMigrationGovernanceManifest|TestSQLite.*Migration'
+          -run 'TestMCPUsage|TestPersonalRPC|TestPersonalScopeTimeout|TestPersonalAdmission|Test.*UsageAnalytics|TestMigrationGovernanceManifest|TestSQLite.*Migration'
 
   personal-concurrency:
     name: Personal MCP authenticated concurrency and SSE isolation
@@ -69,3 +69,7 @@ jobs:
         run: >-
           go test -tags sqlite_fts5 -count=1 -timeout=15m -v ./internal/router
           -run '^Test(V1NextPostgresAuthenticatedEightToolsDynamicAndHold|PersonalPerformanceMetricsSurvivePayloadPrivacy)$'
+      - name: Verify exact vector ranking and live source restrictions
+        run: >-
+          go test -race -count=1 -timeout=5m -v ./internal/application/repository/retriever/postgres
+          -run '^TestPortalSQLDimensionAndCanonicalEquivalencePostgres$'

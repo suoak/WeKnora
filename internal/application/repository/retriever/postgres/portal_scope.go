@@ -14,6 +14,16 @@ func portalCanonicalPredicate(tenantPlaceholder string, public bool, publishedDe
 		n, _ := strconv.Atoi(tenantPlaceholder[1:])
 		sourcePlaceholder = fmt.Sprintf("$%d", n+1)
 	}
+	return `EXISTS (SELECT 1 ` + portalCanonicalChunkRelation(tenantPlaceholder, public, publishedDefaults...) +
+		` AND acl_c.id=embeddings.chunk_id AND acl_c.knowledge_id=embeddings.knowledge_id
+ AND acl_k.knowledge_base_id=embeddings.knowledge_base_id
+ AND embeddings.source_id=acl_c.id AND ` + portalCanonicalIndexText() +
+		` AND embeddings.source_type=` + sourcePlaceholder + `)`
+}
+
+// This is the same canonical relation for correlated probes and bulk vector
+// candidates. Keep authorization and current content predicates before ranking.
+func portalCanonicalChunkRelation(tenantPlaceholder string, public bool, publishedDefaults ...bool) string {
 	policy := ""
 	defaults := len(publishedDefaults) == 1 && publishedDefaults[0]
 	block := func(p string) string {
@@ -39,17 +49,16 @@ func portalCanonicalPredicate(tenantPlaceholder string, public bool, publishedDe
  AND EXISTS (SELECT 1 FROM tenant_portal_configs acl_pc JOIN tenants acl_t ON acl_t.id=acl_pc.tenant_id
  WHERE acl_pc.tenant_id=acl_k.tenant_id AND acl_pc.status='published' AND acl_t.status='active' AND acl_t.deleted_at IS NULL)`
 	}
-	return `EXISTS (SELECT 1 FROM chunks acl_c JOIN knowledges acl_k ON acl_k.id=acl_c.knowledge_id
+	return `FROM chunks acl_c JOIN knowledges acl_k ON acl_k.id=acl_c.knowledge_id
  JOIN knowledge_bases acl_b ON acl_b.id=acl_k.knowledge_base_id AND acl_b.tenant_id=acl_k.tenant_id
  JOIN tenants acl_owner ON acl_owner.id=acl_b.tenant_id
- WHERE acl_c.id=embeddings.chunk_id AND acl_c.knowledge_id=embeddings.knowledge_id
- AND acl_k.knowledge_base_id=embeddings.knowledge_base_id AND acl_c.knowledge_base_id=acl_k.knowledge_base_id
+ WHERE acl_c.knowledge_base_id=acl_k.knowledge_base_id
  AND acl_k.tenant_id=` + tenantPlaceholder + ` AND acl_c.tenant_id=acl_k.tenant_id
  AND acl_k.deleted_at IS NULL AND acl_c.deleted_at IS NULL AND acl_k.enable_status='enabled'
 	AND acl_b.deleted_at IS NULL AND acl_b.is_temporary=false AND acl_owner.deleted_at IS NULL AND acl_owner.status='active'
 	AND acl_k.type IN ('file','manual')
  AND acl_k.parse_status='completed' AND acl_c.is_enabled=true AND acl_c.chunk_type='text'
- AND embeddings.source_id=acl_c.id AND ` + portalCanonicalIndexText() + ` AND embeddings.source_type=` + sourcePlaceholder + policy + `)`
+ ` + policy
 }
 
 // Match the existing writers, without trusting index-only text. Go's
