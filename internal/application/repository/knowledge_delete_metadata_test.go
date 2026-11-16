@@ -37,12 +37,18 @@ func TestDeletionMetadataPostgresPreservesSourceFenceAndContent(t *testing.T) {
 	require.NoError(t, db.Create(ds).Error)
 	k := &types.Knowledge{
 		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
-		Title: "metadata", Description: "body-derived summary must not be read or overwritten",
+		Channel: types.ChannelFeishuDrive,
+		Title:   "metadata", Description: "body-derived summary must not be read or overwritten",
 		ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled", StorageSize: 123,
 		Metadata: types.JSON(`{"content":"private manual body","keep":"original",
  "_knowledge_transfer":{"operation":"copy","phase":"complete","wiki_summary":"private summary"}}`),
 	}
 	require.NoError(t, db.Create(k).Error)
+	require.NoError(t, db.Create(&types.FeishuLegacyResource{
+		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+		DataSourceID: ds.ID, ExternalID: "held-document", KnowledgeID: k.ID, State: "hold",
+		QuarantineSnapshot: []byte(`{}`),
+	}).Error)
 	db = types.EnableLegacyReadGuards(db)
 	repo := NewKnowledgeRepository(db)
 	ctx := context.Background()
