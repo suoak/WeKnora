@@ -219,12 +219,16 @@ func TestSendReplySplitsLongTextWithoutLoss(t *testing.T) {
 			t.Errorf("decode payload: %v", err)
 		}
 		var content struct {
-			Text string `json:"text"`
+			Chinese struct {
+				Content [][]struct {
+					Text string `json:"text"`
+				} `json:"content"`
+			} `json:"zh_cn"`
 		}
 		if err := json.Unmarshal([]byte(payload.Content), &content); err != nil {
 			t.Errorf("decode content: %v", err)
 		}
-		texts = append(texts, content.Text)
+		texts = append(texts, content.Chinese.Content[0][0].Text)
 		_, _ = w.Write([]byte(`{"code":0}`))
 	}))
 	defer srv.Close()
