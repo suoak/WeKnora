@@ -158,11 +158,13 @@ def _detect_row_entity_axis(
 
 def _wide_records(df: pd.DataFrame, start: int, end: int,
                   headers: list[str]) -> list[dict[str, dict[str, str]]]:
+    from docreader.parser.excel_parser import _iter_frame_rows
+
     records: list[dict[str, dict[str, str]]] = []
-    for row in df.to_numpy():
+    for _, row in _iter_frame_rows(df):
         common: dict[str, str] = {}
         entities: dict[str, str] = {}
-        for index, value in enumerate(row.tolist()):
+        for index, value in enumerate(row):
             text = _cell_text(value)
             if not text:
                 continue
@@ -177,14 +179,16 @@ def _wide_records(df: pd.DataFrame, start: int, end: int,
 
 def _row_records(df: pd.DataFrame, entity_index: int,
                  headers: list[str]) -> list[dict[str, dict[str, str]]]:
+    from docreader.parser.excel_parser import _iter_frame_rows
+
     records: list[dict[str, dict[str, str]]] = []
-    for row in df.to_numpy():
+    for _, row in _iter_frame_rows(df):
         entity = _cell_text(row[entity_index])
         if not entity:
             continue
         fields = {
             headers[index]: text
-            for index, value in enumerate(row.tolist())
+            for index, value in enumerate(row)
             if index != entity_index and (text := _cell_text(value))
         }
         records.append({"common": {"entity": entity}, "entities": fields})

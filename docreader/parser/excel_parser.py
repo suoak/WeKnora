@@ -192,10 +192,10 @@ class ExcelParser(BaseParser):
             # Process each row in the DataFrame
             # iterrows constructs a Series from these same common-dtype array
             # rows. Use the array directly, preserving numeric coercion.
-            for row_index, row in zip(df.index, df.to_numpy()):
+            for row_index, row in _iter_frame_rows(df):
                 page_fields: List[Tuple[str, str]] = []
                 # Build key-value pairs for non-null values
-                for k, v in zip(df.columns, row.tolist()):
+                for k, v in zip(df.columns, row):
                     if pd.notna(v) and not _is_image_function(v):
                         page_fields.append((str(k), str(v)))
 
@@ -300,6 +300,18 @@ class ExcelParser(BaseParser):
             source_blocks=source_blocks,
             metadata=document_metadata,
         )
+
+
+def _iter_frame_rows(df: pd.DataFrame):
+    values = df.to_numpy()
+    if values.dtype.kind in {"M", "m"}:
+        # NumPy tolist converts nanosecond datetimes/timedeltas to integers;
+        # pandas preserves Timestamp/Timedelta when constructing row Series.
+        for index, row in df.iterrows():
+            yield index, row.tolist()
+    else:
+        for index, row in zip(df.index, values):
+            yield index, row.tolist()
 
 
 def _read_sheet_dataframe(

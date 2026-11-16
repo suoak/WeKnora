@@ -37,6 +37,22 @@ def workbook_bytes():
 
 
 class ReadonlyMergedFramesTests(unittest.TestCase):
+    def test_fast_rows_preserve_pandas_scalar_conversion(self):
+        import numpy as np
+        from docreader.parser.excel_parser import _iter_frame_rows
+        frames = [
+            pd.DataFrame([[0.1, 0.2]], dtype=np.float32),
+            pd.DataFrame({"a": [1], "b": [2.0]}),
+            pd.DataFrame({"a": pd.to_datetime(["2025-01-02", None])}),
+            pd.DataFrame({"a": pd.to_timedelta([1, None], unit="s")}),
+            pd.DataFrame({"a": pd.to_datetime(["2025-01-02", None], utc=True)}),
+            pd.DataFrame({"a": pd.array([1, pd.NA], dtype="Int64")}),
+        ]
+        for frame in frames:
+            actual = [(index, [str(x) for x in row]) for index, row in _iter_frame_rows(frame)]
+            expected = [(index, [str(x) for x in row.tolist()]) for index, row in frame.iterrows()]
+            self.assertEqual(actual, expected)
+
     def test_integer_length_variance_matches_exact_statistics(self):
         import random
         import statistics
