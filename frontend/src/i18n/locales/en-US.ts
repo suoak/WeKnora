@@ -506,6 +506,9 @@ export default {
     sharedTooltip: 'Accessed from an external workspace via a shared space'
   },
   knowledgeBase: {
+    systemSyncSubmitter: 'Automatic sync',
+    encryptedDocumentReason: 'This document is encrypted and cannot be parsed',
+    encryptedDocumentAction: 'Remove file encryption, then upload an unencrypted copy. Automatic retries have stopped.',
     submitter: 'Submitted by',
     unknownSubmitter: 'Unknown (not recorded)',
     resizeFolderPane: 'Resize folder pane',

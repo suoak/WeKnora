@@ -6963,6 +6963,9 @@ const messages = {
     }
   },
   knowledgeBase: {
+    systemSyncSubmitter: '자동 동기화',
+    encryptedDocumentReason: '문서가 암호화되어 분석할 수 없습니다',
+    encryptedDocumentAction: '파일 암호화를 해제한 후 암호화되지 않은 사본을 업로드하세요. 자동 재시도는 중지되었습니다.',
     submitter: '제출자',
     unknownSubmitter: '알 수 없음',
     resizeFolderPane: '폴더 너비 조정',

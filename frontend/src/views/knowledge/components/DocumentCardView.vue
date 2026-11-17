@@ -9,7 +9,9 @@ import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
-import { parseFailureProgress } from '@/utils/knowledgeParseFailure';
+import { isEncryptedParseFailure, parseFailureProgress } from '@/utils/knowledgeParseFailure';
+import KnowledgeParseFailureNotice from '@/components/knowledge-parse-failure-notice.vue';
+import { knowledgeSubmitterName, type KnowledgeSubmitterItem } from '@/utils/knowledgeSubmitter';
 import { sourceReparseFailureAction, type SourceDocumentReparseStatus } from '../sourceReparse';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
 import AuthorizedDocumentSummary from './AuthorizedDocumentSummary.vue';
@@ -21,7 +23,7 @@ interface Tag {
   color?: string;
 }
 
-interface KnowledgeCard {
+interface KnowledgeCard extends KnowledgeSubmitterItem {
   id: string;
   knowledge_base_id?: string;
   parse_status: string;
@@ -542,6 +544,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             <t-icon name="chart-line" />
           </button>
         </div>
+        <KnowledgeParseFailureNotice v-else-if="isEncryptedParseFailure(item)" :item="item" />
         <div v-else-if="item.parse_status === 'failed'" class="card-analyze failure card-analyze-trace">
           <t-icon name="close-circle" class="card-analyze-loading failure"></t-icon>
           <span
@@ -595,7 +598,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
         </div>
       </div>
 
-        <span class="card-submitter" :title="t('knowledgeBase.submitter')">{{ t('knowledgeBase.submitter') }}: {{ item.metadata?.submitter?.name || t('knowledgeBase.unknownSubmitter') }}</span>
+        <span class="card-submitter" :title="t('knowledgeBase.submitter')">{{ t('knowledgeBase.submitter') }}: {{ knowledgeSubmitterName(item, t('knowledgeBase.systemSyncSubmitter')) || t('knowledgeBase.unknownSubmitter') }}</span>
       <div class="card-bottom">
         <KnowledgeTagPopover v-if="canEdit || item.tags?.length" class="card-tags-anchor"
           :kb-id="kbId" :knowledge-id="item.id" :tags="item.tags || []" :disabled="!canEdit"

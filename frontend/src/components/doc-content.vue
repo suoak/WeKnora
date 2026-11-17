@@ -25,6 +25,7 @@ import { useAuthStore } from '@/stores/auth';
 import DocumentPreview from '@/components/document-preview.vue';
 import DocumentFileIcon from '@/views/knowledge/components/DocumentFileIcon.vue';
 import KnowledgeProcessingTimeline from '@/components/knowledge-processing-timeline.vue';
+import KnowledgeParseFailureNotice from '@/components/knowledge-parse-failure-notice.vue';
 import { resolveKnowledgeDownloadFileName } from '@/views/knowledge/knowledgeDownloadFileName';
 import { isKnownPreviewableExt, resolveFilePreviewExt } from '@/utils/filePreview';
 
@@ -1617,6 +1618,7 @@ const handleChunkPageChange = (pageInfo: { current: number }) => {
       </t-drawer>
 
       <div ref="docMarkdownRoot" class="doc-markdown-root doc-drawer-body setting-drawer__body">
+        <KnowledgeParseFailureNotice :item="details" />
         <section v-if="details.id" class="setting-drawer__section">
           <h4 class="setting-drawer__section-title">{{ $t('knowledgeBase.detailSectionMeta') }}</h4>
           <div class="doc-detail-rows">

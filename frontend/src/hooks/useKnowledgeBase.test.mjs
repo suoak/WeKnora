@@ -5,6 +5,7 @@ import test from 'node:test'
 import ts from 'typescript'
 import * as vue from 'vue'
 import { classifyLoadError } from '../utils/loadErrorPresentation.ts'
+import { knowledgeSubmitterName } from '../utils/knowledgeSubmitter.ts'
 
 const require = createRequire(import.meta.url)
 const source = readFileSync(new URL('./useKnowledgeBase.ts', import.meta.url), 'utf8')
@@ -23,6 +24,7 @@ function fixture() {
     pinia: { storeToRefs: (value) => value },
     '@/utils/loadErrorPresentation': { classifyLoadError },
     '../utils/index': { formatStringDate: () => 'date' },
+    '../utils/knowledgeSubmitter': { knowledgeSubmitterName },
     '@/api/knowledge-base/index': {
       listKnowledgeFiles: (id, query) => deferred('list', id, query.page),
       getKnowledgeDetails: (id) => deferred('detail', id),
@@ -39,6 +41,25 @@ function fixture() {
   return { hook: module.exports.default(), requests }
 }
 const settle = () => new Promise((resolve) => setImmediate(resolve))
+
+test('detail retains the encryption diagnosis and clears it when another document opens', async () => {
+  const { hook, requests } = fixture()
+  const metadata = { parse_failure_v1: {
+    code: 'encrypted_file', state: 'needs_attention', action: 'provide_unencrypted_copy',
+    auto_retry: false, attempts: 1, max_attempts: 4,
+  } }
+  hook.getCardDetails({ id: 'encrypted' })
+  requests[0].resolve({ success: true, data: { id: 'encrypted', parse_status: 'failed', metadata } })
+  requests[1].resolve({ success: true, data: [], total: 0 })
+  await settle()
+  assert.deepEqual(hook.details.metadata, metadata)
+  hook.getCardDetails({ id: 'normal' })
+  assert.deepEqual(hook.details.metadata, {})
+  requests[2].resolve({ success: true, data: { id: 'normal', parse_status: 'completed' } })
+  requests[3].resolve({ success: true, data: [], total: 0 })
+  await settle()
+  assert.deepEqual(hook.details.metadata, {})
+})
 
 test('an unfinished import is shown as processing, without an authorization warning', async () => {
   const { hook, requests } = fixture()
