@@ -18,11 +18,13 @@ func (r *knowledgeRepository) ReadKnowledgeSubmitters(
 	}
 	var rows []struct{ ID, Kind, UserID, Name string }
 	err := r.db.WithContext(ctx).Raw(`WITH allowed AS (
- SELECT id,tenant_id,knowledge_base_id,channel,metadata FROM knowledges
+ SELECT id,tenant_id,knowledge_base_id,channel,
+ metadata->'submitter'->>'user_id' AS stored_submitter_user_id,
+ metadata->>'datasource_id' AS datasource_id FROM knowledges
  WHERE tenant_id=? AND knowledge_base_id=? AND id IN ? AND deleted_at IS NULL
 ), people AS (
- SELECT k.id,k.metadata->'submitter'->>'user_id' AS user_id,0 AS priority FROM allowed k
- WHERE coalesce(k.metadata->'submitter'->>'user_id','')<>''
+ SELECT k.id,k.stored_submitter_user_id AS user_id,0 AS priority FROM allowed k
+ WHERE coalesce(k.stored_submitter_user_id,'')<>''
  UNION ALL
  SELECT k.id,m.user_id,1 AS priority FROM allowed k
  JOIN feishu_personal_imports m ON m.knowledge_id=k.id AND m.kb_id=k.knowledge_base_id
@@ -44,7 +46,7 @@ func (r *knowledgeRepository) ReadKnowledgeSubmitters(
 SELECT k.id,coalesce(r.user_id,'') AS user_id,coalesce(r.name,'') AS name,
  CASE WHEN r.user_id IS NOT NULL THEN 'user'
  WHEN EXISTS(SELECT 1 FROM people p WHERE p.id=k.id) THEN ''
- WHEN EXISTS(SELECT 1 FROM data_sources d WHERE d.id=k.metadata->>'datasource_id'
+ WHEN EXISTS(SELECT 1 FROM data_sources d WHERE d.id=k.datasource_id
  AND d.tenant_id=k.tenant_id AND d.knowledge_base_id=k.knowledge_base_id
  AND d.type=k.channel AND d.deleted_at IS NULL) THEN 'system_sync' ELSE '' END AS kind
 FROM allowed k LEFT JOIN resolved r ON r.id=k.id`, tenant, kb, ids).Scan(&rows).Error

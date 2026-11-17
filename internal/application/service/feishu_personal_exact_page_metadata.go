@@ -142,7 +142,7 @@ CASE WHEN a.status='index_pending' AND a.owner_nonce='' AND a.lease_until IS NUL
 		if row.ErrorMessage == "" {
 			row.ErrorMessage = personalPreflightPublicMessage(e.PreflightError)
 		}
-		if failure := catalogEncryptedFailure(e.Failure, row.ParseStatus); failure != nil {
+		if failure := catalogEncryptedFailure(e.Failure, e.ParseStatus); failure != nil {
 			if err := row.SetParseFailure(failure); err != nil {
 				return nil, err
 			}
