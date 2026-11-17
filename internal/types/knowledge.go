@@ -256,6 +256,7 @@ type Knowledge struct {
 	Submitter *KnowledgeSubmitter `json:"submitter,omitempty" gorm:"-"`
 }
 
+// KnowledgeSubmitter is display attribution for an authorized catalog response.
 type KnowledgeSubmitter struct {
 	Kind   string `json:"kind"`
 	UserID string `json:"user_id,omitempty"`
