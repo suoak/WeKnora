@@ -64,6 +64,28 @@ func TestFeishuDocumentFailureWithUnchangedDocumentsIsPartial(t *testing.T) {
 	require.Error(t, allFetchedItemsFailedError(result))
 }
 
+func TestFeishuDocumentFailureEmptyReaderResultDoesNotMaskUnknownFailures(t *testing.T) {
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
+	ds := &types.DataSource{Type: "feishu"}
+	item := &types.FetchedItem{ExternalID: "empty-workbook", SourceResourceID: "root"}
+	metadata := map[string]string{
+		"parser_failure_protocol": "v1", "parser_failure_code": "empty_parsed_content",
+	}
+	result := &types.ReadResult{Error: "Failed to parse: private/source.xlsx", Metadata: metadata}
+	err := feishuDocumentParserRefusal(result, "xlsx")
+	require.Equal(t, "safe_staging_empty_parsed_content", feishuDocumentFailureCode(ds, item, err))
+	require.NotContains(t, err.Error(), "private/")
+	for _, unknown := range []*types.ReadResult{
+		nil,
+		{Error: result.Error},
+		{Error: result.Error, Metadata: map[string]string{"parser_failure_code": "empty_parsed_content"}},
+		{Error: result.Error, Metadata: metadata, MarkdownContent: "must not be discarded"},
+		{Error: result.Error, Metadata: metadata, ImageRefs: []types.ImageRef{{Filename: "image.png"}}},
+	} {
+		require.Empty(t, feishuDocumentFailureCode(ds, item, feishuDocumentParserRefusal(unknown, "xlsx")))
+	}
+}
+
 func TestFeishuDocumentFailureParserRowLimit(t *testing.T) {
 	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
 	ds := &types.DataSource{Type: "feishu"}

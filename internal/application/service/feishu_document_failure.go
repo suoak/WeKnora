@@ -66,6 +66,15 @@ func feishuDocumentParserRefusal(parsed *types.ReadResult, fileType string) erro
 	if parsed.Error == "" {
 		return nil
 	}
+	// Only the internal reader's explicit empty-Document result is local.
+	// Missing results, unknown backend errors and contradictory nonempty
+	// payloads remain fatal; error message text alone cannot advance a cursor.
+	if parsed.Metadata["parser_failure_protocol"] == "v1" &&
+		parsed.Metadata["parser_failure_code"] == "empty_parsed_content" &&
+		parsed.MarkdownContent == "" && len(parsed.ImageRefs) == 0 &&
+		len(parsed.ParsedChunks) == 0 && len(parsed.ParsedSegments) == 0 && len(parsed.SourceBlocks) == 0 {
+		return &feishuStagingRefusal{reason: "empty_parsed_content"}
+	}
 	// These exact Excel parser refusals are deterministic document limits.
 	// Preserve the configured limit and context columns, never publish a
 	// truncated row, and keep unknown parser/backend failures fatal.

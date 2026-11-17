@@ -1073,6 +1073,7 @@ const messages = {
       loadNotFoundHint: "folder_token이 존재하지 않거나 삭제되었습니다. 페이슈 드라이브 폴더 URL에서 복사한 토큰이 맞는지 확인하세요.",
     },
     syncError: {
+      safe_staging_empty_parsed_content: '추출할 수 있는 텍스트가 없습니다. 텍스트를 추가하거나 해당 콘텐츠를 지원하는 파서를 선택하세요. 다른 문서는 계속 동기화됩니다.',
       dingtalk_document_failed: 'DingTalk 문서를 읽을 수 없습니다. 접근 권한을 확인하고 동기화를 다시 시도하세요.',
       dingtalk_resource_failed: 'DingTalk 리소스를 사용할 수 없습니다. 접근 권한과 선택한 리소스를 확인한 후 다시 시도하세요.',
       deletion_lookup_failed: '삭제 전 항목 조회에 실패했습니다. 서버 로그를 확인하세요',

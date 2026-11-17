@@ -1426,6 +1426,9 @@ func (s *DataSourceService) applyFetchedItem(
 				code = local
 			}
 			message := "Ingest failed; see server logs"
+			if local == "safe_staging_empty_parsed_content" {
+				message = "No extractable text; add text or use a parser that supports this document's content"
+			}
 			if local == "safe_staging_parser_resource_limit" {
 				message = "Document exceeds parser resource limits; split or simplify the source file and retry"
 			}
