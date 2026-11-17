@@ -253,11 +253,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 			release, err = g.begin(req.Context(), tokens)
 		}
 		if err != nil {
-			if req.Context().Err() == nil && !errors.Is(err, ErrBudgetBusy) &&
-				!errors.Is(err, ErrSourceAdmissionChanged) {
-				trip(g, "embedding_budget_or_state_unavailable")
-			}
-			return nil, err
+			return nil, embeddingAdmissionFailure(req.Context(), g, err, "embedding_budget_or_state_unavailable")
 		}
 	}
 	caller := req.Context()

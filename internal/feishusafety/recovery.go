@@ -86,8 +86,8 @@ type approvedSourceValidator struct {
 }
 
 // This error identifies a failed source probe, not a failed distributed gate.
-// All callers still deny admission. Only the in-flight watchdog may classify
-// it locally, after independently confirming the exact atomic runtime fence.
+// All callers still deny admission. Embedding admission and the in-flight
+// watchdog classify it locally only after confirming the atomic runtime fence.
 var errSourceProbeFailed = fmt.Errorf("%w: source validation probe failed", ErrClosed)
 
 // SetApprovedSourceValidator installs a server-owned live authority check.
