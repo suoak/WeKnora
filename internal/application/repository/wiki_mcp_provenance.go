@@ -291,7 +291,14 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		case "feishu_personal":
 			// A personal import requires the current personal publication protocol.
 			// A legacy active_attempt is never a substitute for that authority.
-			return nil, types.ErrLegacySourceRestricted
+			if selected == nil || !WikiDocumentSelectionForKB(kb) {
+				return nil, types.ErrLegacySourceRestricted
+			}
+			var err error
+			connectorProof, err = WikiPersonalPublication(db, p.Tenant, kb, d.ID)
+			if err != nil {
+				return nil, err
+			}
 		case types.ChannelFeishu, types.ChannelFeishuDrive, types.ChannelLarkDrive, "lark":
 			var verified int64
 			query := db.Table("feishu_legacy_resources").
