@@ -369,8 +369,11 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 // charge and require the exact shared fence before treating this as retryable.
 func embeddingHeaderTimeoutIsLocal(caller context.Context, g *Guard, err error) bool {
 	var networkError net.Error
+	deadline, hasDeadline := caller.Deadline()
+	expired := errors.Is(caller.Err(), context.DeadlineExceeded) ||
+		(hasDeadline && !time.Now().Before(deadline) && !errors.Is(err, io.ErrUnexpectedEOF))
 	if !errors.Is(err, context.DeadlineExceeded) &&
-		!(errors.As(err, &networkError) && networkError.Timeout()) {
+		!(errors.As(err, &networkError) && networkError.Timeout()) && !expired {
 		return false
 	}
 	if g == nil || g.localClosed.Load() || errors.Is(caller.Err(), context.Canceled) {
