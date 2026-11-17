@@ -222,7 +222,7 @@ func TestPickerCloudCursorKeepsWikiContextAndSearchBinding(t *testing.T) {
 }
 
 func TestPickerCacheIsBoundedAcrossSearches(t *testing.T) {
-	c := pagedTestConnector(t, func(req *http.Request) string { return `{"results":[]}` })
+	c := pagedTestConnector(t, func(_ *http.Request) string { return `{"results":[]}` })
 	for i := range 260 {
 		if _, err := c.ListResourcePage(
 			context.Background(), streamConfig(), types.ResourceListOptions{Query: fmt.Sprintf("space %d", i)},
@@ -238,7 +238,7 @@ func TestPickerCacheIsBoundedAcrossSearches(t *testing.T) {
 func TestCanceledPickerDoesNotRequestUpstream(t *testing.T) {
 	c := pagedTestConnector(
 		t,
-		func(req *http.Request) string { t.Error("canceled request reached upstream"); return "{}" },
+		func(_ *http.Request) string { t.Error("canceled request reached upstream"); return "{}" },
 	)
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -248,7 +248,7 @@ func TestCanceledPickerDoesNotRequestUpstream(t *testing.T) {
 }
 
 func TestPickerChildLookupRejectsPathTraversalBeforeNetwork(t *testing.T) {
-	c := pagedTestConnector(t, func(req *http.Request) string { t.Error("invalid path reached upstream"); return "{}" })
+	c := pagedTestConnector(t, func(_ *http.Request) string { t.Error("invalid path reached upstream"); return "{}" })
 	for _, options := range []types.ResourceListOptions{
 		{ParentID: "../other", SpaceKey: "ENG"},
 		{ParentID: "1", SpaceKey: ".."},

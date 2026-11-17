@@ -95,7 +95,7 @@ func TestBuiltinConfluenceRawReferenceCanonicalizesWithoutCredentials(t *testing
 func TestBuiltinConfluenceSecretFileAndSafeErrors(t *testing.T) {
 	builtinTestEnv(t)
 	path := filepath.Join(t.TempDir(), "password")
-	if err := os.WriteFile(path, []byte("file-password-sentinel\n"), 0600); err != nil {
+	if err := os.WriteFile(path, []byte("file-password-sentinel\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	t.Setenv("CONFLUENCE_BUILTIN_PASSWORD_FILE", path)

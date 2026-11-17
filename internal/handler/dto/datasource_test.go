@@ -57,7 +57,10 @@ func TestDataSourceResponse_SystemAccountNeverExposesIdentity(t *testing.T) {
 	ds := &types.DataSource{
 		Type: types.ConnectorTypeConfluence,
 		Config: types.JSON(
-			`{"settings":{"credential_source":"system","username":"private-user-sentinel","password":"private-password-sentinel","base_url":"http://override.test"},"credentials":{"username":"private-user-sentinel","password":"private-password-sentinel"}}`,
+			`{"settings":{"credential_source":"system",` +
+				`"username":"private-user-sentinel","password":"private-password-sentinel",` +
+				`"base_url":"http://override.test"},` +
+				`"credentials":{"username":"private-user-sentinel","password":"private-password-sentinel"}}`,
 		),
 	}
 	body, err := json.Marshal(NewDataSourceResponse(ds))
