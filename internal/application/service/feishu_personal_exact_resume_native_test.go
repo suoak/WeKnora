@@ -431,7 +431,8 @@ func exerciseNativeResumeWithFormat(
 	if options.SummarySkipped {
 		require.Zero(t, summaryRows)
 		var summaryStatus string
-		require.NoError(t, f.db.Table("knowledges").Select("summary_status").Where("id=?", knowledge.ID).Scan(&summaryStatus).Error)
+		require.NoError(t, f.db.Table("knowledges").Select("summary_status").
+			Where("id=?", knowledge.ID).Scan(&summaryStatus).Error)
 		require.Equal(t, types.SummaryStatusFailed, summaryStatus)
 	} else {
 		require.EqualValues(t, 1, summaryRows)
