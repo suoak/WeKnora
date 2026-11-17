@@ -38,7 +38,7 @@ func (c *client) pickerSpace(ctx context.Context, id, key string) (space, error)
 		s = space{ID: result.ID.String(), Key: result.Key, Name: result.Name, Links: result.Links}
 	}
 	if s.ID != id {
-		return space{}, fmt.Errorf("Confluence space key does not match requested space")
+		return space{}, fmt.Errorf("confluence space key does not match requested space")
 	}
 	return s, nil
 }
@@ -85,7 +85,7 @@ func (c *Connector) pickerSelectionPath(
 		return nil, err
 	}
 	if full.ID != ref.PageID || cfg.cloud() && full.SpaceID != ref.SpaceID {
-		return nil, fmt.Errorf("Confluence page does not match requested selection")
+		return nil, fmt.Errorf("confluence page does not match requested selection")
 	}
 	s, err := client.pickerSpace(ctx, ref.SpaceID, full.Space.Key)
 	if err != nil {
@@ -102,7 +102,7 @@ func (c *Connector) pickerSelectionPath(
 		}
 	}
 	if len(ancestors) > 512 {
-		return nil, fmt.Errorf("Confluence ancestor path is too deep")
+		return nil, fmt.Errorf("confluence ancestor path is too deep")
 	}
 	out := &types.ResourcePage{Items: []types.Resource{pickerSpaceResource(client, cfg, s)}}
 	parent := s.ID
