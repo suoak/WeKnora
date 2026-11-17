@@ -77,6 +77,12 @@ func validateStandaloneWorkbookGraph(parts map[string][]byte) error {
 			if name == "xl/metadata.xml" && standaloneUnusedDynamicMetadata(parts) {
 				continue
 			}
+			// An exporter can retain detached comments. They are not assigned
+			// to a guessed sheet: standaloneThreadFacts validates and preserves
+			// every author, identifier and text as unassigned workbook facts.
+			if path.Dir(name) == "xl/threadedcomments" && strings.HasSuffix(name, ".xml") {
+				continue
+			}
 			return errExactWorkbookUnsupported
 		}
 	}
@@ -139,6 +145,8 @@ func standaloneRelationTargetAllowed(owner, kind, target string) bool {
 		return path.Dir(target) == "xl/threadedcomments" && strings.HasSuffix(target, ".xml")
 	case exactWorkbookRelNamespace + "/image":
 		return path.Dir(target) == "xl/media"
+	case exactWorkbookRelNamespace + "/chart":
+		return path.Dir(target) == "xl/charts" && strings.HasSuffix(target, ".xml")
 	case exactWorkbookRelNamespace + "/drawing":
 		return path.Dir(target) == "xl/drawings" && strings.HasSuffix(target, ".xml")
 	case exactWorkbookRelNamespace + "/vmlDrawing":
@@ -167,7 +175,8 @@ func standaloneRelationAllowed(owner, kind string) bool {
 			kind == exactWorkbookRelNamespace+"/drawing" || kind == exactWorkbookRelNamespace+"/vmlDrawing" ||
 			kind == exactWorkbookRelNamespace+"/comments"
 	}
-	return path.Dir(owner) == "xl/drawings" && kind == exactWorkbookRelNamespace+"/image"
+	return path.Dir(owner) == "xl/drawings" &&
+		(kind == exactWorkbookRelNamespace+"/image" || kind == exactWorkbookRelNamespace+"/chart")
 }
 
 func standaloneRelationshipXML(body []byte) error {
@@ -261,6 +270,7 @@ func standaloneContentTypes(parts map[string][]byte) error {
 		"application/vnd.openxmlformats-officedocument.extended-properties+xml " +
 		"application/vnd.openxmlformats-officedocument.theme+xml " +
 		"application/vnd.openxmlformats-officedocument.drawing+xml " +
+		"application/vnd.openxmlformats-officedocument.drawingml.chart+xml " +
 		"application/vnd.openxmlformats-officedocument.vmldrawing " +
 		"application/vnd.ms-excel.person+xml application/vnd.ms-excel.threadedcomments+xml " +
 		"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml " +
@@ -286,7 +296,20 @@ func standaloneContentTypes(parts map[string][]byte) error {
 				}
 			}
 		}
-		if row.XMLName.Space != types.XMLName.Space || (!allowed[kind] && !unusedBMP) {
+		// Feishu can also retain a .bin VBA declaration in an ordinary XLSX
+		// with no binary payload. Only an unused Default is tolerated; actual
+		// VBA parts, macro workbooks and overrides remain unsupported.
+		unusedVBA := row.XMLName.Local == "Default" && row.Part == "" &&
+			strings.EqualFold(row.Extension, "bin") && kind == "application/vnd.ms-office.vbaproject"
+		if unusedVBA {
+			for name := range parts {
+				if strings.EqualFold(path.Ext(name), ".bin") {
+					unusedVBA = false
+					break
+				}
+			}
+		}
+		if row.XMLName.Space != types.XMLName.Space || (!allowed[kind] && !unusedBMP && !unusedVBA) {
 			return errExactWorkbookUnsupported
 		}
 		switch row.XMLName.Local {

@@ -31,6 +31,7 @@ type exactPersonalConsumer struct {
 	indexed         bool
 	derived         [32]byte
 	derivedReady    bool
+	summarySkipped  bool
 	resultMu        sync.Mutex
 	indexContents   map[string]string
 	modelVectors    map[[32]byte]map[[32]byte]bool
@@ -189,7 +190,10 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		ks.beginStage(work, proof.knowledge, types.StagePostProcess,
 			types.JSONMap{"operation": "personal_exact_summary"})
 		if err = retryExactPersonalSummary(work, func() error {
-			_, summaryErr := ks.RegenerateKnowledgeSummary(work, proof.knowledge)
+			knowledge, summaryErr := ks.RegenerateKnowledgeSummary(work, proof.knowledge)
+			if errors.Is(summaryErr, errInsufficientSummaryContent) {
+				return consumer.acceptAbsentSummary(work, knowledge)
+			}
 			return summaryErr
 		}, waitExactPersonalSummary); err != nil {
 			return err
@@ -199,7 +203,7 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 			return err
 		}
 		ks.endStage(work, proof.knowledge, types.StagePostProcess,
-			types.JSONMap{"published": true})
+			types.JSONMap{"published": true, "summary_skipped_insufficient_text": consumer.summarySkipped})
 		ks.tracker().FinalizeAttempt(work, proof.knowledge, payload.Attempt,
 			types.SpanStatusDone, types.JSONMap{"receipt_published": true}, "", "")
 		return nil

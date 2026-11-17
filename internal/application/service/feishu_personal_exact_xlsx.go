@@ -20,11 +20,12 @@ import (
 const exactStandaloneXLSXVersion = "exact-xlsx-v1"
 
 type standaloneWorkbookSheet struct {
-	Name  string `xml:"name,attr"`
-	ID    int    `xml:"sheetId,attr"`
-	RID   string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
-	State string `xml:"state,attr"`
-	Part  string
+	Name     string `xml:"name,attr"`
+	ID       int    `xml:"sheetId,attr"`
+	RID      string `xml:"http://schemas.openxmlformats.org/officeDocument/2006/relationships id,attr"`
+	State    string `xml:"state,attr"`
+	Part     string
+	ReadName string `xml:"-"`
 }
 
 type standaloneWorkbookRelation struct {
@@ -87,6 +88,10 @@ func standaloneWorkbookSheets(
 		return nil, errExactWorkbookUnsupported
 	}
 	seenParts, seenNames, seenIDs := map[string]bool{}, map[string]bool{}, map[int]bool{}
+	readerNames := map[string]bool{}
+	for _, sheet := range workbook.Sheets {
+		readerNames[strings.ToLower(sheet.Name)] = true
+	}
 	for i := range workbook.Sheets {
 		sheet := &workbook.Sheets[i]
 		sheet.Part = byID[sheet.RID]
@@ -101,6 +106,45 @@ func standaloneWorkbookSheets(
 	for name := range parts {
 		if path.Dir(name) == "xl/worksheets" && !seenParts[name] {
 			return nil, errExactWorkbookUnsupported
+		}
+	}
+	// Feishu exports can have names longer than Excel's UI limit. Excelize
+	// opens these packages but rejects every cell API for such a name. Use a
+	// collision-free alias only inside the in-memory reader; keep the source
+	// XML, sheet identity, formulas, headings and receipt bytes unchanged.
+	for i := range workbook.Sheets {
+		sheet := &workbook.Sheets[i]
+		sheet.ReadName = sheet.Name
+		if len([]rune(sheet.Name)) <= 31 {
+			continue
+		}
+		alias := "__feishu_read_" + strconv.Itoa(i)
+		for suffix := 0; readerNames[strings.ToLower(alias)]; suffix++ {
+			alias = "__feishu_read_" + strconv.Itoa(i) + "_" + strconv.Itoa(suffix)
+		}
+		if err := file.SetSheetName(sheet.Name, alias); err != nil {
+			return nil, errExactWorkbookUnsupported
+		}
+		readerNames[strings.ToLower(alias)] = true
+		sheet.ReadName = alias
+	}
+	for _, sheet := range workbook.Sheets {
+		if _, _, _, _, err := exactWorkbookMergesForFormat(parts[sheet.Part], true); err != nil {
+			return nil, err
+		}
+		var worksheet struct {
+			Merges []struct {
+				Ref string `xml:"ref,attr"`
+			} `xml:"mergeCells>mergeCell"`
+		}
+		if xml.Unmarshal(parts[sheet.Part], &worksheet) != nil {
+			return nil, errExactWorkbookUnsupported
+		}
+		for _, merge := range worksheet.Merges {
+			ends := strings.Split(merge.Ref, ":")
+			if err := file.UnmergeCell(sheet.ReadName, ends[0], ends[1]); err != nil {
+				return nil, errExactWorkbookUnsupported
+			}
 		}
 	}
 	return workbook.Sheets, nil
@@ -149,7 +193,7 @@ func parseExactStandaloneWorkbook(ctx context.Context, name string, data []byte)
 	if err != nil {
 		return nil, fmt.Errorf("standalone_xlsx_links: %w", err)
 	}
-	drawings, err := exactWorkbookDrawingNotes(parts)
+	drawings, err := standaloneWorkbookDrawingFacts(parts, sheets)
 	if err != nil {
 		return nil, fmt.Errorf("standalone_xlsx_drawings: %w", err)
 	}
@@ -169,11 +213,11 @@ func parseExactStandaloneWorkbook(ctx context.Context, name string, data []byte)
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		grid, rows, cols, cells, err := exactWorkbookCellGridForFormat(file, sheet.Name, parts[sheet.Part], true)
+		grid, rows, cols, cells, err := exactWorkbookCellGridForFormat(file, sheet.ReadName, parts[sheet.Part], true)
 		if err != nil {
 			return nil, fmt.Errorf("standalone_xlsx_cells: %w", err)
 		}
-		formulas, err := exactWorkbookFormulaNotesForFormat(file, sheet.Name, parts[sheet.Part], true)
+		formulas, err := exactWorkbookFormulaNotesForFormat(file, sheet.ReadName, parts[sheet.Part], true)
 		if err != nil {
 			return nil, fmt.Errorf("standalone_xlsx_formulas: %w", err)
 		}
@@ -220,10 +264,19 @@ func standaloneWorkbookAssets(parts map[string][]byte, result *exactEmbeddedWork
 		return nil, errExactWorkbookUnsupported
 	}
 	byPart := map[string]string{}
+	var totalPixels int64
 	for index, part := range names {
 		body := parts[part]
 		config, format, err := image.DecodeConfig(bytes.NewReader(body))
-		if err != nil || config.Width <= 0 || config.Height <= 0 || int64(config.Width)*int64(config.Height) > 16<<20 {
+		// Ordinary 6000px exported screenshots exceed 16 MP. Keep a finite
+		// 32 MP per-image bound and a whole-workbook decode-work bound, while
+		// preserving the original bytes rather than downsampling content.
+		if err != nil || config.Width <= 0 || config.Height <= 0 ||
+			int64(config.Width) > (32<<20)/int64(config.Height) {
+			return nil, errExactWorkbookUnsupported
+		}
+		totalPixels += int64(config.Width) * int64(config.Height)
+		if totalPixels > 256<<20 {
 			return nil, errExactWorkbookUnsupported
 		}
 		if _, _, err = image.Decode(bytes.NewReader(body)); err != nil || (format != "png" && format != "jpeg") {
@@ -265,6 +318,9 @@ func standaloneSheetImages(parts map[string][]byte, sheet string) ([]string, err
 				return nil, err
 			}
 			for _, image := range images {
+				if image.Type == exactWorkbookRelNamespace+"/chart" {
+					continue
+				}
 				if image.Type != exactWorkbookRelNamespace+"/image" {
 					return nil, errExactWorkbookUnsupported
 				}

@@ -255,6 +255,7 @@ func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[strin
 				strings.HasSuffix(name, ".jpeg") || strings.HasSuffix(name, ".jpg"))
 		if standalone {
 			allowed = allowed || name == "xl/calcchain.xml" ||
+				path.Dir(name) == "xl/charts" && strings.HasSuffix(name, ".xml") ||
 				path.Dir(name) == "xl/persons" && strings.HasSuffix(name, ".xml") ||
 				path.Dir(name) == "xl/threadedcomments" && strings.HasSuffix(name, ".xml")
 		}
@@ -313,10 +314,8 @@ func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[strin
 			}
 			target := a["Target"]
 			if a["TargetMode"] == "External" && a["Type"] == exactWorkbookHyperlinkType {
-				u, parseErr := url.Parse(target)
 				if !strings.HasPrefix(name, "xl/worksheets/_rels/") || a["Id"] == "" || ids[a["Id"]] ||
-					parseErr != nil || u.User != nil || u.Hostname() == "" ||
-					(u.Scheme != "https" && u.Scheme != "http") || strings.ContainsAny(target, "\x00\r\n") {
+					!exactWorkbookLiteralHyperlink(target, standalone) {
 					return nil, errExactWorkbookUnsupported
 				}
 				ids[a["Id"]] = true
@@ -355,6 +354,36 @@ func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[strin
 	return parts, nil
 }
 
+// These targets are preserved as escaped source text, never fetched or passed
+// to a media resolver. Mail and SSH links are ordinary Feishu spreadsheet data.
+// Keep executable/local-file schemes and embedded passwords out of the format.
+func exactWorkbookLiteralHyperlink(target string, standalone bool) bool {
+	if len(target) > 8192 || strings.ContainsAny(target, "\x00\r\n") {
+		return false
+	}
+	u, err := url.Parse(target)
+	if err != nil {
+		return false
+	}
+	switch strings.ToLower(u.Scheme) {
+	case "http", "https":
+		return u.User == nil && u.Hostname() != ""
+	case "mailto":
+		return standalone && u.User == nil && u.Host == "" && u.Opaque != ""
+	case "ssh":
+		if !standalone || u.Hostname() == "" {
+			return false
+		}
+		if u.User != nil {
+			_, password := u.User.Password()
+			return !password
+		}
+		return true
+	default:
+		return false
+	}
+}
+
 func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (string, int, int, int, error) {
 	return exactWorkbookCellGridForFormat(file, sheet, body, false)
 }
@@ -362,7 +391,7 @@ func exactWorkbookCellGrid(file *excelize.File, sheet string, body []byte) (stri
 func exactWorkbookCellGridForFormat(
 	file *excelize.File, sheet string, body []byte, standalone bool,
 ) (string, int, int, int, error) {
-	merged, mergeNote, mergeRow, mergeCol, err := exactWorkbookMerges(body)
+	merged, mergeNote, mergeRow, mergeCol, err := exactWorkbookMergesForFormat(body, standalone)
 	if err != nil {
 		return "", 0, 0, 0, err
 	}
@@ -404,7 +433,11 @@ func exactWorkbookCellGridForFormat(
 		}
 		col, row, err := excelize.CellNameToCoordinates(ref)
 		canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
-		if err != nil || row > 1024 || col > 64 || cells[ref] || len(cells) >= 10000 ||
+		maxColumns := 64
+		if standalone {
+			maxColumns = 256
+		}
+		if err != nil || row > 1024 || col > maxColumns || cells[ref] || len(cells) >= 10000 ||
 			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" &&
 				kind != "str" && kind != "n" && kind != "b" && (!standalone || kind != "e") {
@@ -466,12 +499,17 @@ func exactWorkbookCellGridForFormat(
 // dependency. Preserve their coordinates and anchor value without duplicating
 // that value into covered cells. Reject hidden conflicting values and overlap.
 func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error) {
+	return exactWorkbookMergesForFormat(body, false)
+}
+
+func exactWorkbookMergesForFormat(body []byte, standalone bool) (map[string]bool, string, int, int, error) {
 	var worksheet struct {
 		Rows []struct {
 			Cells []struct {
-				Ref    string    `xml:"r,attr"`
-				Value  string    `xml:"v"`
-				Inline *struct{} `xml:"is"`
+				Ref     string    `xml:"r,attr"`
+				Value   string    `xml:"v"`
+				Inline  *struct{} `xml:"is"`
+				Formula *string   `xml:"f"`
 			} `xml:"c"`
 		} `xml:"sheetData>row"`
 		Merges []struct {
@@ -484,6 +522,10 @@ func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error)
 	covered, occupied := map[string]bool{}, map[string]bool{}
 	maxRow, maxCol := 0, 0
 	var note strings.Builder
+	maxColumns := 64
+	if standalone {
+		maxColumns = 256
+	}
 	for _, merge := range worksheet.Merges {
 		ends := strings.Split(merge.Ref, ":")
 		if len(ends) != 2 {
@@ -492,7 +534,7 @@ func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error)
 		left, top, err := excelize.CellNameToCoordinates(ends[0])
 		right, bottom, endErr := excelize.CellNameToCoordinates(ends[1])
 		if err != nil || endErr != nil || left > right || top > bottom ||
-			right > 64 || bottom > 1024 || (left == right && top == bottom) {
+			right > maxColumns || bottom > 1024 || (left == right && top == bottom) {
 			return nil, "", 0, 0, errExactWorkbookUnsupported
 		}
 		for row := top; row <= bottom; row++ {
@@ -517,8 +559,16 @@ func exactWorkbookMerges(body []byte) (map[string]bool, string, int, int, error)
 			if err != nil || canonicalErr != nil || canonical != cell.Ref {
 				return nil, "", 0, 0, errExactWorkbookUnsupported
 			}
-			if covered[cell.Ref] && (cell.Value != "" || cell.Inline != nil) {
-				return nil, "", 0, 0, errExactWorkbookUnsupported
+			if covered[cell.Ref] && (cell.Value != "" || cell.Inline != nil || cell.Formula != nil) {
+				if !standalone {
+					return nil, "", 0, 0, errExactWorkbookUnsupported
+				}
+				// The standalone reader has unmerged its private in-memory view.
+				// Preserve stored non-anchor data at its actual coordinate rather
+				// than replacing it with the anchor or silently dropping it.
+				covered[cell.Ref] = false
+				note.WriteString("\nStored value in covered merged cell " + cell.Ref +
+					" is preserved at its source coordinate.\n")
 			}
 		}
 	}
@@ -635,7 +685,7 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 // Notes and image references also remain complete; no content is truncated.
 func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 	limit := types.DefaultParserSemanticChunkMaxChars
-	if utf8.RuneCountInString(markdown) <= limit {
+	if exactWorkbookSemanticCost(markdown) <= limit {
 		return []string{markdown}, nil
 	}
 	lines := strings.SplitAfter(strings.TrimPrefix(markdown, heading), "\n")
@@ -643,16 +693,30 @@ func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 		return nil, errExactWorkbookUnsupported
 	}
 	prefix := heading + lines[0] + lines[1]
-	prefixChars := utf8.RuneCountInString(prefix)
+	prefixChars := exactWorkbookSemanticCost(prefix)
 	if prefixChars >= limit {
 		return nil, errExactWorkbookUnsupported
 	}
 	current, size := prefix, prefixChars
 	var sections []string
 	for _, line := range lines[2:] {
-		n := utf8.RuneCountInString(line)
+		n := exactWorkbookSemanticCost(line)
 		if prefixChars+n > limit {
-			return nil, errExactWorkbookUnsupported
+			fragments, err := splitExactWorkbookLongRow(line, limit-prefixChars)
+			if err != nil {
+				return nil, err
+			}
+			if current != prefix {
+				sections = append(sections, current)
+				current, size = prefix, prefixChars
+			}
+			for _, fragment := range fragments {
+				sections = append(sections, prefix+fragment)
+				if len(sections) >= 1024 {
+					return nil, errExactWorkbookUnsupported
+				}
+			}
+			continue
 		}
 		if size+n > limit {
 			sections = append(sections, current)
@@ -668,4 +732,62 @@ func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 		sections = append(sections, current)
 	}
 	return sections, nil
+}
+
+// Local image references become longer serving handles before the chunker
+// validates semantic spans. Reserve room for that substitution up front; the
+// normal post-substitution hard-limit check remains authoritative.
+func exactWorkbookSemanticCost(text string) int {
+	return utf8.RuneCountInString(text) + 512*strings.Count(text, "]("+anydoc.ImageDir)
+}
+
+// A single wide row can exceed the semantic chunk limit even when every cell
+// is valid. Preserve its values as coordinate-labelled facts, splitting only a
+// genuinely long cell. Each continuation retains its source coordinate; XML
+// escape sequences and <br> tokens are kept whole across boundaries.
+func splitExactWorkbookLongRow(line string, budget int) ([]string, error) {
+	fields := strings.Split(strings.TrimSuffix(line, "\n"), "|")
+	if len(fields) < 4 || fields[0] != "" || fields[len(fields)-1] != "" {
+		return nil, errExactWorkbookUnsupported
+	}
+	row, err := strconv.Atoi(strings.TrimSpace(fields[1]))
+	if err != nil || row < 1 || row > 1024 {
+		return nil, errExactWorkbookUnsupported
+	}
+	var out []string
+	for index, cell := range fields[2 : len(fields)-1] {
+		value := strings.TrimSuffix(strings.TrimPrefix(cell, " "), " ")
+		if value == "" {
+			continue
+		}
+		column, _ := excelize.ColumnNumberToName(index + 1)
+		label := "\nCell " + column + strconv.Itoa(row) + " source value continuation: "
+		available := budget - utf8.RuneCountInString(label) - 1
+		if available < 64 {
+			return nil, errExactWorkbookUnsupported
+		}
+		runes := []rune(value)
+		for len(runes) > 0 {
+			end := min(len(runes), available)
+			for j := max(0, end-16); j < end; j++ {
+				if runes[j] == '&' && !strings.ContainsRune(string(runes[j:end]), ';') ||
+					runes[j] == '<' && !strings.ContainsRune(string(runes[j:end]), '>') {
+					end = j
+					break
+				}
+			}
+			if end == 0 {
+				return nil, errExactWorkbookUnsupported
+			}
+			out = append(out, label+string(runes[:end])+"\n")
+			runes = runes[end:]
+			if len(out) >= 1024 {
+				return nil, errExactWorkbookUnsupported
+			}
+		}
+	}
+	if len(out) == 0 {
+		return nil, errExactWorkbookUnsupported
+	}
+	return out, nil
 }

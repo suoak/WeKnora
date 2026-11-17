@@ -20,7 +20,8 @@ func standaloneImageReferences(parts map[string][]byte, owner, imageNode, drawin
 			return errExactWorkbookUnsupported
 		}
 		node, ok := token.(xml.StartElement)
-		if !ok || (node.Name.Local != imageNode && node.Name.Local != drawingNode) {
+		chart := imageNode == "blip" && node.Name.Space == standaloneChartNS && node.Name.Local == "chart"
+		if !ok || (!chart && node.Name.Local != imageNode && node.Name.Local != drawingNode) {
 			continue
 		}
 		kind, attribute := "image", "id"
@@ -29,6 +30,9 @@ func standaloneImageReferences(parts map[string][]byte, owner, imageNode, drawin
 		}
 		if imageNode == "blip" {
 			attribute = "embed"
+		}
+		if chart {
+			kind, attribute = "chart", "id"
 		}
 		id := ""
 		for _, attr := range node.Attr {
@@ -49,7 +53,8 @@ func standaloneImageReferences(parts map[string][]byte, owner, imageNode, drawin
 		return err
 	}
 	for _, rel := range rels {
-		if rel.Type != exactWorkbookRelNamespace+"/image" && rel.Type != exactWorkbookRelNamespace+"/drawing" {
+		if rel.Type != exactWorkbookRelNamespace+"/image" &&
+			rel.Type != exactWorkbookRelNamespace+"/drawing" && rel.Type != exactWorkbookRelNamespace+"/chart" {
 			continue
 		}
 		if refs[rel.ID] == "" || rel.Type != exactWorkbookRelNamespace+"/"+refs[rel.ID] {

@@ -528,7 +528,8 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
               attempts: parseFailureProgress(item)!.attempts,
               max: parseFailureProgress(item)!.max_attempts,
             }) : inFlightCardStatusText(item) }}</span>
-          <span v-if="parseFailureProgress(item)?.auto_retry" class="card-analyze-reason">
+          <span v-if="conciseProcessingError(item.error_message)" class="card-analyze-reason"
+            :title="conciseProcessingError(item.error_message)">
             {{ conciseProcessingError(item.error_message) }}
           </span>
           <button

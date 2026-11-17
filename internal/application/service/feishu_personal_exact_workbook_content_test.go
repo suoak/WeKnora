@@ -40,11 +40,14 @@ func TestExactWorkbookLargeWorksheetSplitsOnlyBetweenCompleteRows(t *testing.T) 
 		require.Equal(t, 1, strings.Count(joined, row))
 	}
 	require.Equal(t, 1, strings.Count(joined, "Hyperlink cell A1:"))
-	_, err = splitExactWorkbookRows(heading+
+	longSections, err := splitExactWorkbookRows(heading+
 		"| Row | A |\n| --- | --- |\n| 1 | "+
 		strings.Repeat("值", types.DefaultParserSemanticChunkMaxChars)+
 		" |\n", heading)
-	require.Error(t, err, "a single oversized row must never be truncated")
+	require.NoError(t, err)
+	require.Greater(t, len(longSections), 1)
+	require.Equal(t, types.DefaultParserSemanticChunkMaxChars,
+		strings.Count(strings.Join(longSections, ""), "值"), "every oversized cell character must survive splitting")
 }
 
 func exactContentWorkbook(t *testing.T, cells, extra string, additional map[string][]byte) []byte {

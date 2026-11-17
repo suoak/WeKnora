@@ -101,9 +101,10 @@ func standaloneXMLFacts(body []byte, schema map[string]string, worksheet bool) (
 				if attr.Name.Space == "xmlns" || attr.Name.Local == "xmlns" {
 					continue
 				}
-				if attr.Name.Space == exactWorkbookRelNamespace &&
-					(attr.Name.Local != "id" || !strings.Contains(" sheet drawing legacyDrawing picture hyperlink ",
-						" "+token.Name.Local+" ")) {
+				validRelationship := attr.Name.Local == "id" && strings.Contains(
+					" sheet drawing legacyDrawing picture hyperlink chart ", " "+token.Name.Local+" ") ||
+					!worksheet && token.Name.Local == "blip" && attr.Name.Local == "embed"
+				if attr.Name.Space == exactWorkbookRelNamespace && !validRelationship {
 					return "", errExactWorkbookUnsupported
 				}
 				if attr.Name.Space != "" && attr.Name.Space != exactWorkbookRelNamespace &&
@@ -214,8 +215,8 @@ func standaloneWorkbookFacts(
 					notes[sheet.Part] += fmt.Sprintf("\nCell %s: metadata record %d.\n", cell.Ref, index)
 				}
 				if cell.Value != nil {
-					raw, err := file.GetCellValue(sheet.Name, cell.Ref, excelize.Options{RawCellValue: true})
-					display, displayErr := file.GetCellValue(sheet.Name, cell.Ref)
+					raw, err := file.GetCellValue(sheet.ReadName, cell.Ref, excelize.Options{RawCellValue: true})
+					display, displayErr := file.GetCellValue(sheet.ReadName, cell.Ref)
 					if err != nil || displayErr != nil {
 						return nil, errExactWorkbookUnsupported
 					}
