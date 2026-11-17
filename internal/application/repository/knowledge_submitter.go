@@ -21,6 +21,9 @@ func (r *knowledgeRepository) ReadKnowledgeSubmitters(
  SELECT id,tenant_id,knowledge_base_id,channel,metadata FROM knowledges
  WHERE tenant_id=? AND knowledge_base_id=? AND id IN ? AND deleted_at IS NULL
 ), people AS (
+ SELECT k.id,k.metadata->'submitter'->>'user_id' AS user_id,0 AS priority FROM allowed k
+ WHERE coalesce(k.metadata->'submitter'->>'user_id','')<>''
+ UNION ALL
  SELECT k.id,m.user_id,1 AS priority FROM allowed k
  JOIN feishu_personal_imports m ON m.knowledge_id=k.id AND m.kb_id=k.knowledge_base_id
  WHERE m.user_id<>''

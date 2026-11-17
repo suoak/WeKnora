@@ -18,7 +18,8 @@ func TestKnowledgeSubmitterProjectionUsesOriginalEvidenceWithoutChangingDocument
 	addWikiSelectionDocument(t, db, "system-upload", "gitlab", "completed", "enabled")
 	addWikiSelectionDocument(t, db, "unknown-upload", "web", "completed", "enabled")
 	require.NoError(t, db.Create(&types.FeishuPersonalImport{
-		ID: "submitter-import", UserID: "A", KBID: "public-two", KnowledgeID: "public-two-doc",
+		ID: "submitter-import", UserID: "A", AppID: "cli_test", OpenID: "open-A",
+		KBID: "public-two", KnowledgeID: "public-two-doc",
 	}).Error)
 	require.NoError(t, db.Create(&types.AuditLog{
 		TenantID: 1, ActorUserID: "B", Action: types.AuditActionKnowledgeCreated,
