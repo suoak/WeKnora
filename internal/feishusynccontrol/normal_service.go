@@ -205,6 +205,12 @@ if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
  redis.call('PTTL',KEYS[2])<=0 or redis.call('GET',KEYS[3])~=ARGV[2] or
  redis.call('HLEN',KEYS[4])~=1 or redis.call('HGET',KEYS[4],ARGV[3])~=ARGV[4]
  then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
+local incident=redis.call('GET',KEYS[8])
+if incident then
+ local ok,s=pcall(cjson.decode,incident)
+ if not ok then return redis.error_reply('NORMAL_INCIDENT_INVALID') end
+ if s.queue_name=='approved_sync' and s.queue_released~=true then return 0 end
+end
 local resumed=0
 local approvedMarker=redis.call('GET',KEYS[5])
 if approvedMarker=='feishu_safety_stop' or approvedMarker=='invalid_feishu_safety_configuration' then
@@ -225,7 +231,8 @@ if ARGV[6]=='true' then
 end
 return resumed`, []string{
 		c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "normal_service",
-		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit", "asynq:{sync}:paused",
+		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit",
+		"asynq:{sync}:paused", c.prefix + "recovery",
 	}, c.Guard.Fingerprint(), string(raw), c.Config.WorkerID,
 		c.fingerprint+":"+c.incarnation, record.Authorization.ID, fmt.Sprint(c.Config.DedicatedSyncLane)).Err()
 }
@@ -264,6 +271,11 @@ if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
  redis.call('GET',KEYS[4])~=ARGV[3] or redis.call('GET',KEYS[5])~='feishu_safety_stop'
  then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
 redis.call('DEL',KEYS[5])
+local incident=cjson.decode(ARGV[3])
+if incident.queue_name=='approved_sync' then
+ incident.queue_released=true
+ redis.call('SET',KEYS[4],cjson.encode(incident))
+end
 redis.call('XADD',KEYS[6],'*','event','normal_service_queue_resumed','grant_id',ARGV[4],
  'reason','signed_canary_passed_existing_normal_grant')
 return 1`, []string{
