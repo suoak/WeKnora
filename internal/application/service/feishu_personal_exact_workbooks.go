@@ -684,7 +684,7 @@ func parseExactEmbeddedWorkbook(name string, data []byte, ordinal int) (*exactEm
 // Notes and image references also remain complete; no content is truncated.
 func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 	limit := types.DefaultParserSemanticChunkMaxChars
-	if utf8.RuneCountInString(markdown) <= limit {
+	if exactWorkbookSemanticCost(markdown) <= limit {
 		return []string{markdown}, nil
 	}
 	lines := strings.SplitAfter(strings.TrimPrefix(markdown, heading), "\n")
@@ -692,14 +692,14 @@ func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 		return nil, errExactWorkbookUnsupported
 	}
 	prefix := heading + lines[0] + lines[1]
-	prefixChars := utf8.RuneCountInString(prefix)
+	prefixChars := exactWorkbookSemanticCost(prefix)
 	if prefixChars >= limit {
 		return nil, errExactWorkbookUnsupported
 	}
 	current, size := prefix, prefixChars
 	var sections []string
 	for _, line := range lines[2:] {
-		n := utf8.RuneCountInString(line)
+		n := exactWorkbookSemanticCost(line)
 		if prefixChars+n > limit {
 			fragments, err := splitExactWorkbookLongRow(line, limit-prefixChars)
 			if err != nil {
@@ -731,6 +731,13 @@ func splitExactWorkbookRows(markdown, heading string) ([]string, error) {
 		sections = append(sections, current)
 	}
 	return sections, nil
+}
+
+// Local image references become longer serving handles before the chunker
+// validates semantic spans. Reserve room for that substitution up front; the
+// normal post-substitution hard-limit check remains authoritative.
+func exactWorkbookSemanticCost(text string) int {
+	return utf8.RuneCountInString(text) + 512*strings.Count(text, "]("+anydoc.ImageDir)
 }
 
 // A single wide row can exceed the semantic chunk limit even when every cell

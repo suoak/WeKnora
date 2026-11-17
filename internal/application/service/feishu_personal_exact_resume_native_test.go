@@ -470,14 +470,14 @@ func exerciseNativeResumeWithFormat(
 	for _, hit := range results {
 		require.Equal(t, knowledge.ID, hit.KnowledgeID)
 	}
-	if options.SkipAdditionalReadMatrix {
-		return
-	}
 	if withImages {
 		var bound int64
 		require.NoError(t, f.db.Table("resource_bindings").Where("owner_id=? AND relation=?",
 			knowledge.ID, types.ResourceRelationExtractedImage).Count(&bound).Error)
 		require.Positive(t, bound, "fresh image assets must remain bound after empty-output recovery")
+		return
+	}
+	if options.SkipAdditionalReadMatrix {
 		return
 	}
 	exerciseAdditionalPublishedSnapshots(t, f, knowledge.ID, files)

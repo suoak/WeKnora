@@ -6,6 +6,7 @@ import (
 	"testing"
 	"unicode/utf8"
 
+	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -136,4 +137,21 @@ func TestPersonalWorkbookLongRowRetainsEveryCellValue(t *testing.T) {
 	}
 	require.Equal(t, value, reconstructed.String())
 	require.Contains(t, strings.Join(sections, ""), "Cell B1 source value continuation: tail")
+}
+
+func TestPersonalWorkbookReservesSemanticRoomForImageHandles(t *testing.T) {
+	heading := "\n## Workbook: images.xlsx\n### Worksheet: Sheet1\n"
+	grid := "| Row | A |\n| --- | --- |\n| 1 | value |\n"
+	for i := 0; i < 62; i++ {
+		grid += "\n![Worksheet image](" + anydoc.ImageDir + "image.png)\n"
+	}
+	sections, err := splitExactWorkbookRows(heading+grid, heading)
+	require.NoError(t, err)
+	require.Greater(t, len(sections), 1)
+	for _, section := range sections {
+		require.LessOrEqual(t, exactWorkbookSemanticCost(section), types.DefaultParserSemanticChunkMaxChars)
+		resolved := strings.ReplaceAll(section, anydoc.ImageDir+"image.png", strings.Repeat("x", 400))
+		require.LessOrEqual(t, utf8.RuneCountInString(resolved), types.DefaultParserSemanticChunkMaxChars)
+	}
+	require.Equal(t, 62, strings.Count(strings.Join(sections, ""), "![Worksheet image]"))
 }
