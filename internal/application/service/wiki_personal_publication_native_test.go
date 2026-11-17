@@ -94,6 +94,9 @@ func assertPersonalWikiGeneration(t *testing.T, f *personalRecoveryFixture, sour
 	var chunks []*types.Chunk
 	require.NoError(t, db.WithContext(work).Where("knowledge_id=?", source.knowledge).Find(&chunks).Error)
 	require.NotEmpty(t, chunks, "the normal verified Wiki guard permits the published personal body")
+	modelGate := repository.NewModelRepository(db).(legacyModelInputGate)
+	require.NoError(t, modelGate.CheckLegacyModelInputs(work, 1),
+		"the live model boundary must independently revalidate the same selected personal inputs")
 	page := &types.WikiPage{
 		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: source.kb, Slug: "verified-personal-source",
 		Title: "Published local source", Content: "Summary generated from the checked local document.",
@@ -111,5 +114,6 @@ func assertPersonalWikiGeneration(t *testing.T, f *personalRecoveryFixture, sour
 		source.knowledge).Error)
 	var invalid []*types.Chunk
 	require.Error(t, tx.WithContext(work).Where("knowledge_id=?", source.knowledge).Find(&invalid).Error)
+	require.Error(t, repository.NewModelRepository(tx).(legacyModelInputGate).CheckLegacyModelInputs(work, 1))
 	require.NoError(t, tx.Rollback().Error)
 }

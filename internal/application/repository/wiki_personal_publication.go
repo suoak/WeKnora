@@ -68,6 +68,9 @@ JOIN resources f ON f.id=? AND f.tenant_id=k.tenant_id AND f.handle=?
 JOIN resource_bindings b ON b.id=? AND b.resource_id=f.id AND b.tenant_id=k.tenant_id
  AND b.owner_type='knowledge' AND b.owner_id=k.id AND b.relation='source_file'
 WHERE k.id=? AND k.tenant_id=? AND k.knowledge_base_id=? AND k.deleted_at IS NULL
+AND EXISTS(SELECT 1 FROM task_pending_ops current_receipt WHERE current_receipt.id=?
+ AND current_receipt.scope=? AND current_receipt.scope_id=k.id AND current_receipt.tenant_id=k.tenant_id
+ AND current_receipt.op='published' AND current_receipt.payload::jsonb=?::jsonb)
 AND k.channel='feishu_personal' AND k.parse_status='completed' AND k.enable_status='enabled'
 AND r.import_id=? AND r.current_attempt_id=? AND r.generation=? AND a.fence=r.generation
 AND r.active_version_id=? AND r.candidate_version_id=r.active_version_id
@@ -93,6 +96,7 @@ AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.knowledge_id=k.id AND
  COALESCE((?::jsonb)->>e.source_id,'')<>encode(sha256(convert_to(
  (to_jsonb(e)-'created_at'-'updated_at'-'id')::text,'UTF8')),'hex'))
 )`, proof.ResourceID, proof.ResourceHandle, proof.BindingID, knowledge, tenant, kb,
+		rows[0].ID, types.PersonalExactReceiptScope, string(rows[0].Payload),
 		proof.ImportID, proof.AttemptID, proof.Generation, proof.CandidateVersionID,
 		proof.GrantEpoch, proof.AppConfigVersion, proof.Revision, proof.ConnectionIdentity, proof.ManifestSHA256,
 		types.BuildResourcePath(proof.ResourceHandle), proof.FileMD5, proof.FileSHA256, proof.KnowledgeDBSHA256,
