@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -17,6 +18,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/utils"
 )
 
 // Client wraps the Feishu Open Platform API for document/wiki operations.
@@ -113,8 +115,22 @@ func (c *Client) ensureRuntime() {
 }
 
 func newSafetyHTTPClient() *http.Client {
-	client := datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second)
+	client := datasource.NewConnectorHTTPClientWithTLSResolver(30*time.Second, newFeishuDNSResolver())
+	// Some enterprise egress/CDN paths black-hole the enlarged hybrid-MLKEM
+	// ClientHello introduced by newer Go toolchains. Keep modern ECDHE and full
+	// certificate/SNI verification for Feishu, without changing other clients
+	// or globally disabling post-quantum handshakes through GODEBUG.
+	transport := client.Transport.(*utils.SSRFValidatingRoundTripper).Base.(*http.Transport)
+	transport.TLSClientConfig.CurvePreferences = []tls.CurveID{tls.X25519, tls.CurveP256, tls.CurveP384}
 	client.Transport = feishusafety.Transport{Base: client.Transport}
+	return client
+}
+
+// NewOAuthHTTPClient uses the same verified Feishu TLS path for one-use code
+// exchanges and refreshes. OAuth credentials must never follow redirects.
+func NewOAuthHTTPClient() *http.Client {
+	client := newSafetyHTTPClient()
+	client.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
 	return client
 }
 

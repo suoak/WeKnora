@@ -2,6 +2,7 @@ package datasource
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -36,6 +37,14 @@ func NewConnectorHTTPClient(timeout time.Duration) *http.Client {
 // transport behavior through NewConnectorHTTPClient.
 func NewConnectorHTTPClientWithTLSFallback(timeout time.Duration) *http.Client {
 	return newConnectorHTTPClient(timeout, true)
+}
+
+// NewConnectorHTTPClientWithTLSResolver keeps the same SSRF and TLS policy
+// while selecting a resolver only for this connector's pinned connections.
+func NewConnectorHTTPClientWithTLSResolver(timeout time.Duration, resolver *net.Resolver) *http.Client {
+	cfg := utils.DefaultSSRFSafeHTTPClientConfig()
+	cfg.Timeout, cfg.EnableTLSFallback, cfg.DNSResolver = timeout, true, resolver
+	return utils.NewSSRFSafeHTTPClient(cfg)
 }
 
 func newConnectorHTTPClient(timeout time.Duration, enableTLSFallback bool) *http.Client {

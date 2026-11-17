@@ -52,6 +52,9 @@ func newSSRFSafeTransportWithDependencies(
 	deps ssrfTransportDependencies,
 ) *http.Transport {
 	deps = normalizeSSRFTransportDependencies(deps)
+	if config.DNSResolver != nil {
+		deps.lookupIPAddr = config.DNSResolver.LookupIPAddr
+	}
 	transport := &http.Transport{
 		DisableKeepAlives:  config.DisableKeepAlives,
 		DisableCompression: config.DisableCompression,
@@ -198,6 +201,16 @@ func raceValidatedTLSCandidates(
 	defer cancelOverall()
 
 	results := make(chan tlsCandidateResult, total)
+	// A long DNS answer must not leave its final healthy addresses unattempted
+	// while earlier black holes consume the complete overall budget. Keep the
+	// existing concurrency/candidate caps and reserve one wave for scheduling,
+	// DNS elapsed time and the winning handshake under the caller's deadline.
+	candidateTimeout := deps.candidateTimeout
+	if deadline, ok := overallCtx.Deadline(); ok {
+		waves := (total + deps.maxConcurrency - 1) / deps.maxConcurrency
+		fairShare := time.Until(deadline) / time.Duration(waves+1)
+		candidateTimeout = min(candidateTimeout, max(time.Nanosecond, fairShare))
+	}
 	next := 0
 	active := 0
 	attempted := 0
@@ -213,7 +226,7 @@ func raceValidatedTLSCandidates(
 		active++
 		attempted++
 		go func() {
-			candidateCtx, cancel := context.WithTimeout(overallCtx, deps.candidateTimeout)
+			candidateCtx, cancel := context.WithTimeout(overallCtx, candidateTimeout)
 			defer cancel()
 			pinnedAddr := net.JoinHostPort(ip, target.port)
 			candidateTLSConfig := baseTLSConfig.Clone()
