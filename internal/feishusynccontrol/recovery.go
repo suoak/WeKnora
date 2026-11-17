@@ -70,6 +70,7 @@ type RecoveryPlan struct {
 	MembershipRevision    string        `json:"membership_revision"`
 	QueueSHA256           string        `json:"queue_sha256"`
 	QueuePendingCount     int           `json:"queue_pending_count"`
+	QueueName             string        `json:"queue_name,omitempty"`
 	PreviousModeSHA256    string        `json:"previous_mode_sha256"`
 	Facts                 RecoveryFacts `json:"facts"`
 	CreatedMS             int64         `json:"created_ms"`
@@ -94,6 +95,8 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
+	QueueName             string                    `json:"queue_name,omitempty"`
+	QueueReleased         bool                      `json:"queue_released,omitempty"`
 	Steady                *SteadyCertificate        `json:"steady_policy,omitempty"`
 	HistoricalQueueSHA256 string                    `json:"historical_queue_sha256,omitempty"`
 	HistoricalPending     int                       `json:"historical_pending,omitempty"`
@@ -313,6 +316,7 @@ func (m *RecoveryManager) verify(p RecoveryPlan, a RecoveryApproval, actor, op s
 }
 
 type recoveryQueueSnapshot struct {
+	name   string
 	ids    []string
 	fields []map[string]string
 	digest string
@@ -383,7 +387,7 @@ func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (Recov
 		f.LivePublications != 0 {
 		return p, ErrRecoveryRejected
 	}
-	q, e := m.queue(ctx)
+	q, e := m.incidentQueue(ctx)
 	if e != nil {
 		return p, e
 	}
@@ -432,6 +436,7 @@ func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (Recov
 		MembershipRevision:    revision,
 		QueueSHA256:           q.digest,
 		QueuePendingCount:     len(q.ids),
+		QueueName:             q.name,
 		PreviousModeSHA256:    digestBytes(mode),
 		Facts:                 f,
 		CreatedMS:             now,
@@ -488,8 +493,8 @@ func (m *RecoveryManager) Reset(
 	if e != nil || !sameRecoveryFacts(f, p.Facts) || !f.Eligible {
 		return ErrRecoveryRejected
 	}
-	q, e := m.queue(ctx)
-	if e != nil || (q.digest != p.QueueSHA256 || len(q.ids) != p.QueuePendingCount) {
+	q, e := m.incidentQueue(ctx)
+	if e != nil || !recoveryQueueMatches(q, p) {
 		return ErrRecoveryRejected
 	}
 	previous, e := c.Client.Get(ctx, c.prefix+"recovery").Result()
@@ -529,6 +534,7 @@ func (m *RecoveryManager) Reset(
 	planHash, _ := RecoveryDigest(p)
 	state, _ := json.Marshal(
 		recoveryMode{
+			QueueName:             q.name,
 			Version:               1,
 			RuntimeSHA:            c.Config.SourceSHA,
 			WorkerID:              c.Config.WorkerID,
@@ -577,7 +583,7 @@ func (m *RecoveryManager) Reset(
 			args = append(args, k, []byte(fields[k]))
 		}
 	}
-	script := redis.NewScript(recoveryQueueCAS + `
+	script := recoveryIncidentScript(q, `
 if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[10])~=0 or
  redis.call('GET','asynq:{sync}:paused')~=ARGV[#ARGV-3] or redis.call('GET',KEYS[5])~=ARGV[3] or
  redis.call('HLEN',KEYS[3])~=1 or redis.call('HGET',KEYS[3],ARGV[#ARGV-1])~=ARGV[4] or
@@ -668,8 +674,8 @@ func (m *RecoveryManager) transition(
 		return ErrRecoveryRejected
 	}
 
-	q, e := m.queue(ctx)
-	if e != nil || (q.digest != p.QueueSHA256 || len(q.ids) != p.QueuePendingCount) {
+	q, e := m.incidentQueue(ctx)
+	if e != nil || !recoveryQueueMatches(q, p) {
 		return ErrRecoveryRejected
 	}
 	c := m.controller
@@ -711,7 +717,7 @@ func (m *RecoveryManager) transition(
 		},
 	)
 	args = append(args, string(approvalAudit), m.controller.Guard.Fingerprint(), q.pause)
-	return redis.NewScript(recoveryQueueCAS+`
+	return recoveryIncidentScript(q, `
 if redis.call('EXISTS',KEYS[1])==1 or redis.call('GET','asynq:{sync}:paused')~=ARGV[#ARGV] or
  redis.call('GET',KEYS[5])~=ARGV[#ARGV-1] or redis.call('PTTL',KEYS[5])<=0 then return
 redis.error_reply('RECOVERY_CLOSED') end
@@ -772,8 +778,8 @@ func (m *RecoveryManager) Canary(
 	if e != nil || permit != m.controller.Guard.Fingerprint() {
 		return ErrRecoveryRejected
 	}
-	q, e := m.queue(ctx)
-	if e != nil || (q.digest != p.QueueSHA256 || len(q.ids) != p.QueuePendingCount) {
+	q, e := m.incidentQueue(ctx)
+	if e != nil || !recoveryQueueMatches(q, p) {
 		return ErrRecoveryRejected
 	}
 	if e = m.transition(ctx, p, a, actor, "canary", "frozen", "admit", "", 0); e != nil {
@@ -811,11 +817,11 @@ func (m *RecoveryManager) Canary(
 					probeErr = ErrRecoveryRejected
 				}
 				if probeErr == nil {
-					snapshot, queueErr := m.queue(probe)
+					snapshot, queueErr := m.incidentQueue(probe)
 					tripped, tripErr := m.controller.Client.Exists(probe, m.controller.prefix+"trip").
 						Result()
 					if queueErr != nil || tripErr != nil || tripped != 0 ||
-						snapshot.digest != p.QueueSHA256 {
+						!recoveryQueueMatches(snapshot, p) {
 						probeErr = ErrRecoveryRejected
 					}
 				}
@@ -852,9 +858,9 @@ func (m *RecoveryManager) Canary(
 		}
 		if err == nil {
 			probe, finish := context.WithTimeout(context.WithoutCancel(ctx), 5*time.Second)
-			q, e := m.queue(probe)
+			q, e := m.incidentQueue(probe)
 			finish()
-			if e != nil || (q.digest != p.QueueSHA256 || len(q.ids) != p.QueuePendingCount) {
+			if e != nil || !recoveryQueueMatches(q, p) {
 				err = ErrRecoveryRejected
 			}
 		}
@@ -928,12 +934,25 @@ func (m *RecoveryManager) Status(ctx context.Context, source string) (map[string
 	if e != nil {
 		return nil, e
 	}
+	approvedPaused, e := c.Client.Exists(ctx, "asynq:{approved_sync}:paused").Result()
+	if e != nil {
+		return nil, e
+	}
+	normal, e := m.NormalServiceActive(ctx)
+	if e != nil {
+		return nil, e
+	}
+	recoveryQueue, recoveryPaused := "sync", paused
+	if state.QueueName == "approved_sync" {
+		recoveryQueue, recoveryPaused = state.QueueName, approvedPaused
+	}
 	return map[string]any{
 		"state": state, "trip_latched": trip != 0, "sync_paused": paused == 1,
+		"recovery_queue": recoveryQueue, "approved_sync_paused": approvedPaused == 1,
 		"steady_policy_revision":  steadyRevision,
 		"shared_queue_reconciled": sharedQueueReconciled,
 		"permit_ready": trip == 0 && ttl > 0 &&
-			(paused == 1 || (sharedQueueReconciled &&
+			(recoveryPaused == 1 || (normal && state.QueueReleased && approvedPaused == 0) || (sharedQueueReconciled &&
 				c.checkRecoveryPolicy(ctx) == nil)) &&
 			permit == c.Guard.Fingerprint(), "permit_ttl_ms": ttl.Milliseconds(),
 	}, nil
