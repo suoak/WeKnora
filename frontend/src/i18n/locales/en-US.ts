@@ -7063,6 +7063,7 @@ export default {
     hoursAgo: '{n}h ago',
     daysAgo: '{n}d ago',
     syncError: {
+      safe_staging_empty_parsed_content: 'No extractable text. Add text or choose a parser that supports this content; other documents continue syncing.',
       dingtalk_document_failed: 'DingTalk document could not be read; check access and retry the sync.',
       dingtalk_resource_failed: 'DingTalk resource is unavailable; check access and the saved selection, then retry.',
       deletion_lookup_failed: 'Failed to look up the item before deletion; see server logs',

@@ -6964,6 +6964,7 @@ const messages = {
     hoursAgo: '{n}時間前',
     daysAgo: '{n}日前',
     syncError: {
+      safe_staging_empty_parsed_content: '抽出可能なテキストがありません。テキストを追加するか、対応するパーサーを選択してください。他の文書の同期は継続します。',
       dingtalk_document_failed: 'DingTalkドキュメントを読み取れません。アクセス権限を確認して同期を再試行してください。',
       dingtalk_resource_failed: 'DingTalkリソースを利用できません。アクセス権限と選択したリソースを確認して再試行してください。',
       deletion_lookup_failed: '削除前の項目の照会に失敗しました。サーバログを確認してください',

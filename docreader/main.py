@@ -48,6 +48,18 @@ def to_valid_utf8_text(s: Optional[str]) -> str:
     return s.encode("utf-8", errors="replace").decode("utf-8")
 
 
+def _empty_parse_failure(result, source_desc):
+    # A missing parser result remains an unknown backend failure. Only an
+    # actual empty Document carries this finite, versioned failure category.
+    metadata = {}
+    if result is not None and not result.content:
+        metadata = {
+            "parser_failure_protocol": "v1",
+            "parser_failure_code": "empty_parsed_content",
+        }
+    return f"Failed to parse: {source_desc}", metadata
+
+
 def _prepare_wire_chunks(result):
     """Return UTF-8-safe content and spans that address that exact content."""
     if result.chunking_policy == ChunkingPolicy.DEFAULT:
@@ -347,9 +359,9 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 result, source_desc = self._parse_request(request)
 
                 if not result or not result.content:
-                    error_msg = f"Failed to parse: {source_desc}"
+                    error_msg, metadata = _empty_parse_failure(result, source_desc)
                     logger.error(error_msg)
-                    return ReadResponse(error=error_msg)
+                    return ReadResponse(error=error_msg, metadata=metadata)
 
                 _c = to_valid_utf8_text
                 wire_content, chunking_policy, parsed_chunks, parsed_segments = (
@@ -402,9 +414,11 @@ class DocReaderServicer(docreader_pb2_grpc.DocReaderServicer):
                 return
 
             if not result or not result.content:
-                error_msg = f"Failed to parse: {source_desc}"
+                error_msg, metadata = _empty_parse_failure(result, source_desc)
                 logger.error(error_msg)
-                yield ReadStreamResponse(meta=ReadStreamMeta(error=error_msg))
+                yield ReadStreamResponse(
+                    meta=ReadStreamMeta(error=error_msg, metadata=metadata)
+                )
                 return
 
             images = result.images or {}
