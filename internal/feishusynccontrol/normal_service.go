@@ -231,7 +231,8 @@ if ARGV[6]=='true' then
 end
 return resumed`, []string{
 		c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "normal_service",
-		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit", "asynq:{sync}:paused", c.prefix + "recovery",
+		c.prefix + "workers", "asynq:{approved_sync}:paused", c.prefix + "control_audit",
+		"asynq:{sync}:paused", c.prefix + "recovery",
 	}, c.Guard.Fingerprint(), string(raw), c.Config.WorkerID,
 		c.fingerprint+":"+c.incarnation, record.Authorization.ID, fmt.Sprint(c.Config.DedicatedSyncLane)).Err()
 }

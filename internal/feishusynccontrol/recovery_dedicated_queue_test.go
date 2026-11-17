@@ -19,17 +19,20 @@ func dedicatedNormalRecoveryFixture(t *testing.T) *normalFixture {
 	ctx := context.Background()
 	require.NoError(t, f.r.Del(ctx, "asynq:{sync}:paused").Err())
 	require.NoError(t, f.r.RPush(ctx, "asynq:{sync}:pending", "gitlab-pending").Err())
-	require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:gitlab-pending", "msg", "independent work", "state", "pending").Err())
+	require.NoError(t, f.r.HSet(ctx, "asynq:{sync}:t:gitlab-pending",
+		"msg", "independent work", "state", "pending").Err())
 	require.NoError(t, f.r.ZAdd(ctx, "asynq:{sync}:retry", redis.Z{Score: 123, Member: "gitlab-retry"}).Err())
 	require.NoError(t, f.r.ZAdd(ctx, "asynq:{sync}:scheduled", redis.Z{Score: 456, Member: "gitlab-scheduled"}).Err())
 	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err())
 	for i := 0; i < 3; i++ {
 		id := fmt.Sprintf("feishu-pending-%d", i)
 		require.NoError(t, f.r.RPush(ctx, "asynq:{approved_sync}:pending", id).Err())
-		require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:"+id, "msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").Err())
+		require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:"+id,
+			"msg", []byte{byte(i), 0xff, 0, 1}, "state", "pending").Err())
 	}
 	for i := 0; i < 20; i++ {
-		require.NoError(t, f.r.ZAdd(ctx, "asynq:{approved_sync}:archived", redis.Z{Score: float64(i), Member: fmt.Sprintf("old-failure-%d", i)}).Err())
+		require.NoError(t, f.r.ZAdd(ctx, "asynq:{approved_sync}:archived",
+			redis.Z{Score: float64(i), Member: fmt.Sprintf("old-failure-%d", i)}).Err())
 	}
 	require.NoError(t, f.c.Guard.Trip(ctx, "embedding_headers_timeout"))
 	var err error
@@ -77,7 +80,8 @@ func TestDedicatedNormalIncidentRecoversWithoutPausingSharedSync(t *testing.T) {
 	require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
 	require.NoError(t, f.c.Step(ctx))
 	require.Equal(t, shared, snapshotSharedSync(t, f.r))
-	require.Equal(t, "feishu_safety_stop", f.r.Get(ctx, "asynq:{approved_sync}:paused").Val(), "health cannot bypass the pending canary")
+	require.Equal(t, "feishu_safety_stop", f.r.Get(ctx, "asynq:{approved_sync}:paused").Val(),
+		"health cannot bypass the pending canary")
 	require.NoError(t, f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator",
 		func(work context.Context, bind func(string, int64) error) error {
 			require.NoError(t, f.c.Step(work))
@@ -112,7 +116,9 @@ type dedicatedRecoveryCASClient struct {
 	mutate func()
 }
 
-func (c *dedicatedRecoveryCASClient) Eval(ctx context.Context, script string, keys []string, args ...interface{}) *redis.Cmd {
+func (c *dedicatedRecoveryCASClient) Eval(
+	ctx context.Context, script string, keys []string, args ...interface{},
+) *redis.Cmd {
 	if c.mutate != nil && strings.Contains(script, "RECOVERY_INCIDENT_CHANGED") {
 		mutate := c.mutate
 		c.mutate = nil
@@ -132,9 +138,11 @@ func TestDedicatedRecoveryCASRefusesChangedLaneWithoutChangingSharedWork(t *test
 				case "pause owner":
 					require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "operator_maintenance", 0).Err())
 				case "pending bytes":
-					require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:feishu-pending-0", "msg", "changed").Err())
+					require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:feishu-pending-0",
+						"msg", "changed").Err())
 				case "retry appeared":
-					require.NoError(t, f.r.ZAdd(ctx, "asynq:{approved_sync}:retry", redis.Z{Score: 1, Member: "new-retry"}).Err())
+					require.NoError(t, f.r.ZAdd(ctx, "asynq:{approved_sync}:retry",
+						redis.Z{Score: 1, Member: "new-retry"}).Err())
 				}
 			}}
 			require.ErrorIs(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"), ErrRecoveryRejected)
