@@ -9,6 +9,8 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const dedicatedRecoveryMaxPending = 1024
+
 // Normal service quarantines Feishu on its own lane. Its incident recovery
 // must neither require a shared-queue pause nor adopt an old shared checkpoint.
 // Historical continuity/reconciliation still uses queue() and its old proof.
@@ -43,22 +45,27 @@ func (m *RecoveryManager) incidentQueue(ctx context.Context) (recoveryQueueSnaps
 	}
 	// Archived jobs cannot execute. Keep them untouched, including expired
 	// historical failures; requiring their deletion would prevent recovery.
-	q.ids, err = c.LRange(ctx, prefix+"pending", 0, 64).Result()
-	if err != nil || len(q.ids) > 64 {
+	q.ids, err = c.LRange(ctx, prefix+"pending", 0, dedicatedRecoveryMaxPending).Result()
+	if err != nil || len(q.ids) > dedicatedRecoveryMaxPending {
 		return q, ErrRecoveryRejected
 	}
 	var hashes []map[string]string
+	bytes := 0
 	for _, id := range q.ids {
 		if id == "" || !utf8.ValidString(id) {
 			return q, ErrRecoveryRejected
 		}
 		fields, err := c.HGetAll(ctx, prefix+"t:"+id).Result()
-		if err != nil || len(fields) == 0 {
+		if err != nil || len(fields) == 0 || len(fields) > 64 {
 			return q, ErrRecoveryRejected
 		}
 		q.fields = append(q.fields, fields)
 		hash := map[string]string{}
 		for key, value := range fields {
+			bytes += len(key) + len(value)
+			if len(key) > 1024 || len(value) > 1<<20 || bytes > 16<<20 {
+				return q, ErrRecoveryRejected
+			}
 			hash[hex.EncodeToString([]byte(key))] = digestBytes(value)
 		}
 		hashes = append(hashes, hash)

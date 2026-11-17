@@ -6880,6 +6880,7 @@ export default {
     refreshLogs: 'Refresh logs',
     noLogs: 'No sync records yet',
     logStatus: {
+      queued: 'Waiting to sync',
       deferred: 'Deferred',
       running: 'Syncing',
       success: 'Success',

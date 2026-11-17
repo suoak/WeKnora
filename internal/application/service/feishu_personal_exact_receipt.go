@@ -26,6 +26,7 @@ func exactSourceReceipt(proof *personalExactDocument) types.PersonalExactReceipt
 func exactReceiptSourceIdentity(receipt types.PersonalExactReceipt) types.PersonalExactReceipt {
 	receipt.ParserOutputSHA256, receipt.ChunksSHA256, receipt.EmbeddingsSHA256, receipt.DerivedSHA256 = "", "", "", ""
 	receipt.KnowledgeDBSHA256, receipt.ChunksDBManifest, receipt.VectorsDBManifest = "", "", ""
+	receipt.KnowledgeFolderPath = nil
 	receipt.TextChunks, receipt.VectorRows = 0, 0
 	return receipt
 }

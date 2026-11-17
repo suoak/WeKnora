@@ -166,7 +166,7 @@ type SyncLog struct {
 	// Generation distinguishes attempts of one logical run. Claimed distinguishes
 	// queued/retry-waiting from executing without changing public status values.
 	ExecutionGeneration int64 `json:"-" gorm:"not null;default:0"`
-	ExecutionClaimed    bool  `json:"-" gorm:"not null;default:false"`
+	ExecutionClaimed    bool  `json:"execution_claimed" gorm:"not null;default:false"`
 
 	// Reference to the data source
 	DataSourceID string `json:"data_source_id" gorm:"index"`

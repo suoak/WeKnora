@@ -195,6 +195,12 @@ func (c *exactPersonalConsumer) publish(ctx context.Context) error {
 		// Database-side fingerprints let subsequent read/candidate SQL reject
 		// changed bodies before materializing them. Only outputs already matched
 		// to this parser/model execution above are enrolled in the receipt.
+		var folder string
+		if err := tx.Table("knowledges").Select("folder_path").Where("id=? AND tenant_id=?",
+			fresh.knowledge, fresh.tenant).Scan(&folder).Error; err != nil {
+			return err
+		}
+		source.KnowledgeFolderPath = &folder
 		if err := tx.Raw(`SELECT encode(sha256(convert_to(
 (to_jsonb(k)-'created_at'-'updated_at')::text,'UTF8')),'hex')
 FROM knowledges k WHERE k.id=? AND k.tenant_id=?`, fresh.knowledge, fresh.tenant).

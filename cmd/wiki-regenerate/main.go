@@ -39,7 +39,18 @@ func run() error {
 		"read-only preview of independently verified documents and affected historical pages")
 	personalHandoff := flag.Bool("repair-personal-handoff", false,
 		"preview/apply missing Wiki dispatch for verified published personal documents")
+	folderProof := flag.Bool("repair-personal-folder-proof", false,
+		"preview/apply a verified publication-time folder witness for an existing personal receipt")
+	knowledge := flag.String("knowledge", "", "exact knowledge UUID for folder proof repair")
+	originalFolder := flag.String("original-folder", "", "original folder path proved by the publication digest")
 	flag.Parse()
+	if *folderProof && (*documentPreview || *personalHandoff || *resume || *retireEmpty ||
+		*isolatePages || *restoreParsed) {
+		return errors.New("choose one recovery mode")
+	}
+	if *folderProof && *knowledge == "" {
+		return errors.New("-knowledge required for folder proof repair")
+	}
 	if *documentPreview && (*apply || *resume || *retireEmpty || *isolatePages || *restoreParsed || *personalHandoff) {
 		return errors.New("document selection preview is read-only and cannot combine recovery modes")
 	}
@@ -94,6 +105,19 @@ func run() error {
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
+	if *folderProof {
+		var plan *repository.WikiPersonalFolderPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiPersonalFolderProof(locked, db, *tenant, *kb,
+				*knowledge, *originalFolder, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if *personalHandoff {
 		var plan *repository.WikiPersonalHandoffPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {

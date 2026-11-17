@@ -83,7 +83,7 @@ func (p *PersonalRecovery) exactPublishedReadContext(ctx context.Context, knowle
 		var stored types.PersonalExactReceipt
 		if currentReceipt.TenantID != receipt.TenantID || currentReceipt.Op != "published" ||
 			json.Unmarshal(currentReceipt.Payload, &stored) != nil ||
-			stored != receipt {
+			!reflect.DeepEqual(stored, receipt) {
 			return errPersonalExactDocument
 		}
 		receiptStarted := time.Now()
@@ -152,7 +152,8 @@ AND a.status='indexed' AND a.owner_nonce='' AND a.lease_until IS NULL
 AND a.grant_epoch=? AND a.app_config_version=? AND a.revision=?
 AND i.id=? AND i.knowledge_id=k.id AND i.kb_id=k.knowledge_base_id
 AND i.app_id || ':' || i.open_id=?
-AND encode(sha256(convert_to((to_jsonb(k)-'created_at'-'updated_at')::text,'UTF8')),'hex')=?
+AND encode(sha256(convert_to((jsonb_set(to_jsonb(k),'{folder_path}',
+ COALESCE(?::jsonb,to_jsonb(k)->'folder_path'))-'created_at'-'updated_at')::text,'UTF8')),'hex')=?
 AND (SELECT count(*) FROM chunks c WHERE c.knowledge_id=k.id)=?
 AND NOT EXISTS(SELECT 1 FROM chunks c WHERE c.knowledge_id=k.id AND
  COALESCE((?::jsonb)->>c.id,'')<>encode(sha256(convert_to(
@@ -163,7 +164,7 @@ AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.knowledge_id=k.id AND
  (to_jsonb(e)-'created_at'-'updated_at'-'id')::text,'UTF8')),'hex'))
 )`, receipt.KnowledgeID, receipt.TenantID, receipt.KnowledgeBaseID, receipt.ImportID, receipt.AttemptID,
 		receipt.Generation, receipt.CandidateVersionID, receipt.GrantEpoch, receipt.AppConfigVersion, receipt.Revision,
-		receipt.ImportID, receipt.ConnectionIdentity, receipt.KnowledgeDBSHA256,
+		receipt.ImportID, receipt.ConnectionIdentity, receipt.KnowledgeFolderJSON(), receipt.KnowledgeDBSHA256,
 		len(chunks), receipt.ChunksDBManifest, len(vectors), receipt.VectorsDBManifest).Scan(&valid).Error
 	if err != nil {
 		return err
