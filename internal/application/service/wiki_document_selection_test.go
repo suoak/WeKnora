@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -556,6 +557,33 @@ func TestWikiDocumentSelectionPreviewDoesNotModifyPagesOrQueue(t *testing.T) {
 	require.Equal(t, before, after)
 	_, err = repository.PreviewWikiDocumentSelection(context.Background(), db, 2, "public-two")
 	require.Error(t, err)
+}
+
+func TestWikiDocumentSelectionReadyBatchAvoidsRepeatedPreflight(t *testing.T) {
+	f := prepareWikiSelectionFixture(t)
+	for i := 0; i < 12; i++ {
+		addWikiSelectionDocument(t, f.DB, fmt.Sprintf("ready-%02d", i), "web", "completed", "enabled")
+	}
+	addWikiSelectionDocument(t, f.DB, "still-parsing", "web", "pending", "enabled")
+	addWikiSelectionDocument(t, f.DB, "turned-off", "web", "completed", "disabled")
+	preflights := 0
+	callback := "test:count_wiki_dependency_preflights"
+	require.NoError(t, f.DB.Callback().Query().After("gorm:query").Register(callback, func(db *gorm.DB) {
+		if strings.Contains(db.Statement.SQL.String(), "JOIN tenants t ON t.id=kb.tenant_id") {
+			preflights++
+		}
+	}))
+	t.Cleanup(func() { require.NoError(t, f.DB.Callback().Query().Remove(callback)) })
+	plan, err := repository.PreviewWikiDocumentSelection(context.Background(), f.DB, 1, "public-two")
+	require.NoError(t, err)
+	require.Len(t, plan.EligibleDocuments, 13)
+	require.Equal(t, map[string]string{
+		"still-parsing": "document_not_parsed",
+		"turned-off":    "document_disabled",
+	}, plan.SkippedDocuments)
+	require.NotEmpty(t, plan.Snapshot)
+	require.Positive(t, preflights)
+	require.LessOrEqual(t, preflights, 2, "ready documents must share one full dependency preflight")
 }
 
 func TestWikiDocumentSelectionBrowserKeepsGoodPagesReadableAndFencesOutput(t *testing.T) {

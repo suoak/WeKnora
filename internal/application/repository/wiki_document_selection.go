@@ -463,6 +463,34 @@ func selectWikiDocumentInputs(
 	if len(docs) > 2048 {
 		return nil, nil, ErrWikiMCPUnverified
 	}
+	// Prove the complete ready set once before isolating individual failures.
+	// Most KBs contain only valid publications plus ordinary pending uploads;
+	// repeating the KB-level dependency preflight for every ready document
+	// adds unnecessary work to both generation and browser reads.
+	ready := map[string]bool{}
+	for _, doc := range docs {
+		switch {
+		case doc.EnableStatus != "enabled":
+			selection.Skipped[doc.ID] = "document_disabled"
+		case doc.ParseStatus != "completed" && doc.ParseStatus != "finalizing":
+			selection.Skipped[doc.ID] = "document_not_parsed"
+		default:
+			ready[doc.ID] = true
+		}
+	}
+	if len(ready) > 0 {
+		batch, err := wikiDependenciesSelected(tx, kb, nil, ready)
+		if err == nil {
+			selection.Eligible = ready
+			return selection, batch, nil
+		}
+		if !errors.Is(err, types.ErrLegacySourceRestricted) && !errors.Is(err, ErrWikiMCPUnverified) &&
+			!errors.Is(err, ErrWikiMCPInputsChanged) {
+			return nil, nil, err
+		}
+		// An invalid source still follows the existing document-level path.
+		// Nothing from the failed batch is reused as content authority.
+	}
 	for _, doc := range docs {
 		reason := ""
 		switch {
