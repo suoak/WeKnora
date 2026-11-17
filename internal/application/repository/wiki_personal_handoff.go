@@ -165,7 +165,7 @@ func PrepareWikiPersonalHandoff(
 				return err
 			}
 			if !anchor.IsWikiEnabled() {
-				return errors.New("Wiki is disabled")
+				return errors.New("wiki is disabled")
 			}
 		}
 		selection, err := PreviewWikiDocumentSelection(ctx, tx, tenant, kb)
