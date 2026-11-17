@@ -12,6 +12,7 @@ import (
 )
 
 func TestKnowledgeSubmitterProjectionUsesOriginalEvidenceWithoutChangingDocuments(t *testing.T) {
+	t.Setenv("WIKI_SELECTION_NATIVE_TEST", "true")
 	f := prepareWikiSelectionFixture(t)
 	db := f.DB
 	addWikiSelectionDocument(t, db, "audit-upload", "web", "completed", "enabled")
