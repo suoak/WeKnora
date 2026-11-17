@@ -548,7 +548,11 @@ func (s *DataSourceService) ListAvailableResources(
 }
 
 // ListAvailableResourcePage lists one bounded page through an optional connector capability.
-func (s *DataSourceService) ListAvailableResourcePage(ctx context.Context, dsID string, options types.ResourceListOptions) (*types.ResourcePage, error) {
+func (s *DataSourceService) ListAvailableResourcePage(
+	ctx context.Context,
+	dsID string,
+	options types.ResourceListOptions,
+) (*types.ResourcePage, error) {
 	ds, err := s.GetDataSource(ctx, dsID)
 	if err != nil {
 		return nil, err

@@ -27,7 +27,11 @@ type invalidResultEmbedder struct {
 }
 
 func TestScopedEmbeddingLocalFailureIsNotPromotedToGlobal(t *testing.T) {
-	for _, failure := range []error{feishusafety.ErrSourceValidationUnavailable, &feishusafety.BudgetBusyError{Reason: "rpm"}, feishusafety.ErrEmbeddingTemporarilyUnavailable} {
+	for _, failure := range []error{
+		feishusafety.ErrSourceValidationUnavailable,
+		&feishusafety.BudgetBusyError{Reason: "rpm"},
+		feishusafety.ErrEmbeddingTemporarilyUnavailable,
+	} {
 		model, _, _, g, _ := reservationEmbedder(t, 0, time.Second)
 		model.inner = invalidResultEmbedder{err: fmt.Errorf("provider transport: %w", failure)}
 		ctx := feishusafety.WithScope(context.Background(), "affected-source")

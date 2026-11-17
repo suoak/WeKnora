@@ -393,11 +393,25 @@ func (h *DataSourceHandler) ListAvailableResources(c *gin.Context) {
 		}
 		query, cursor := strings.TrimSpace(c.Query("q")), c.Query("cursor")
 		spaceKey, revealID := c.Query("space_key"), c.Query("reveal_id")
-		if len(parentID) > 256 || len(spaceKey) > 256 || len(revealID) > 256 || len(query) > 256 || len(cursor) > 4096 || parentID != "" && query != "" || revealID != "" && (parentID != "" || query != "" || cursor != "") {
+		if len(parentID) > 256 || len(spaceKey) > 256 || len(revealID) > 256 || len(query) > 256 ||
+			len(cursor) > 4096 ||
+			parentID != "" && query != "" ||
+			revealID != "" && (parentID != "" || query != "" || cursor != "") {
 			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resource page options"})
 			return
 		}
-		page, err := h.service.ListAvailableResourcePage(ctx, id, types.ResourceListOptions{ParentID: parentID, SpaceKey: spaceKey, RevealID: revealID, Query: query, Cursor: cursor, Limit: limit})
+		page, err := h.service.ListAvailableResourcePage(
+			ctx,
+			id,
+			types.ResourceListOptions{
+				ParentID: parentID,
+				SpaceKey: spaceKey,
+				RevealID: revealID,
+				Query:    query,
+				Cursor:   cursor,
+				Limit:    limit,
+			},
+		)
 		if err != nil {
 			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 			return
@@ -603,7 +617,10 @@ func (h *DataSourceHandler) GetSyncLogs(c *gin.Context) {
 	if l := c.Query("limit"); l != "" {
 		v, err := strconv.Atoi(l)
 		if err != nil || v <= 0 || v > maxListPageSize {
-			c.JSON(http.StatusBadRequest, gin.H{"error": "limit must be between 1 and " + strconv.Itoa(maxListPageSize)})
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{"error": "limit must be between 1 and " + strconv.Itoa(maxListPageSize)},
+			)
 			return
 		}
 		limit = v

@@ -41,9 +41,17 @@ func TestEmbeddingHeaderTimeoutIsLocalOnlyWithHealthyRuntime(t *testing.T) {
 				}
 				return wire.RoundTrip(req)
 			})
-			httpClient := &http.Client{Timeout: 100 * time.Millisecond, Transport: Transport{Base: base, Embedding: true}}
+			httpClient := &http.Client{
+				Timeout:   100 * time.Millisecond,
+				Transport: Transport{Base: base, Embedding: true},
+			}
 			ctx := WithScope(context.Background(), "affected-source")
-			req, err := http.NewRequestWithContext(ctx, http.MethodPost, srv.URL+"/slow", strings.NewReader(`{"input":["test"]}`))
+			req, err := http.NewRequestWithContext(
+				ctx,
+				http.MethodPost,
+				srv.URL+"/slow",
+				strings.NewReader(`{"input":["test"]}`),
+			)
 			if err != nil {
 				t.Fatal(err)
 			}
@@ -55,12 +63,18 @@ func TestEmbeddingHeaderTimeoutIsLocalOnlyWithHealthyRuntime(t *testing.T) {
 			if tripped != lostPermit {
 				t.Fatalf("wrong shared stop after local request drained: lostPermit=%t", lostPermit)
 			}
-			if client.HLen(context.Background(), g.key("inflight")).Val() != 0 || client.ZCard(context.Background(), g.key("window")).Val() != 1 {
+			if client.HLen(context.Background(), g.key("inflight")).Val() != 0 ||
+				client.ZCard(context.Background(), g.key("window")).Val() != 1 {
 				t.Fatal("timeout leaked a slot or refunded its wire charge")
 			}
 			if !lostPermit {
 				healthy := WithScope(context.Background(), "independent-source")
-				next, err := http.NewRequestWithContext(healthy, http.MethodPost, srv.URL+"/healthy", strings.NewReader(`{"input":["test"]}`))
+				next, err := http.NewRequestWithContext(
+					healthy,
+					http.MethodPost,
+					srv.URL+"/healthy",
+					strings.NewReader(`{"input":["test"]}`),
+				)
 				if err != nil {
 					t.Fatal(err)
 				}

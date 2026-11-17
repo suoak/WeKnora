@@ -67,12 +67,12 @@ const (
 type DataSource struct {
 	SyncHealth *DataSourceSyncHealth `json:"sync_health,omitempty" gorm:"-"`
 	// Server-owned document policy. Generic edits must not replace it or change ACLs.
-	DocumentDeferrals JSON `json:"-" gorm:"type:jsonb;not null;default:'[]'"`
+	DocumentDeferrals JSON `json:"-"                     gorm:"type:jsonb;not null;default:'[]'"`
 	// Source-local access quarantine, independent from scheduler status.
 	// Generic datasource edits cannot write this server-owned field.
-	LegacyAccessState string `json:"-" gorm:"default:unmanaged"`
+	LegacyAccessState string `json:"-"                     gorm:"default:unmanaged"`
 	// Unique identifier
-	ID string `json:"id" gorm:"type:varchar(36);primaryKey"`
+	ID string `json:"id"                    gorm:"type:varchar(36);primaryKey"`
 
 	// Workspace ID for multi-workspace isolation
 	TenantID uint64 `json:"tenant_id" gorm:"index"`
@@ -165,7 +165,7 @@ type SyncLog struct {
 
 	// Generation distinguishes attempts of one logical run. Claimed distinguishes
 	// queued/retry-waiting from executing without changing public status values.
-	ExecutionGeneration int64 `json:"-" gorm:"not null;default:0"`
+	ExecutionGeneration int64 `json:"-"                 gorm:"not null;default:0"`
 	ExecutionClaimed    bool  `json:"execution_claimed" gorm:"not null;default:false"`
 
 	// Reference to the data source

@@ -45,7 +45,12 @@ func (c *client) pickerSpace(ctx context.Context, id, key string) (space, error)
 
 // Return only the selected page's ancestor chain, never a whole-site listing.
 // Every supplied ID is checked against the authenticated page/space responses.
-func (c *Connector) pickerSelectionPath(ctx context.Context, client *client, cfg config, id string) (*types.ResourcePage, error) {
+func (c *Connector) pickerSelectionPath(
+	ctx context.Context,
+	client *client,
+	cfg config,
+	id string,
+) (*types.ResourcePage, error) {
 	ref, err := parseResourceID(id)
 	if err != nil {
 		return nil, err
@@ -88,7 +93,10 @@ func (c *Connector) pickerSelectionPath(ctx context.Context, client *client, cfg
 	}
 	ancestors := full.Ancestors
 	if cfg.cloud() {
-		ancestors, err = client.listCloudHierarchy(ctx, "/api/v2/pages/"+url.PathEscape(ref.PageID)+"/ancestors?limit=250")
+		ancestors, err = client.listCloudHierarchy(
+			ctx,
+			"/api/v2/pages/"+url.PathEscape(ref.PageID)+"/ancestors?limit=250",
+		)
 		if err != nil {
 			return nil, err
 		}

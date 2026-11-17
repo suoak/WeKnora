@@ -25,11 +25,24 @@ func builtinTestEnv(t *testing.T) {
 func TestBuiltinConfluenceLocksDestinationAndCredentials(t *testing.T) {
 	builtinTestEnv(t)
 	ds := &types.DataSourceConfig{
-		Settings:    map[string]interface{}{"credential_source": "system", "base_url": "http://attacker.test", "edition": "cloud", "username": "attacker"},
-		Credentials: map[string]interface{}{"base_url": "http://attacker.test", "password": "attacker", "api_token": "attacker", "username": "attacker"},
+		Settings: map[string]interface{}{
+			"credential_source": "system",
+			"base_url":          "http://attacker.test",
+			"edition":           "cloud",
+			"username":          "attacker",
+		},
+		Credentials: map[string]interface{}{
+			"base_url":  "http://attacker.test",
+			"password":  "attacker",
+			"api_token": "attacker",
+			"username":  "attacker",
+		},
 	}
 	cfg, err := parseConfig(ds)
-	if err != nil || cfg.baseURL != "http://confluence.internal/wiki" || cfg.username != "system-user-sentinel" || cfg.secret != "system-password-sentinel" || !cfg.systemAccount || cfg.cloud() {
+	if err != nil || cfg.baseURL != "http://confluence.internal/wiki" || cfg.username != "system-user-sentinel" ||
+		cfg.secret != "system-password-sentinel" ||
+		!cfg.systemAccount ||
+		cfg.cloud() {
 		t.Fatalf("system profile was overridden (err=%v)", err)
 	}
 	body, err := json.Marshal(BuiltinProfileInfo())
@@ -38,7 +51,9 @@ func TestBuiltinConfluenceLocksDestinationAndCredentials(t *testing.T) {
 	}
 	ds.StripNonSecretCredentials(types.ConnectorTypeConfluence)
 	blob, err := ds.ToJSON()
-	if err != nil || strings.Contains(string(blob), "attacker") || strings.Contains(string(blob), cfg.secret) || strings.Contains(string(blob), cfg.username) || len(ds.Credentials) != 0 {
+	if err != nil || strings.Contains(string(blob), "attacker") || strings.Contains(string(blob), cfg.secret) ||
+		strings.Contains(string(blob), cfg.username) ||
+		len(ds.Credentials) != 0 {
 		t.Fatal("system credentials or overrides persisted")
 	}
 }
@@ -58,9 +73,17 @@ func TestBuiltinConfluenceUnavailableNeverFallsBack(t *testing.T) {
 
 func TestBuiltinConfluenceRawReferenceCanonicalizesWithoutCredentials(t *testing.T) {
 	builtinTestEnv(t)
-	ds := &types.DataSourceConfig{Credentials: map[string]interface{}{"credential_source": "system", "username": "override", "password": "override", "base_url": "http://attacker.test"}}
+	ds := &types.DataSourceConfig{
+		Credentials: map[string]interface{}{
+			"credential_source": "system",
+			"username":          "override",
+			"password":          "override",
+			"base_url":          "http://attacker.test",
+		},
+	}
 	ds.StripNonSecretCredentials(types.ConnectorTypeConfluence)
-	if !ds.UsesSystemConfluence() || !ds.HasConfiguredCredentials(types.ConnectorTypeConfluence) || len(ds.Credentials) != 0 {
+	if !ds.UsesSystemConfluence() || !ds.HasConfiguredCredentials(types.ConnectorTypeConfluence) ||
+		len(ds.Credentials) != 0 {
 		t.Fatal("raw system reference was not canonicalized")
 	}
 	cfg, err := parseConfig(ds)
@@ -89,9 +112,16 @@ func TestBuiltinConfluenceSecretFileAndSafeErrors(t *testing.T) {
 
 func TestBuiltinConfluenceHidesUpstreamAuthResponse(t *testing.T) {
 	builtinTestEnv(t)
-	client := &client{cfg: config{baseURL: "http://confluence.internal", systemAccount: true}, http: &http.Client{Transport: roundTripper(func(_ *http.Request) (*http.Response, error) {
-		return &http.Response{StatusCode: 401, Body: io.NopCloser(strings.NewReader("system-user-sentinel system-password-sentinel")), Header: http.Header{}}, nil
-	})}}
+	client := &client{
+		cfg: config{baseURL: "http://confluence.internal", systemAccount: true},
+		http: &http.Client{Transport: roundTripper(func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: 401,
+				Body:       io.NopCloser(strings.NewReader("system-user-sentinel system-password-sentinel")),
+				Header:     http.Header{},
+			}, nil
+		})},
+	}
 	err := client.get(context.Background(), "/rest/api/space?limit=1", nil)
 	if err == nil || strings.Contains(err.Error(), "sentinel") {
 		t.Fatal("upstream auth failure exposed system identity")
@@ -100,7 +130,11 @@ func TestBuiltinConfluenceHidesUpstreamAuthResponse(t *testing.T) {
 
 func TestSystemAccountRedirectStaysOnConfiguredOrigin(t *testing.T) {
 	policy := systemAccountRedirectPolicy("http://confluence.internal/wiki", nil)
-	for _, target := range []string{"http://evil.confluence.internal/rest/api/space", "http://attacker.test/", "https://confluence.internal/rest/api/space"} {
+	for _, target := range []string{
+		"http://evil.confluence.internal/rest/api/space",
+		"http://attacker.test/",
+		"https://confluence.internal/rest/api/space",
+	} {
 		req, _ := http.NewRequest(http.MethodGet, target, nil)
 		if policy(req, nil) == nil {
 			t.Fatalf("accepted off-origin redirect: %s", target)

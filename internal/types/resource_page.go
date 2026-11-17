@@ -10,6 +10,7 @@ type ResourceListOptions struct {
 	Limit    int
 }
 
+// ResourcePage returns one bounded resource page and its opaque continuation.
 type ResourcePage struct {
 	Items      []Resource `json:"items"`
 	NextCursor string     `json:"next_cursor,omitempty"`

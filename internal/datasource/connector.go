@@ -54,7 +54,11 @@ type Connector interface {
 	// FetchIncremental performs an incremental sync based on the provided cursor.
 	// Returns items that have changed since the last sync, a new cursor for the next sync,
 	// and an error if the operation fails.
-	FetchIncremental(ctx context.Context, config *types.DataSourceConfig, cursor *types.SyncCursor) ([]types.FetchedItem, *types.SyncCursor, error)
+	FetchIncremental(
+		ctx context.Context,
+		config *types.DataSourceConfig,
+		cursor *types.SyncCursor,
+	) ([]types.FetchedItem, *types.SyncCursor, error)
 }
 
 // DocumentConnector is optional. A targeted read preserves the full configured
@@ -190,9 +194,11 @@ type ConnectorMetadata struct {
 	Name          string                             `json:"name"`
 	Description   string                             `json:"description"`
 	Icon          string                             `json:"icon,omitempty"`
-	Priority      int                                `json:"priority"`     // Priority order for UI display (lower = higher priority)
-	AuthType      string                             `json:"auth_type"`    // "oauth2", "api_key", "token", etc.
-	Capabilities  []string                           `json:"capabilities"` // "incremental", "webhook", "deletion_sync", etc.
+	// Priority order for UI display (lower = higher priority).
+	Priority int    `json:"priority"`
+	AuthType string `json:"auth_type"` // "oauth2", "api_key", "token", etc.
+	// Capabilities include "incremental", "webhook" and "deletion_sync".
+	Capabilities []string `json:"capabilities"`
 }
 
 // GetConnectorMetadata returns metadata for all available connectors

@@ -372,8 +372,9 @@ func embeddingHeaderTimeoutIsLocal(caller context.Context, g *Guard, err error) 
 	deadline, hasDeadline := caller.Deadline()
 	expired := errors.Is(caller.Err(), context.DeadlineExceeded) ||
 		(hasDeadline && !time.Now().Before(deadline) && !errors.Is(err, io.ErrUnexpectedEOF))
-	if !errors.Is(err, context.DeadlineExceeded) &&
-		!(errors.As(err, &networkError) && networkError.Timeout()) && !expired {
+	timedOut := errors.Is(err, context.DeadlineExceeded) ||
+		(errors.As(err, &networkError) && networkError.Timeout()) || expired
+	if !timedOut {
 		return false
 	}
 	if g == nil || g.localClosed.Load() || errors.Is(caller.Err(), context.Canceled) {

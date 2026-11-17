@@ -20,14 +20,27 @@ type stubDataSourceService struct {
 	listPage      func(context.Context, string, types.ResourceListOptions) (*types.ResourcePage, error)
 }
 
-func (s *stubDataSourceService) ListAvailableResources(ctx context.Context, id, parent string) ([]types.Resource, error) {
+func (s *stubDataSourceService) ListAvailableResources(
+	ctx context.Context,
+	id, parent string,
+) ([]types.Resource, error) {
 	return s.listResources(ctx, id, parent)
 }
-func (s *stubDataSourceService) ListAvailableResourcePage(ctx context.Context, id string, options types.ResourceListOptions) (*types.ResourcePage, error) {
+
+func (s *stubDataSourceService) ListAvailableResourcePage(
+	ctx context.Context,
+	id string,
+	options types.ResourceListOptions,
+) (*types.ResourcePage, error) {
 	return s.listPage(ctx, id, options)
 }
 
-func (s *stubDataSourceService) GetSyncLogs(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
+func (s *stubDataSourceService) GetSyncLogs(
+	ctx context.Context,
+	dsID string,
+	limit int,
+	offset int,
+) ([]*types.SyncLog, error) {
 	if s.getSyncLogs != nil {
 		return s.getSyncLogs(ctx, dsID, limit, offset)
 	}

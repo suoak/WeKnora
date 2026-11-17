@@ -12,7 +12,12 @@ import (
 
 func TestSystemConfluenceCredentialsCannotBeMutated(t *testing.T) {
 	svc := &stubDataSourceService{getDataSource: func(context.Context, string) (*types.DataSource, error) {
-		return &types.DataSource{ID: "managed", Type: types.ConnectorTypeConfluence, KnowledgeBaseID: "kb", Config: types.JSON(`{"settings":{"credential_source":"system"}}`)}, nil
+		return &types.DataSource{
+			ID:              "managed",
+			Type:            types.ConnectorTypeConfluence,
+			KnowledgeBaseID: "kb",
+			Config:          types.JSON(`{"settings":{"credential_source":"system"}}`),
+		}, nil
 	}}
 	kb := &stubKBServiceForDS{getByID: func(context.Context, string) (*types.KnowledgeBase, error) {
 		return &types.KnowledgeBase{ID: "kb", TenantID: 1}, nil

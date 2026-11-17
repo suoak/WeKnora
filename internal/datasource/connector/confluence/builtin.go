@@ -24,7 +24,10 @@ func BuiltinProfileInfo() types.DataSourceSystemAccountInfo {
 	return types.DataSourceSystemAccountInfo{Enabled: true, BaseURL: cfg.baseURL}
 }
 
-func systemAccountRedirectPolicy(baseURL string, previous func(*http.Request, []*http.Request) error) func(*http.Request, []*http.Request) error {
+func systemAccountRedirectPolicy(
+	baseURL string,
+	previous func(*http.Request, []*http.Request) error,
+) func(*http.Request, []*http.Request) error {
 	base, _ := url.Parse(baseURL)
 	return func(req *http.Request, via []*http.Request) error {
 		if req.URL.User != nil || req.URL.Scheme != base.Scheme || !strings.EqualFold(req.URL.Host, base.Host) {
@@ -55,7 +58,8 @@ func builtinConfig() (config, error) {
 		return config{}, unavailable
 	}
 	u, err := url.Parse(baseURL)
-	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.Scheme != "http" && u.Scheme != "https") {
+	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" ||
+		(u.Scheme != "http" && u.Scheme != "https") {
 		return config{}, unavailable
 	}
 	username := strings.TrimSpace(os.Getenv("CONFLUENCE_BUILTIN_USERNAME"))
@@ -65,7 +69,7 @@ func builtinConfig() (config, error) {
 		if err != nil {
 			return config{}, unavailable
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		raw, err := io.ReadAll(io.LimitReader(file, 16385))
 		if err != nil || len(raw) > 16384 {
 			return config{}, unavailable
@@ -75,5 +79,11 @@ func builtinConfig() (config, error) {
 	if username == "" || password == "" {
 		return config{}, unavailable
 	}
-	return config{edition: editionServer, baseURL: baseURL, username: username, secret: password, systemAccount: true}, nil
+	return config{
+		edition:       editionServer,
+		baseURL:       baseURL,
+		username:      username,
+		secret:        password,
+		systemAccount: true,
+	}, nil
 }

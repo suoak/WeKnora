@@ -65,7 +65,7 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 		return
 	}
 	if systemManagedDataSource(ds) {
-		c.Error(errors.NewForbiddenError("system-managed credentials cannot be modified"))
+		_ = c.Error(errors.NewForbiddenError("system-managed credentials cannot be modified"))
 		return
 	}
 	var req dataSourceCredentialsPutRequest
@@ -104,7 +104,7 @@ func (h *DataSourceCredentialsHandler) DeleteField(c *gin.Context) {
 		return
 	}
 	if systemManagedDataSource(ds) {
-		c.Error(errors.NewForbiddenError("system-managed credentials cannot be removed"))
+		_ = c.Error(errors.NewForbiddenError("system-managed credentials cannot be removed"))
 		return
 	}
 	field := c.Param("field")

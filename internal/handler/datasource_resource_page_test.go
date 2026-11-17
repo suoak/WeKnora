@@ -37,9 +37,14 @@ func TestResourcePageKeepsLegacyArrayAndValidatesOptions(t *testing.T) {
 		status int
 		body   string
 	}{
-		{"", 1, 200, "[]"}, {"?paged=true", 1, 200, `{"items":[],"next_cursor":"next"}`},
-		{"?paged=true&limit=0", 1, 400, ""}, {"?paged=true&limit=101", 1, 400, ""}, {"?paged=true&limit=no", 1, 400, ""},
-		{"?paged=true&parent_id=1&q=query", 1, 400, ""}, {"?paged=true", 2, 403, ""}, {"?paged=true", 0, 401, ""},
+		{"", 1, 200, "[]"},
+		{"?paged=true", 1, 200, `{"items":[],"next_cursor":"next"}`},
+		{"?paged=true&limit=0", 1, 400, ""},
+		{"?paged=true&limit=101", 1, 400, ""},
+		{"?paged=true&limit=no", 1, 400, ""},
+		{"?paged=true&parent_id=1&q=query", 1, 400, ""},
+		{"?paged=true", 2, 403, ""},
+		{"?paged=true", 0, 401, ""},
 		{"?paged=true&reveal_id=page%3A1%3A30&cursor=token", 1, 400, ""},
 		{"?paged=true&reveal_id=page%3A1%3A30&parent_id=1", 1, 400, ""},
 		{"?paged=true&parent_id=1&space_key=ENG&cursor=token", 1, 200, `{"items":[],"next_cursor":"next"}`},
@@ -47,14 +52,18 @@ func TestResourcePageKeepsLegacyArrayAndValidatesOptions(t *testing.T) {
 	} {
 		before := calls
 		w := httptest.NewRecorder()
-		router.ServeHTTP(w, withDSCtx(httptest.NewRequest(http.MethodGet, "/datasource/id/resources"+tc.query, nil), tc.tenant))
+		router.ServeHTTP(
+			w,
+			withDSCtx(httptest.NewRequest(http.MethodGet, "/datasource/id/resources"+tc.query, nil), tc.tenant),
+		)
 		if w.Code != tc.status || tc.body != "" && strings.TrimSpace(w.Body.String()) != tc.body {
 			t.Errorf("%s: status=%d body=%s", tc.query, w.Code, w.Body.String())
 		}
 		if tc.status != 200 && calls != before {
 			t.Error("invalid/unauthorized request reached connector")
 		}
-		if strings.Contains(tc.query, "space_key=ENG") && (captured.ParentID != "1" || captured.SpaceKey != "ENG" || captured.Cursor != "token") {
+		if strings.Contains(tc.query, "space_key=ENG") &&
+			(captured.ParentID != "1" || captured.SpaceKey != "ENG" || captured.Cursor != "token") {
 			t.Errorf("lost child page options: %#v", captured)
 		}
 		if tc.status == 200 && strings.Contains(tc.query, "reveal_id=") && captured.RevealID != "page:1:30" {

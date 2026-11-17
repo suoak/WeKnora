@@ -58,10 +58,22 @@ func pickerSpaceResource(client *client, cfg config, s space) types.Resource {
 	if cfg.cloud() {
 		metadata["hierarchy_limitation"] = "cloud_top_level_containers"
 	}
-	return types.Resource{ExternalID: s.ID, Name: s.Name, Type: "space", URL: client.resourceURL(s.Links.WebUI), HasChildren: true, Metadata: metadata}
+	return types.Resource{
+		ExternalID:  s.ID,
+		Name:        s.Name,
+		Type:        "space",
+		URL:         client.resourceURL(s.Links.WebUI),
+		HasChildren: true,
+		Metadata:    metadata,
+	}
 }
 
-func (c *Connector) ListResourcePage(ctx context.Context, ds *types.DataSourceConfig, options types.ResourceListOptions) (*types.ResourcePage, error) {
+// ListResourcePage lists one permission-scoped resource page without enumerating the site.
+func (c *Connector) ListResourcePage(
+	ctx context.Context,
+	ds *types.DataSourceConfig,
+	options types.ResourceListOptions,
+) (*types.ResourcePage, error) {
 	client, cfg, err := c.configured(ds)
 	if err != nil {
 		return nil, err
@@ -70,7 +82,10 @@ func (c *Connector) ListResourcePage(ctx context.Context, ds *types.DataSourceCo
 	if options.Limit == 0 {
 		options.Limit = 50
 	}
-	if options.Limit < 1 || options.Limit > 100 || len(options.Query) > 256 || len(options.Cursor) > 4096 || len(options.ParentID) > 256 || len(options.SpaceKey) > 256 || len(options.RevealID) > 256 {
+	if options.Limit < 1 || options.Limit > 100 || len(options.Query) > 256 || len(options.Cursor) > 4096 ||
+		len(options.ParentID) > 256 ||
+		len(options.SpaceKey) > 256 ||
+		len(options.RevealID) > 256 {
 		return nil, fmt.Errorf("invalid resource page options")
 	}
 	if options.ParentID != "" && options.Query != "" {
@@ -88,7 +103,9 @@ func (c *Connector) ListResourcePage(ctx context.Context, ds *types.DataSourceCo
 	var cursor pickerCursor
 	if options.Cursor != "" {
 		raw, err := base64.RawURLEncoding.DecodeString(options.Cursor)
-		if err != nil || json.Unmarshal(raw, &cursor) != nil || cursor.Start < 0 || cursor.Query != options.Query || cursor.ParentID != options.ParentID || cursor.SpaceKey != options.SpaceKey {
+		if err != nil || json.Unmarshal(raw, &cursor) != nil || cursor.Start < 0 || cursor.Query != options.Query ||
+			cursor.ParentID != options.ParentID ||
+			cursor.SpaceKey != options.SpaceKey {
 			return nil, fmt.Errorf("invalid resource cursor")
 		}
 	}
@@ -141,7 +158,12 @@ func (c *Connector) ListResourcePage(ctx context.Context, ds *types.DataSourceCo
 			}
 			delete(c.pickerPages.entries, oldestKey)
 		}
-		c.pickerPages.entries[key] = pickerPageEntry{owner: owner, spaces: spaces, page: page, expires: time.Now().Add(pickerSpaceCacheTTL)}
+		c.pickerPages.entries[key] = pickerPageEntry{
+			owner:   owner,
+			spaces:  spaces,
+			page:    page,
+			expires: time.Now().Add(pickerSpaceCacheTTL),
+		}
 		return page, nil
 	}
 	select {
@@ -159,7 +181,13 @@ func (c *Connector) ListResourcePage(ctx context.Context, ds *types.DataSourceCo
 
 // Resolve a supplied key using the upstream API and verify its ID before using
 // it. The key is only a lookup hint, never authority to select another space.
-func (c *Connector) pickerChildPage(ctx context.Context, client *client, cfg config, options types.ResourceListOptions, cursor pickerCursor) (*types.ResourcePage, error) {
+func (c *Connector) pickerChildPage(
+	ctx context.Context,
+	client *client,
+	cfg config,
+	options types.ResourceListOptions,
+	cursor pickerCursor,
+) (*types.ResourcePage, error) {
 	ref, err := parseResourceID(options.ParentID)
 	if err != nil {
 		return nil, err
@@ -211,7 +239,17 @@ func (c *Connector) pickerChildPage(ctx context.Context, client *client, cfg con
 			}
 			for _, item := range result.Results {
 				if item.Type == "" || item.Type == "page" {
-					pages = append(pages, page{ID: item.ID, Title: item.Title, Status: item.Status, Kind: item.Type, SpaceID: item.SpaceID, Links: item.Links})
+					pages = append(
+						pages,
+						page{
+							ID:      item.ID,
+							Title:   item.Title,
+							Status:  item.Status,
+							Kind:    item.Type,
+							SpaceID: item.SpaceID,
+							Links:   item.Links,
+						},
+					)
 				}
 			}
 			next, err = client.pickerContinuation(result.Links.Next, cursor, options, len(result.Results))
@@ -227,7 +265,7 @@ func (c *Connector) pickerChildPage(ctx context.Context, client *client, cfg con
 		// Cloud's transparent containers retain the existing projection contract.
 		// A Server continuation cannot be replayed against this traversal.
 		if options.Cursor != "" {
-			return nil, fmt.Errorf("Cloud mixed hierarchy does not accept a page cursor")
+			return nil, fmt.Errorf("cloud mixed hierarchy does not accept a page cursor")
 		}
 		if err := client.validatePageOwnership(ctx, selected, ref.PageID); err != nil {
 			return nil, err
@@ -244,7 +282,11 @@ func (c *Connector) pickerChildPage(ctx context.Context, client *client, cfg con
 	return out, nil
 }
 
-func (c *client) pickerSpacePage(ctx context.Context, options types.ResourceListOptions, cursor pickerCursor) ([]space, string, error) {
+func (c *client) pickerSpacePage(
+	ctx context.Context,
+	options types.ResourceListOptions,
+	cursor pickerCursor,
+) ([]space, string, error) {
 	query := url.Values{"limit": {strconv.Itoa(options.Limit)}}
 	endpoint := "/rest/api/space"
 	if c.cfg.cloud() {
@@ -286,9 +328,12 @@ func (c *client) pickerSpacePage(ctx context.Context, options types.ResourceList
 		}
 		for _, hit := range result.Results {
 			if hit.Space.ID == "" {
-				return nil, "", fmt.Errorf("Confluence search did not return space entities; browse spaces instead")
+				return nil, "", fmt.Errorf("confluence search did not return space entities; browse spaces instead")
 			}
-			spaces = append(spaces, space{ID: hit.Space.ID.String(), Key: hit.Space.Key, Name: hit.Space.Name, Links: hit.Space.Links})
+			spaces = append(
+				spaces,
+				space{ID: hit.Space.ID.String(), Key: hit.Space.Key, Name: hit.Space.Name, Links: hit.Space.Links},
+			)
 		}
 		next = result.Links.Next
 	} else if c.cfg.cloud() {
@@ -311,7 +356,12 @@ func (c *client) pickerSpacePage(ctx context.Context, options types.ResourceList
 	return spaces, nextToken, err
 }
 
-func (c *client) pickerContinuation(next string, cursor pickerCursor, options types.ResourceListOptions, count int) (string, error) {
+func (c *client) pickerContinuation(
+	next string,
+	cursor pickerCursor,
+	options types.ResourceListOptions,
+	count int,
+) (string, error) {
 	if next == "" || count == 0 {
 		return "", nil
 	}
@@ -325,15 +375,21 @@ func (c *client) pickerContinuation(next string, cursor pickerCursor, options ty
 	if err != nil {
 		return "", err
 	}
-	nextCursor := pickerCursor{Query: options.Query, ParentID: options.ParentID, SpaceKey: options.SpaceKey, Cursor: u.Query().Get("cursor")}
+	nextCursor := pickerCursor{
+		Query:    options.Query,
+		ParentID: options.ParentID,
+		SpaceKey: options.SpaceKey,
+		Cursor:   u.Query().Get("cursor"),
+	}
 	if raw := u.Query().Get("start"); raw != "" {
 		nextCursor.Start, err = strconv.Atoi(raw)
 		if err != nil || nextCursor.Start <= cursor.Start {
-			return "", fmt.Errorf("Confluence pagination did not advance")
+			return "", fmt.Errorf("confluence pagination did not advance")
 		}
 	}
-	if nextCursor.Cursor == "" && nextCursor.Start == 0 || nextCursor.Cursor != "" && nextCursor.Cursor == cursor.Cursor {
-		return "", fmt.Errorf("Confluence pagination did not advance")
+	if nextCursor.Cursor == "" && nextCursor.Start == 0 ||
+		nextCursor.Cursor != "" && nextCursor.Cursor == cursor.Cursor {
+		return "", fmt.Errorf("confluence pagination did not advance")
 	}
 	raw, _ := json.Marshal(nextCursor)
 	return base64.RawURLEncoding.EncodeToString(raw), nil

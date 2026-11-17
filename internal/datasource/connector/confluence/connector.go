@@ -86,7 +86,10 @@ func (c *Connector) pickerSpaces(ctx context.Context, client *client, cfg config
 				break
 			}
 		}
-		c.spaceCache.entries[key] = cachedSpaces{values: append([]space(nil), spaces...), expires: time.Now().Add(pickerSpaceCacheTTL)}
+		c.spaceCache.entries[key] = cachedSpaces{
+			values:  append([]space(nil), spaces...),
+			expires: time.Now().Add(pickerSpaceCacheTTL),
+		}
 		return spaces, nil
 	})
 	select {
