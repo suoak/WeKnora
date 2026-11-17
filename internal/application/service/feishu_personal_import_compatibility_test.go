@@ -31,12 +31,17 @@ func TestPersonalWorkbookUnusedVBADeclarationPreservesCells(t *testing.T) {
 }
 
 func TestPersonalWorkbookLiteralHyperlinks(t *testing.T) {
-	for _, target := range []string{"https://example.org/path", "mailto:team@example.org", "ssh://git@example.org/repo"} {
+	for _, target := range []string{
+		"https://example.org/path", "mailto:team@example.org", "ssh://git@example.org/repo",
+	} {
 		t.Run(target, func(t *testing.T) {
 			require.True(t, exactWorkbookLiteralHyperlink(target, true))
 		})
 	}
-	for _, target := range []string{"file:///etc/passwd", "javascript:alert(1)", "data:text/plain,test", "ssh://user:password@example.org/repo", "https://user@example.org", "mailto:", "https://example.org/\n"} {
+	for _, target := range []string{
+		"file:///etc/passwd", "javascript:alert(1)", "data:text/plain,test",
+		"ssh://user:password@example.org/repo", "https://user@example.org", "mailto:", "https://example.org/\n",
+	} {
 		t.Run(target, func(t *testing.T) {
 			require.False(t, exactWorkbookLiteralHyperlink(target, true))
 		})
@@ -90,20 +95,30 @@ func TestPersonalWorkbookKeepsCoveredMergedValuesAndWideColumns(t *testing.T) {
 func TestPersonalWorkbookDetachedCommentsRemainExplicitlyUnassigned(t *testing.T) {
 	person := "11111111-1111-4111-8111-111111111111"
 	parts := map[string][]byte{
-		"xl/persons/person.xml":          []byte(`<personList xmlns="` + standaloneThreadNS + `"><person id="` + person + `" displayName="Author"/></personList>`),
-		"xl/threadedcomments/thread.xml": []byte(`<ThreadedComments xmlns="` + standaloneThreadNS + `"><threadedComment id="22222222-2222-4222-8222-222222222222" personId="` + person + `" ref="A1"><text>Detached source annotation</text></threadedComment></ThreadedComments>`),
+		"xl/persons/person.xml": []byte(`<personList xmlns="` + standaloneThreadNS +
+			`"><person id="` + person + `" displayName="Author"/></personList>`),
+		"xl/threadedcomments/thread.xml": []byte(`<ThreadedComments xmlns="` + standaloneThreadNS +
+			`"><threadedComment id="22222222-2222-4222-8222-222222222222" personId="` + person +
+			`" ref="A1"><text>Detached source annotation</text></threadedComment></ThreadedComments>`),
 	}
 	notes, err := standaloneThreadFacts(parts, []standaloneWorkbookSheet{{Part: "xl/worksheets/sheet1.xml"}})
 	require.NoError(t, err)
-	require.Contains(t, notes["xl/worksheets/sheet1.xml"], "Unassigned workbook threaded comment (xl/threadedcomments/thread.xml)")
+	require.Contains(t, notes["xl/worksheets/sheet1.xml"],
+		"Unassigned workbook threaded comment (xl/threadedcomments/thread.xml)")
 	require.Contains(t, notes["xl/worksheets/sheet1.xml"], "Detached source annotation")
-	parts["xl/threadedcomments/thread.xml"] = []byte(strings.ReplaceAll(string(parts["xl/threadedcomments/thread.xml"]), person, "33333333-3333-4333-8333-333333333333"))
+	parts["xl/threadedcomments/thread.xml"] = []byte(strings.ReplaceAll(
+		string(parts["xl/threadedcomments/thread.xml"]), person, "33333333-3333-4333-8333-333333333333"))
 	_, err = standaloneThreadFacts(parts, []standaloneWorkbookSheet{{Part: "xl/worksheets/sheet1.xml"}})
 	require.Error(t, err, "detached comments still require a validated author")
 }
 
 func TestPersonalWorkbookChartFactsPreserveTitleAndCachedValues(t *testing.T) {
-	chart := `<c:chartSpace xmlns:c="` + standaloneChartNS + `" xmlns:a="` + exactDrawingMainNamespace + `"><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Source title</a:t></a:r></a:p></c:rich></c:tx></c:title><c:plotArea><c:pieChart><c:ser><c:idx val="0"/><c:val><c:numRef><c:f>Sheet1!$A$1</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="1"/><c:pt idx="0"><c:v>42</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser></c:pieChart></c:plotArea></c:chart></c:chartSpace>`
+	chart := `<c:chartSpace xmlns:c="` + standaloneChartNS + `" xmlns:a="` + exactDrawingMainNamespace +
+		`"><c:chart><c:title><c:tx><c:rich><a:bodyPr/><a:p><a:r><a:t>Source title</a:t></a:r></a:p>` +
+		`</c:rich></c:tx></c:title><c:plotArea><c:pieChart><c:ser><c:idx val="0"/><c:val><c:numRef>` +
+		`<c:f>Sheet1!$A$1</c:f><c:numCache><c:formatCode>General</c:formatCode><c:ptCount val="1"/>` +
+		`<c:pt idx="0"><c:v>42</c:v></c:pt></c:numCache></c:numRef></c:val></c:ser>` +
+		`</c:pieChart></c:plotArea></c:chart></c:chartSpace>`
 	facts, err := standaloneChartFacts([]byte(chart))
 	require.NoError(t, err)
 	require.Contains(t, facts, "Source title")

@@ -115,7 +115,8 @@ func standaloneThreadFacts(parts map[string][]byte, sheets []standaloneWorkbookS
 				commentIDs[id.String()] = true
 				fmtText := "\nThreaded comment cell %s: author=%s; date=%s; text=%s\n"
 				if unassigned {
-					fmtText = "\nUnassigned workbook threaded comment (" + part + ") cell %s: author=%s; date=%s; text=%s\n"
+					fmtText = "\nUnassigned workbook threaded comment (" + part +
+						") cell %s: author=%s; date=%s; text=%s\n"
 				}
 				notes[sheet.Part] += fmt.Sprintf(fmtText, row.Ref, standaloneFactText(people[person.String()]),
 					standaloneFactText(row.Date), standaloneFactText(row.Text))
