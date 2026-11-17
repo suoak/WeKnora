@@ -58,8 +58,9 @@ type HousekeepingService struct {
 	started                          bool
 	sourceDocumentRecoveryRegistered bool
 
-	kickMu    sync.Mutex
-	wikiKicks map[string]time.Time
+	kickMu             sync.Mutex
+	wikiKicks          map[string]time.Time
+	personalWikiCursor int64
 
 	queuedMu  sync.Mutex
 	queuedIDs map[string]struct{}
@@ -141,6 +142,7 @@ func (h *HousekeepingService) StopWithin(timeout time.Duration) {
 // runSweep is exported on the type for testability — tests can drive a
 // single sweep without waiting for the cron tick.
 func (h *HousekeepingService) runSweep(ctx context.Context) {
+	h.recoverPersonalWikiHandoffs(ctx)
 	h.rearmExpiredWikiBlocks(ctx)
 	if wikiDocumentSelectionEnabled() && h.task != nil {
 		targets, err := apprepo.RecheckWikiSkippedOperations(ctx, h.db, 32)
