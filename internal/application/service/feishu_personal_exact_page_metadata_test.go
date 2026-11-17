@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"testing"
@@ -9,6 +10,27 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPersonalRecoveryPreflightReasonIsVisibleWithoutBody(t *testing.T) {
+	f, attempt, _ := pendingExactFixture(t)
+	ctx := types.WithPrincipal(f.ctx, types.Principal{Type: types.PrincipalWebUser, ID: "A"})
+	ctx = types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "A", Role: types.TenantRoleAdmin})
+	ctx = types.WithExecutionTenant(ctx, 1)
+	require.NoError(t, f.p.repo.RecordPreflightDeferral(context.Background(), attempt, "embedded_dependency_unsupported"))
+	rows, err := f.p.exactPageMetadata(ctx, 1, "kb", []string{attempt.LogicalKnowledgeID})
+	require.NoError(t, err)
+	require.Len(t, rows, 1)
+	require.True(t, rows[0].MetadataOnly)
+	require.Equal(t, types.ParseStatusPending, rows[0].ParseStatus)
+	require.Contains(t, rows[0].ErrorMessage, "无需重复导入")
+	require.Empty(t, rows[0].Title)
+	require.Empty(t, rows[0].Description)
+	require.NoError(t, f.db.Table("feishu_personal_attempts").Where("id=?", attempt.ID).
+		Update("last_error_category", "https://untrusted.invalid/private-message").Error)
+	rows, err = f.p.exactPageMetadata(ctx, 1, "kb", []string{attempt.LogicalKnowledgeID})
+	require.NoError(t, err)
+	require.Empty(t, rows[0].ErrorMessage, "unrecognized categories never expose raw diagnostics")
+}
 
 func TestPersonalRecoveryExactPageMetadataKeepsAllFilesWithoutContent(t *testing.T) {
 	for _, historical := range []bool{false, true} {

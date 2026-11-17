@@ -8,6 +8,7 @@ import DocumentFileIcon from './DocumentFileIcon.vue';
 import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
+import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
 
 interface Tag {
   id: string;
@@ -25,6 +26,7 @@ interface KnowledgeItem {
   type?: string;
   tags?: Tag[];
   parse_status?: string;
+  error_message?: string;
   summary_status?: string;
   updated_at?: string;
   source?: string;
@@ -326,7 +328,7 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
           <template v-if="statusByRow.get(item.id) as StatusInfo | undefined">
             <t-tag v-if="statusByRow.get(item.id)!.label !== '--'" size="small" :theme="statusByRow.get(item.id)!.theme"
               variant="light" class="row-status-tag" :class="`status-${statusByRow.get(item.id)!.theme}`"
-              :title="statusByRow.get(item.id)!.hint">
+              :title="conciseProcessingError(item.error_message) || statusByRow.get(item.id)!.hint">
               <template v-if="statusByRow.get(item.id)!.icon" #icon>
                 <t-icon :name="statusByRow.get(item.id)!.icon!"
                   :class="{ 'icon-spin': statusByRow.get(item.id)!.spin }" />

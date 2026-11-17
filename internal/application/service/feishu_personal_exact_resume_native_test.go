@@ -41,6 +41,10 @@ func resumeNativeDOCX(t *testing.T) []byte {
 }
 
 func resumeNativeDOCXWithText(t *testing.T, text string) []byte {
+	return resumeNativeDOCXParagraphs(t, text, 20)
+}
+
+func resumeNativeDOCXParagraphs(t *testing.T, text string, paragraphs int) []byte {
 	t.Helper()
 	parts := map[string]string{
 		"[Content_Types].xml": `<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">` +
@@ -55,7 +59,7 @@ func resumeNativeDOCXWithText(t *testing.T, text string) []byte {
 			`Target="word/document.xml"/></Relationships>`,
 		"word/document.xml": `<w:document ` +
 			`xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>` +
-			strings.Repeat(`<w:p><w:r><w:t>`+text+`</w:t></w:r></w:p>`, 20) +
+			strings.Repeat(`<w:p><w:r><w:t>`+text+`</w:t></w:r></w:p>`, paragraphs) +
 			`</w:body></w:document>`,
 	}
 	var buffer bytes.Buffer
@@ -68,6 +72,20 @@ func resumeNativeDOCXWithText(t *testing.T, text string) []byte {
 	}
 	require.NoError(t, writer.Close())
 	return buffer.Bytes()
+}
+
+func TestPersonalExactShortSourcePublishesWithoutOptionalSummary(t *testing.T) {
+	for _, images := range []bool{false, true} {
+		t.Run(fmt.Sprint("images=", images), func(t *testing.T) {
+			data := resumeNativeDOCXParagraphs(t, "复盘", 1)
+			if images {
+				data = resumeNativeImageDOCX(t, data)
+			}
+			exerciseNativeResumeWithFormat(t, false, images, data, nativeResumeFormatOptions{
+				Format: "docx", SummarySkipped: true,
+			})
+		})
+	}
 }
 
 func TestPersonalExactResumeNativePublishesRetainedChunksWithoutDuplicates(t *testing.T) {
@@ -159,10 +177,12 @@ func exerciseNativeResumeWithData(t *testing.T, empty, withImages bool, data []b
 }
 
 type nativeResumeFormatOptions struct {
-	Format               string
-	AuthorizationFailure bool
-	PendingDispatch      bool
-	AssertClosed         func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
+	Format                   string
+	AuthorizationFailure     bool
+	PendingDispatch          bool
+	SummarySkipped           bool
+	SkipAdditionalReadMatrix bool
+	AssertClosed             func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
 }
 
 func exerciseNativeResumeWithFormat(
@@ -408,7 +428,14 @@ func exerciseNativeResumeWithFormat(
 	var summaryRows int64
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type='summary'", knowledge.ID).
 		Count(&summaryRows).Error)
-	require.EqualValues(t, 1, summaryRows)
+	if options.SummarySkipped {
+		require.Zero(t, summaryRows)
+		var summaryStatus string
+		require.NoError(t, f.db.Table("knowledges").Select("summary_status").Where("id=?", knowledge.ID).Scan(&summaryStatus).Error)
+		require.Equal(t, types.SummaryStatusFailed, summaryStatus)
+	} else {
+		require.EqualValues(t, 1, summaryRows)
+	}
 	current := mustPersonalAttempt(t, f, owner.ID)
 	require.Equal(t, "indexed", current.Status)
 	require.Nil(t, current.LeaseUntil)
@@ -442,6 +469,9 @@ func exerciseNativeResumeWithFormat(
 	require.NotEmpty(t, results, "normal hybrid search must return the published retained source")
 	for _, hit := range results {
 		require.Equal(t, knowledge.ID, hit.KnowledgeID)
+	}
+	if options.SkipAdditionalReadMatrix {
+		return
 	}
 	if withImages {
 		var bound int64

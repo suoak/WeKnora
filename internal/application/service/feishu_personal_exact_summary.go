@@ -4,10 +4,57 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/types"
 )
+
+// An optional summary has no output when a checked source is too short. This
+// does not relax source, chunk, embedding or publication proofs: every body
+// still belongs to this parser execution, and publication rechecks its digest.
+// Never apply this fallback to model errors, stale sources or unknown output.
+func (c *exactPersonalConsumer) acceptAbsentSummary(ctx context.Context, knowledge *types.Knowledge) error {
+	if !c.indexed || c.parsed == nil || knowledge == nil ||
+		knowledge.ID != c.source.knowledge || knowledge.TenantID != c.source.tenant ||
+		knowledge.KnowledgeBaseID != c.source.kb || knowledge.Description != "" ||
+		knowledge.Profile != nil || knowledge.CustomMetadataText() != "" ||
+		knowledge.SummaryStatus != types.SummaryStatusFailed {
+		return errPersonalExactDocument
+	}
+	if _, err := c.recovery.revalidateExactPersonalDocument(ctx, c.source); err != nil {
+		return err
+	}
+	ks := c.recovery.service.knowledge.(*knowledgeService)
+	chunks, err := ks.chunkRepo.ListChunksByKnowledgeID(ctx, c.source.tenant, c.source.knowledge)
+	if err != nil {
+		return err
+	}
+	if err := c.verifyParserChunks(chunks); err != nil {
+		return err
+	}
+	var content strings.Builder
+	textChunks := 0
+	for _, chunk := range chunks {
+		if chunk.ChunkType == types.ChunkTypeParentText {
+			continue
+		}
+		if chunk.ChunkType != types.ChunkTypeText {
+			return errPersonalExactDocument
+		}
+		content.WriteString(chunk.Content)
+		textChunks++
+	}
+	if textChunks == 0 || realTextRuneCount(content.String()) >= minTextContentRunes {
+		return errPersonalExactDocument
+	}
+	c.derived, err = exactDerivedDigest("", nil)
+	if err != nil {
+		return err
+	}
+	c.derivedReady, c.summarySkipped = true, true
+	return nil
+}
 
 func exactDerivedDigest(summary string, profile *types.KnowledgeProfile) ([32]byte, error) {
 	data, err := json.Marshal(struct {

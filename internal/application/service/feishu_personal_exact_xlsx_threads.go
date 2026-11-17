@@ -51,16 +51,36 @@ func standaloneThreadFacts(parts map[string][]byte, sheets []standaloneWorkbookS
 	}
 	used := map[string]bool{}
 	commentIDs := map[string]bool{}
+	referenced := map[string]bool{}
 	for _, sheet := range sheets {
 		rels, err := standaloneWorkbookRelations(parts, sheet.Part)
 		if err != nil {
 			return nil, err
 		}
 		for _, rel := range rels {
+			if rel.Type == standaloneThreadRelation {
+				referenced[standaloneRelationshipTarget(sheet.Part, rel)] = true
+			}
+		}
+	}
+	for sheetIndex, sheet := range sheets {
+		rels, err := standaloneWorkbookRelations(parts, sheet.Part)
+		if err != nil {
+			return nil, err
+		}
+		if sheetIndex == 0 {
+			for _, part := range standaloneSortedKeys(parts) {
+				if strings.HasPrefix(part, "xl/threadedcomments/") && !referenced[part] {
+					rels = append(rels, standaloneWorkbookRelation{Type: standaloneThreadRelation, Target: "/" + part})
+				}
+			}
+		}
+		for _, rel := range rels {
 			if rel.Type != standaloneThreadRelation {
 				continue
 			}
 			part := standaloneRelationshipTarget(sheet.Part, rel)
+			unassigned := !referenced[part]
 			if used[part] {
 				return nil, errExactWorkbookUnsupported
 			}
@@ -94,6 +114,9 @@ func standaloneThreadFacts(parts map[string][]byte, sheets []standaloneWorkbookS
 				byID[id.String()] = row
 				commentIDs[id.String()] = true
 				fmtText := "\nThreaded comment cell %s: author=%s; date=%s; text=%s\n"
+				if unassigned {
+					fmtText = "\nUnassigned workbook threaded comment (" + part + ") cell %s: author=%s; date=%s; text=%s\n"
+				}
 				notes[sheet.Part] += fmt.Sprintf(fmtText, row.Ref, standaloneFactText(people[person.String()]),
 					standaloneFactText(row.Date), standaloneFactText(row.Text))
 			}

@@ -87,6 +87,7 @@ AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXI
 		ID, KnowledgeBaseID, FileName, FileType, Type, FolderPath string
 		ParseStatus, SummaryStatus, EnableStatus, Channel         string
 		ExecutionError                                            string
+		PreflightError                                            string
 		TenantID                                                  uint64
 		FileSize                                                  int64
 		CreatedAt, UpdatedAt                                      time.Time
@@ -99,7 +100,9 @@ AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXI
 k.id,k.tenant_id,k.knowledge_base_id,k.file_name,k.file_type,k.type,k.folder_path,
 k.file_size,k.parse_status,k.summary_status,k.enable_status,k.channel,k.created_at,k.updated_at,
 CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS NULL
- THEN a.last_error_category ELSE '' END AS execution_error`).
+ THEN a.last_error_category ELSE '' END AS execution_error,
+CASE WHEN a.status='index_pending' AND a.owner_nonce='' AND a.lease_until IS NULL
+ THEN a.last_error_category ELSE '' END AS preflight_error`).
 			Joins("LEFT JOIN feishu_personal_resources r ON r.logical_knowledge_id=k.id").
 			Joins("LEFT JOIN feishu_personal_attempts a ON a.id=r.current_attempt_id "+
 				"AND a.caller_tenant_id=k.tenant_id").
@@ -133,6 +136,9 @@ CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS N
 			row.ErrorMessage = "Processing stopped; " +
 				"original file and unpublished output are retained for review."
 		}
+		if row.ErrorMessage == "" {
+			row.ErrorMessage = personalPreflightPublicMessage(e.PreflightError)
+		}
 		byID[e.ID] = row
 	}
 	rows := make([]*types.Knowledge, 0, len(ids))
@@ -151,6 +157,23 @@ CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS N
 		return nil, err
 	}
 	return rows, nil
+}
+
+// Finite public explanations only. Raw parser/provider errors, source URLs and
+// retained bodies must never enter the metadata-only catalog response.
+func personalPreflightPublicMessage(category string) string {
+	switch category {
+	case "embedded_dependency_unsupported":
+		return "文件结构暂不兼容，原件已保留，等待系统兼容性处理；无需重复导入。"
+	case "authorization_revalidation_failed":
+		return "飞书来源授权校验未通过，原件已保留；请检查来源权限或重新连接飞书。"
+	case "preflight_transient":
+		return "来源校验暂时失败，系统将稍后自动重试，无需重复导入。"
+	case "source_verification_required":
+		return "来源完整性校验未通过，原件已保留，等待系统检查。"
+	default:
+		return ""
+	}
 }
 
 // Batch selectors and status polling need catalog metadata, not a body grant.

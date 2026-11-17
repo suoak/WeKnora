@@ -181,10 +181,14 @@ func (c *exactPersonalConsumer) publish(ctx context.Context) error {
 				return err
 			}
 		}
+		summaryStatus := types.SummaryStatusCompleted
+		if c.summarySkipped {
+			summaryStatus = types.SummaryStatusFailed
+		}
 		if err := tx.Table("knowledges").Where("id=? AND tenant_id=?", fresh.knowledge, fresh.tenant).
 			Updates(map[string]any{
 				"parse_status": types.ParseStatusCompleted, "enable_status": "enabled",
-				"summary_status": types.SummaryStatusCompleted, "processed_at": time.Now(), "error_message": "",
+				"summary_status": summaryStatus, "processed_at": time.Now(), "error_message": "",
 			}).Error; err != nil {
 			return err
 		}
