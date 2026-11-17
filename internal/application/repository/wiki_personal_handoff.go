@@ -36,7 +36,8 @@ func WikiPersonalHandoffCandidates(
 	err := db.WithContext(ctx).Table("task_pending_ops r").
 		Select("r.id AS receipt_id,k.tenant_id,k.knowledge_base_id,k.id AS knowledge_id").
 		Joins("JOIN knowledges k ON k.id=r.scope_id AND k.tenant_id=r.tenant_id AND k.deleted_at IS NULL").
-		Joins("JOIN knowledge_bases kb ON kb.id=k.knowledge_base_id AND kb.tenant_id=k.tenant_id AND kb.deleted_at IS NULL").
+		Joins("JOIN knowledge_bases kb ON kb.id=k.knowledge_base_id AND "+
+			"kb.tenant_id=k.tenant_id AND kb.deleted_at IS NULL").
 		Where("r.scope=? AND r.op='published' AND r.id>? AND k.channel='feishu_personal' AND "+
 			"k.parse_status='completed'", types.PersonalExactReceiptScope, after).
 		Where("kb.indexing_strategy->>'wiki_enabled'='true'").

@@ -40,7 +40,8 @@ func (h *HousekeepingService) recoverPersonalWikiHandoffs(ctx context.Context) {
 		next = row.ReceiptID
 		if _, err := repository.EnsureWikiPersonalHandoff(ctx, h.db,
 			row.TenantID, row.KnowledgeBaseID, row.KnowledgeID); err != nil {
-			logger.Warnf(ctx, "[Housekeeping] Personal Wiki handoff remains unverified for %s: %v", row.KnowledgeID, err)
+			logger.Warnf(ctx, "[Housekeeping] Personal Wiki handoff remains unverified for %s: %v",
+				row.KnowledgeID, err)
 		}
 	}
 	h.kickMu.Lock()
