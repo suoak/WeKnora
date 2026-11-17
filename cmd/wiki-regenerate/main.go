@@ -37,12 +37,17 @@ func run() error {
 		"preview/apply verified native parsed documents misclassified by housekeeping; preserve old work")
 	documentPreview := flag.Bool("preview-document-selection", false,
 		"read-only preview of independently verified documents and affected historical pages")
+	personalHandoff := flag.Bool("repair-personal-handoff", false,
+		"preview/apply missing Wiki dispatch for verified published personal documents")
 	flag.Parse()
-	if *documentPreview && (*apply || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
+	if *documentPreview && (*apply || *resume || *retireEmpty || *isolatePages || *restoreParsed || *personalHandoff) {
 		return errors.New("document selection preview is read-only and cannot combine recovery modes")
 	}
 	if *retireEmpty && *resume || *isolatePages && (*resume || *retireEmpty) ||
 		*restoreParsed && (*resume || *retireEmpty || *isolatePages) {
+		return errors.New("choose one recovery mode")
+	}
+	if *personalHandoff && (*resume || *retireEmpty || *isolatePages || *restoreParsed) {
 		return errors.New("choose one recovery mode")
 	}
 	if *tenant == 0 || *kb == "" {
@@ -89,6 +94,24 @@ func run() error {
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
+	if *personalHandoff {
+		var plan *repository.WikiPersonalHandoffPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiPersonalHandoff(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		if err = json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+		if !*apply {
+			return nil
+		}
+		return enqueueGeneration(ctx, opts, *tenant, *kb)
+	}
 	if *restoreParsed {
 		var plan *repository.WikiParsedStallPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {

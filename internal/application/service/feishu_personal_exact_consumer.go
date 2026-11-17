@@ -202,6 +202,11 @@ func (p *PersonalRecovery) processExactFirstCreateConsumer(
 		if err := consumer.publish(work); err != nil {
 			return err
 		}
+		// Publication is already committed. Wiki delivery is independent and
+		// recoverable; a trigger failure must never invalidate that receipt.
+		if err := p.handoffPublishedPersonalWiki(work, proof.tenant, proof.kb, proof.knowledge); err != nil {
+			logger.Warnf(work, "Personal publication Wiki handoff deferred to housekeeping: %v", err)
+		}
 		ks.endStage(work, proof.knowledge, types.StagePostProcess,
 			types.JSONMap{"published": true, "summary_skipped_insufficient_text": consumer.summarySkipped})
 		ks.tracker().FinalizeAttempt(work, proof.knowledge, payload.Attempt,
