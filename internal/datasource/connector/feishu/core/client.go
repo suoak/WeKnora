@@ -115,7 +115,7 @@ func (c *Client) ensureRuntime() {
 }
 
 func newSafetyHTTPClient() *http.Client {
-	client := datasource.NewConnectorHTTPClientWithTLSFallback(30 * time.Second)
+	client := datasource.NewConnectorHTTPClientWithTLSResolver(30*time.Second, newFeishuDNSResolver())
 	// Some enterprise egress/CDN paths black-hole the enlarged hybrid-MLKEM
 	// ClientHello introduced by newer Go toolchains. Keep modern ECDHE and full
 	// certificate/SNI verification for Feishu, without changing other clients

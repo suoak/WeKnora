@@ -678,6 +678,9 @@ func ValidateStdioConfig(command string, args []string, envVars map[string]strin
 
 // SSRFSafeHTTPClientConfig contains configuration for the SSRF-safe HTTP client
 type SSRFSafeHTTPClientConfig struct {
+	// DNSResolver overrides only the pinned connection lookup. URL and address
+	// validation still run; nil preserves the system resolver for other clients.
+	DNSResolver             *net.Resolver
 	SameOriginRedirectsOnly bool
 	Timeout                 time.Duration
 	MaxRedirects            int

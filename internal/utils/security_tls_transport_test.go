@@ -7,6 +7,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -21,9 +22,94 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 const tlsTestHost = "open.feishu.cn"
+
+func TestSSRFTLSConnectorResolverStillValidatesEveryAddress(t *testing.T) {
+	pki := newTLSTestPKI(t)
+	cert := pki.certificate(t, tlsTestHost)
+	for _, addresses := range [][]string{{"8.8.4.4"}, {"127.0.0.1"}, {"8.8.4.4", "127.0.0.1"}} {
+		t.Run(strings.Join(addresses, ","), func(t *testing.T) {
+			dialDNS := func(context.Context, string, string) (net.Conn, error) {
+				client, server := net.Pipe()
+				go func() {
+					defer server.Close()
+					var prefix [2]byte
+					if _, err := io.ReadFull(server, prefix[:]); err != nil {
+						return
+					}
+					length := int(binary.BigEndian.Uint16(prefix[:]))
+					if length > 4096 {
+						return
+					}
+					wire := make([]byte, length)
+					if _, err := io.ReadFull(server, wire); err != nil {
+						return
+					}
+					var message dnsmessage.Message
+					if message.Unpack(wire) != nil || len(message.Questions) != 1 {
+						return
+					}
+					question := message.Questions[0]
+					message.Header.Response = true
+					message.Header.RecursionAvailable = true
+					if question.Type == dnsmessage.TypeA {
+						for _, address := range addresses {
+							ip := net.ParseIP(address).To4()
+							record := dnsmessage.Resource{
+								Header: dnsmessage.ResourceHeader{
+									Name: question.Name, Type: dnsmessage.TypeA,
+									Class: dnsmessage.ClassINET, TTL: 60,
+								},
+								Body: &dnsmessage.AResource{
+									A: [4]byte{ip[0], ip[1], ip[2], ip[3]},
+								},
+							}
+							message.Answers = append(message.Answers, record)
+						}
+					}
+					wire, err := message.Pack()
+					if err != nil {
+						return
+					}
+					binary.BigEndian.PutUint16(prefix[:], uint16(len(wire)))
+					_, _ = server.Write(append(prefix[:], wire...))
+				}()
+				return client, nil
+			}
+			resolver := &net.Resolver{PreferGo: true, Dial: dialDNS}
+			var calls atomic.Int32
+			var done <-chan struct{}
+			dial := func(_ context.Context, _, address string) (net.Conn, error) {
+				calls.Add(1)
+				if address != "8.8.4.4:443" {
+					return nil, fmt.Errorf("unexpected pinned address %s", address)
+				}
+				var conn net.Conn
+				conn, done = successfulTLSPipe(t, cert, nil)
+				return conn, nil
+			}
+			deps := tlsTestDeps([]string{"9.9.9.9"}, dial)
+			config := tlsFallbackTestConfig()
+			config.DNSResolver = resolver
+			transport := newSSRFSafeTransportWithDependencies(config, deps)
+			transport.TLSClientConfig.RootCAs = pki.rootPool
+			conn, err := transport.DialTLSContext(context.Background(), "tcp", tlsTestHost+":443")
+			if len(addresses) == 1 && addresses[0] == "8.8.4.4" {
+				if err != nil {
+					t.Fatal(err)
+				}
+				_ = conn.Close()
+				<-done
+			} else if err == nil || calls.Load() != 0 {
+				t.Fatalf("private or mixed DNS answer dialed: calls=%d err=%v", calls.Load(), err)
+			}
+		})
+	}
+}
 
 type tlsTestPKI struct {
 	rootCert *x509.Certificate

@@ -52,6 +52,9 @@ func newSSRFSafeTransportWithDependencies(
 	deps ssrfTransportDependencies,
 ) *http.Transport {
 	deps = normalizeSSRFTransportDependencies(deps)
+	if config.DNSResolver != nil {
+		deps.lookupIPAddr = config.DNSResolver.LookupIPAddr
+	}
 	transport := &http.Transport{
 		DisableKeepAlives:  config.DisableKeepAlives,
 		DisableCompression: config.DisableCompression,
