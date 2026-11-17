@@ -113,8 +113,10 @@ func (m *RecoveryManager) refreshFrozenRecovery(
 		FactsSHA256: facts.FactsSHA256, Phase: "frozen", ExpiresMS: p.ExpiresMS,
 	})
 	ids, _ := json.Marshal(q.ids)
-	args := []any{p.Trip, p.IncidentID, p.MembershipRevision, c.fingerprint + ":" + c.incarnation,
-		string(state), previous, normal, string(ids)}
+	args := []any{
+		p.Trip, p.IncidentID, p.MembershipRevision, c.fingerprint + ":" + c.incarnation,
+		string(state), previous, normal, string(ids),
+	}
 	for _, fields := range q.fields {
 		keys := make([]string, 0, len(fields))
 		for key := range fields {

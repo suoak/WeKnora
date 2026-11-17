@@ -125,7 +125,8 @@ func TestFrozenRecoveryRefreshRejectsConcurrentChangesBeforeAnyTransition(t *tes
 				case "pending":
 					require.NoError(t, f.r.RPush(ctx, "asynq:{approved_sync}:pending", "late-user-sync").Err())
 				case "payload":
-					require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:feishu-pending-0", "msg", "changed").Err())
+					require.NoError(t, f.r.HSet(ctx, "asynq:{approved_sync}:t:feishu-pending-0",
+						"msg", "changed").Err())
 				case "pause":
 					require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "operator_pause", 0).Err())
 				case "normal":

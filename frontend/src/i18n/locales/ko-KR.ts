@@ -1032,6 +1032,7 @@ const messages = {
       failed: '실패'
     },
     logStatus: {
+      queued: '동기화 대기 중',
       deferred: 'Deferred',
       running: '동기화 중',
       success: '성공',

@@ -6781,6 +6781,7 @@ const messages = {
     refreshLogs: 'ログを更新',
     noLogs: '同期記録はまだありません',
     logStatus: {
+      queued: '同期待ち',
       deferred: 'Deferred',
       running: '同期中',
       success: '成功',
