@@ -167,6 +167,57 @@ func TestSSRFTLSFallbackPolicyConstants(t *testing.T) {
 	}
 }
 
+func TestSSRFTLSFallbackReachesLastAddressAfterBlackHoles(t *testing.T) {
+	pki := newTLSTestPKI(t)
+	cert := pki.certificate(t, tlsTestHost)
+	for _, parentBound := range []bool{false, true} {
+		t.Run(fmt.Sprintf("parent_deadline_%t", parentBound), func(t *testing.T) {
+			ips := make([]string, 16)
+			for i := range ips {
+				ips[i] = fmt.Sprintf("8.8.4.%d", i+1)
+			}
+			var calls, active, maximum atomic.Int32
+			var serverDone <-chan struct{}
+			deps := tlsTestDeps(ips, func(ctx context.Context, _, addr string) (net.Conn, error) {
+				calls.Add(1)
+				current := active.Add(1)
+				defer active.Add(-1)
+				for previous := maximum.Load(); current > previous; previous = maximum.Load() {
+					if maximum.CompareAndSwap(previous, current) {
+						break
+					}
+				}
+				if addr == net.JoinHostPort(ips[len(ips)-1], "443") {
+					var conn net.Conn
+					conn, serverDone = successfulTLSPipe(t, cert, nil)
+					return conn, nil
+				}
+				<-ctx.Done()
+				return nil, ctx.Err()
+			})
+			deps.candidateTimeout = 500 * time.Millisecond
+			deps.overallTimeout = 800 * time.Millisecond
+			ctx := context.Background()
+			if parentBound {
+				var cancel context.CancelFunc
+				ctx, cancel = context.WithTimeout(ctx, deps.overallTimeout)
+				defer cancel()
+				deps.overallTimeout = 2 * time.Second
+			}
+			conn, err := ssrfSafeDialTLSContextWithDeps(ctx, "tcp", tlsTestHost+":443",
+				func() *tls.Config { return &tls.Config{RootCAs: pki.rootPool} }, deps)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_ = conn.Close()
+			<-serverDone
+			if calls.Load() != 16 || active.Load() != 0 || maximum.Load() > 3 {
+				t.Fatalf("calls=%d active=%d maximum=%d", calls.Load(), active.Load(), maximum.Load())
+			}
+		})
+	}
+}
+
 func TestSSRFSafeDialTLSBoundsConcurrency(t *testing.T) {
 	var active atomic.Int32
 	var maximum atomic.Int32

@@ -4,7 +4,7 @@
       <span>飞书账号</span>
       <div class="connection-actions">
         <t-tag v-if="connected" theme="success" variant="light">飞书已连接</t-tag>
-        <template v-else-if="connectionState === 'unknown'"><span>暂时无法检查连接状态</span><t-button variant="text" :loading="checking" @click="refreshConnection">重试</t-button></template>
+        <template v-else-if="connectionState === 'unknown'"><span>连接检查暂时失败，系统将自动重试</span><t-button variant="text" :loading="checking" @click="refreshConnection">立即重试</t-button></template>
         <template v-else-if="connectionState === 'reauthorize'"><span>飞书授权已失效</span><t-button :disabled="busy" @click="connect">重新连接</t-button></template>
         <t-button v-else :disabled="busy" @click="connect">连接飞书</t-button>
         <t-dropdown v-if="connected" :options="[{ content: '解除连接', onClick: () => { disconnectConfirm = true } }]">
@@ -58,8 +58,9 @@ const recent = ref<{id:string;kb:string}>(), showBrowser = ref(false), kind = re
 const entries = ref<FeishuResource[]>([]), cursor = ref(''), location = ref({parent:'',space:''}), trail = ref<{parent:string;space:string}[]>([])
 let mounted = true, epoch = 0, key = ''
 let connectionTimer: ReturnType<typeof setInterval> | undefined, lastCheck = 0
+let connectionRetryTimer: ReturnType<typeof setTimeout> | undefined, connectionFailures = 0
 onMounted(() => { window.addEventListener('focus', onFocus); connectionTimer = setInterval(refreshConnection, 5 * 60 * 1000) })
-onUnmounted(() => { mounted = false; epoch++; clearInterval(connectionTimer); window.removeEventListener('focus', onFocus) })
+onUnmounted(() => { mounted = false; epoch++; clearInterval(connectionTimer); clearTimeout(connectionRetryTimer); window.removeEventListener('focus', onFocus) })
 watch(linksText, () => { key = ''; accepted.value = false; message.value = '' })
 watch(targetID, () => { key = ''; accepted.value = false })
 watch(() => props.initialUrl, value => { linksText.value = value || '' })
@@ -67,10 +68,17 @@ watch(() => props.status, () => { void refreshConnection() }, {immediate:true,de
 function onFocus() { if (Date.now() - lastCheck > 10000) void refreshConnection() }
 async function refreshConnection() {
  if (checking.value) return
+ clearTimeout(connectionRetryTimer)
  checking.value = true; lastCheck = Date.now()
  try { const status = await feishuStatus(); if (mounted) { connected.value = status.connected; connectionState.value = status.connection_state || (status.connected ? 'connected' : 'disconnected') } }
  catch { if (mounted) { connected.value = false; connectionState.value = 'unknown' } }
- finally { checking.value = false }
+ finally {
+  checking.value = false
+  if (mounted && connectionState.value === 'unknown') {
+   const delay = Math.min(60000, 10000 * 2 ** Math.min(connectionFailures++, 3))
+   connectionRetryTimer = setTimeout(refreshConnection, delay)
+  } else connectionFailures = 0
+ }
 }
 async function disconnect() {
  if (checking.value) return
