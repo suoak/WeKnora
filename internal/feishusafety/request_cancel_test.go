@@ -270,10 +270,10 @@ func TestSafetyCallerDeadlinePolicy(t *testing.T) {
 			if !errors.Is(err, context.DeadlineExceeded) {
 				t.Fatalf("deadline failure lost: %v", err)
 			}
-			if embedding {
+			if embedding && headers {
 				if client.Exists(context.Background(), g.key("trip")).Val() != 1 ||
 					g.Check(context.Background()) == nil {
-					t.Fatal("embedding timeout failed open")
+					t.Fatal("partial embedding response timeout failed open")
 				}
 			} else if client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
 				g.Check(context.Background()) != nil {

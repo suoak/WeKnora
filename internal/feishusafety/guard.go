@@ -25,6 +25,10 @@ var (
 	ErrSourceAdmissionChanged = fmt.Errorf("%w: source admission changed", ErrClosed)
 	// ErrBudgetBusy indicates that a known local allocation is temporarily full.
 	ErrBudgetBusy = errors.New("feishu safety budget busy")
+	// ErrEmbeddingTemporarilyUnavailable rejects a drained request that timed
+	// out before response headers while the shared runtime fence stayed healthy.
+	ErrEmbeddingTemporarilyUnavailable = fmt.Errorf(
+		"%w: embedding response headers temporarily unavailable", context.DeadlineExceeded)
 	// ErrSourceValidationUnavailable cancels a request without consuming its response. A separate atomic
 	// Redis check has confirmed that the shared controller remains healthy.
 	ErrSourceValidationUnavailable = fmt.Errorf(
