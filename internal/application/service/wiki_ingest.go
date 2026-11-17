@@ -1504,7 +1504,7 @@ func (s *wikiIngestService) requeueFailedOps(
 		// matching +1 was seeded by KnowledgePostProcess.SetFinalizing.
 		firstAddFailure := false
 		if op.Op == WikiOpIngest && s.knowledgeSvc != nil {
-			knowledge, lookupErr := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, op.KnowledgeID)
+			knowledge, lookupErr := s.generationKnowledge(ctx, op.KnowledgeID)
 			if lookupErr != nil {
 				settleErrs = append(settleErrs, lookupErr)
 				continue
@@ -3412,7 +3412,7 @@ func (s *wikiIngestService) isKnowledgeGone(ctx context.Context, kbID, knowledge
 			return true, nil
 		}
 	}
-	kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID)
+	kn, err := s.generationKnowledge(ctx, knowledgeID)
 	if errors.Is(err, repository.ErrKnowledgeNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		return true, nil
 	}

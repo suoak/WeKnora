@@ -14,6 +14,12 @@ import (
 // Wiki's caller, private-KB, selection, epoch and output-seal checks still apply.
 // A personal channel alone, an indexed status or a legacy receipt is insufficient.
 func WikiPersonalPublication(db *gorm.DB, tenant uint64, kb, knowledge string) (string, error) {
+	return wikiPersonalPublicationAtFolder(db, tenant, kb, knowledge, nil)
+}
+
+func wikiPersonalPublicationAtFolder(
+	db *gorm.DB, tenant uint64, kb, knowledge string, originalFolder *string,
+) (string, error) {
 	if db.Name() != "postgres" {
 		return "", ErrWikiMCPUnverified
 	}
@@ -57,6 +63,9 @@ func WikiPersonalPublication(db *gorm.DB, tenant uint64, kb, knowledge string) (
 		}
 	}
 	var valid bool
+	if originalFolder != nil {
+		proof.KnowledgeFolderPath = originalFolder
+	}
 	err := db.Raw(`SELECT EXISTS(
 SELECT 1 FROM knowledges k
 JOIN knowledge_bases kb ON kb.id=k.knowledge_base_id AND kb.tenant_id=k.tenant_id AND kb.deleted_at IS NULL
@@ -86,7 +95,8 @@ AND f.lifecycle='persistent' AND f.expires_at IS NULL AND f.size=k.file_size
 AND (COALESCE(f.content_hash,'')='' OR f.content_hash=?)
 AND (f.physical_path NOT LIKE '%://%' OR f.physical_path LIKE 'local://%')
 AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=1
-AND encode(sha256(convert_to((to_jsonb(k)-'created_at'-'updated_at')::text,'UTF8')),'hex')=?
+AND encode(sha256(convert_to((jsonb_set(to_jsonb(k),'{folder_path}',
+ COALESCE(?::jsonb,to_jsonb(k)->'folder_path'))-'created_at'-'updated_at')::text,'UTF8')),'hex')=?
 AND (SELECT count(*) FROM chunks c WHERE c.knowledge_id=k.id)=?
 AND NOT EXISTS(SELECT 1 FROM chunks c WHERE c.knowledge_id=k.id AND
  COALESCE((?::jsonb)->>c.id,'')<>encode(sha256(convert_to(
@@ -99,7 +109,8 @@ AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.knowledge_id=k.id AND
 		rows[0].ID, types.PersonalExactReceiptScope, string(rows[0].Payload),
 		proof.ImportID, proof.AttemptID, proof.Generation, proof.CandidateVersionID,
 		proof.GrantEpoch, proof.AppConfigVersion, proof.Revision, proof.ConnectionIdentity, proof.ManifestSHA256,
-		types.BuildResourcePath(proof.ResourceHandle), proof.FileMD5, proof.FileSHA256, proof.KnowledgeDBSHA256,
+		types.BuildResourcePath(proof.ResourceHandle), proof.FileMD5, proof.FileSHA256,
+		proof.KnowledgeFolderJSON(), proof.KnowledgeDBSHA256,
 		len(chunks), proof.ChunksDBManifest, len(vectors), proof.VectorsDBManifest).Scan(&valid).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -110,5 +121,8 @@ AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.knowledge_id=k.id AND
 	if !valid {
 		return "", ErrWikiMCPUnverified
 	}
+	// Filing metadata is not model input. Keep existing page provenance stable
+	// when a legacy publication gains its independently verified folder witness.
+	proof.KnowledgeFolderPath = nil
 	return wikiDigest(proof), nil
 }

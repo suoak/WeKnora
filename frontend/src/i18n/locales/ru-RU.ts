@@ -1032,6 +1032,7 @@ const messages = {
       failed: 'ошибок'
     },
     logStatus: {
+      queued: 'Ожидание синхронизации',
       deferred: 'Deferred',
       running: 'Синхронизация',
       success: 'Успешно',

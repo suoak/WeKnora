@@ -56,6 +56,7 @@ func sameRecoveryFacts(a, b RecoveryFacts) bool {
 
 // RecoveryPlan binds a short approval window to one incident and source.
 type RecoveryPlan struct {
+	ResetMode             string        `json:"reset_mode,omitempty"`
 	ApprovalKeyID         string        `json:"approval_key_id"`
 	Version               int           `json:"version"`
 	PlanID                string        `json:"plan_id"`
@@ -392,6 +393,9 @@ func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (Recov
 		return p, e
 	}
 	trip, e := c.Client.Get(ctx, c.prefix+"trip").Result()
+	if errors.Is(e, redis.Nil) || e == nil && trip == "" {
+		return m.planFrozenRecovery(ctx, source, actor, f, q)
+	}
 	if e != nil || trip == "" {
 		return p, ErrRecoveryRejected
 	}
@@ -477,6 +481,12 @@ func (m *RecoveryManager) Reset(
 	defer m.operation.Unlock()
 	if e := m.verify(p, a, actor, "reset"); e != nil {
 		return e
+	}
+	if p.ResetMode != "" {
+		if p.ResetMode != "refresh_frozen" {
+			return ErrRecoveryRejected
+		}
+		return m.refreshFrozenRecovery(ctx, p, a, actor)
 	}
 	c := m.controller
 	c.mu.Lock()

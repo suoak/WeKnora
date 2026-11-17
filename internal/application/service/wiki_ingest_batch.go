@@ -1642,7 +1642,7 @@ func (s *wikiIngestService) mapOneDocument(
 	}
 
 	docTitle := knowledgeID
-	if kn, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, knowledgeID); err == nil && kn != nil &&
+	if kn, err := s.generationKnowledge(ctx, knowledgeID); err == nil && kn != nil &&
 		kn.Title != "" {
 		docTitle = kn.Title
 	} else {

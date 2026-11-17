@@ -1103,6 +1103,7 @@ export default {
       failed: '失败'
     },
     logStatus: {
+      queued: '等待同步',
       deferred: '暂缓处理',
       running: '同步中',
       success: '成功',

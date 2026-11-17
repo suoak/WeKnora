@@ -94,6 +94,10 @@ const stats = computed(() => {
 })
 
 // --- Helpers ---
+function displayStatus(log: SyncLog) {
+  return log.status === 'running' && log.execution_claimed === false ? 'queued' : log.status
+}
+
 function statusIcon(status: string) {
   switch (status) {
     case 'success': return 'check-circle-filled'
@@ -268,8 +272,8 @@ const groupedLogs = computed(() => {
           >
             <!-- Dot -->
             <div class="tl-dot-col">
-              <span class="tl-dot" :style="{ background: statusColor(log.status) }">
-                <t-icon v-if="log.status === 'running'" name="loading" size="10px" class="tl-spin" />
+              <span class="tl-dot" :style="{ background: statusColor(displayStatus(log)) }">
+                <t-icon v-if="displayStatus(log) === 'running'" name="loading" size="10px" class="tl-spin" />
               </span>
               <span class="tl-line"></span>
             </div>
@@ -277,8 +281,8 @@ const groupedLogs = computed(() => {
             <!-- Content -->
             <div class="tl-content">
               <div class="tl-header">
-                <span class="tl-status" :style="{ color: statusColor(log.status) }">
-                  {{ t(`datasource.logStatus.${log.status}`) }}
+                <span class="tl-status" :style="{ color: statusColor(displayStatus(log)) }">
+                  {{ t(`datasource.logStatus.${displayStatus(log)}`) }}
                 </span>
                 <span class="tl-time">{{ formatHourMin(log.started_at) }}</span>
                 <span v-if="log.finished_at" class="tl-duration">{{ duration(log) }}</span>

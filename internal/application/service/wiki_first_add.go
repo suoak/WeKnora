@@ -141,7 +141,7 @@ func (s *wikiIngestService) isMVPWikiKnowledge(ctx context.Context, id string) (
 	if s.knowledgeSvc == nil {
 		return false, nil
 	}
-	k, err := s.knowledgeSvc.GetKnowledgeByIDOnly(ctx, id)
+	k, err := s.generationKnowledge(ctx, id)
 	if err != nil {
 		return false, err
 	}
