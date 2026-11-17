@@ -6694,6 +6694,11 @@ const messages = {
     daysAgo: '{days}日前'
   },
   datasource: {
+    picker: {
+      locate: '選択した項目を表示', updatingSelection: '他のページの選択を保持しています…',
+      searchPlaceholder: 'スペース名で検索', search: '検索', clear: 'すべて表示',
+      noMatches: '一致するスペースがありません', loaded: '{count} 件のスペースを読み込み済み', loadMore: 'さらに読み込む',
+    },
     documentDeferred: 'Deferred',
     documentUnchanged: 'Unchanged',
     documentUnsupported: 'Unsupported',
@@ -6875,6 +6880,9 @@ const messages = {
       authHeadersHint: '非公開フィード用です。1行に1つ「名前: 値」の形式で入力します（例: Authorization: Bearer xxxx）'
     },
     confluence: {
+      systemAccountHint: 'システムアカウントで接続します。ユーザー名とパスワードの入力は不要です。認証情報は管理者が管理します。',
+      systemAccountUnavailable: 'システム接続を利用できません。管理者にお問い合わせください。',
+      useSystemAccount: 'システムアカウントを使用',
       cloudFolderLimitation: 'Confluence Cloud では、スペース直下のフォルダーなどコンテナ配下のページをここに一覧できません。スペース全体を選択すれば同期されます。'
     },
     comingSoon: '近日対応予定',

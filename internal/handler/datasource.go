@@ -4,8 +4,10 @@ import (
 	"context"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/datasource"
+	"github.com/Tencent/WeKnora/internal/datasource/connector/confluence"
 	"github.com/Tencent/WeKnora/internal/handler/dto"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -354,6 +356,12 @@ func (h *DataSourceHandler) ValidateCredentials(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Data source ID"
 // @Param parent_id query string false "Parent resource ExternalID; empty lists the top level"
+// @Param paged query boolean false "Opt in to a resource page envelope (Confluence)"
+// @Param limit query int false "Root page size, default 50, maximum 100"
+// @Param cursor query string false "Opaque continuation bound to the same parent and search"
+// @Param reveal_id query string false "Reveal the ancestor path of a selected Confluence page"
+// @Param q query string false "Space name search (paged root listing only)"
+// @Param space_key query string false "Server/DC space key hint for paged child lookup; verified upstream"
 // @Success 200 {object} []types.Resource
 // @Failure 400 {object} map[string]string
 // @Router /datasource/{id}/resources [get]
@@ -373,6 +381,33 @@ func (h *DataSourceHandler) ListAvailableResources(c *gin.Context) {
 		return
 	}
 
+	if c.Query("paged") == "true" {
+		limit := 50
+		if raw := c.Query("limit"); raw != "" {
+			parsed, err := strconv.Atoi(raw)
+			if err != nil || parsed < 1 || parsed > 100 {
+				c.JSON(http.StatusBadRequest, gin.H{"error": "limit must be between 1 and 100"})
+				return
+			}
+			limit = parsed
+		}
+		query, cursor := strings.TrimSpace(c.Query("q")), c.Query("cursor")
+		spaceKey, revealID := c.Query("space_key"), c.Query("reveal_id")
+		if len(parentID) > 256 || len(spaceKey) > 256 || len(revealID) > 256 || len(query) > 256 || len(cursor) > 4096 || parentID != "" && query != "" || revealID != "" && (parentID != "" || query != "" || cursor != "") {
+			c.JSON(http.StatusBadRequest, gin.H{"error": "invalid resource page options"})
+			return
+		}
+		page, err := h.service.ListAvailableResourcePage(ctx, id, types.ResourceListOptions{ParentID: parentID, SpaceKey: spaceKey, RevealID: revealID, Query: query, Cursor: cursor, Limit: limit})
+		if err != nil {
+			c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+			return
+		}
+		if page.Items == nil {
+			page.Items = []types.Resource{}
+		}
+		c.JSON(http.StatusOK, page)
+		return
+	}
 	resources, err := h.service.ListAvailableResources(ctx, id, parentID)
 	if err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
@@ -639,5 +674,11 @@ func (h *DataSourceHandler) GetSyncLog(c *gin.Context) {
 // @Router /datasource/types [get]
 func (h *DataSourceHandler) GetAvailableConnectors(c *gin.Context) {
 	connectors := datasource.ListAvailableConnectors()
+	for i := range connectors {
+		if connectors[i].Type == types.ConnectorTypeConfluence {
+			info := confluence.BuiltinProfileInfo()
+			connectors[i].SystemAccount = &info
+		}
+	}
 	c.JSON(http.StatusOK, connectors)
 }

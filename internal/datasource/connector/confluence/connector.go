@@ -16,6 +16,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
+	"golang.org/x/sync/singleflight"
 )
 
 var (
@@ -25,8 +26,10 @@ var (
 
 // Connector implements datasource.StreamingConnector for Confluence.
 type Connector struct {
-	newClient  func(config) (*client, error)
-	spaceCache spaceCache
+	newClient   func(config) (*client, error)
+	spaceCache  spaceCache
+	pickerPages pickerPageCache
+	spaceLoads  singleflight.Group
 }
 
 const pickerSpaceCacheTTL = time.Minute
@@ -54,25 +57,47 @@ func (c *Connector) pickerSpaces(ctx context.Context, client *client, cfg config
 		return values, nil
 	}
 	c.spaceCache.mu.Unlock()
-	spaces, err := client.spaces(ctx)
-	if err != nil {
-		return nil, err
-	}
-	c.spaceCache.mu.Lock()
-	if c.spaceCache.entries == nil {
-		c.spaceCache.entries = make(map[string]cachedSpaces)
-	}
-	for key, cached := range c.spaceCache.entries {
-		if !now.Before(cached.expires) {
-			delete(c.spaceCache.entries, key)
+	result := c.spaceLoads.DoChan(key, func() (interface{}, error) {
+		// A caller may have filled the cache between the first lookup and
+		// joining this flight. Publish before completing the shared request.
+		c.spaceCache.mu.Lock()
+		cached, ok := c.spaceCache.entries[key]
+		c.spaceCache.mu.Unlock()
+		if ok && time.Now().Before(cached.expires) {
+			return cached.values, nil
 		}
+		spaces, err := client.spaces(ctx)
+		if err != nil {
+			return nil, err
+		}
+		c.spaceCache.mu.Lock()
+		defer c.spaceCache.mu.Unlock()
+		if c.spaceCache.entries == nil {
+			c.spaceCache.entries = make(map[string]cachedSpaces)
+		}
+		for k, entry := range c.spaceCache.entries {
+			if !time.Now().Before(entry.expires) {
+				delete(c.spaceCache.entries, k)
+			}
+		}
+		if len(c.spaceCache.entries) >= 128 {
+			for k := range c.spaceCache.entries {
+				delete(c.spaceCache.entries, k)
+				break
+			}
+		}
+		c.spaceCache.entries[key] = cachedSpaces{values: append([]space(nil), spaces...), expires: time.Now().Add(pickerSpaceCacheTTL)}
+		return spaces, nil
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case loaded := <-result:
+		if loaded.Err != nil {
+			return nil, loaded.Err
+		}
+		return append([]space(nil), loaded.Val.([]space)...), nil
 	}
-	c.spaceCache.entries[key] = cachedSpaces{
-		values:  append([]space(nil), spaces...),
-		expires: now.Add(pickerSpaceCacheTTL),
-	}
-	c.spaceCache.mu.Unlock()
-	return spaces, nil
 }
 
 // pickerSpaceCacheKey partitions cached space visibility by every credential
@@ -143,7 +168,10 @@ func (c *Connector) ListResources(
 	if err != nil {
 		return nil, err
 	}
-	spaces, err := c.pickerSpaces(ctx, client, cfg)
+	spaces := c.cachedPickerSpaces(cfg, ref.SpaceID)
+	if len(spaces) == 0 {
+		spaces, err = c.pickerSpaces(ctx, client, cfg)
+	}
 	if err != nil {
 		return nil, err
 	}

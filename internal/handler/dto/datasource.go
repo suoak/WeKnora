@@ -61,6 +61,9 @@ func NewDataSourceResponse(ds *types.DataSource) *DataSourceResponse {
 	var cfgDTO *DataSourceConfigDTO
 	configured := false
 	if parsed, err := ds.ParseConfig(); err == nil && parsed != nil {
+		if ds.Type == types.ConnectorTypeConfluence && parsed.UsesSystemConfluence() {
+			parsed.StripNonSecretCredentials(ds.Type)
+		}
 		cfgDTO = &DataSourceConfigDTO{
 			Type:        parsed.Type,
 			ResourceIDs: parsed.ResourceIDs,

@@ -64,7 +64,11 @@ func newClient(cfg config) (*client, error) {
 	if err := datasource.ValidateConnectorBaseURL(cfg.baseURL); err != nil {
 		return nil, err
 	}
-	return &client{cfg: cfg, http: datasource.NewConnectorHTTPClient(60 * time.Second)}, nil
+	httpClient := datasource.NewConnectorHTTPClient(60 * time.Second)
+	if cfg.systemAccount {
+		httpClient.CheckRedirect = systemAccountRedirectPolicy(cfg.baseURL, httpClient.CheckRedirect)
+	}
+	return &client{cfg: cfg, http: httpClient}, nil
 }
 
 func (c *client) get(ctx context.Context, endpoint string, output interface{}) error {
@@ -96,10 +100,14 @@ func (c *client) get(ctx context.Context, endpoint string, output interface{}) e
 				return json.Unmarshal(body, output)
 			}
 			if resp.StatusCode != http.StatusTooManyRequests && resp.StatusCode < 500 {
+				excerpt := responseExcerpt(body)
+				if c.cfg.systemAccount {
+					excerpt = ""
+				}
 				return &apiError{
 					endpoint: endpoint,
 					status:   resp.StatusCode,
-					excerpt:  responseExcerpt(body),
+					excerpt:  excerpt,
 				}
 			}
 			if attempt == requestAttempts-1 {

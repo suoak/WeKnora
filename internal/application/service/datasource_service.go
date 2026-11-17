@@ -336,6 +336,9 @@ func (s *DataSourceService) UpdateDataSourceCredentials(
 	if parsed == nil {
 		parsed = &types.DataSourceConfig{Type: existing.Type}
 	}
+	if existing.Type == types.ConnectorTypeConfluence && parsed.UsesSystemConfluence() {
+		return nil, fmt.Errorf("system-managed credentials cannot be modified")
+	}
 	parsed.Credentials = credentials
 	parsed.StripNonSecretCredentials(existing.Type)
 	blob, err := parsed.ToJSON()
@@ -388,6 +391,9 @@ func (s *DataSourceService) ClearDataSourceCredentials(ctx context.Context, id s
 	}
 	if parsed == nil {
 		return nil
+	}
+	if existing.Type == types.ConnectorTypeConfluence && parsed.UsesSystemConfluence() {
+		return fmt.Errorf("system-managed credentials cannot be removed")
 	}
 	parsed.StripNonSecretCredentials(existing.Type)
 	if !parsed.HasConfiguredCredentials(existing.Type) {
@@ -539,6 +545,26 @@ func (s *DataSourceService) ListAvailableResources(
 	}
 
 	return resources, nil
+}
+
+// ListAvailableResourcePage lists one bounded page through an optional connector capability.
+func (s *DataSourceService) ListAvailableResourcePage(ctx context.Context, dsID string, options types.ResourceListOptions) (*types.ResourcePage, error) {
+	ds, err := s.GetDataSource(ctx, dsID)
+	if err != nil {
+		return nil, err
+	}
+	connector, err := s.connectorRegistry.Get(ds.Type)
+	if err != nil {
+		return nil, err
+	}
+	config, err := ds.ParseConfig()
+	if err != nil {
+		return nil, datasource.ErrInvalidConfig
+	}
+	if paged, ok := connector.(datasource.PagedResourceConnector); ok {
+		return paged.ListResourcePage(ctx, config, options)
+	}
+	return nil, fmt.Errorf("connector %s does not support paged resource listing", ds.Type)
 }
 
 // ResolveResourceAncestors resolves the ancestor ExternalIDs needed to reveal the
@@ -1824,6 +1850,7 @@ func (s *DataSourceService) ValidateCredentials(
 		Type:        connectorType,
 		Credentials: credentials,
 	}
+	config.StripNonSecretCredentials(connectorType)
 	if err := connector.Validate(ctx, config); err != nil {
 		return err
 	}

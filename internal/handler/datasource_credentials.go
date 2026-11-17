@@ -64,6 +64,10 @@ func (h *DataSourceCredentialsHandler) Put(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if systemManagedDataSource(ds) {
+		c.Error(errors.NewForbiddenError("system-managed credentials cannot be modified"))
+		return
+	}
 	var req dataSourceCredentialsPutRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.Error(errors.NewBadRequestError(err.Error()))
@@ -99,6 +103,10 @@ func (h *DataSourceCredentialsHandler) DeleteField(c *gin.Context) {
 	if !ok {
 		return
 	}
+	if systemManagedDataSource(ds) {
+		c.Error(errors.NewForbiddenError("system-managed credentials cannot be removed"))
+		return
+	}
 	field := c.Param("field")
 	if field != "credentials" {
 		c.Error(errors.NewBadRequestError("unknown credential field: " + secutils.SanitizeForLog(field)))
@@ -112,4 +120,12 @@ func (h *DataSourceCredentialsHandler) DeleteField(c *gin.Context) {
 		return
 	}
 	c.Status(http.StatusNoContent)
+}
+
+func systemManagedDataSource(ds *types.DataSource) bool {
+	if ds == nil || ds.Type != types.ConnectorTypeConfluence {
+		return false
+	}
+	cfg, err := ds.ParseConfig()
+	return err == nil && cfg != nil && cfg.UsesSystemConfluence()
 }

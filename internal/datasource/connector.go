@@ -6,6 +6,12 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+// PagedResourceConnector optionally supports bounded, searchable root listings
+// and direct child lookup without enumerating every top-level resource.
+type PagedResourceConnector interface {
+	ListResourcePage(context.Context, *types.DataSourceConfig, types.ResourceListOptions) (*types.ResourcePage, error)
+}
+
 // Connector is the interface that all external data source connectors must implement.
 // Each connector (Feishu, Notion, Confluence, etc.) provides an implementation of this interface.
 type Connector interface {
@@ -179,13 +185,14 @@ func (r *ConnectorRegistry) List() []string {
 
 // ConnectorMetadata provides metadata about available connectors
 type ConnectorMetadata struct {
-	Type         string   `json:"type"`
-	Name         string   `json:"name"`
-	Description  string   `json:"description"`
-	Icon         string   `json:"icon,omitempty"`
-	Priority     int      `json:"priority"`     // Priority order for UI display (lower = higher priority)
-	AuthType     string   `json:"auth_type"`    // "oauth2", "api_key", "token", etc.
-	Capabilities []string `json:"capabilities"` // "incremental", "webhook", "deletion_sync", etc.
+	SystemAccount *types.DataSourceSystemAccountInfo `json:"system_account,omitempty"`
+	Type          string                             `json:"type"`
+	Name          string                             `json:"name"`
+	Description   string                             `json:"description"`
+	Icon          string                             `json:"icon,omitempty"`
+	Priority      int                                `json:"priority"`     // Priority order for UI display (lower = higher priority)
+	AuthType      string                             `json:"auth_type"`    // "oauth2", "api_key", "token", etc.
+	Capabilities  []string                           `json:"capabilities"` // "incremental", "webhook", "deletion_sync", etc.
 }
 
 // GetConnectorMetadata returns metadata for all available connectors

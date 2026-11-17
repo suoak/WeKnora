@@ -53,6 +53,16 @@ func TestDataSourceResponse_NilSafe(t *testing.T) {
 	assert.Equal(t, []*DataSourceResponse{}, NewDataSourceResponses(nil))
 }
 
+func TestDataSourceResponse_SystemAccountNeverExposesIdentity(t *testing.T) {
+	ds := &types.DataSource{Type: types.ConnectorTypeConfluence, Config: types.JSON(`{"settings":{"credential_source":"system","username":"private-user-sentinel","password":"private-password-sentinel","base_url":"http://override.test"},"credentials":{"username":"private-user-sentinel","password":"private-password-sentinel"}}`)}
+	body, err := json.Marshal(NewDataSourceResponse(ds))
+	assert.NoError(t, err)
+	assert.NotContains(t, string(body), "sentinel")
+	assert.NotContains(t, string(body), "override.test")
+	assert.Contains(t, string(body), `"credential_source":"system"`)
+	assert.Contains(t, string(body), `"configured":true`)
+}
+
 func TestDataSourceResponse_RSSFeedURLsFromCredentials(t *testing.T) {
 	cfg := types.DataSourceConfig{
 		Type: types.ConnectorTypeRSS,

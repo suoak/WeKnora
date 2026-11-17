@@ -173,6 +173,21 @@ export function listResources(id: string, parentId?: string) {
   return get(`/api/v1/datasource/${id}/resources${query}`, { timeout: 120000 })
 }
 
+export interface ResourcePage {
+  items: Resource[]
+  next_cursor?: string
+}
+
+export function listResourcePage(id: string, options: { cursor?: string; q?: string; limit?: number; parentId?: string; spaceKey?: string; revealId?: string } = {}) {
+  const query = new URLSearchParams({ paged: 'true', limit: String(options.limit || 50) })
+  if (options.cursor) query.set('cursor', options.cursor)
+  if (options.q) query.set('q', options.q)
+  if (options.parentId) query.set('parent_id', options.parentId)
+  if (options.spaceKey) query.set('space_key', options.spaceKey)
+  if (options.revealId) query.set('reveal_id', options.revealId)
+  return get<ResourcePage>(`/api/v1/datasource/${id}/resources?${query}`, { timeout: 60000 })
+}
+
 // resolveResourceAncestors returns the ExternalIDs of every parent that must be
 // expanded to reveal the given (possibly deeply nested) selections in a lazily
 // loaded picker. Used when editing a data source to restore an existing selection.

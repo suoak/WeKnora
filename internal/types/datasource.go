@@ -270,6 +270,9 @@ func (d DataSourceConfig) HasCredentials() bool {
 // stored. RSS feed URLs are non-secret configuration (settings); only
 // auth_headers count as credentials for that connector.
 func (d DataSourceConfig) HasConfiguredCredentials(connectorType string) bool {
+	if connectorType == ConnectorTypeConfluence && d.UsesSystemConfluence() {
+		return true
+	}
 	if len(d.Credentials) == 0 {
 		return false
 	}
@@ -289,7 +292,22 @@ func (d DataSourceConfig) HasConfiguredCredentials(connectorType string) bool {
 // StripNonSecretCredentials removes non-secret values mistakenly stored in the
 // credentials map before persistence.
 func (d *DataSourceConfig) StripNonSecretCredentials(connectorType string) {
-	if d == nil || d.Credentials == nil {
+	if d == nil {
+		return
+	}
+	if connectorType == ConnectorTypeConfluence && d.UsesSystemConfluence() {
+		clean := make(map[string]interface{}, len(d.Settings)+1)
+		for k, v := range d.Settings {
+			clean[k] = v
+		}
+		for _, key := range []string{"username", "password", "api_token", "token", "base_url", "edition"} {
+			delete(clean, key)
+		}
+		clean["credential_source"] = "system"
+		d.Settings, d.Credentials = clean, nil
+		return
+	}
+	if d.Credentials == nil {
 		return
 	}
 	switch connectorType {
@@ -299,6 +317,13 @@ func (d *DataSourceConfig) StripNonSecretCredentials(connectorType string) {
 			d.Credentials = nil
 		}
 	}
+}
+
+// UsesSystemConfluence is a reference to deployment-managed credentials, never
+// a container for those credentials. Raw validation requests may carry the
+// marker in Credentials; persistence canonicalizes it into Settings.
+func (d DataSourceConfig) UsesSystemConfluence() bool {
+	return d.Settings["credential_source"] == "system" || d.Credentials["credential_source"] == "system"
 }
 
 // Resource represents a syncable resource (document, folder, space) from external system

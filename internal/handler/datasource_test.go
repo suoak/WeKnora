@@ -16,6 +16,15 @@ type stubDataSourceService struct {
 	interfaces.DataSourceService
 	getSyncLogs   func(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error)
 	getDataSource func(ctx context.Context, id string) (*types.DataSource, error)
+	listResources func(context.Context, string, string) ([]types.Resource, error)
+	listPage      func(context.Context, string, types.ResourceListOptions) (*types.ResourcePage, error)
+}
+
+func (s *stubDataSourceService) ListAvailableResources(ctx context.Context, id, parent string) ([]types.Resource, error) {
+	return s.listResources(ctx, id, parent)
+}
+func (s *stubDataSourceService) ListAvailableResourcePage(ctx context.Context, id string, options types.ResourceListOptions) (*types.ResourcePage, error) {
+	return s.listPage(ctx, id, options)
 }
 
 func (s *stubDataSourceService) GetSyncLogs(ctx context.Context, dsID string, limit int, offset int) ([]*types.SyncLog, error) {
@@ -55,6 +64,7 @@ func newDataSourceTestRouter(h *DataSourceHandler) *gin.Engine {
 		c.Next()
 	})
 	r.GET("/datasource/:id/logs", h.GetSyncLogs)
+	r.GET("/datasource/:id/resources", h.ListAvailableResources)
 	return r
 }
 
