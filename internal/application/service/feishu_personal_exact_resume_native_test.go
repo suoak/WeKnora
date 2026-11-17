@@ -183,6 +183,7 @@ type nativeResumeFormatOptions struct {
 	SummarySkipped           bool
 	SkipAdditionalReadMatrix bool
 	AssertClosed             func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
+	AssertPublished          func(*personalRecoveryFixture, *personalExactDocument, types.PersonalExactReceipt)
 }
 
 func exerciseNativeResumeWithFormat(
@@ -404,6 +405,9 @@ func exerciseNativeResumeWithFormat(
 	var published types.PersonalExactReceipt
 	require.NoError(t, json.Unmarshal(receipt.Payload, &published))
 	require.NoError(t, f.p.verifyExactPublishedDatabase(context.Background(), published))
+	if options.AssertPublished != nil {
+		options.AssertPublished(f, proof, published)
+	}
 	assertExactPublicationHistory(t, f, imported.ID)
 	var retained []string
 	require.NoError(t, f.db.Table("chunks").Where("knowledge_id=? AND chunk_type<>'summary'", knowledge.ID).

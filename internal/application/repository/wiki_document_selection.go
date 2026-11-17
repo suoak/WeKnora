@@ -470,8 +470,6 @@ func selectWikiDocumentInputs(
 			reason = "document_disabled"
 		case doc.ParseStatus != "completed" && doc.ParseStatus != "finalizing":
 			reason = "document_not_parsed"
-		case doc.Channel == "feishu_personal":
-			reason = "personal_publication_pending"
 		default:
 			_, err := wikiDependenciesSelected(tx, kb, nil, map[string]bool{doc.ID: true})
 			if err != nil {
@@ -481,6 +479,9 @@ func selectWikiDocumentInputs(
 					return nil, nil, err
 				}
 				reason = "source_verification_required"
+				if doc.Channel == "feishu_personal" {
+					reason = "personal_publication_pending"
+				}
 			}
 		}
 		if reason != "" {
