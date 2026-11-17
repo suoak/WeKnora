@@ -26,6 +26,42 @@ type invalidResultEmbedder struct {
 	err     error
 }
 
+func TestScopedEmbeddingLocalFailureIsNotPromotedToGlobal(t *testing.T) {
+	for _, failure := range []error{
+		feishusafety.ErrSourceValidationUnavailable,
+		&feishusafety.BudgetBusyError{Reason: "rpm"},
+		feishusafety.ErrEmbeddingTemporarilyUnavailable,
+	} {
+		model, _, _, g, _ := reservationEmbedder(t, 0, time.Second)
+		model.inner = invalidResultEmbedder{err: fmt.Errorf("provider transport: %w", failure)}
+		ctx := feishusafety.WithScope(context.Background(), "affected-source")
+		vectors, err := model.BatchEmbed(ctx, []string{"one"})
+		if vectors != nil || !errors.Is(err, failure) {
+			t.Fatalf("local refusal returned vectors or lost its cause: %v", err)
+		}
+		if g.Check(feishusafety.WithScope(context.Background(), "independent-source")) != nil {
+			t.Fatal("local refusal was promoted to a shared provider failure")
+		}
+	}
+}
+
+func TestScopedEmbeddingHeaderTimeoutKeepsIndependentRequestUsable(t *testing.T) {
+	model, _, _, g, calls := reservationEmbedder(t, -3, 150*time.Millisecond)
+	ctx := feishusafety.WithScope(context.Background(), "affected-source")
+	vectors, err := model.BatchEmbed(ctx, []string{"one"})
+	if vectors != nil || !errors.Is(err, feishusafety.ErrEmbeddingTemporarilyUnavailable) {
+		t.Fatalf("timeout returned vectors or lost its retryable cause: %v", err)
+	}
+	healthy := feishusafety.WithScope(context.Background(), "independent-source")
+	if g.Check(healthy) != nil {
+		t.Fatal("protocol wrapper disabled independent sources")
+	}
+	vectors, err = model.BatchEmbed(healthy, []string{"two"})
+	if err != nil || len(vectors) != 1 || calls.Load() != 2 {
+		t.Fatalf("independent request did not complete: calls=%d err=%v", calls.Load(), err)
+	}
+}
+
 func TestScopedEmbeddingSourceWithdrawalIsNotAProviderFailure(t *testing.T) {
 	model, _, client, g, _ := reservationEmbedder(t, 0, time.Second)
 	model.inner = invalidResultEmbedder{err: feishusafety.ErrSourceAdmissionChanged}
@@ -110,6 +146,10 @@ func reservationEmbedder(
 		}
 		if cost > 30000 || len(payload.Input) > 20 {
 			t.Errorf("unsafe wire cost %d/%d", cost, len(payload.Input))
+		}
+		if failure == -3 && n == 1 {
+			<-r.Context().Done()
+			return
 		}
 		if failure == n {
 			http.Error(w, "injected", http.StatusInternalServerError)

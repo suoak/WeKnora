@@ -18,6 +18,7 @@ const (
 
 type config struct {
 	edition, baseURL, username, secret string
+	systemAccount                      bool
 }
 
 func (c config) cloud() bool { return c.edition == editionCloud }
@@ -40,6 +41,9 @@ func configValue(ds *types.DataSourceConfig, name string) string {
 func parseConfig(ds *types.DataSourceConfig) (config, error) {
 	if ds == nil {
 		return config{}, datasource.ErrInvalidConfig
+	}
+	if ds.UsesSystemConfluence() {
+		return builtinConfig()
 	}
 	cfg := config{
 		edition:  strings.ToLower(configValue(ds, "edition")),

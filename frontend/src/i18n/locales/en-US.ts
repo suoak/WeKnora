@@ -6793,6 +6793,11 @@ export default {
     daysAgo: '{days} days ago'
   },
   datasource: {
+    picker: {
+      locate: 'Locate this selection', updatingSelection: 'Preserving the other selected pages…',
+      searchPlaceholder: 'Search by space name', search: 'Search', clear: 'Show all',
+      noMatches: 'No matching spaces', loaded: '{count} spaces loaded', loadMore: 'Load more',
+    },
     documentDeferred: 'Deferred',
     documentUnchanged: 'Unchanged',
     documentUnsupported: 'Unsupported',
@@ -6974,6 +6979,9 @@ export default {
       authHeadersHint: 'For private feeds. One per line in "Name: Value" form, e.g. Authorization: Bearer xxxx'
     },
     confluence: {
+      systemAccountHint: 'Connect with the system account. No username or password is required; credentials are managed by the administrator.',
+      systemAccountUnavailable: 'The system connection is unavailable. Contact the administrator.',
+      useSystemAccount: 'Use system account',
       cloudFolderLimitation: 'Confluence Cloud cannot list pages stored directly under top-level folders in this space; selecting the whole space still syncs them.'
     },
     comingSoon: 'Coming soon',

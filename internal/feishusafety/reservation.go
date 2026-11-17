@@ -52,6 +52,7 @@ type (
 		tokens  int
 		phase   int // 0 reserved, 1 owned by wire, 2 released
 		release func()
+		failure error
 	}
 )
 
@@ -128,6 +129,39 @@ func hasReservation(ctx context.Context) bool {
 	return ok
 }
 
+// EmbeddingRequestError preserves a transport-owned local refusal across
+// http.Client's timeout wrapper, which can replace the original error chain.
+// A reservation can carry this classification only from the guarded transport.
+func EmbeddingRequestError(ctx context.Context, err error) error {
+	if err == nil {
+		return nil
+	}
+	ticket, ok := ctx.Value(reservationKey{}).(*embeddingReservation)
+	if !ok {
+		return err
+	}
+	ticket.mu.Lock()
+	defer ticket.mu.Unlock()
+	if ticket.guard == Default() && ticket.failure != nil {
+		failure := ticket.failure
+		ticket.failure = nil
+		return fmt.Errorf("%w: %w", failure, err)
+	}
+	return err
+}
+
+func recordEmbeddingHeaderTimeout(ctx context.Context) {
+	ticket, ok := ctx.Value(reservationKey{}).(*embeddingReservation)
+	if !ok {
+		return
+	}
+	ticket.mu.Lock()
+	defer ticket.mu.Unlock()
+	if ticket.guard == Default() && ticket.phase == 2 {
+		ticket.failure = ErrEmbeddingTemporarilyUnavailable
+	}
+}
+
 func consumeReservation(ctx context.Context, g *Guard, inputs []string) (func(), bool, error) {
 	ticket, ok := ctx.Value(reservationKey{}).(*embeddingReservation)
 	if !ok {
@@ -135,6 +169,7 @@ func consumeReservation(ctx context.Context, g *Guard, inputs []string) (func(),
 	}
 	ticket.mu.Lock()
 	defer ticket.mu.Unlock()
+	ticket.failure = nil
 	tokens := 0
 	for _, input := range inputs {
 		tokens += len(input) + g.config.TokenOverhead

@@ -800,6 +800,11 @@ const messages = {
     }
   },
   datasource: {
+    picker: {
+      locate: 'Найти выбранный элемент', updatingSelection: 'Сохранение выбора остальных страниц…',
+      searchPlaceholder: 'Поиск по названию пространства', search: 'Поиск', clear: 'Показать все',
+      noMatches: 'Пространства не найдены', loaded: 'Загружено пространств: {count}', loadMore: 'Загрузить ещё',
+    },
     documentDeferred: 'Deferred',
     documentUnchanged: 'Unchanged',
     documentUnsupported: 'Unsupported',
@@ -985,6 +990,9 @@ const messages = {
       authHeadersHint: 'Для приватных лент. По одному в строке в формате «Имя: Значение», например Authorization: Bearer xxxx'
     },
     confluence: {
+      systemAccountHint: 'Подключение через системную учётную запись. Имя пользователя и пароль вводить не нужно; ими управляет администратор.',
+      systemAccountUnavailable: 'Системное подключение недоступно. Обратитесь к администратору.',
+      useSystemAccount: 'Использовать системную учётную запись',
       cloudFolderLimitation: 'Confluence Cloud пока не может показать здесь страницы из папок верхнего уровня пространства; при выборе всего пространства они будут синхронизированы.'
     },
     connectorDesc: {

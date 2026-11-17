@@ -316,6 +316,10 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		if denial != nil {
 			return nil, canceledAdmissionError(g, denial)
 		}
+		if t.Embedding && embeddingHeaderTimeoutIsLocal(caller, g, err) {
+			recordEmbeddingHeaderTimeout(caller)
+			return nil, fmt.Errorf("%w: %w", ErrEmbeddingTemporarilyUnavailable, err)
+		}
 		tripRequestFailure(caller, g, err, t.Embedding, "headers")
 		return nil, err
 	}
@@ -358,6 +362,27 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding,
 	}
 	return resp, nil
+}
+
+// The base transport has returned and finish has closed the local request and
+// released its slot. No response or vectors are accepted. Keep the RPM/TPM
+// charge and require the exact shared fence before treating this as retryable.
+func embeddingHeaderTimeoutIsLocal(caller context.Context, g *Guard, err error) bool {
+	var networkError net.Error
+	deadline, hasDeadline := caller.Deadline()
+	expired := errors.Is(caller.Err(), context.DeadlineExceeded) ||
+		(hasDeadline && !time.Now().Before(deadline) && !errors.Is(err, io.ErrUnexpectedEOF))
+	timedOut := errors.Is(err, context.DeadlineExceeded) ||
+		(errors.As(err, &networkError) && networkError.Timeout()) || expired
+	if !timedOut {
+		return false
+	}
+	if g == nil || g.localClosed.Load() || errors.Is(caller.Err(), context.Canceled) {
+		return false
+	}
+	check, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
+	defer cancel()
+	return g.checkRuntime(check, true) == nil
 }
 
 type guardedBody struct {

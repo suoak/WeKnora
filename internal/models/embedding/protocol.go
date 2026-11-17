@@ -162,6 +162,7 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 					return nil, reserveErr
 				}
 				vectors, err = e.inner.Embed(requestCtx, part, kind)
+				err = feishusafety.EmbeddingRequestError(requestCtx, err)
 				release()
 				var httpErr *api.HTTPError
 				if !feishusafety.Scoped(ctx) || !errors.As(err, &httpErr) || httpErr.StatusCode != 429 {
@@ -174,7 +175,13 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 				}
 			}
 			if err != nil {
-				if !errors.Is(err, feishusafety.ErrSourceAdmissionChanged) {
+				// These finite transport/admission categories already rejected the
+				// request and checked shared health. Preserve their local retry;
+				// a protocol wrapper must not turn them into a new global incident.
+				if !errors.Is(err, feishusafety.ErrSourceAdmissionChanged) &&
+					!errors.Is(err, feishusafety.ErrSourceValidationUnavailable) &&
+					!errors.Is(err, feishusafety.ErrBudgetBusy) &&
+					!errors.Is(err, feishusafety.ErrEmbeddingTemporarilyUnavailable) {
 					feishusafety.EmbeddingResultFailed(ctx, "embedding_response_invalid_or_business_error")
 				}
 				return nil, err

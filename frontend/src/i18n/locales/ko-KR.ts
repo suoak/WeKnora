@@ -800,6 +800,11 @@ const messages = {
     }
   },
   datasource: {
+    picker: {
+      locate: '선택한 항목 찾기', updatingSelection: '다른 페이지의 선택을 유지하는 중…',
+      searchPlaceholder: '스페이스 이름으로 검색', search: '검색', clear: '전체 보기',
+      noMatches: '일치하는 스페이스가 없습니다', loaded: '스페이스 {count}개 로드됨', loadMore: '더 불러오기',
+    },
     documentDeferred: 'Deferred',
     documentUnchanged: 'Unchanged',
     documentUnsupported: 'Unsupported',
@@ -985,6 +990,9 @@ const messages = {
       authHeadersHint: '비공개 피드 접근용. 한 줄에 하나씩 「이름: 값」 형식으로 입력하세요. 예: Authorization: Bearer xxxx'
     },
     confluence: {
+      systemAccountHint: '시스템 계정으로 연결합니다. 사용자 이름과 비밀번호를 입력할 필요가 없으며 관리자가 인증 정보를 관리합니다.',
+      systemAccountUnavailable: '시스템 연결을 사용할 수 없습니다. 관리자에게 문의하세요.',
+      useSystemAccount: '시스템 계정 사용',
       cloudFolderLimitation: 'Confluence Cloud는 아직 스페이스 최상위 폴더 등 컨테이너 아래의 페이지를 여기에 나열할 수 없습니다. 스페이스 전체를 선택하면 함께 동기화됩니다.'
     },
     connectorDesc: {

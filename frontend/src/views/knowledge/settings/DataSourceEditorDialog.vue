@@ -1,14 +1,17 @@
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
+import { ref, computed, watch, nextTick } from 'vue'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
+import { DynamicScroller, DynamicScrollerItem } from 'vue-virtual-scroller'
 import {
   createDataSource,
   updateDataSource,
   triggerSync,
   validateConnection,
   validateCredentials,
+  getConnectorTypes,
   listResources,
+  listResourcePage,
   resolveResourceAncestors,
   deleteDataSource,
   putDataSourceCredentials,
@@ -44,12 +47,29 @@ const credentialsConfigured = ref(false)
 // Remove actions. Toggling Replace reveals the credential inputs so the
 // user can type a new set. Untoggling discards anything typed.
 const replaceCredentialsMode = ref(false)
+const builtinConfluence = ref<{ enabled: boolean; base_url?: string }>({ enabled: false })
+const loadingBuiltinConfluence = ref(false)
+const usesSystemConfluence = computed(() => form.value.type === 'confluence' &&
+  form.value.config.settings.credential_source === 'system')
+
+function useSystemConfluence() {
+  const settings = { ...form.value.config.settings }
+  for (const key of ['username', 'password', 'api_token', 'token', 'base_url', 'edition']) delete settings[key]
+  settings.credential_source = 'system'
+  form.value.config.settings = settings
+  form.value.config.credentials = { credential_source: 'system' }
+  replaceCredentialsMode.value = false
+  pendingRemoveCredentials.value = false
+  testResult.value = ''
+  testErrorMsg.value = ''
+}
 
 // Whether the credential input section is interactive right now. In create
 // mode it's always shown; in edit mode only when the user opted in to
 // Replace, OR when nothing is configured yet (degenerate case where the
 // data source row exists with no credentials stored).
 const credentialsInputVisible = computed(() => {
+  if (usesSystemConfluence.value) return false
   if (!isEdit.value) return true
   if (!credentialsConfigured.value) return true
   return replaceCredentialsMode.value
@@ -156,6 +176,7 @@ function removeRssAuthHeader(idx: number) {
 }
 
 function needsConnectionTest(): boolean {
+  if (usesSystemConfluence.value) return true
   return !(isEdit.value && credentialsConfigured.value && !replaceCredentialsMode.value)
 }
 
@@ -173,6 +194,7 @@ function hydrateConfluenceCredentialsFromSettings() {
 
 function syncConfluencePublicFieldsToSettings() {
   if (form.value.type !== 'confluence') return
+  if (usesSystemConfluence.value) return
   const creds = form.value.config.credentials || {}
   form.value.config.settings = {
     ...(form.value.config.settings || {}),
@@ -230,7 +252,106 @@ const yuqueTOCOnly = computed({
 // Step 2: Resources
 const resources = ref<Resource[]>([])
 const loadingResources = ref(false)
+const spaceSearch = ref('')
+const activeSpaceSearch = ref('')
+const spaceNextCursor = ref('')
+const spaceRootIds = ref<Set<string>>(new Set())
+const loadingSpacePage = ref(false)
+const spacePageError = ref('')
+const childNextCursors = ref(new Map<string, string>())
+const childPageErrors = ref(new Map<string, string>())
+const childFlights = new Map<string, Promise<boolean>>()
+const locatingResource = ref('')
+const changingSelection = ref(false)
+const resourceScroller = ref<any>()
+const selectedTagPage = ref(1)
+let resourceSession = 0
+let spaceRequest = 0
+let expansionRun = 0
+
+async function loadSpacePage(append = false) {
+  if (!tempDsId.value || (append && (loadingSpacePage.value || !spaceNextCursor.value))) return
+  const request = ++spaceRequest
+  if (!append) expansionRun++
+  const session = resourceSession
+  const dsId = tempDsId.value
+  const query = append ? activeSpaceSearch.value : spaceSearch.value.trim()
+  loadingSpacePage.value = true
+  spacePageError.value = ''
+  try {
+    const res = await listResourcePage(dsId, { q: query, cursor: append ? spaceNextCursor.value : undefined })
+    if (session !== resourceSession || request !== spaceRequest || dsId !== tempDsId.value) return
+    const page = res
+    const items: Resource[] = page.items || []
+    // Keep every loaded node so filtering never discards selections or children.
+    const merged = new Map(resources.value.map(r => [r.external_id, r]))
+    for (const item of items) {
+      const previous = merged.get(item.external_id)
+      merged.set(item.external_id, loadedChildrenIds.value.has(item.external_id) && previous
+        ? { ...item, has_children: previous.has_children }
+        : item)
+    }
+    resources.value = [...merged.values()]
+    const roots = append ? new Set(spaceRootIds.value) : new Set<string>()
+    for (const item of items) roots.add(item.external_id)
+    spaceRootIds.value = roots
+    activeSpaceSearch.value = query
+    spaceNextCursor.value = page.next_cursor || ''
+  } catch (e: any) {
+    if (session === resourceSession && request === spaceRequest) {
+      spacePageError.value = e?.message || e?.error || t('datasource.resourceLoadFailed')
+    }
+  } finally {
+    if (session === resourceSession && request === spaceRequest) loadingSpacePage.value = false
+  }
+}
+
+const selectedResourceLabels = computed(() => {
+  const names = new Map(resources.value.map(r => [r.external_id, r.name]))
+  return selectedResourceIds.value.map(id => ({ id, name: names.get(id) || id }))
+})
+const selectedTagLabels = computed(() => {
+  const last = Math.max(1, Math.ceil(selectedResourceLabels.value.length / 50))
+  const start = (Math.min(selectedTagPage.value, last) - 1) * 50
+  return selectedResourceLabels.value.slice(start, start + 50)
+})
+
+function removeSelectedResource(id: string) {
+  if (changingSelection.value) return
+  selectedResourceIds.value = selectedResourceIds.value.filter(value => value !== id)
+}
+
+async function locateSelectedResource(id: string) {
+  if (!tempDsId.value || locatingResource.value) return
+  const session = resourceSession
+  locatingResource.value = id
+  try {
+    const page = await listResourcePage(tempDsId.value, { revealId: id })
+    if (session !== resourceSession) return
+    const merged = new Map(resources.value.map(r => [r.external_id, r]))
+    const expanded = new Set(expandedResourceIds.value)
+    const roots = new Set(spaceRootIds.value)
+    for (const r of page.items) {
+      merged.set(r.external_id, r)
+      if (!r.parent_id) roots.add(r.external_id)
+      else expanded.add(r.parent_id)
+    }
+    resources.value = [...merged.values()]
+    spaceRootIds.value = roots
+    expandedResourceIds.value = expanded
+    await nextTick()
+    const index = visibleTree.value.findIndex(row => row.resource.external_id === id && !row.noticeAfter && !row.loadMoreAfter)
+    if (index >= 0) resourceScroller.value?.scrollToItem(index)
+  } catch (e: any) {
+    if (session === resourceSession) MessagePlugin.error(e?.message || t('datasource.resourceLoadFailed'))
+  } finally {
+    if (session === resourceSession) locatingResource.value = ''
+  }
+}
 const selectedResourceIds = ref<string[]>([])
+watch(() => selectedResourceIds.value.length, count => {
+  if (selectedTagPage.value > Math.max(1, Math.ceil(count / 50))) selectedTagPage.value = 1
+})
 const expandedResourceIds = ref(new Set<string>())
 // Lazy loading: parents whose children have already been fetched, and parents
 // currently being fetched. Used to load hierarchical sources (e.g. Feishu wiki)
@@ -418,6 +539,9 @@ type CheckState = 'checked' | 'indeterminate' | 'unchecked'
 const checkStates = computed(() => {
   const states = new Map<string, CheckState>()
   const cover = new Set(selectedResourceIds.value)
+  const selectedConfluenceSpaces = new Set(form.value.type === 'confluence'
+    ? selectedResourceIds.value.filter(id => id.startsWith('page:')).map(id => id.split(':')[1])
+    : [])
 
   // Single post-order walk: a node is `checked` if itself or any ancestor is
   // in the cover set; otherwise `indeterminate` if any descendant is checked;
@@ -427,6 +551,9 @@ const checkStates = computed(() => {
     let descendantChecked = false
     for (const c of childrenMap.value.get(node.external_id) || []) {
       if (walk(c, selfChecked)) descendantChecked = true
+    }
+    if (!node.parent_id && selectedConfluenceSpaces.has(node.external_id)) {
+      descendantChecked = true
     }
     if (selfChecked) states.set(node.external_id, 'checked')
     else states.set(node.external_id, descendantChecked ? 'indeterminate' : 'unchecked')
@@ -453,18 +580,44 @@ function toggleExpand(id: string) {
 // ensureChildrenLoaded fetches the direct children of a node on demand. It is a
 // no-op when the connector already delivered the whole tree in one call (e.g.
 // Notion) or when this node's children have already been fetched.
-async function ensureChildrenLoaded(id: string) {
-  if (!tempDsId.value) return
-  if (loadedChildrenIds.value.has(id) || loadingChildrenIds.value.has(id)) return
+function ensureChildrenLoaded(id: string, append = false): Promise<boolean> {
+  const existing = childFlights.get(id)
+  if (existing) return existing
+  const flight = loadChildPage(id, append)
+  childFlights.set(id, flight)
+  void flight.finally(() => { if (childFlights.get(id) === flight) childFlights.delete(id) })
+  return flight
+}
+
+async function loadChildPage(id: string, append: boolean): Promise<boolean> {
+  if (!tempDsId.value) return false
+  if (loadedChildrenIds.value.has(id) && (!append || !childNextCursors.value.has(id))) return true
   if (treeFullyLoaded.value) {
     loadedChildrenIds.value = new Set(loadedChildrenIds.value).add(id)
-    return
+    return true
   }
 
   loadingChildrenIds.value = new Set(loadingChildrenIds.value).add(id)
+  const session = resourceSession
+  const dsId = tempDsId.value
+  childPageErrors.value = new Map(childPageErrors.value)
+  childPageErrors.value.delete(id)
   try {
-    const res = await listResources(tempDsId.value, id)
-    const children: Resource[] = res?.data || res || []
+    const rootId = getAncestorChain(id).at(-1)
+    const root = resources.value.find(r => r.external_id === rootId)
+    const paged = form.value.type === 'confluence' && !!root
+    const res = paged
+      ? await listResourcePage(dsId, { parentId: id, spaceKey: String(root?.metadata?.space_key || ''), cursor: append ? childNextCursors.value.get(id) : undefined })
+      : await listResources(dsId, id)
+    if (session !== resourceSession || dsId !== tempDsId.value) return false
+    const children: Resource[] = paged ? res.items || [] : res?.data || res || []
+    const cursors = new Map(childNextCursors.value)
+    const nextCursor = paged ? res.next_cursor : undefined
+    if (nextCursor) {
+      if (append && nextCursor === cursors.get(id)) throw new Error(t('datasource.resourceLoadFailed'))
+      cursors.set(id, nextCursor)
+    } else cursors.delete(id)
+    childNextCursors.value = cursors
     if (children.length > 0) {
       const existing = new Set(resources.value.map(r => r.external_id))
       const merged = resources.value.slice()
@@ -472,7 +625,7 @@ async function ensureChildrenLoaded(id: string) {
         if (!existing.has(c.external_id)) merged.push(c)
       }
       resources.value = merged
-    } else {
+    } else if (!append && !nextCursor && !(childrenMap.value.get(id)?.length)) {
       // Connectors may conservatively advertise HasChildren to avoid an N+1
       // probe. Once lazy loading proves this is a leaf, collapse it and retain
       // that fact so another expand cannot trigger another empty request.
@@ -484,27 +637,36 @@ async function ensureChildrenLoaded(id: string) {
       expandedResourceIds.value = expanded
     }
     loadedChildrenIds.value = new Set(loadedChildrenIds.value).add(id)
+    return true
   } catch (e: any) {
-    MessagePlugin.error(e?.message || e?.error || t('datasource.resourceLoadFailed'))
+    if (session !== resourceSession) return false
+    const message = e?.message || e?.error || t('datasource.resourceLoadFailed')
+    childPageErrors.value = new Map(childPageErrors.value).set(id, message)
+    MessagePlugin.error(message)
     // Collapse again so the user can retry the expand.
     const next = new Set(expandedResourceIds.value)
-    next.delete(id)
+    if (!append) next.delete(id)
     expandedResourceIds.value = next
+    return false
   } finally {
-    const s = new Set(loadingChildrenIds.value)
-    s.delete(id)
-    loadingChildrenIds.value = s
+    if (session === resourceSession) {
+      const s = new Set(loadingChildrenIds.value)
+      s.delete(id)
+      loadingChildrenIds.value = s
+    }
   }
 }
 
 const visibleTree = computed(() => {
-  const roots = resources.value.filter(r => !r.parent_id)
-  const result: { resource: Resource; depth: number; noticeAfter?: boolean }[] = []
+  const roots = resources.value.filter(r => !r.parent_id &&
+    (form.value.type !== 'confluence' || spaceRootIds.value.has(r.external_id)))
+  const result: { key: string; resource: Resource; depth: number; noticeAfter?: boolean; loadMoreAfter?: boolean }[] = []
   function walk(items: Resource[], depth: number) {
     for (const r of items) {
-      result.push({ resource: r, depth })
+      result.push({ key: r.external_id, resource: r, depth })
       if (r.has_children && expandedResourceIds.value.has(r.external_id)) {
         walk(childrenMap.value.get(r.external_id) || [], depth + 1)
+        if (childNextCursors.value.has(r.external_id)) result.push({ key: `${r.external_id}__more`, resource: r, depth: depth + 1, loadMoreAfter: true })
       }
       // Keep this visible after an empty root listing is recognized as a leaf.
       if (
@@ -512,7 +674,7 @@ const visibleTree = computed(() => {
         (expandedResourceIds.value.has(r.external_id) ||
           (!r.has_children && loadedChildrenIds.value.has(r.external_id)))
       ) {
-        result.push({ resource: r, depth: depth + 1, noticeAfter: true })
+        result.push({ key: `${r.external_id}__notice`, resource: r, depth: depth + 1, noticeAfter: true })
       }
     }
   }
@@ -738,6 +900,7 @@ const connectorDefs = computed<ConnectorDef[]>(() => {
 const currentDef = computed(() => connectorDefs.value.find(d => d.type === form.value.type))
 
 const displayedCredentialFields = computed(() => {
+  if (usesSystemConfluence.value) return []
   const fields = currentDef.value?.fields || []
   if (form.value.type !== "confluence") return fields
 
@@ -750,14 +913,31 @@ const displayedCredentialFields = computed(() => {
 
 // --- Drawer lifecycle ---
 watch(visible, async (v) => {
+  resourceSession++
+  spaceRequest++
+  expansionRun++
+  loadingSpacePage.value = false
+  loadingResources.value = false
+  spaceSearch.value = ''
+  activeSpaceSearch.value = ''
+  spaceNextCursor.value = ''
+  spaceRootIds.value = new Set()
+  spacePageError.value = ''
+  childNextCursors.value = new Map()
+  childPageErrors.value = new Map()
+  childFlights.clear()
+  locatingResource.value = ''
+  changingSelection.value = false
+  selectedTagPage.value = 1
   if (!v) {
-    if (!isEdit.value && tempDsId.value) {
+    const abandonedId = !isEdit.value ? tempDsId.value : ''
+    tempDsId.value = ''
+    if (abandonedId) {
       try {
-        await deleteDataSource(tempDsId.value)
+        await deleteDataSource(abandonedId)
       } catch {
         // Ignore cleanup errors
       }
-      tempDsId.value = ''
     }
     return
   }
@@ -837,6 +1017,20 @@ watch(visible, async (v) => {
       sync_deletions: true,
     }
   }
+  const session = resourceSession
+  loadingBuiltinConfluence.value = true
+  try {
+    const response = await getConnectorTypes()
+    if (session !== resourceSession) return
+    const connectors = response?.data || response || []
+    const profile = Array.isArray(connectors) ? connectors.find((item: any) => item.type === 'confluence')?.system_account : undefined
+    builtinConfluence.value = profile || { enabled: false }
+    if (!isEdit.value && form.value.type === 'confluence' && profile?.enabled && !form.value.config.credentials.base_url) useSystemConfluence()
+  } catch {
+    if (session === resourceSession) builtinConfluence.value = { enabled: false }
+  } finally {
+    if (session === resourceSession) loadingBuiltinConfluence.value = false
+  }
 })
 
 watch(
@@ -879,6 +1073,7 @@ function selectType(def: ConnectorDef) {
   form.value.config.credentials = def.type === "confluence" ? { edition: "server" } : {}
   if (def.type === 'confluence') {
     form.value.config.settings = { ...form.value.config.settings, edition: 'server' }
+    if (builtinConfluence.value.enabled) useSystemConfluence()
   }
   // A new Yuque source opts into the book's folder hierarchy. Only on create:
   // an existing source keeps what it was built with, so the "folder layout is
@@ -893,6 +1088,7 @@ function selectType(def: ConnectorDef) {
 
 // --- Test connection ---
 async function testConnection() {
+  if (loadingBuiltinConfluence.value && form.value.type === 'confluence') return
   syncRssAuthHeadersToCredentials()
   syncConfluencePublicFieldsToSettings()
   if (!validateRssFeedUrls()) return
@@ -921,7 +1117,7 @@ async function testConnection() {
       } as any)
       await validateConnection(tempDsId.value)
     } else {
-      const creds = { ...form.value.config.credentials }
+      const creds: Record<string, any> = usesSystemConfluence.value ? { credential_source: 'system' } : { ...form.value.config.credentials }
       if (form.value.type === 'rss') {
         // validate-credentials is credentials-only; feed URLs live in settings.
         creds.feed_urls = form.value.config.settings.feed_urls
@@ -940,6 +1136,8 @@ async function testConnection() {
 
 // --- Load resources ---
 async function loadResources() {
+  if (loadingResources.value) return
+  const session = resourceSession
   loadingResources.value = true
   try {
     syncConfluencePublicFieldsToSettings()
@@ -950,6 +1148,11 @@ async function loadResources() {
         status: 'paused',
       } as any)
       const created = res?.data || res
+      if (session !== resourceSession) {
+        if (created?.id) await deleteDataSource(created.id)
+        return
+      }
+      if (!created?.id) throw new Error(t('datasource.resourceLoadFailed'))
       tempDsId.value = created.id
     } else if (!isEdit.value) {
       await updateDataSource(tempDsId.value, {
@@ -959,7 +1162,15 @@ async function loadResources() {
       } as any)
     }
 
+    if (session !== resourceSession) return
+    if (form.value.type === 'confluence') {
+      await loadSpacePage()
+      // Existing selections stay visible as removable tags, including spaces
+      // outside the current result page. Browsing does not enumerate them all.
+      return
+    }
     const res = await listResources(tempDsId.value)
+    if (session !== resourceSession) return
     resources.value = res?.data || res || []
     // Any parent that already arrived with children (connectors returning the
     // full tree, e.g. Notion) needs no further lazy fetch.
@@ -987,9 +1198,11 @@ async function loadResources() {
       if (hidden.length > 0) void revealExistingSelections(hidden)
     }
   } catch (e: any) {
+    if (session !== resourceSession) return
     MessagePlugin.error(e?.message || e?.error || t('datasource.resourceLoadFailed'))
+  } finally {
+    if (session === resourceSession) loadingResources.value = false
   }
-  loadingResources.value = false
 }
 
 // revealExistingSelections asks the backend which ancestors must be expanded to
@@ -1041,7 +1254,7 @@ function checkResource(id: string, cover: Set<string>) {
   if (isCovered(id, cover)) return
   const descendants = new Set(getDescendantIds(id))
   for (const d of [...cover]) {
-    if (descendants.has(d)) cover.delete(d)
+    if (descendants.has(d) || (form.value.type === 'confluence' && !id.startsWith('page:') && d.startsWith(`page:${id}:`))) cover.delete(d)
   }
   cover.add(id)
 }
@@ -1068,15 +1281,44 @@ function uncheckResource(id: string, cover: Set<string>) {
   cover.delete(id)
   const descendants = new Set(getDescendantIds(id))
   for (const d of [...cover]) {
-    if (descendants.has(d)) cover.delete(d)
+    if (descendants.has(d) || (form.value.type === 'confluence' && !id.startsWith('page:') && d.startsWith(`page:${id}:`))) cover.delete(d)
   }
 }
 
-function toggleResource(id: string) {
+async function toggleResource(id: string) {
+  if (changingSelection.value) return
   const cover = new Set(selectedResourceIds.value)
   if ((checkStates.value.get(id) || 'unchecked') === 'unchecked') {
     checkResource(id, cover)
   } else {
+    const chain = getAncestorChain(id)
+    let coveringAncestor = -1
+    chain.forEach((value, index) => { if (cover.has(value)) coveringAncestor = index })
+    if (form.value.type === 'confluence' && coveringAncestor > 0) {
+      const session = resourceSession
+      changingSelection.value = true
+      try {
+        // Splitting an inherited selection requires every sibling, including
+        // later pages. Commit only after the complete split can be represented.
+        for (const parent of chain.slice(1, coveringAncestor + 1)) {
+          if (!(await ensureChildrenLoaded(parent))) return
+          const seen = new Set<string>()
+          while (childNextCursors.value.has(parent)) {
+            const cursor = childNextCursors.value.get(parent)!
+            if (seen.has(cursor) || seen.size >= 10000) throw new Error(t('datasource.resourceLoadFailed'))
+            seen.add(cursor)
+            if (!(await ensureChildrenLoaded(parent, true))) return
+          }
+          if (session !== resourceSession) return
+        }
+      } catch (e: any) {
+        if (session === resourceSession) MessagePlugin.error(e?.message || t('datasource.resourceLoadFailed'))
+        return
+      } finally {
+        if (session === resourceSession) changingSelection.value = false
+      }
+      if (session !== resourceSession) return
+    }
     uncheckResource(id, cover)
   }
   selectedResourceIds.value = [...cover]
@@ -1092,6 +1334,8 @@ function validateRssFeedUrls(): boolean {
 }
 
 function validateStep1Fields(): boolean {
+  if (form.value.type === 'confluence' && loadingBuiltinConfluence.value) return false
+  if (usesSystemConfluence.value) return true
   syncRssAuthHeadersToCredentials()
   if (!validateRssFeedUrls()) return false
   if (isEdit.value && credentialsConfigured.value && !replaceCredentialsMode.value) {
@@ -1110,6 +1354,7 @@ function validateStep1Fields(): boolean {
 }
 
 async function nextStep() {
+  if (changingSelection.value) return
   if (step.value === 1) {
     if (!validateStep1Fields()) return
     if (needsConnectionTest() && testResult.value !== 'success') {
@@ -1151,6 +1396,7 @@ async function nextStep() {
 }
 
 function prevStep() {
+  if (changingSelection.value) return
   step.value--
 }
 
@@ -1177,6 +1423,7 @@ function buildConfigPayload(): Record<string, unknown> {
 // least one value, commit it to /credentials before the main PUT. Aborts
 // the whole submit on failure so we don't leave the row partially saved.
 async function commitCredentialsIfNeeded(dsId: string): Promise<boolean> {
+  if (usesSystemConfluence.value) return true
   if (!isEdit.value || !replaceCredentialsMode.value) return true
   syncRssAuthHeadersToCredentials()
   syncConfluencePublicFieldsToSettings()
@@ -1199,6 +1446,7 @@ async function commitCredentialsIfNeeded(dsId: string): Promise<boolean> {
 
 // --- Final submit ---
 async function handleSubmit() {
+  if (changingSelection.value) return
   form.value.config.resource_ids = selectedResourceIds.value
   submitting.value = true
   try {
@@ -1290,16 +1538,24 @@ function resourceIconName(r: Resource): string {
   }
 }
 
-function expandAllNodes() {
-  const expandable = resources.value.filter(r => r.has_children)
+async function expandAllNodes() {
+  const run = ++expansionRun
+  const session = resourceSession
+  const expandable = resources.value.filter(r => r.has_children &&
+    (form.value.type !== 'confluence' || spaceRootIds.value.has(getAncestorChain(r.external_id).at(-1)!)))
   expandedResourceIds.value = new Set(expandable.map(r => r.external_id))
-  // Lazily load children of any expanded node that hasn't been fetched yet.
-  for (const r of expandable) {
-    void ensureChildrenLoaded(r.external_id)
+  let nextIndex = 0
+  async function worker() {
+    while (run === expansionRun && session === resourceSession && nextIndex < expandable.length) {
+      const r = expandable[nextIndex++]
+      if (expandedResourceIds.value.has(r.external_id)) await ensureChildrenLoaded(r.external_id)
+    }
   }
+  await Promise.all(Array.from({ length: Math.min(4, expandable.length) }, () => worker()))
 }
 
 function collapseAllNodes() {
+  expansionRun++
   expandedResourceIds.value = new Set()
 }
 
@@ -1353,7 +1609,7 @@ const drawerConfirmText = computed(() => {
     :class="[form.type ? `datasource-editor-drawer datasource-editor-drawer--${form.type}` : 'datasource-editor-drawer', { 'ds-fixed-step': step === 2 && !isGitLabConnector(form.type) }]"
     :hide-footer="step === 0"
     :confirm-text="drawerConfirmText"
-    :confirm-loading="submitting || (step === 1 && testing)"
+    :confirm-loading="submitting || changingSelection || (step === 1 && (testing || (form.type === 'confluence' && loadingBuiltinConfluence)))"
     storage-key="setting-drawer:width:datasource-editor"
     width="640px"
     @confirm="handleDrawerConfirm"
@@ -1547,7 +1803,13 @@ const drawerConfirmText = computed(() => {
       <section class="setting-drawer__section">
         <h4 class="setting-drawer__section-title">{{ t('datasource.credentialsLabel') }}</h4>
 
-        <div v-if="isEdit && credentialsConfigured && !replaceCredentialsMode" class="form-item">
+        <div v-if="form.type === 'confluence' && loadingBuiltinConfluence" class="form-item"><t-loading /></div>
+        <div v-else-if="usesSystemConfluence" class="form-item">
+          <p class="form-desc">{{ t('datasource.confluence.systemAccountHint') }}</p>
+          <p v-if="builtinConfluence.base_url" class="form-desc">{{ builtinConfluence.base_url }}</p>
+          <p v-if="!builtinConfluence.enabled" class="form-desc">{{ t('datasource.confluence.systemAccountUnavailable') }}</p>
+        </div>
+        <div v-else-if="isEdit && credentialsConfigured && !replaceCredentialsMode" class="form-item">
           <div
             class="credential-faux-input"
             :class="{ 'is-confirm-remove': pendingRemoveCredentials }"
@@ -1688,6 +1950,7 @@ const drawerConfirmText = computed(() => {
             </t-button>
           </div>
         </template>
+        <t-button v-if="form.type === 'confluence' && builtinConfluence.enabled && !usesSystemConfluence && !loadingBuiltinConfluence" variant="text" @click="useSystemConfluence">{{ t('datasource.confluence.useSystemAccount') }}</t-button>
       </section>
     </template>
 
@@ -1755,7 +2018,20 @@ const drawerConfirmText = computed(() => {
       </div>
 
       <div v-else-if="loadingResources" class="ds-loading-center"><t-loading /></div>
-      <div v-else-if="resources.length > 0" class="resource-picker">
+      <div v-else-if="resources.length > 0 || form.type === 'confluence'" class="resource-picker">
+        <form v-if="form.type === 'confluence'" class="resource-picker__search" @submit.prevent="loadSpacePage()">
+          <t-input v-model="spaceSearch" :placeholder="t('datasource.picker.searchPlaceholder')" :aria-label="t('datasource.picker.searchPlaceholder')" clearable />
+          <t-button type="submit" :loading="loadingSpacePage">{{ t('datasource.picker.search') }}</t-button>
+          <t-button v-if="spaceSearch || activeSpaceSearch" variant="text" @click="spaceSearch = ''; loadSpacePage()">{{ t('datasource.picker.clear') }}</t-button>
+        </form>
+        <div v-if="form.type === 'confluence' && selectedResourceLabels.length" class="resource-picker__selected">
+          <t-tag v-for="item in selectedTagLabels" :key="item.id" :closable="!changingSelection" @close="removeSelectedResource(item.id)">
+            <button type="button" class="resource-picker__locate" :title="t('datasource.picker.locate')" :disabled="!!locatingResource" @click="locateSelectedResource(item.id)">
+              <t-loading v-if="locatingResource === item.id" size="small" />{{ item.name }}
+            </button>
+          </t-tag>
+          <t-pagination v-if="selectedResourceLabels.length > 50" v-model:current="selectedTagPage" :total="selectedResourceLabels.length" :page-size="50" size="small" simple />
+        </div>
         <div class="resource-picker__toolbar">
           <span class="resource-picker__count">
             {{ t('knowledgeBase.selectedCount', { count: selectedResourceCount }) }}
@@ -1770,13 +2046,22 @@ const drawerConfirmText = computed(() => {
             </button>
           </div>
         </div>
-        <div class="resource-picker__list" role="tree">
-          <template
-            v-for="{ resource: r, depth, noticeAfter } in visibleTree"
-            :key="noticeAfter ? `${r.external_id}__notice` : r.external_id"
-          >
+        <p v-if="changingSelection" role="status">{{ t('datasource.picker.updatingSelection') }}</p>
+        <DynamicScroller ref="resourceScroller" class="resource-picker__list" role="tree" :items="visibleTree" :min-item-size="36" key-field="key" :buffer="240">
+          <template #before>
+            <p v-if="form.type === 'confluence' && !visibleTree.length && !loadingSpacePage" class="resource-picker__notice">{{ t('datasource.picker.noMatches') }}</p>
+          </template>
+          <template #default="{ item, index, active }">
+          <DynamicScrollerItem :item="item" :active="active" :data-index="index" :size-dependencies="[item.resource.name, item.noticeAfter, item.loadMoreAfter, childPageErrors.get(item.resource.external_id)]">
+          <template v-for="{ resource: r, depth, noticeAfter, loadMoreAfter } in [item]" :key="item.key">
+          <div v-if="loadMoreAfter" class="resource-picker__more" :style="{ '--depth': depth }">
+            <t-button variant="text" :loading="loadingChildrenIds.has(r.external_id)" @click="ensureChildrenLoaded(r.external_id, true)">
+              {{ childPageErrors.has(r.external_id) ? t('datasource.retryLoadResources') : t('datasource.picker.loadMore') }}
+            </t-button>
+            <p v-if="childPageErrors.has(r.external_id)" class="resource-picker__error" role="alert">{{ childPageErrors.get(r.external_id) }}</p>
+          </div>
           <div
-            v-if="!noticeAfter"
+            v-else-if="!noticeAfter"
             class="resource-picker__row"
             :class="{
               'is-checked': resourceRowState(r.external_id) === 'checked',
@@ -1784,6 +2069,7 @@ const drawerConfirmText = computed(() => {
             }"
             :style="{ '--depth': depth }"
             role="treeitem"
+            :aria-disabled="changingSelection"
             :aria-expanded="r.has_children ? expandedResourceIds.has(r.external_id) : undefined"
             @click="toggleResource(r.external_id)"
           >
@@ -1849,7 +2135,18 @@ const drawerConfirmText = computed(() => {
             {{ t('datasource.confluence.cloudFolderLimitation') }}
           </p>
           </template>
-        </div>
+          </DynamicScrollerItem>
+          </template>
+        </DynamicScroller>
+        <template v-if="form.type === 'confluence'">
+          <p v-if="spacePageError" class="resource-picker__error" role="alert">{{ spacePageError }}</p>
+          <div class="resource-picker__pagination">
+            <span>{{ t('datasource.picker.loaded', { count: spaceRootIds.size }) }}</span>
+            <t-button v-if="spaceNextCursor" variant="outline" :loading="loadingSpacePage" @click="loadSpacePage(true)">{{ t('datasource.picker.loadMore') }}</t-button>
+            <t-button v-else-if="spacePageError" variant="outline" :loading="loadingSpacePage" @click="loadSpacePage()">{{ t('datasource.retryLoadResources') }}</t-button>
+            <t-loading v-else-if="loadingSpacePage" size="small" />
+          </div>
+        </template>
       </div>
       <div v-else class="ds-resource-empty">
         <t-icon name="info-circle" size="32px" style="color: var(--td-warning-color); margin-bottom: 8px;" />
@@ -2509,6 +2806,19 @@ const drawerConfirmText = computed(() => {
   flex-direction: column;
   gap: 6px;
 }
+
+.resource-picker__search, .resource-picker__pagination {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.resource-picker__search :deep(.t-input__wrap) { flex: 1; min-width: 0; }
+.resource-picker__pagination { justify-content: space-between; color: var(--td-text-color-secondary); font-size: var(--app-text-sm); }
+.resource-picker__selected { display: flex; flex-wrap: wrap; gap: 4px; max-height: 80px; overflow-y: auto; flex-shrink: 0; }
+.resource-picker__locate { background: none; border: 0; color: inherit; font: inherit; cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
+.resource-picker__more { padding-left: calc(8px + var(--depth) * 14px); }
+.resource-picker__error { color: var(--td-error-color); margin: 0; font-size: var(--app-text-sm); }
 
 .resource-picker__toolbar {
   display: flex;

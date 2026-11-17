@@ -869,6 +869,11 @@ export default {
     }
   },
   datasource: {
+    picker: {
+      locate: '定位此已选项', updatingSelection: '正在保留其他页面的选择，请稍候…',
+      searchPlaceholder: '按空间名称搜索', search: '搜索', clear: '查看全部',
+      noMatches: '没有找到匹配的空间', loaded: '已加载 {count} 个空间', loadMore: '加载更多',
+    },
     documentDeferred: '暂缓',
     documentUnchanged: '无变化',
     documentUnsupported: '未支持',
@@ -1056,6 +1061,9 @@ export default {
       authHeadersHint: '用于访问私有订阅源，每行一个，格式为「名称: 值」，例如 Authorization: Bearer xxxx'
     },
     confluence: {
+      systemAccountHint: '使用系统内置账号连接，无需填写账号或密码。凭证由系统管理员维护。',
+      systemAccountUnavailable: '系统内置连接当前不可用，请联系管理员。',
+      useSystemAccount: '使用系统内置账号',
       cloudFolderLimitation: 'Confluence Cloud 暂不支持在此列出空间顶层文件夹等容器下的页面；选择整个空间仍会同步它们。'
     },
     connectorDesc: {
