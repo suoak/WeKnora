@@ -252,6 +252,15 @@ type Knowledge struct {
 	// SourceDocumentReparse describes a separate controlled replacement request.
 	// The current published document keeps its own serving/parse state.
 	SourceDocumentReparse *FeishuDocumentReparseStatus `json:"source_document_reparse,omitempty" gorm:"-"`
+	// Response-only attribution; never part of a stored publication fingerprint.
+	Submitter *KnowledgeSubmitter `json:"submitter,omitempty" gorm:"-"`
+}
+
+// KnowledgeSubmitter is display attribution for an authorized catalog response.
+type KnowledgeSubmitter struct {
+	Kind   string `json:"kind"`
+	UserID string `json:"user_id,omitempty"`
+	Name   string `json:"name,omitempty"`
 }
 
 // Stall verdicts for Knowledge.StallState.

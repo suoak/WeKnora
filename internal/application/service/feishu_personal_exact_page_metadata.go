@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -88,6 +89,7 @@ AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXI
 		ParseStatus, SummaryStatus, EnableStatus, Channel         string
 		ExecutionError                                            string
 		PreflightError                                            string
+		Failure                                                   types.JSON
 		TenantID                                                  uint64
 		FileSize                                                  int64
 		CreatedAt, UpdatedAt                                      time.Time
@@ -99,6 +101,7 @@ AND ((u.can_access_all_tenants AND u.tenant_id<>t.id AND ?='admin' AND ?) OR EXI
 		err := p.service.db.WithContext(ctx).Table("knowledges k").Select(`
 k.id,k.tenant_id,k.knowledge_base_id,k.file_name,k.file_type,k.type,k.folder_path,
 k.file_size,k.parse_status,k.summary_status,k.enable_status,k.channel,k.created_at,k.updated_at,
+k.metadata->'parse_failure_v1' AS failure,
 CASE WHEN a.status='needs_attention' AND a.owner_nonce='' AND a.lease_until IS NULL
  THEN a.last_error_category ELSE '' END AS execution_error,
 CASE WHEN a.status='index_pending' AND a.owner_nonce='' AND a.lease_until IS NULL
@@ -139,6 +142,11 @@ CASE WHEN a.status='index_pending' AND a.owner_nonce='' AND a.lease_until IS NUL
 		if row.ErrorMessage == "" {
 			row.ErrorMessage = personalPreflightPublicMessage(e.PreflightError)
 		}
+		if failure := catalogEncryptedFailure(e.Failure, e.ParseStatus); failure != nil {
+			if err := row.SetParseFailure(failure); err != nil {
+				return nil, err
+			}
+		}
 		byID[e.ID] = row
 	}
 	rows := make([]*types.Knowledge, 0, len(ids))
@@ -157,6 +165,19 @@ CASE WHEN a.status='index_pending' AND a.owner_nonce='' AND a.lease_until IS NUL
 		return nil, err
 	}
 	return rows, nil
+}
+
+// Only a finite, current diagnosis is catalog metadata. Never expose arbitrary
+// error strings, extra metadata fields or a stale previous attempt's failure.
+func catalogEncryptedFailure(raw types.JSON, status string) *types.KnowledgeParseFailure {
+	var failure types.KnowledgeParseFailure
+	if status != types.ParseStatusFailed || json.Unmarshal(raw, &failure) != nil ||
+		failure.Code != "encrypted_file" || failure.State != "needs_attention" ||
+		failure.Action != "provide_unencrypted_copy" || failure.AutoRetry ||
+		failure.Attempts < 1 || failure.MaxAttempts < failure.Attempts || failure.MaxAttempts > 100 {
+		return nil
+	}
+	return &failure
 }
 
 // Finite public explanations only. Raw parser/provider errors, source URLs and

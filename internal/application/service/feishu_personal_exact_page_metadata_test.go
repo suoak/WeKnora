@@ -11,6 +11,27 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPersonalCatalogEncryptedFailureProjectionIsFiniteAndCurrent(t *testing.T) {
+	raw := types.JSON(`{"code":"encrypted_file","state":"needs_attention",` +
+		`"action":"provide_unencrypted_copy","attempts":1,"max_attempts":4,` +
+		`"auto_retry":false,"private":"must-not-enter-the-catalog"}`)
+	failure := catalogEncryptedFailure(raw, types.ParseStatusFailed)
+	require.NotNil(t, failure)
+	encoded, err := json.Marshal(failure)
+	require.NoError(t, err)
+	require.NotContains(t, string(encoded), "must-not-enter-the-catalog")
+	for _, status := range []string{"pending", "processing", "completed", "cancelled"} {
+		require.Nil(t, catalogEncryptedFailure(raw, status))
+	}
+	for _, bad := range []string{
+		`{"code":"private/provider-error"}`, `null`, `{invalid`,
+		`{"code":"encrypted_file","state":"needs_attention","action":"provide_unencrypted_copy",` +
+			`"attempts":1,"max_attempts":4,"auto_retry":true}`,
+	} {
+		require.Nil(t, catalogEncryptedFailure(types.JSON(bad), types.ParseStatusFailed))
+	}
+}
+
 func TestPersonalRecoveryPreflightReasonIsVisibleWithoutBody(t *testing.T) {
 	f, attempt, _ := pendingExactFixture(t)
 	ctx := types.WithPrincipal(f.ctx, types.Principal{Type: types.PrincipalWebUser, ID: "A"})

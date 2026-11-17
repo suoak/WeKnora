@@ -677,6 +677,7 @@ func (h *KnowledgeHandler) GetKnowledge(c *gin.Context) {
 
 	logger.Infof(ctx, "Knowledge retrieved successfully, ID: %s, title: %s",
 		secutils.SanitizeForLog(knowledge.ID), secutils.SanitizeForLog(knowledge.Title))
+	h.decorateKnowledgeSubmitters(effCtx, knowledge.TenantID, knowledge.KnowledgeBaseID, []*types.Knowledge{knowledge})
 	c.JSON(http.StatusOK, gin.H{
 		"success": true,
 		"data":    knowledge,
@@ -1173,6 +1174,9 @@ func (h *KnowledgeHandler) ListKnowledge(c *gin.Context) {
 		}
 		c.Error(errors.NewInternalServerError(err.Error()))
 		return
+	}
+	if rows, ok := result.Data.([]*types.Knowledge); ok {
+		h.decorateKnowledgeSubmitters(ctx, effectiveTenantID, kbID, rows)
 	}
 
 	logger.Infof(

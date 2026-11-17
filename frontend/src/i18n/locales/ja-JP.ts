@@ -411,6 +411,9 @@ const messages = {
     sharedTooltip: '共有スペース経由で外部ワークスペースからアクセス'
   },
   knowledgeBase: {
+    systemSyncSubmitter: '自動同期',
+    encryptedDocumentReason: '文書が暗号化されているため解析できません',
+    encryptedDocumentAction: '暗号化を解除してから、暗号化されていないファイルをアップロードしてください。自動再試行は停止しています。',
     submitter: '投稿者',
     unknownSubmitter: '不明（記録なし）',
     resizeFolderPane: 'フォルダー幅を調整',

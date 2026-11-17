@@ -12,6 +12,15 @@ const actions = new Set([
   'check_source_address', 'split_document', 'review_processing_trace', 'wait_for_automatic_retry',
 ])
 
+export function isEncryptedParseFailure(item: {
+  parse_status?: string
+  metadata?: Record<string, unknown>
+}): boolean {
+  const failure = parseFailureProgress(item)
+  return failure?.state === 'needs_attention' && failure.code === 'encrypted_file'
+    && failure.action === 'provide_unencrypted_copy'
+}
+
 // Never infer that a task is scheduled from raw error strings or a failed row.
 export function parseFailureProgress(item: {
   parse_status?: string

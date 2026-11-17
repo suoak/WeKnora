@@ -6963,6 +6963,9 @@ const messages = {
     }
   },
   knowledgeBase: {
+    systemSyncSubmitter: 'Автоматическая синхронизация',
+    encryptedDocumentReason: 'Документ зашифрован и не может быть обработан',
+    encryptedDocumentAction: 'Снимите шифрование и загрузите незашифрованную копию. Автоматические повторные попытки остановлены.',
     submitter: 'Автор загрузки',
     unknownSubmitter: 'Неизвестно',
     resizeFolderPane: 'Изменить ширину папок',

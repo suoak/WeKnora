@@ -7048,6 +7048,9 @@ export default {
     }
   },
   knowledgeBase: {
+    systemSyncSubmitter: '系统同步',
+    encryptedDocumentReason: '文档已加密，无法解析',
+    encryptedDocumentAction: '请先取消文件加密，再上传未加密版本。系统已停止自动重试。',
     submitter: '提交人',
     unknownSubmitter: '未知（历史记录未留存）',
     resizeFolderPane: '调整目录宽度',

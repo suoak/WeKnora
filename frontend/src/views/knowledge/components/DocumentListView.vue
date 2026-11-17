@@ -9,6 +9,8 @@ import DocumentActionMenu from './DocumentActionMenu.vue';
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue';
 import { shownStall } from '@/utils/knowledgeProcessingStall';
 import { conciseProcessingError } from '@/utils/knowledgeProcessingPresentation';
+import KnowledgeParseFailureNotice from '@/components/knowledge-parse-failure-notice.vue';
+import { knowledgeSubmitterName, type KnowledgeSubmitterItem } from '@/utils/knowledgeSubmitter';
 
 interface Tag {
   id: string;
@@ -16,7 +18,7 @@ interface Tag {
   color?: string;
 }
 
-interface KnowledgeItem {
+interface KnowledgeItem extends KnowledgeSubmitterItem {
   id: string;
   file_name: string;
   original_file_name?: string;
@@ -294,8 +296,9 @@ const handleAction = (action: 'download' | 'edit' | 'reparse' | 'cancel-parse' |
               <span class="meta-sep" aria-hidden="true">·</span>
               <span :title="t('knowledgeBase.columnUpdatedAt')">{{ formatTime(item.updated_at) }}</span>
               <span class="meta-sep" aria-hidden="true">&middot;</span>
-              <span>{{ t('knowledgeBase.submitter') }}: {{ item.metadata?.submitter?.name || t('knowledgeBase.unknownSubmitter') }}</span>
+              <span>{{ t('knowledgeBase.submitter') }}: {{ knowledgeSubmitterName(item, t('knowledgeBase.systemSyncSubmitter')) || t('knowledgeBase.unknownSubmitter') }}</span>
             </span>
+            <KnowledgeParseFailureNotice :item="item" />
             <button v-if="showFolderPath && item.folder_path" type="button" class="row-file-folder"
               :title="item.folder_path" @click.stop="emit('open-folder', item.folder_path)">
               <t-icon name="folder" />

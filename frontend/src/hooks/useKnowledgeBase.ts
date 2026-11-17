@@ -11,6 +11,7 @@ import {
 import { knowledgeStore } from "@/stores/knowledge";
 import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
+import { knowledgeSubmitterName, type KnowledgeSubmitterItem } from '../utils/knowledgeSubmitter';
 
 export default function (knowledgeBaseId?: string) {
   const usemenuStore = knowledgeStore();
@@ -33,6 +34,7 @@ export default function (knowledgeBaseId?: string) {
     summary_status: "",
     parse_status: "",
     error_message: "",
+    metadata: {} as Record<string, unknown>,
 	custom_metadata: {} as Record<string, unknown>,
     detailLoading: false,
     detailLoadError: "",
@@ -132,6 +134,7 @@ export default function (knowledgeBaseId?: string) {
       summary_status: "",
       parse_status: "",
       error_message: "",
+      metadata: {},
 	  custom_metadata: {},
       chunkLoadError: "",
       tags: item?.tags ? [...item.tags] : [],
@@ -145,7 +148,7 @@ export default function (knowledgeBaseId?: string) {
             title: data.file_name || data.title || data.source || t('knowledgeBase.untitledDocument'),
             time: formatStringDate(new Date(data.updated_at)),
             id: data.id,
-            submitter_name: data.metadata?.submitter?.name || "",
+            submitter_name: knowledgeSubmitterName(data as KnowledgeSubmitterItem, t('knowledgeBase.systemSyncSubmitter')),
             type: data.type || 'file',
             source: data.source || '',
             channel: data.channel || '',
@@ -154,6 +157,7 @@ export default function (knowledgeBaseId?: string) {
             summary_status: data.summary_status || '',
             parse_status: data.parse_status || '',
             error_message: data.error_message || '',
+            metadata: data.metadata || {},
 			custom_metadata: data.custom_metadata || {},
             tags: data.tags?.length ? data.tags : (item?.tags || []),
           });
