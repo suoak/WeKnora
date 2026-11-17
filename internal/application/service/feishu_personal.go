@@ -97,10 +97,7 @@ func NewFeishuPersonalService(
 		knowledge: knowledge,
 		kbs:       kbs,
 		audit:     audit,
-		api: &http.Client{
-			Timeout:       30 * time.Second,
-			CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse },
-		},
+		api:       core.NewOAuthHTTPClient(),
 	}
 }
 
