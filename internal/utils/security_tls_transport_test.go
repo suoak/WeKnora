@@ -36,7 +36,7 @@ func TestSSRFTLSConnectorResolverStillValidatesEveryAddress(t *testing.T) {
 			dialDNS := func(context.Context, string, string) (net.Conn, error) {
 				client, server := net.Pipe()
 				go func() {
-					defer server.Close()
+					defer func() { _ = server.Close() }()
 					var prefix [2]byte
 					if _, err := io.ReadFull(server, prefix[:]); err != nil {
 						return
@@ -54,8 +54,8 @@ func TestSSRFTLSConnectorResolverStillValidatesEveryAddress(t *testing.T) {
 						return
 					}
 					question := message.Questions[0]
-					message.Header.Response = true
-					message.Header.RecursionAvailable = true
+					message.Response = true
+					message.RecursionAvailable = true
 					if question.Type == dnsmessage.TypeA {
 						for _, address := range addresses {
 							ip := net.ParseIP(address).To4()
