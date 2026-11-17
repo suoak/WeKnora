@@ -175,7 +175,8 @@ func standaloneRelationAllowed(owner, kind string) bool {
 			kind == exactWorkbookRelNamespace+"/drawing" || kind == exactWorkbookRelNamespace+"/vmlDrawing" ||
 			kind == exactWorkbookRelNamespace+"/comments"
 	}
-	return path.Dir(owner) == "xl/drawings" && (kind == exactWorkbookRelNamespace+"/image" || kind == exactWorkbookRelNamespace+"/chart")
+	return path.Dir(owner) == "xl/drawings" &&
+		(kind == exactWorkbookRelNamespace+"/image" || kind == exactWorkbookRelNamespace+"/chart")
 }
 
 func standaloneRelationshipXML(body []byte) error {

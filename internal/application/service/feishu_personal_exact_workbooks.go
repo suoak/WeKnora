@@ -567,7 +567,8 @@ func exactWorkbookMergesForFormat(body []byte, standalone bool) (map[string]bool
 				// Preserve stored non-anchor data at its actual coordinate rather
 				// than replacing it with the anchor or silently dropping it.
 				covered[cell.Ref] = false
-				note.WriteString("\nStored value in covered merged cell " + cell.Ref + " is preserved at its source coordinate.\n")
+				note.WriteString("\nStored value in covered merged cell " + cell.Ref +
+					" is preserved at its source coordinate.\n")
 			}
 		}
 	}

@@ -53,7 +53,8 @@ func standaloneImageReferences(parts map[string][]byte, owner, imageNode, drawin
 		return err
 	}
 	for _, rel := range rels {
-		if rel.Type != exactWorkbookRelNamespace+"/image" && rel.Type != exactWorkbookRelNamespace+"/drawing" && rel.Type != exactWorkbookRelNamespace+"/chart" {
+		if rel.Type != exactWorkbookRelNamespace+"/image" &&
+			rel.Type != exactWorkbookRelNamespace+"/drawing" && rel.Type != exactWorkbookRelNamespace+"/chart" {
 			continue
 		}
 		if refs[rel.ID] == "" || rel.Type != exactWorkbookRelNamespace+"/"+refs[rel.ID] {

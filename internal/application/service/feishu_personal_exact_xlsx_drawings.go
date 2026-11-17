@@ -10,7 +10,9 @@ const standaloneChartNS = "http://schemas.openxmlformats.org/drawingml/2006/char
 
 // Preserve drawing placement, titles and chart caches as literal source facts.
 // No renderer, formula evaluator or external relationship resolver is invoked.
-func standaloneWorkbookDrawingFacts(parts map[string][]byte, sheets []standaloneWorkbookSheet) (map[string]string, error) {
+func standaloneWorkbookDrawingFacts(
+	parts map[string][]byte, sheets []standaloneWorkbookSheet,
+) (map[string]string, error) {
 	notes := map[string]string{}
 	used := map[string]bool{}
 	for _, sheet := range sheets {
@@ -31,10 +33,12 @@ func standaloneWorkbookDrawingFacts(parts map[string][]byte, sheets []standalone
 			}
 			used[part] = true
 			facts, err := standaloneXMLFacts(parts[part], map[string]string{
-				exactDrawingNamespace: "wsDr twoCellAnchor oneCellAnchor absoluteAnchor from to col colOff row rowOff " +
-					"pos ext pic nvPicPr cNvPr cNvPicPr blipFill spPr clientData graphicFrame nvGraphicFramePr cNvGraphicFramePr xfrm",
-				exactDrawingMainNamespace: "picLocks blip stretch fillRect xfrm off ext prstGeom avLst graphic graphicData graphicFrameLocks",
-				standaloneChartNS:         "chart",
+				exactDrawingNamespace: "wsDr twoCellAnchor oneCellAnchor absoluteAnchor from to col colOff " +
+					"row rowOff pos ext pic nvPicPr cNvPr cNvPicPr blipFill spPr clientData " +
+					"graphicFrame nvGraphicFramePr cNvGraphicFramePr xfrm",
+				exactDrawingMainNamespace: "picLocks blip stretch fillRect xfrm off ext prstGeom avLst " +
+					"graphic graphicData graphicFrameLocks",
+				standaloneChartNS: "chart",
 			}, false)
 			if err != nil {
 				return nil, fmt.Errorf("drawing_facts: %w", err)
@@ -80,10 +84,12 @@ func standaloneWorkbookDrawingFacts(parts map[string][]byte, sheets []standalone
 func standaloneChartFacts(body []byte) (string, error) {
 	return standaloneXMLFacts(body, map[string]string{
 		standaloneChartNS: "chartSpace date1904 lang roundedCorners chart title tx rich layout manualLayout " +
-			"xMode yMode wMode hMode layoutTarget x y w h overlay spPr txPr plotArea pieChart pie3DChart doughnutChart " +
-			"barChart lineChart areaChart scatterChart radarChart bubbleChart grouping barDir varyColors ser idx order " +
-			"cat val xVal yVal bubbleSize strRef numRef multiLvlStrRef strCache numCache multiLvlStrCache " +
-			"strLit numLit f formatCode ptCount pt v lvl dPt marker symbol size smooth explosion " +
+			"xMode yMode wMode hMode layoutTarget x y w h overlay spPr txPr plotArea " +
+			"pieChart pie3DChart doughnutChart barChart lineChart areaChart scatterChart " +
+			"radarChart bubbleChart grouping barDir varyColors ser idx order " +
+			"cat val xVal yVal bubbleSize strRef numRef multiLvlStrRef strCache numCache " +
+			"multiLvlStrCache strLit numLit f formatCode ptCount pt v lvl dPt marker " +
+			"symbol size smooth explosion " +
 			"dLbls dLbl showLegendKey showVal showCatName showSerName showPercent showBubbleSize separator " +
 			"dLblPos firstSliceAng holeSize gapWidth overlap axId catAx valAx dateAx scaling logBase orientation " +
 			"max min delete axPos majorGridlines minorGridlines numFmt majorTickMark minorTickMark tickLblPos " +

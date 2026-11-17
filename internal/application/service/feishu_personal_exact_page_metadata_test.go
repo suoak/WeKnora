@@ -16,7 +16,8 @@ func TestPersonalRecoveryPreflightReasonIsVisibleWithoutBody(t *testing.T) {
 	ctx := types.WithPrincipal(f.ctx, types.Principal{Type: types.PrincipalWebUser, ID: "A"})
 	ctx = types.WithCaller(ctx, types.Caller{TenantID: 1, UserID: "A", Role: types.TenantRoleAdmin})
 	ctx = types.WithExecutionTenant(ctx, 1)
-	require.NoError(t, f.p.repo.RecordPreflightDeferral(context.Background(), attempt, "embedded_dependency_unsupported"))
+	require.NoError(t, f.p.repo.RecordPreflightDeferral(
+		context.Background(), attempt, "embedded_dependency_unsupported"))
 	rows, err := f.p.exactPageMetadata(ctx, 1, "kb", []string{attempt.LogicalKnowledgeID})
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
