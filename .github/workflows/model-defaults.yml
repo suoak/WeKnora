@@ -1,0 +1,55 @@
+name: Enterprise Model Defaults
+
+on:
+  pull_request:
+    paths:
+      - "internal/**/*model*.go"
+      - "internal/types/tenant.go"
+      - "internal/types/interfaces/tenant.go"
+      - "internal/application/repository/tenant.go"
+      - "internal/handler/tenant.go"
+      - "internal/database/migration_model_defaults_test.go"
+      - "migrations/**"
+      - ".github/workflows/model-defaults.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: enterprise-model-defaults-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  defaults:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: enterprise_defaults
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d enterprise_defaults"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      GOMAXPROCS: "2"
+      LOG_FORMAT: ""
+      WEKNORA_MODEL_DEFAULTS_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/enterprise_defaults?sslmode=disable
+      WEKNORA_MIGRATION_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/enterprise_defaults?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26"
+          cache: true
+      - name: Validate inherited defaults, HTTP permissions, atomic audit and migration rollback
+        run: |
+          go test -p 1 -race -count=1 -timeout=300s \
+            ./internal/types ./internal/application/repository ./internal/application/service \
+            ./internal/handler ./internal/router ./internal/database \
+            -run 'TestWorkspaceDefaults|TestModelPolicy|TestEmbeddingIdentity|TestApplyModelDefaults|TestPick|TestVision|TestApplyKnowledgeBaseDefaults|TestChangingEmbeddingDefault|TestMigrationGovernanceManifest|TestPostgresMigrationsServeAgentHistory'
