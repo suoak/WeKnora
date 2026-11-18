@@ -25,11 +25,11 @@ func TestWorkspaceDefaultsMigrationUpDownPreservesResourcePins(t *testing.T) {
 			}
 			db, err := sql.Open(driver, dsn)
 			require.NoError(t, err)
-			defer db.Close()
+			defer func() { _ = db.Close() }()
 			ctx := context.Background()
 			conn, err := db.Conn(ctx)
 			require.NoError(t, err)
-			defer conn.Close()
+			defer func() { _ = conn.Close() }()
 			if dialect == "versioned" {
 				schema := "model_defaults_migration_" + strings.ReplaceAll(uuid.NewString(), "-", "")
 				_, err = conn.ExecContext(ctx, "CREATE SCHEMA "+schema)
@@ -48,21 +48,38 @@ func TestWorkspaceDefaultsMigrationUpDownPreservesResourcePins(t *testing.T) {
 				require.NoError(t, err)
 			}
 			apply := func(direction string) {
-				data, readErr := os.ReadFile(filepath.Join(sqliteRepoRoot(t), "migrations", dialect, "003049_workspace_model_defaults."+direction+".sql"))
+				data, readErr := os.ReadFile(
+					filepath.Join(
+						sqliteRepoRoot(t),
+						"migrations",
+						dialect,
+						"003049_workspace_model_defaults."+direction+".sql",
+					),
+				)
 				require.NoError(t, readErr)
 				_, execErr := conn.ExecContext(ctx, string(data))
 				require.NoError(t, execErr)
 			}
 			apply("up")
 			var defaults sql.NullString
-			require.NoError(t, conn.QueryRowContext(ctx, "SELECT default_settings FROM tenants WHERE id=7").Scan(&defaults))
+			require.NoError(
+				t,
+				conn.QueryRowContext(ctx, "SELECT default_settings FROM tenants WHERE id=7").Scan(&defaults),
+			)
 			require.False(t, defaults.Valid)
-			_, err = conn.ExecContext(ctx, `UPDATE tenants SET default_settings='{"chat_model_id":"new-default"}' WHERE id=7`)
+			_, err = conn.ExecContext(
+				ctx,
+				`UPDATE tenants SET default_settings='{"chat_model_id":"new-default"}' WHERE id=7`,
+			)
 			require.NoError(t, err)
 			apply("down")
 			apply("up")
 			var pin, name string
-			require.NoError(t, conn.QueryRowContext(ctx, "SELECT embedding_model_id FROM knowledge_bases WHERE id='existing-kb'").Scan(&pin))
+			require.NoError(
+				t,
+				conn.QueryRowContext(ctx, "SELECT embedding_model_id FROM knowledge_bases WHERE id='existing-kb'").
+					Scan(&pin),
+			)
 			require.Equal(t, "pinned-embedding-v1", pin)
 			require.NoError(t, conn.QueryRowContext(ctx, "SELECT name FROM tenants WHERE id=7").Scan(&name))
 			require.Equal(t, "existing-workspace", name)

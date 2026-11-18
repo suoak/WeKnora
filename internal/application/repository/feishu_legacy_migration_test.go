@@ -61,7 +61,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			// production 3033 SQL. No Force, copied temporary chain or AutoMigrate.
 			require.NoError(t, m.Migrate(3033))
 			tenant := &types.Tenant{ID: 809903, Name: "migration-synthetic", Status: "active"}
-			require.NoError(t, db.Create(tenant).Error)
+			require.NoError(t, db.Omit("DefaultSettings").Create(tenant).Error)
 			kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "historical", Type: "document"}
 			require.NoError(t, db.Create(kb).Error)
 			key := &types.TenantAPIKey{TenantID: &tenant.ID, Name: "old-key", KeyHash: uuid.NewString(), Capabilities: types.StringArray{"retrieve"}, KnowledgeBaseIDs: types.StringArray{kb.ID}}
@@ -100,7 +100,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, e)
 			version, dirty, e := m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3048, version)
+			require.EqualValues(t, 3049, version)
 			require.False(t, dirty)
 			var saved types.TenantAPIKey
 			var persistedMode string
@@ -148,7 +148,7 @@ func TestFeishuLegacyFormalMigrationChain(t *testing.T) {
 			require.NoError(t, database.RunMigrations(dsn))
 			version, dirty, e = m.Version()
 			require.NoError(t, e)
-			require.EqualValues(t, 3048, version)
+			require.EqualValues(t, 3049, version)
 			require.False(t, dirty)
 		})
 	}

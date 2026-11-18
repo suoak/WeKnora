@@ -8,6 +8,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// GetWorkspaceModelDefaults returns only persisted model IDs to workspace viewers.
 func (h *TenantHandler) GetWorkspaceModelDefaults(c *gin.Context) {
 	if h.modelPolicy == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model defaults are unavailable"})
@@ -21,6 +22,7 @@ func (h *TenantHandler) GetWorkspaceModelDefaults(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": settings})
 }
 
+// UpdateWorkspaceModelDefaults saves an administrator choice against its read snapshot.
 func (h *TenantHandler) UpdateWorkspaceModelDefaults(c *gin.Context) {
 	if h.modelPolicy == nil {
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Model defaults are unavailable"})

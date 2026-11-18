@@ -8,6 +8,7 @@ import (
 	"strings"
 )
 
+// ErrDefaultSettingsConflict prevents overwriting a concurrent administrator edit.
 var ErrDefaultSettingsConflict = errors.New("workspace model defaults changed; reload before saving")
 
 // DefaultSettings is the workspace's choice of default models, stored as

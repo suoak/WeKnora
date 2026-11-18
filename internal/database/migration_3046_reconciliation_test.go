@@ -93,7 +93,7 @@ func TestSQLite3046LineagesReconcileWithoutLosingUsage(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, m.Up())
 			version, dirty := sqliteMigrationState(t, db)
-			require.Equal(t, 3048, version)
+			require.Equal(t, 3049, version)
 			require.False(t, dirty)
 			var entry, client, principal string
 			var endpoint sql.NullString
@@ -184,7 +184,7 @@ func TestPostgres3046LineagesReconcileWithoutLosingUsage(t *testing.T) {
 			require.NoError(t, m.Up())
 			version, dirty, err := m.Version()
 			require.NoError(t, err)
-			require.EqualValues(t, 3048, version)
+			require.EqualValues(t, 3049, version)
 			require.False(t, dirty)
 			var entry, principal, constraint, function string
 			require.NoError(

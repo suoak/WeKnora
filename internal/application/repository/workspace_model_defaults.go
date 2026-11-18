@@ -13,7 +13,11 @@ import (
 
 // UpdateDefaultSettings atomically compares the read snapshot, writes only
 // the model-default column and appends the rollback pre-image to the audit.
-func (r *tenantRepository) UpdateDefaultSettings(ctx context.Context, tenantID uint64, next, previous *types.DefaultSettings) error {
+func (r *tenantRepository) UpdateDefaultSettings(
+	ctx context.Context,
+	tenantID uint64,
+	next, previous *types.DefaultSettings,
+) error {
 	if next == nil || previous == nil {
 		return fmt.Errorf("model defaults and previous snapshot are required")
 	}

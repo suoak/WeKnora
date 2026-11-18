@@ -94,6 +94,7 @@ type portalM7KBs struct {
 func (s portalM7KBs) ListKnowledgeBasesByTenantID(ctx context.Context, tenant uint64) ([]*types.KnowledgeBase, error) {
 	return s.repo.ListKnowledgeBasesByTenantID(ctx, tenant)
 }
+
 func (s portalM7KBs) GetKnowledgeBaseByIDOnly(ctx context.Context, id string) (*types.KnowledgeBase, error) {
 	return s.repo.GetKnowledgeBaseByID(ctx, id)
 }

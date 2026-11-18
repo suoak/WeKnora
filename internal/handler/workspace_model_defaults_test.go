@@ -22,10 +22,16 @@ type workspaceDefaultsPolicy struct {
 func (p *workspaceDefaultsPolicy) GetWorkspacePolicy(context.Context) (*types.DefaultSettings, error) {
 	return &types.DefaultSettings{ChatModelID: "configured"}, nil
 }
-func (p *workspaceDefaultsPolicy) UpdateWorkspacePolicy(context.Context, *types.DefaultSettings, *types.DefaultSettings) error {
+
+func (p *workspaceDefaultsPolicy) UpdateWorkspacePolicy(
+	context.Context,
+	*types.DefaultSettings,
+	*types.DefaultSettings,
+) error {
 	p.writes++
 	return p.err
 }
+
 func TestWorkspaceDefaultsHTTPContract(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, tc := range []struct {

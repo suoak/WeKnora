@@ -22,7 +22,12 @@ func (r *workspacePolicyTenants) GetTenantByID(_ context.Context, id uint64) (*t
 	}
 	return nil, ErrInvalidTenantID
 }
-func (r *workspacePolicyTenants) UpdateDefaultSettings(_ context.Context, _ uint64, next, _ *types.DefaultSettings) error {
+
+func (r *workspacePolicyTenants) UpdateDefaultSettings(
+	_ context.Context,
+	_ uint64,
+	next, _ *types.DefaultSettings,
+) error {
 	copy := *next
 	r.saved = &copy
 	return nil
@@ -38,6 +43,7 @@ func (r *workspacePolicyModels) GetByID(_ context.Context, tenantID uint64, id s
 	}
 	return nil, nil
 }
+
 func workspacePolicyContext(id uint64) context.Context {
 	ctx := context.WithValue(context.Background(), types.TenantIDContextKey, id)
 	return context.WithValue(ctx, types.TenantRoleContextKey, types.TenantRoleAdmin)
@@ -59,7 +65,11 @@ func TestWorkspaceDefaultsIDOnlyWorkerAndEnterpriseInheritance(t *testing.T) {
 	assert.Equal(t, system.ID, policy.ResolveChatModelID(ctx))
 	assert.Equal(t, own.ID, tenants.tenant.DefaultSettings.ChatModelID, "stale selection remains visible")
 	own.Status = types.ModelStatusActive
-	other := context.WithValue(ctx, types.TenantInfoContextKey, &types.Tenant{ID: 999, DefaultSettings: &types.DefaultSettings{ChatModelID: "foreign"}})
+	other := context.WithValue(
+		ctx,
+		types.TenantInfoContextKey,
+		&types.Tenant{ID: 999, DefaultSettings: &types.DefaultSettings{ChatModelID: "foreign"}},
+	)
 	assert.Equal(t, own.ID, policy.ResolveChatModelID(other), "foreign cached tenant cannot override execution tenant")
 }
 
@@ -71,7 +81,9 @@ func TestWorkspaceDefaultsProjectionAndNoRepositoryMutation(t *testing.T) {
 	settings.values[settingDefaultChat] = system.ID
 	settings.values[settingDefaultSummary] = utility.ID
 	policy.models = &workspacePolicyModels{repo}
-	policy.tenants = &workspacePolicyTenants{tenant: &types.Tenant{ID: 7, DefaultSettings: &types.DefaultSettings{ChatModelID: own.ID}}}
+	policy.tenants = &workspacePolicyTenants{
+		tenant: &types.Tenant{ID: 7, DefaultSettings: &types.DefaultSettings{ChatModelID: own.ID}},
+	}
 	svc := &modelService{modelPolicy: policy}
 	models, err := svc.projectModelDefaults(workspacePolicyContext(7), repo.listed)
 	require.NoError(t, err)
@@ -83,7 +95,12 @@ func TestWorkspaceDefaultsProjectionAndNoRepositoryMutation(t *testing.T) {
 
 func TestWorkspaceDefaultsAuthorizationCapabilityAndStaleRepair(t *testing.T) {
 	own := &types.Model{ID: "own", TenantID: 7, Type: types.ModelTypeKnowledgeQA, Status: types.ModelStatusActive}
-	foreign := &types.Model{ID: "foreign", TenantID: 9, Type: types.ModelTypeKnowledgeQA, Status: types.ModelStatusActive}
+	foreign := &types.Model{
+		ID:       "foreign",
+		TenantID: 9,
+		Type:     types.ModelTypeKnowledgeQA,
+		Status:   types.ModelStatusActive,
+	}
 	vision := activeBuiltin("vision", types.ModelTypeKnowledgeQA)
 	vision.Parameters.SupportsVision = true
 	policy, _, repo := newPolicyTestService(own, foreign, vision)
@@ -92,7 +109,14 @@ func TestWorkspaceDefaultsAuthorizationCapabilityAndStaleRepair(t *testing.T) {
 	policy.tenants = tenants
 	previous := &types.DefaultSettings{ChatModelID: "deleted", UtilityModelID: "deleted"}
 	ctx := workspacePolicyContext(7)
-	require.NoError(t, policy.UpdateWorkspacePolicy(ctx, &types.DefaultSettings{ChatModelID: own.ID, UtilityModelID: "deleted", VLMModelID: vision.ID}, previous))
+	require.NoError(
+		t,
+		policy.UpdateWorkspacePolicy(
+			ctx,
+			&types.DefaultSettings{ChatModelID: own.ID, UtilityModelID: "deleted", VLMModelID: vision.ID},
+			previous,
+		),
+	)
 	assert.Equal(t, "deleted", previous.ChatModelID)
 	assert.Equal(t, own.ID, tenants.saved.ChatModelID)
 	for _, next := range []*types.DefaultSettings{{ChatModelID: foreign.ID}, {VLMModelID: own.ID}, {EmbeddingModelID: own.ID}, {UtilityModelID: "missing"}} {
@@ -102,6 +126,17 @@ func TestWorkspaceDefaultsAuthorizationCapabilityAndStaleRepair(t *testing.T) {
 	}
 	viewer := context.WithValue(ctx, types.TenantRoleContextKey, types.TenantRoleViewer)
 	assert.Error(t, policy.UpdateWorkspacePolicy(viewer, &types.DefaultSettings{}, previous))
+	foreignCaller := types.WithCaller(ctx, types.Caller{TenantID: 9, Role: types.TenantRoleAdmin})
+	assert.Error(t, policy.UpdateWorkspacePolicy(foreignCaller, &types.DefaultSettings{}, previous))
+	readKey := types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{
+		ScopeType: types.APIKeyScopeTenant, Capabilities: types.StringArray{"retrieve"},
+	})
+	assert.Error(t, policy.UpdateWorkspacePolicy(readKey, &types.DefaultSettings{}, previous))
+	manageKey := types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{
+		ScopeType:    types.APIKeyScopeTenant,
+		Capabilities: types.StringArray{string(types.APIKeyCapabilityManageTenantSettings)},
+	})
+	assert.NoError(t, policy.UpdateWorkspacePolicy(manageKey, &types.DefaultSettings{}, previous))
 }
 
 func TestEmbeddingIdentityBlocksDimensionAndSameDimensionReplacement(t *testing.T) {

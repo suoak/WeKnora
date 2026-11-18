@@ -25,12 +25,42 @@ var modelPolicySettings = []struct {
 	envName string
 	get     func(*types.DefaultModelPolicy) string
 }{
-	{types.ModelPolicyRoleChat, settingDefaultChat, "WEKNORA_DEFAULT_CHAT_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.ChatModelID }},
-	{types.ModelPolicyRoleSummary, settingDefaultSummary, "WEKNORA_DEFAULT_SUMMARY_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.SummaryModelID }},
-	{types.ModelPolicyRoleEmbedding, settingDefaultEmbedding, "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.EmbeddingModelID }},
-	{types.ModelPolicyRoleRerank, settingDefaultRerank, "WEKNORA_DEFAULT_RERANK_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.RerankModelID }},
-	{types.ModelPolicyRoleVLM, settingDefaultVLM, "WEKNORA_DEFAULT_VLM_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.VLMModelID }},
-	{types.ModelPolicyRoleASR, settingDefaultASR, "WEKNORA_DEFAULT_ASR_MODEL_ID", func(p *types.DefaultModelPolicy) string { return p.ASRModelID }},
+	{
+		types.ModelPolicyRoleChat,
+		settingDefaultChat,
+		"WEKNORA_DEFAULT_CHAT_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.ChatModelID },
+	},
+	{
+		types.ModelPolicyRoleSummary,
+		settingDefaultSummary,
+		"WEKNORA_DEFAULT_SUMMARY_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.SummaryModelID },
+	},
+	{
+		types.ModelPolicyRoleEmbedding,
+		settingDefaultEmbedding,
+		"WEKNORA_DEFAULT_EMBEDDING_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.EmbeddingModelID },
+	},
+	{
+		types.ModelPolicyRoleRerank,
+		settingDefaultRerank,
+		"WEKNORA_DEFAULT_RERANK_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.RerankModelID },
+	},
+	{
+		types.ModelPolicyRoleVLM,
+		settingDefaultVLM,
+		"WEKNORA_DEFAULT_VLM_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.VLMModelID },
+	},
+	{
+		types.ModelPolicyRoleASR,
+		settingDefaultASR,
+		"WEKNORA_DEFAULT_ASR_MODEL_ID",
+		func(p *types.DefaultModelPolicy) string { return p.ASRModelID },
+	},
 }
 
 type modelPolicyService struct {
@@ -39,22 +69,41 @@ type modelPolicyService struct {
 	tenants  interfaces.TenantRepository
 }
 
-func NewModelPolicyService(settings interfaces.SystemSettingService, models interfaces.ModelRepository, tenants interfaces.TenantRepository) interfaces.ModelPolicyService {
+func NewModelPolicyService(
+	settings interfaces.SystemSettingService,
+	models interfaces.ModelRepository,
+	tenants interfaces.TenantRepository,
+) interfaces.ModelPolicyService {
 	return &modelPolicyService{settings: settings, models: models, tenants: tenants}
 }
 
 func (s *modelPolicyService) GetPolicy(ctx context.Context) (*types.DefaultModelPolicy, error) {
 	return &types.DefaultModelPolicy{
-		ChatModelID:      strings.TrimSpace(s.settings.GetString(ctx, settingDefaultChat, "WEKNORA_DEFAULT_CHAT_MODEL_ID", "")),
-		SummaryModelID:   strings.TrimSpace(s.settings.GetString(ctx, settingDefaultSummary, "WEKNORA_DEFAULT_SUMMARY_MODEL_ID", "")),
-		EmbeddingModelID: strings.TrimSpace(s.settings.GetString(ctx, settingDefaultEmbedding, "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", "")),
-		RerankModelID:    strings.TrimSpace(s.settings.GetString(ctx, settingDefaultRerank, "WEKNORA_DEFAULT_RERANK_MODEL_ID", "")),
-		VLMModelID:       strings.TrimSpace(s.settings.GetString(ctx, settingDefaultVLM, "WEKNORA_DEFAULT_VLM_MODEL_ID", "")),
-		ASRModelID:       strings.TrimSpace(s.settings.GetString(ctx, settingDefaultASR, "WEKNORA_DEFAULT_ASR_MODEL_ID", "")),
+		ChatModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultChat, "WEKNORA_DEFAULT_CHAT_MODEL_ID", ""),
+		),
+		SummaryModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultSummary, "WEKNORA_DEFAULT_SUMMARY_MODEL_ID", ""),
+		),
+		EmbeddingModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultEmbedding, "WEKNORA_DEFAULT_EMBEDDING_MODEL_ID", ""),
+		),
+		RerankModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultRerank, "WEKNORA_DEFAULT_RERANK_MODEL_ID", ""),
+		),
+		VLMModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultVLM, "WEKNORA_DEFAULT_VLM_MODEL_ID", ""),
+		),
+		ASRModelID: strings.TrimSpace(
+			s.settings.GetString(ctx, settingDefaultASR, "WEKNORA_DEFAULT_ASR_MODEL_ID", ""),
+		),
 	}, nil
 }
 
-func (s *modelPolicyService) UpdatePolicy(ctx context.Context, policy *types.DefaultModelPolicy) (*types.DefaultModelPolicy, error) {
+func (s *modelPolicyService) UpdatePolicy(
+	ctx context.Context,
+	policy *types.DefaultModelPolicy,
+) (*types.DefaultModelPolicy, error) {
 	if policy == nil {
 		return nil, fmt.Errorf("model policy is required")
 	}
@@ -99,7 +148,11 @@ func requiredTypeForRole(role types.ModelPolicyRole) (types.ModelType, bool) {
 	}
 }
 
-func (s *modelPolicyService) ValidateModelForRole(ctx context.Context, role types.ModelPolicyRole, modelID string) error {
+func (s *modelPolicyService) ValidateModelForRole(
+	ctx context.Context,
+	role types.ModelPolicyRole,
+	modelID string,
+) error {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
 		return nil
@@ -142,7 +195,8 @@ func (s *modelPolicyService) resolve(ctx context.Context, role types.ModelPolicy
 			if choice != "" {
 				model, err := s.models.GetByID(ctx, tenantID, choice)
 				want, known := requiredTypeForRole(role)
-				if err == nil && model != nil && known && model.Status == types.ModelStatusActive && model.SupportsType(want) {
+				if err == nil && model != nil && known && model.Status == types.ModelStatusActive &&
+					model.SupportsType(want) {
 					return choice
 				}
 			}
@@ -168,6 +222,7 @@ func (s *modelPolicyService) ResolveChatModelID(ctx context.Context) string {
 	p := s.policy(ctx)
 	return s.resolve(ctx, types.ModelPolicyRoleChat, p.ChatModelID)
 }
+
 func (s *modelPolicyService) ResolveSummaryModelID(ctx context.Context) string {
 	p := s.policy(ctx)
 	if id := s.resolve(ctx, types.ModelPolicyRoleSummary, p.SummaryModelID); id != "" {
@@ -175,15 +230,19 @@ func (s *modelPolicyService) ResolveSummaryModelID(ctx context.Context) string {
 	}
 	return s.resolve(ctx, types.ModelPolicyRoleChat, p.ChatModelID)
 }
+
 func (s *modelPolicyService) ResolveEmbeddingModelID(ctx context.Context) string {
 	return s.resolve(ctx, types.ModelPolicyRoleEmbedding, s.policy(ctx).EmbeddingModelID)
 }
+
 func (s *modelPolicyService) ResolveRerankModelID(ctx context.Context) string {
 	return s.resolve(ctx, types.ModelPolicyRoleRerank, s.policy(ctx).RerankModelID)
 }
+
 func (s *modelPolicyService) ResolveVLMModelID(ctx context.Context) string {
 	return s.resolve(ctx, types.ModelPolicyRoleVLM, s.policy(ctx).VLMModelID)
 }
+
 func (s *modelPolicyService) ResolveASRModelID(ctx context.Context) string {
 	return s.resolve(ctx, types.ModelPolicyRoleASR, s.policy(ctx).ASRModelID)
 }

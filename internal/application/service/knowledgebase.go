@@ -1204,7 +1204,8 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 		return nil
 	}
 	if kb.EmbeddingModelID != "" {
-		return errors.New("embedding model is pinned to this knowledge base's vector index; a model or dimension change requires a separately approved rebuild")
+		return errors.New("embedding model is pinned to this knowledge base's vector index; " +
+			"a model or dimension change requires a separately approved rebuild")
 	}
 	model, err := s.modelService.GetModelByID(ctx, modelID)
 	if err != nil {

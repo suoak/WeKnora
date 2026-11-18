@@ -16,6 +16,7 @@ func AttachModelDefaults(models interfaces.ModelService, policy interfaces.Model
 	}
 }
 
+// GetWorkspacePolicy loads ID-only overrides without exposing credentials.
 func (s *modelPolicyService) GetWorkspacePolicy(ctx context.Context) (*types.DefaultSettings, error) {
 	id, ok := types.TenantIDFromContext(ctx)
 	if !ok || s.tenants == nil {
@@ -35,6 +36,7 @@ func (s *modelPolicyService) GetWorkspacePolicy(ctx context.Context) (*types.Def
 	return &result, nil
 }
 
+// UpdateWorkspacePolicy validates visibility and capability before the audited CAS.
 func (s *modelPolicyService) UpdateWorkspacePolicy(ctx context.Context, next, previous *types.DefaultSettings) error {
 	id, ok := types.TenantIDFromContext(ctx)
 	if !ok || s.tenants == nil || next == nil || previous == nil {
@@ -42,7 +44,14 @@ func (s *modelPolicyService) UpdateWorkspacePolicy(ctx context.Context, next, pr
 	}
 	// Route RBAC is supplemented here for non-HTTP callers. Machine principals
 	// still require their existing tenant-settings capability at the route.
-	if !types.IsSystemAdminFromContext(ctx) && !types.TenantRoleFromContext(ctx).HasPermission(types.TenantRoleAdmin) {
+	caller := types.CallerFromContext(ctx)
+	allowed := types.IsSystemAdminFromContext(ctx) ||
+		(caller.TenantID == id && caller.Role.HasPermission(types.TenantRoleAdmin))
+	if scope, machine := types.TenantAPIKeyScopeFromContext(ctx); machine {
+		allowed = caller.TenantID == id && scope.ScopeType == types.APIKeyScopeTenant &&
+			(scope.FullAccess || scope.HasCapability(types.APIKeyCapabilityManageTenantSettings))
+	}
+	if !allowed {
 		return fmt.Errorf("workspace administrator access is required")
 	}
 	candidate := *next
@@ -58,7 +67,8 @@ func (s *modelPolicyService) UpdateWorkspacePolicy(ctx context.Context, next, pr
 		if err != nil {
 			return fmt.Errorf("look up workspace model: %w", err)
 		}
-		if model == nil || model.DeletedAt.Valid || model.Status != types.ModelStatusActive || !model.SupportsType(want) {
+		if model == nil || model.DeletedAt.Valid || model.Status != types.ModelStatusActive ||
+			!model.SupportsType(want) {
 			return fmt.Errorf("model %q is unavailable or does not support %s in this workspace", choice, spec.role)
 		}
 	}

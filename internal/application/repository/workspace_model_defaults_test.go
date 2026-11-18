@@ -2,17 +2,16 @@ package repository
 
 import (
 	"context"
-	"fmt"
-	"github.com/google/uuid"
-	"github.com/stretchr/testify/require"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 	"net/url"
 	"os"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 func TestWorkspaceDefaultsAtomicAuditConflictAndRollback(t *testing.T) {
@@ -31,6 +30,13 @@ func TestWorkspaceDefaultsAtomicAuditConflictAndRollback(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, next, loaded.DefaultSettings)
 	assert.Equal(t, tenant.Description, loaded.Description)
+	// Another settings page can still hold the tenant from before this save.
+	// Its generic update must preserve the dedicated model-default column.
+	tenant.Description = "updated elsewhere"
+	require.NoError(t, repo.UpdateTenant(ctx, tenant))
+	loaded, err = repo.GetTenantByID(ctx, tenant.ID)
+	require.NoError(t, err)
+	assert.Equal(t, next, loaded.DefaultSettings)
 	var entries []types.AuditLog
 	require.NoError(t, db.Find(&entries).Error)
 	require.Len(t, entries, 1)
@@ -50,7 +56,12 @@ func TestWorkspaceDefaultsAuditFailureRollsBackSettings(t *testing.T) {
 	tenant := &types.Tenant{Name: "audit-failure"}
 	require.NoError(t, db.Create(tenant).Error)
 	repo := NewTenantRepository(db)
-	err := repo.UpdateDefaultSettings(context.Background(), tenant.ID, &types.DefaultSettings{ChatModelID: "chat"}, &types.DefaultSettings{})
+	err := repo.UpdateDefaultSettings(
+		context.Background(),
+		tenant.ID,
+		&types.DefaultSettings{ChatModelID: "chat"},
+		&types.DefaultSettings{},
+	)
 	require.Error(t, err)
 	loaded, err := repo.GetTenantByID(context.Background(), tenant.ID)
 	require.NoError(t, err)
@@ -91,12 +102,21 @@ func TestWorkspaceDefaultsPostgresCASAndAudit(t *testing.T) {
 		require.NoError(t, repo.UpdateDefaultSettings(context.Background(), tenant.ID, next, previous))
 		previous = next
 	}
-	require.ErrorIs(t, repo.UpdateDefaultSettings(context.Background(), tenant.ID, &types.DefaultSettings{}, &types.DefaultSettings{ChatModelID: "old"}), types.ErrDefaultSettingsConflict)
+	require.ErrorIs(
+		t,
+		repo.UpdateDefaultSettings(
+			context.Background(),
+			tenant.ID,
+			&types.DefaultSettings{},
+			&types.DefaultSettings{ChatModelID: "old"},
+		),
+		types.ErrDefaultSettingsConflict,
+	)
 	var total int64
 	require.NoError(t, scoped.Model(&types.AuditLog{}).Count(&total).Error)
 	require.EqualValues(t, 3, total)
 	loaded, err := repo.GetTenantByID(context.Background(), tenant.ID)
 	require.NoError(t, err)
 	require.Equal(t, previous, loaded.DefaultSettings)
-	t.Log(fmt.Sprintf("PostgreSQL audited save, replacement, rollback and stale snapshot refusal passed in %s", schema))
+	t.Logf("PostgreSQL audited save, replacement, rollback and stale snapshot refusal passed in %s", schema)
 }
