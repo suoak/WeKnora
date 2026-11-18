@@ -16,12 +16,13 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 		Format: "docx", SkipAdditionalReadMatrix: true,
 		AssertPublished: func(f *personalRecoveryFixture, source *personalExactDocument, _ types.PersonalExactReceipt) {
 			assertPersonalWikiGeneration(t, f, source)
-			require.NoError(t, f.db.Model(&types.KnowledgeBase{}).Where("id=?", source.kb).
-				Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
 			ctx := context.Background()
-			plan, err := repository.PrepareWikiPreservingRecovery(ctx, f.db, 1, source.kb, "", false)
+			operator := types.WithLegacyKBAdminMetadata(ctx, source.kb)
+			require.NoError(t, f.db.WithContext(operator).Model(&types.KnowledgeBase{}).Where("id=?", source.kb).
+				Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+			plan, err := repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, "", false)
 			require.NoError(t, err)
-			_, err = repository.PrepareWikiPreservingRecovery(ctx, f.db, 1, source.kb, plan.Snapshot, true)
+			_, err = repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, plan.Snapshot, true)
 			require.NoError(t, err)
 			pages := &wikiPageService{repo: repository.NewWikiPageRepository(f.db)}
 			ingest := &wikiIngestService{knowledgeSvc: f.ks, wikiService: pages}

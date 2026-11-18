@@ -217,8 +217,9 @@ func FinishWikiPreservingRecovery(
 			return err
 		}
 		var markers []types.TaskPendingOp
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Where("scope=? AND scope_id=? AND tenant_id=? AND op='active'",
-			wikiPreservingScope, kb, tenant).Limit(2).Find(&markers).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("scope=? AND scope_id=? AND tenant_id=? AND op='active'", wikiPreservingScope, kb, tenant).
+			Limit(2).Find(&markers).Error; err != nil {
 			return err
 		}
 		if len(markers) != 1 {
@@ -232,12 +233,13 @@ func FinishWikiPreservingRecovery(
 			return ErrWikiMCPUnverified
 		}
 		var pending int64
-		if err := tx.Model(&types.TaskPendingOp{}).Where("scope='knowledge_base' AND scope_id=? AND tenant_id=? AND task_type IN ?",
-			kb, tenant, []string{"wiki:ingest", "wiki:finalize"}).Count(&pending).Error; err != nil {
+		if err := tx.Model(&types.TaskPendingOp{}).
+			Where("scope='knowledge_base' AND scope_id=? AND tenant_id=? AND task_type IN ?",
+				kb, tenant, []string{"wiki:ingest", "wiki:finalize"}).Count(&pending).Error; err != nil {
 			return err
 		}
 		if pending != 0 {
-			return errors.New("Wiki generation is still pending")
+			return errors.New("wiki generation is still pending")
 		}
 		proof, err := wikiDependencies(tx, kb)
 		if err != nil {
@@ -296,7 +298,10 @@ func FinishWikiPreservingRecovery(
 		}
 		for _, id := range plan.RetiredPages {
 			result := tx.Model(&types.WikiPage{}).Where("id=? AND tenant_id=? AND knowledge_base_id=?", id, tenant, kb).
-				Updates(map[string]any{"slug": "superseded/" + original.Snapshot + "/" + id, "deleted_at": time.Now().UTC(), "updated_at": time.Now().UTC()})
+				Updates(map[string]any{
+					"slug":       "superseded/" + original.Snapshot + "/" + id,
+					"deleted_at": time.Now().UTC(), "updated_at": time.Now().UTC(),
+				})
 			if result.Error != nil {
 				return result.Error
 			}
