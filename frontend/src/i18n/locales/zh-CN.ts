@@ -343,6 +343,7 @@ export default {
         denied: '拒绝'
       },
       action: {
+        'model.workspace_defaults_changed': '?????????',
         'rbac.member_added': '新增成员',
         'rbac.member_removed': '移除成员',
         'rbac.member_role_changed': '角色变更',

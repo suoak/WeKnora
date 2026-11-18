@@ -62,7 +62,7 @@ func (r *tenantRepository) UpdateDefaultSettings(
 		actor, _ := types.UserIDFromContext(ctx)
 		return tx.Create(&types.AuditLog{
 			TenantID: tenantID, ActorUserID: actor, ActorRole: string(types.TenantRoleFromContext(ctx)),
-			Action: "model.workspace_defaults_changed", ScopeType: "workspace", ScopeID: fmt.Sprint(tenantID),
+			Action: types.AuditActionWorkspaceModelDefaultsChanged, ScopeType: "workspace", ScopeID: fmt.Sprint(tenantID),
 			Outcome: types.AuditOutcomeSuccess, Details: types.JSON(details), CreatedAt: time.Now(),
 		}).Error
 	})

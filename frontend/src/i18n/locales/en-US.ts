@@ -7620,6 +7620,7 @@ export default {
         outcome: 'Outcome'
       },
       action: {
+        'model.workspace_defaults_changed': 'Workspace default models changed',
         'rbac.member_added': 'Member added',
         'rbac.member_removed': 'Member removed',
         'rbac.member_role_changed': 'Role changed',

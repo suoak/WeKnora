@@ -97,8 +97,13 @@ func (s *modelService) projectModelDefaults(ctx context.Context, source []*types
 	defaults := &types.DefaultSettings{}
 	for _, spec := range modelPolicySettings {
 		id := spec.get(enterprise)
-		if id != "" && s.modelPolicy.ValidateModelForRole(ctx, spec.role, id) == nil {
-			setWorkspaceModelID(defaults, spec.role, id)
+		want, _ := requiredTypeForRole(spec.role)
+		for _, model := range models {
+			if id != "" && model.ID == id && model.IsBuiltin && model.Status == types.ModelStatusActive &&
+				model.SupportsType(want) {
+				setWorkspaceModelID(defaults, spec.role, id)
+				break
+			}
 		}
 	}
 	defaults.ApplyModelDefaults(models)

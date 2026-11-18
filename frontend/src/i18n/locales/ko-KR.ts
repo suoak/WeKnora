@@ -273,6 +273,7 @@ const messages = {
         denied: '거부'
       },
       action: {
+        'model.workspace_defaults_changed': '?????? ?? ?? ??',
         'rbac.member_added': '멤버 추가',
         'rbac.member_removed': '멤버 제거',
         'rbac.member_role_changed': '역할 변경',

@@ -17,6 +17,7 @@ export const AUDIT_ACTION_I18N_ROOTS = {
 
 /** Workspace membership / invitation audit events (tenantMember drawer). */
 export const TENANT_MEMBER_AUDIT_ACTIONS = [
+  'model.workspace_defaults_changed',
   'rbac.member_added',
   'rbac.member_removed',
   'rbac.member_role_changed',

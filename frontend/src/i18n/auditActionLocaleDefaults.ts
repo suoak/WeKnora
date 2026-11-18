@@ -11,6 +11,7 @@ import {
  * Used when locale files or git history lack a registered key during prune/regenerate.
  */
 const TENANT_MEMBER_AUDIT_ACTION_LABELS_EN: Record<string, string> = {
+  'model.workspace_defaults_changed': 'Workspace default models changed',
   'rbac.member_added': 'Member added',
   'rbac.member_removed': 'Member removed',
   'rbac.member_role_changed': 'Role changed',

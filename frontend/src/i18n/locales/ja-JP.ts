@@ -7520,6 +7520,7 @@ const messages = {
         outcome: '結果'
       },
       action: {
+        'model.workspace_defaults_changed': '????????????????',
         'rbac.member_added': 'メンバー追加',
         'rbac.member_removed': 'メンバー削除',
         'rbac.member_role_changed': 'ロール変更',
