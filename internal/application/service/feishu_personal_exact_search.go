@@ -21,7 +21,7 @@ func (s *knowledgeBaseService) exactSearchContext(
 		_, err := types.CheckExactPublishedDocumentRead(ctx)
 		return ctx, err
 	}
-	if s.personalRecovery == nil || len(params.KnowledgeIDs) != 1 {
+	if ordinaryLocalSourceRead(ctx) || s.personalRecovery == nil || len(params.KnowledgeIDs) != 1 {
 		return ctx, nil
 	}
 	p := s.personalRecovery

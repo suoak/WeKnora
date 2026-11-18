@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
+
+var errUnmappedLegacyFileLocator = errors.New("historical locator has no local directory")
 
 func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) error {
 	// Only inputs actually read by this request participate. An unrelated
@@ -128,10 +131,20 @@ r.knowledge_base_id AS kb_id
 				Scan(&resource).Error; e != nil {
 				return "", false, e
 			}
-			if resource.TenantID != tenant || resource.Provider != "local" || resource.PhysicalPath == "" {
+			// A missing/remote locator cannot name a local directory. Skip only
+			// that historical binding; direct requests still require a live,
+			// tenant-owned local resource. Retained foreign local paths remain
+			// unavailable protections for their own directories.
+			if resource.Provider != "local" || resource.PhysicalPath == "" {
+				if protection {
+					return "", false, errUnmappedLegacyFileLocator
+				}
 				return "", false, types.ErrLegacySourceRestricted
 			}
-			unavailable = resource.State != types.ResourceStateActive || resource.Deleted
+			if !protection && resource.TenantID != tenant {
+				return "", false, types.ErrLegacySourceRestricted
+			}
+			unavailable = resource.TenantID != tenant || resource.State != types.ResourceStateActive || resource.Deleted
 			p = resource.PhysicalPath
 		}
 		if _, inner, ok := types.ParseStorageBackendPath(p); ok {
@@ -169,6 +182,9 @@ r.knowledge_base_id AS kb_id
 			continue
 		}
 		p, unavailable, e := normalize(b.Path, true)
+		if errors.Is(e, errUnmappedLegacyFileLocator) {
+			continue
+		}
 		if e != nil {
 			return false, e
 		}
@@ -234,6 +250,9 @@ k.knowledge_base_id AS kb_id FROM knowledges k JOIN data_sources d ON k.metadata
 			continue
 		}
 		p, unavailable, e := normalize(p, true)
+		if errors.Is(e, errUnmappedLegacyFileLocator) {
+			continue
+		}
 		if e != nil {
 			return false, e
 		}

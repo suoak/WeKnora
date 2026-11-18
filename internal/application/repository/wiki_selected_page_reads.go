@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"os"
@@ -51,10 +52,15 @@ func WikiDocumentSelectionForKB(kb string) bool {
 	return false
 }
 
+// This marker is issued only by the published-page reader. Generation and
+// publication retain source acquisition checks even in an HTTP serving context.
+type wikiLocalPublishedReadKey struct{}
+
 // Read a page against the complete inputs recorded by its producer, rather
 // than against unrelated current documents. Citations cannot reduce this set.
 func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGenerationProof, error) {
-	if !WikiDocumentSelectionForKB(kb) {
+	local := types.LocalSourceContentRead(db.Statement.Context)
+	if !local && !WikiDocumentSelectionForKB(kb) {
 		return wikiDependencies(db, kb)
 	}
 	if page == nil {
@@ -83,9 +89,19 @@ func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGener
 		len(sources) > 2048 {
 		return nil, ErrWikiMCPUnverified
 	}
+	if local {
+		if seal.PageSHA256 != wikiPageDigest(page) || wikiDigest(sources) != seal.DependencySHA256 {
+			return nil, ErrWikiMCPUnverified
+		}
+	}
+
 	selected := map[string]bool{}
 	for id := range sources {
 		selected[id] = true
+	}
+	if local {
+		read := context.WithValue(db.Statement.Context, wikiLocalPublishedReadKey{}, true)
+		db = db.WithContext(read)
 	}
 	return wikiDependenciesSelected(db, kb, nil, selected)
 }

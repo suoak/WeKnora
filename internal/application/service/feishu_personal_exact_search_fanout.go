@@ -17,6 +17,9 @@ type exactSearchFanoutBypassKey struct{}
 func (s *knowledgeBaseService) exactRecoveryHybridSearch(
 	ctx context.Context, kbID string, params types.SearchParams,
 ) (bool, []*types.SearchResult, error) {
+	if ordinaryLocalSourceRead(ctx) {
+		return false, nil, nil
+	}
 	_, _, _, _, alreadyExact := types.ExactPublishedDocumentIdentity(ctx)
 	if !alreadyExact && s.personalRecovery != nil && len(params.KnowledgeBaseIDs) > 1 &&
 		ctx.Value(exactSearchFanoutBypassKey{}) == nil {

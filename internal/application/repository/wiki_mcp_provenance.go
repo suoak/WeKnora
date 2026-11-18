@@ -214,6 +214,7 @@ func wikiDependenciesWithParsedRecovery(db *gorm.DB, kb string, parsed map[strin
 func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, selected map[string]bool,
 	previous ...*wikiGenerationProof,
 ) (*wikiGenerationProof, error) {
+	localPublishedRead, _ := db.Statement.Context.Value(wikiLocalPublishedReadKey{}).(bool)
 	var anchor struct{ TenantID uint64 }
 	if e := db.Table("knowledge_bases kb").Select("kb.tenant_id").
 		Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND "+
@@ -295,7 +296,7 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		case "feishu_personal":
 			// A personal import requires the current personal publication protocol.
 			// A legacy active_attempt is never a substitute for that authority.
-			if selected == nil || !WikiDocumentSelectionForKB(kb) {
+			if !localPublishedRead && (selected == nil || !WikiDocumentSelectionForKB(kb)) {
 				return nil, types.ErrLegacySourceRestricted
 			}
 			var err error
@@ -304,6 +305,11 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 				return nil, err
 			}
 		case types.ChannelFeishu, types.ChannelFeishuDrive, types.ChannelLarkDrive, "lark":
+			// Local published reads still hash the actual document and chunks;
+			// connector acquisition/hold state does not revoke platform access.
+			if localPublishedRead {
+				break
+			}
 			var verified int64
 			query := db.Table("feishu_legacy_resources").
 				Where("knowledge_id=? AND knowledge_base_id=? AND tenant_id=? AND "+
@@ -595,7 +601,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 			}
 			var current types.WikiPage
 			pageQuery := tx
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
 					Table("wiki_pages AS page_validation_inputs")
 			}
@@ -606,7 +612,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 			if wikiPageDigest(&current) != wikiPageDigest(previous) {
 				return ErrWikiMCPUnverified
 			}
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				proof, e = wikiPageReadProof(tx, kb, &current)
 				if e != nil {
 					return e
@@ -649,7 +655,7 @@ func (s *PersonalWikiStore) VerifiedPages(
 		}
 		var pages []*types.WikiPage
 		pageQuery := tx
-		if WikiDocumentSelectionForKB(kb) {
+		if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
 				Table("wiki_pages AS page_validation_inputs")
 		}
@@ -669,7 +675,7 @@ func (s *PersonalWikiStore) VerifiedPages(
 			partial = true
 		}
 		for _, page := range pages {
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				p, e = wikiPageReadProof(tx, kb, page)
 				if e != nil {
 					if errors.Is(e, ErrWikiMCPUnverified) || errors.Is(e, ErrWikiMCPInputsChanged) ||

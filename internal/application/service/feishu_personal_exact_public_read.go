@@ -91,6 +91,9 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 		_, err := types.CheckExactPublishedDocumentRead(ctx)
 		return ctx, true, err
 	}
+	if ordinaryLocalSourceRead(ctx) {
+		return ctx, false, nil
+	}
 	p, ok := s.personalRecovery.(*PersonalRecovery)
 	if !ok {
 		return ctx, false, nil
@@ -139,6 +142,9 @@ func (s *knowledgeService) exactPublicReadContext(ctx context.Context, id string
 func (s *knowledgeService) exactPublicKnowledgePage(ctx context.Context, kb string,
 	page *types.Pagination, filter types.KnowledgeListFilter,
 ) (*types.PageResult, bool, error) {
+	if ordinaryLocalSourceRead(ctx) {
+		return nil, false, nil
+	}
 	p, ok := s.personalRecovery.(*PersonalRecovery)
 	if !ok {
 		return nil, false, nil
