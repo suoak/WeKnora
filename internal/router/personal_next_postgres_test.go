@@ -127,8 +127,8 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	for _, name := range []string{"wiki_search", "wiki_read_page", "wiki_index", "search_knowledge", "read_document", "list_documents", "grep_chunks", "list_knowledge_bases"} {
 		require.Contains(t, body, `"name":"`+name+`"`)
 	}
-	// Actual PG/ParadeDB protected BM25, vectors, Hybrid and grep; one bad KB
-	// must not abort the other authorized source or enter model inputs.
+	// Actual PG/ParadeDB BM25, vectors, hybrid and grep serve uploaded content
+	// under platform permissions even when the upstream source is held.
 	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,config,status,legacy_access_state)VALUES('held',99,'public-kb','synthetic held','feishu','{}','active','hold')`).Error)
 	for _, mode := range []string{"keyword", "semantic", "hybrid", "grep"} {
 		name := "search_knowledge"
@@ -138,18 +138,18 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		status, body = call(a.Token, name, map[string]any{"query": "PUBLIC", "mode": mode, "limit": 30})
 		require.Equal(t, 200, status, body)
 		require.Contains(t, body, "public-two-doc")
-		require.NotContains(t, body, `knowledge_id\":\"public-doc`)
-		require.Contains(t, body, "partial")
+		require.Contains(t, body, `knowledge_id\":\"public-doc`)
+		require.Contains(t, body, "complete")
 	}
 	status, body = call(a.Token, "read_document", map[string]any{"knowledge_id": "public-doc"})
 	require.Equal(t, 200, status, body)
-	require.Contains(t, body, "isError")
+	require.NotContains(t, body, "isError")
+	require.Contains(t, body, "public-doc")
 	status, body = call(a.Token, "read_document", map[string]any{"knowledge_id": "public-two-doc"})
 	require.Equal(t, 200, status, body)
 	require.NotContains(t, body, "isError")
 	require.Contains(t, body, "public-two-doc")
-	// Never clear a failed source by bypassing its guard in a real request.
-	// This controlled synthetic state transition tests a separately healthy KB.
+	// Local content policy does not grant access to another workspace.
 	require.NoError(t, db.Exec("INSERT INTO tenants(id,name,business)VALUES(7,'new-private','synthetic')").Error)
 	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id,name,type,embedding_model_id,summary_model_id)VALUES('next-private',7,'new private','document','synthetic','synthetic')").Error)
 	require.NoError(t, db.Create(&types.Knowledge{ID: "next-private-doc", TenantID: 7, KnowledgeBaseID: "next-private", Type: "file", Title: "private A only", ParseStatus: types.ParseStatusCompleted, EnableStatus: "enabled"}).Error)
@@ -189,16 +189,15 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	_, body = call(a.Token, "wiki_read_page", map[string]any{"slug": "concept/verified", "knowledge_base_id": "public-two"})
 	require.Contains(t, body, "isError")
 	require.NotContains(t, body, "verified ordinary wiki")
-	// A real model-network boundary changes one source during the request.
-	// The read-only MCP guard must discard that attempt and retry once with
-	// a fresh scope, preserving the unrelated private KB and partial warning.
+	// A connector state change during a real model call does not revoke
+	// platform content access. Actual key revocation below still takes effect.
 	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,config,status,legacy_access_state)VALUES('during-revoke',1,'public-two','synthetic concurrent revoke','feishu','{}','active','active')`).Error)
 	_, body = call(a.Token, "search_knowledge", map[string]any{"query": "REVOKE_DURING_QUERY", "mode": "semantic", "limit": 30})
 	require.True(t, revokeDuringEmbedding.Load())
 	require.NotContains(t, body, "isError")
 	require.Contains(t, body, "private-home")
-	require.Contains(t, body, "partial")
-	require.NotContains(t, body, `knowledge_id\":\"public-two-doc`)
+	require.Contains(t, body, "complete")
+	require.Contains(t, body, `knowledge_id\":\"public-two-doc`)
 	require.NoError(t, keys.(interfaces.UserMCPAPIKeyService).RevokeUserMCPAPIKey(context.Background(), "A", a.APIKey.ID))
 	status, _ = rpc(a.Token, "tools/list", map[string]any{})
 	require.Equal(t, 401, status)
