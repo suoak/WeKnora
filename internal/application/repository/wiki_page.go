@@ -686,7 +686,7 @@ func (r *wikiPageRepository) ListDistinctCategoryPaths(
 		maxPaths = 150
 	}
 	var paths []string
-	if err := wikiBrowserPageDB(ctx, r.db).
+	if err := r.db.WithContext(ctx).
 		Model(&types.WikiFolder{}).
 		Where("knowledge_base_id = ? AND path <> ?", kbID, "").
 		Order("path ASC").

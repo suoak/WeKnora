@@ -55,6 +55,13 @@ func TestWikiPublishedSnapshotSeparatesBrowserFromDraftGeneration(t *testing.T) 
 	require.NotContains(t, generated.Content, old.Content, "historical content must never enter model reads")
 
 	web := fixture.Web("A", 1)
+	require.NoError(t, db.Create(&types.WikiFolder{
+		ID: "snapshot-folder", TenantID: 1, KnowledgeBaseID: old.KnowledgeBaseID,
+		Name: "Folder", Path: "Folder",
+	}).Error)
+	paths, err := repo.ListDistinctCategoryPaths(web, old.KnowledgeBaseID, 20)
+	require.NoError(t, err, "directory projections must keep querying wiki_folders")
+	require.Contains(t, paths, []string{"Folder"})
 	// A fresh repository/context simulates a worker or browser restart.
 	restarted := repository.NewWikiPageRepository(db)
 	served, err := restarted.GetByID(web, old.ID)
