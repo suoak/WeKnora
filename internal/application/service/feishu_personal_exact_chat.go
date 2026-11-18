@@ -103,6 +103,9 @@ func (s *modelService) AuthorizeExactPersonalChat(
 func (s *modelService) AuthorizeExactPersonalRead(
 	ctx context.Context, results []*types.SearchResult,
 ) (context.Context, error) {
+	if ordinaryLocalSourceRead(ctx) {
+		return ctx, nil
+	}
 	p := s.personalRecovery
 	if p == nil || len(results) == 0 || results[0] == nil {
 		return ctx, nil

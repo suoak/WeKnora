@@ -595,7 +595,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 			}
 			var current types.WikiPage
 			pageQuery := tx
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
 					Table("wiki_pages AS page_validation_inputs")
 			}
@@ -606,7 +606,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 			if wikiPageDigest(&current) != wikiPageDigest(previous) {
 				return ErrWikiMCPUnverified
 			}
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				proof, e = wikiPageReadProof(tx, kb, &current)
 				if e != nil {
 					return e
@@ -649,7 +649,7 @@ func (s *PersonalWikiStore) VerifiedPages(
 		}
 		var pages []*types.WikiPage
 		pageQuery := tx
-		if WikiDocumentSelectionForKB(kb) {
+		if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
 				Table("wiki_pages AS page_validation_inputs")
 		}
@@ -669,7 +669,7 @@ func (s *PersonalWikiStore) VerifiedPages(
 			partial = true
 		}
 		for _, page := range pages {
-			if WikiDocumentSelectionForKB(kb) {
+			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 				p, e = wikiPageReadProof(tx, kb, page)
 				if e != nil {
 					if errors.Is(e, ErrWikiMCPUnverified) || errors.Is(e, ErrWikiMCPInputsChanged) ||

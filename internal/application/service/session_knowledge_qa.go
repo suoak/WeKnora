@@ -26,6 +26,8 @@ func (s *sessionService) KnowledgeQA(
 	req *types.QARequest,
 	eventBus *event.EventBus,
 ) error {
+	// Direct IM/MCP callers serve the same platform content as HTTP requests.
+	ctx = types.WithLocalSourceContentRead(ctx)
 	webSearchEnabled := resolveWebSearchEnabled(req)
 	logger.Infof(
 		ctx,

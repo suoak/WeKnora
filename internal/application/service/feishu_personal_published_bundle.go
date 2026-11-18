@@ -28,6 +28,9 @@ func (p *PersonalRecovery) preparePublishedReadBundle(
 	ctx context.Context,
 	results []*types.SearchResult,
 ) (*publishedReadBundle, error) {
+	if ordinaryLocalSourceRead(ctx) {
+		return nil, nil
+	}
 	ids := make([]string, 0, len(results))
 	seen := make(map[string]string)
 	for _, result := range results {

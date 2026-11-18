@@ -55,7 +55,7 @@ func (h *WikiPageHandler) validateWikiKB(c *gin.Context) (string, uint64, error)
 		return "", 0, errors.NewBadRequestError("Knowledge base ID is required")
 	}
 
-	readSelected := c.Request.Method == http.MethodGet && repository.WikiDocumentSelectionForKB(kbID) &&
+	readSelected := !types.LocalSourceContentRead(ctx) && c.Request.Method == http.MethodGet && repository.WikiDocumentSelectionForKB(kbID) &&
 		types.WorkspaceWebReadTenant(ctx) != 0
 	lookup := ctx
 	if readSelected {

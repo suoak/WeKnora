@@ -34,7 +34,7 @@ func (s *PortalMCPKnowledge) publishedDocumentContext(ctx context.Context, id st
 func (s *PortalMCPKnowledge) retrievePublishedPortalDocuments(ctx context.Context, target *access.PortalKBTarget,
 	engine access.DocumentRetriever, params types.RetrieveParams,
 ) ([]*types.RetrieveResult, bool, error) {
-	if s.personalRecovery == nil {
+	if ordinaryLocalSourceRead(ctx) || s.personalRecovery == nil {
 		groups, err := engine.Retrieve(ctx, params)
 		return groups, false, err
 	}
@@ -103,6 +103,9 @@ func (s *PortalMCPKnowledge) retrievePublishedPortalDocuments(ctx context.Contex
 }
 
 func (s *PortalMCPKnowledge) validatePublishedPortalHits(ctx context.Context, hits []PortalMCPHit) error {
+	if ordinaryLocalSourceRead(ctx) {
+		return nil
+	}
 	seen := make(map[string]bool)
 	for _, hit := range hits {
 		if seen[hit.DocumentID] {

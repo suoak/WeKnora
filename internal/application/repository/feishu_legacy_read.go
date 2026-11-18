@@ -2,12 +2,15 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"net/url"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
+
+var errMissingLegacyFileLocator = errors.New("missing historical file locator")
 
 func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) error {
 	// Only inputs actually read by this request participate. An unrelated
@@ -128,6 +131,9 @@ r.knowledge_base_id AS kb_id
 				Scan(&resource).Error; e != nil {
 				return "", false, e
 			}
+			if protection && resource.TenantID == 0 && resource.Provider == "" && resource.PhysicalPath == "" {
+				return "", false, errMissingLegacyFileLocator
+			}
 			if resource.TenantID != tenant || resource.Provider != "local" || resource.PhysicalPath == "" {
 				return "", false, types.ErrLegacySourceRestricted
 			}
@@ -169,6 +175,9 @@ r.knowledge_base_id AS kb_id
 			continue
 		}
 		p, unavailable, e := normalize(b.Path, true)
+		if errors.Is(e, errMissingLegacyFileLocator) {
+			continue
+		}
 		if e != nil {
 			return false, e
 		}
@@ -234,6 +243,9 @@ k.knowledge_base_id AS kb_id FROM knowledges k JOIN data_sources d ON k.metadata
 			continue
 		}
 		p, unavailable, e := normalize(p, true)
+		if errors.Is(e, errMissingLegacyFileLocator) {
+			continue
+		}
 		if e != nil {
 			return false, e
 		}

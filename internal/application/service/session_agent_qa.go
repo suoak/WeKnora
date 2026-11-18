@@ -26,6 +26,8 @@ func (s *sessionService) AgentQA(
 	req *types.QARequest,
 	eventBus *event.EventBus,
 ) error {
+	// Direct IM/MCP callers serve the same platform content as HTTP requests.
+	ctx = types.WithLocalSourceContentRead(ctx)
 	sessionID := req.Session.ID
 	// Propagate the session ID so stateful sandbox backends (CubeSandbox) can
 	// bind script execution to a per-session MicroVM instance.
