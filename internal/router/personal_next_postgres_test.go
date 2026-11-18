@@ -189,6 +189,9 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	_, body = call(a.Token, "wiki_read_page", map[string]any{"slug": "concept/verified", "knowledge_base_id": "public-two"})
 	require.Contains(t, body, "isError")
 	require.NotContains(t, body, "verified ordinary wiki")
+	// Finish the stale-content case before testing source-state changes.
+	require.NoError(t, db.Exec(`UPDATE chunks SET content='PUBLIC_M5_APPROVED-public-two'
+WHERE knowledge_id='public-two-doc'`).Error)
 	// A connector state change during a real model call does not revoke
 	// platform content access. Actual key revocation below still takes effect.
 	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,config,status,legacy_access_state)VALUES('during-revoke',1,'public-two','synthetic concurrent revoke','feishu','{}','active','active')`).Error)
