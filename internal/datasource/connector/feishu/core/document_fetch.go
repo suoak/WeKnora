@@ -19,12 +19,12 @@ func FetchDocumentEngine[N any](
 		return nil, errors.New("document is outside configured source selection")
 	}
 	client.ensureRuntime()
-	release, err := client.policy.acquireWorkflow(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer release()
 	fetch := func(check context.Context) (*types.FetchedItem, error) {
+		check, release, err := client.policy.workflowContext(check)
+		if err != nil {
+			return nil, err
+		}
+		defer release()
 		nodes, partial, err := ops.List(check, client, root)
 		if err != nil {
 			return nil, err

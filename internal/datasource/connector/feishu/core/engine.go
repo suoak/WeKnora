@@ -109,11 +109,27 @@ func runSyncMode[N any](
 	ops NodeOps[N], forceFull bool,
 ) (*types.SyncCursor, error) {
 	client.ensureRuntime()
-	releaseWorkflow, err := client.policy.acquireWorkflow(ctx)
+	parentCtx := ctx
+	ctx, releaseWorkflow, err := client.policy.workflowContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	defer releaseWorkflow()
+	defer func() { releaseWorkflow() }()
+	yieldNeeded := false
+	yieldWorkflow := func() error {
+		if !yieldNeeded {
+			return nil
+		}
+		// Durable progress permits waiting source/reparse workflows to run.
+		// Never hand off after an unconfirmed checkpoint or expand the pool.
+		releaseWorkflow()
+		next, release, err := client.policy.workflowContext(parentCtx)
+		if err != nil {
+			return err
+		}
+		ctx, releaseWorkflow, yieldNeeded = next, release, false
+		return nil
+	}
 
 	var prevTimes map[string]map[string]string
 	if cursor != nil && cursor.ConnectorCursor != nil {
@@ -157,6 +173,7 @@ func runSyncMode[N any](
 		if err := h.Checkpoint(ctx, encodeCursor()); err != nil {
 			return nil, err
 		}
+		yieldNeeded = true
 	}
 
 	processed := 0
@@ -173,9 +190,13 @@ func runSyncMode[N any](
 			return fmt.Errorf("feishu sync checkpoint unconfirmed: %w", err)
 		}
 		lastCheckpoint = time.Now()
+		yieldNeeded = true
 		return nil
 	}
 	for _, resourceID := range resourceIDs {
+		if err := yieldWorkflow(); err != nil {
+			return nil, err
+		}
 		nodes, partial, err := ops.List(ctx, client, resourceID)
 		if err != nil {
 			return nil, fmt.Errorf("list %s for resource %s: %w", ops.ResourceNoun(), resourceID, err)
@@ -204,6 +225,9 @@ func runSyncMode[N any](
 		currentNodes := make(map[string]bool)
 		tally := newFetchTally(len(nodes))
 		for i, node := range nodes {
+			if err := yieldWorkflow(); err != nil {
+				return nil, err
+			}
 			tok := ops.Token(node)
 			currentNodes[tok] = true
 			seenAnywhere[tok] = true
@@ -278,6 +302,11 @@ func runSyncMode[N any](
 							Metadata["attachment"] != "true" {
 							id := it.ExternalID
 							it.CurrentSnapshot = func(check context.Context) (*types.FetchedItem, error) {
+								check, release, err := client.policy.workflowContext(check)
+								if err != nil {
+									return nil, err
+								}
+								defer release()
 								// Re-list the binding as well as re-fetching its body. A
 								// captured node can retain stale object IDs or edit times.
 								currentNodes, partial, err := ops.List(check, client, resourceID)
@@ -379,6 +408,9 @@ func runSyncMode[N any](
 	}
 
 	for _, item := range missing {
+		if err := yieldWorkflow(); err != nil {
+			return nil, err
+		}
 		if plan.deferred(item.SourceResourceID, item.ExternalID) {
 			continue
 		}
