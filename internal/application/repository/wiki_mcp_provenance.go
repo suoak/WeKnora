@@ -270,8 +270,8 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		switch d.Channel {
 		case "", types.ChannelWeb, types.ChannelAPI, types.ChannelBrowserExtension:
 			// Local content published under KnowHub's existing KB authority.
-		case types.ConnectorTypeGitLab:
-			// GitLab uses KnowHub workspace authority, not a Feishu legacy receipt.
+		case types.ConnectorTypeGitLab, types.ConnectorTypeConfluence:
+			// These connectors use KnowHub workspace authority, not a Feishu receipt.
 			// Require the current connector binding in this exact tenant/KB. Its
 			// configuration is part of the proof and is checked again before model I/O.
 			var metadata map[string]string
@@ -284,7 +284,7 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 				Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config").
 				Where(`id=? AND tenant_id=? AND knowledge_base_id=? AND type=? AND status='active'
  AND legacy_access_state IN ('unmanaged','active') AND deleted_at IS NULL`,
-					metadata["datasource_id"], p.Tenant, kb, types.ConnectorTypeGitLab).Take(&source).
+					metadata["datasource_id"], p.Tenant, kb, d.Channel).Take(&source).
 				Error; e != nil {
 				if errors.Is(e, gorm.ErrRecordNotFound) {
 					return nil, types.ErrLegacySourceRestricted
