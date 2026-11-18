@@ -41,9 +41,21 @@ func run() error {
 		"preview/apply missing Wiki dispatch for verified published personal documents")
 	folderProof := flag.Bool("repair-personal-folder-proof", false,
 		"preview/apply a verified publication-time folder witness for an existing personal receipt")
+	preservePages := flag.Bool("preserve-existing-pages", false,
+		"queue verified regeneration while keeping old browser pages until atomic replacement")
+	finishPreserving := flag.Bool("finish-preserving-pages", false,
+		"retire unchanged obsolete pages only after generation and current summary coverage are complete")
 	knowledge := flag.String("knowledge", "", "exact knowledge UUID for folder proof repair")
 	originalFolder := flag.String("original-folder", "", "original folder path proved by the publication digest")
 	flag.Parse()
+	if (*preservePages || *finishPreserving) &&
+		(*folderProof || *documentPreview || *personalHandoff || *resume || *retireEmpty ||
+			*isolatePages || *restoreParsed) {
+		return errors.New("choose one recovery mode")
+	}
+	if *preservePages && *finishPreserving {
+		return errors.New("choose one recovery mode")
+	}
 	if *folderProof && (*documentPreview || *personalHandoff || *resume || *retireEmpty ||
 		*isolatePages || *restoreParsed) {
 		return errors.New("choose one recovery mode")
@@ -105,6 +117,36 @@ func run() error {
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
+	if *finishPreserving {
+		var plan *repository.WikiPreservingFinishPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.FinishWikiPreservingRecovery(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
+	if *preservePages {
+		var plan *repository.WikiPreservingPlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiPreservingRecovery(locked, db, *tenant, *kb, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		if err := json.NewEncoder(os.Stdout).Encode(plan); err != nil {
+			return err
+		}
+		if !*apply {
+			return nil
+		}
+		return enqueueGeneration(ctx, opts, *tenant, *kb)
+	}
 	if *folderProof {
 		var plan *repository.WikiPersonalFolderPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {

@@ -17,6 +17,13 @@ func (s *wikiIngestService) personalWikiProofContext(ctx context.Context, kb str
 	if !ok {
 		return nil, repository.ErrWikiMCPUnverified
 	}
+	preserving, err := repository.WikiPreservingRecoveryActive(ctx, pages.repo, kb)
+	if err != nil {
+		return nil, err
+	}
+	if preserving {
+		return repository.BeginWikiPreservingGeneration(ctx, pages.repo, kb)
+	}
 	if repository.WikiDocumentSelectionForKB(kb) {
 		fresh, _, err := repository.BeginWikiDocumentGeneration(ctx, pages.repo, kb)
 		return fresh, err

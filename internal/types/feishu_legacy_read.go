@@ -55,8 +55,12 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 					},
 				)
 				if table == "wiki_pages" && scope.PageRestricted {
-					values := make([]interface{}, 0, len(scope.PageIDs))
-					for _, id := range scope.PageIDs {
+					ids := scope.PageIDs
+					if scope.GenerationPages != nil {
+						ids = scope.GenerationPages()
+					}
+					values := make([]interface{}, 0, len(ids))
+					for _, id := range ids {
 						values = append(values, id)
 					}
 					tx.Statement.AddClause(

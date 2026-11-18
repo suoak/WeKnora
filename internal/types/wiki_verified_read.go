@@ -9,12 +9,23 @@ import (
 type (
 	wikiVerifiedReadKey struct{}
 	wikiVerifiedRead    struct {
-		KB             string
-		Guard          WikiVerifiedReadGuard
-		PageIDs        []string
-		PageRestricted bool
+		KB              string
+		Guard           WikiVerifiedReadGuard
+		PageIDs         []string
+		PageRestricted  bool
+		GenerationPages func() []string
 	}
 )
+
+// WithWikiGenerationPageReadGuard filters reads through a server-owned live
+// page set. Newly committed, verified generation outputs may join this set.
+func WithWikiGenerationPageReadGuard(
+	ctx context.Context, kb string, pages func() []string, guard WikiVerifiedReadGuard,
+) context.Context {
+	return context.WithValue(ctx, wikiVerifiedReadKey{}, wikiVerifiedRead{
+		KB: kb, Guard: guard, GenerationPages: pages, PageRestricted: true,
+	})
+}
 
 // WithWikiVerifiedPageReadGuard attaches a page-specific verified-read guard.
 func WithWikiVerifiedPageReadGuard(

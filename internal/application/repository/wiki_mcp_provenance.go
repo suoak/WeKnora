@@ -38,6 +38,7 @@ type (
 		WikiIncarnation  string
 		InputStamps      map[string]string
 		SelectedSources  map[string]bool
+		Replacement      *wikiPreservingGeneration
 	}
 )
 
