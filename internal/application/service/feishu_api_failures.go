@@ -76,7 +76,9 @@ func (s *FeishuPersonalService) recordFeishuAPIError(
 	if event.Category == "" || s.audit == nil {
 		return
 	}
-	// The typed observation excludes provider messages, URLs, tokens and body.
+	// Only reviewed content-free provider phrases can enter the observation;
+	// arbitrary messages, URLs, tokens and response bodies remain excluded.
+	event.ProviderMessage = core.SafeProviderMessage(event.ProviderMessage)
 	details, err := json.Marshal(struct {
 		AttemptID string `json:"attempt_id"`
 		core.APIObservation

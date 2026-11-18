@@ -67,6 +67,7 @@ func (s *FeishuPersonalService) decorateFeishuFailure(ctx context.Context, item 
 	}
 	if evidence.Code > 0 && evidence.Code < 1000000000 {
 		item.ProviderCode = evidence.Code
+		item.ProviderMessage = core.SafeProviderMessage(evidence.ProviderMessage)
 	}
 	if safeFeishuOperation.MatchString(evidence.Operation) {
 		item.Operation = evidence.Operation

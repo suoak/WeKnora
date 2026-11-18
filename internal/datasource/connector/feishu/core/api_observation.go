@@ -17,16 +17,17 @@ type (
 // RequestID is available to an operator probe in memory, never serialized by
 // this type; shared audit/log output uses its irreversible correlation hash.
 type APIObservation struct {
-	Operation      string        `json:"operation"`
-	Category       ErrorCategory `json:"category"`
-	HTTPStatus     int           `json:"http_status"`
-	Code           int           `json:"code"`
-	RequestID      string        `json:"-"`
-	RequestIDHash  string        `json:"request_id_hash,omitempty"`
-	RequiredScopes []string      `json:"required_scopes,omitempty"`
-	OAuthError     string        `json:"oauth_error,omitempty"`
-	ProviderReason string        `json:"provider_reason,omitempty"`
-	TransportCause string        `json:"transport_cause,omitempty"`
+	Operation       string        `json:"operation"`
+	Category        ErrorCategory `json:"category"`
+	HTTPStatus      int           `json:"http_status"`
+	Code            int           `json:"code"`
+	RequestID       string        `json:"-"`
+	RequestIDHash   string        `json:"request_id_hash,omitempty"`
+	RequiredScopes  []string      `json:"required_scopes,omitempty"`
+	OAuthError      string        `json:"oauth_error,omitempty"`
+	ProviderReason  string        `json:"provider_reason,omitempty"`
+	ProviderMessage string        `json:"provider_message,omitempty"`
+	TransportCause  string        `json:"transport_cause,omitempty"`
 }
 
 // WithAPIObserver adds request diagnostics without modifying identity or policy.
@@ -77,6 +78,7 @@ func requiredScopes(message string) []string {
 
 // RecordAPIObservation reports content-free diagnostics to the bound observer.
 func RecordAPIObservation(ctx context.Context, observation APIObservation) {
+	observation.ProviderMessage = SafeProviderMessage(observation.ProviderMessage)
 	if observation.RequestID != "" {
 		observation.RequestIDHash = requestIDHash(observation.RequestID)
 	}
