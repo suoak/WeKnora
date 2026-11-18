@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/mark3labs/mcp-go/mcp"
@@ -14,6 +15,12 @@ import (
 )
 
 type technicalKnowledgeRepo struct{ interfaces.KnowledgeRepository }
+
+type technicalMCPDirectory struct{}
+
+func (technicalMCPDirectory) ListPortalMCPCandidates(context.Context) ([]access.PortalKBDescriptor, error) {
+	return []access.PortalKBDescriptor{{ID: "selected", TenantID: 99}}, nil
+}
 
 func (technicalKnowledgeRepo) GetKnowledgeByID(context.Context, uint64, string) (*types.Knowledge, error) {
 	return &types.Knowledge{ID: "doc", TenantID: 99, KnowledgeBaseID: "selected", Title: "NETCONF <get-config>"}, nil
@@ -30,6 +37,7 @@ func (r technicalChunkRepo) ListChunksByKnowledgeID(context.Context, uint64, str
 
 func TestPersonalTechnicalReadDocumentHTTPAndQuery(t *testing.T) {
 	s, _, ctx := selectedMCPFixture()
+	s.knowledge.Resolver.Directory = technicalMCPDirectory{}
 	text := "| **NETCONF 操作** | `<edit-config>`, `<get-config>` | `<get>` |\n```xml\n<rpc><get/></rpc>\n```\n&lt;filter&gt; %2F"
 	s.knowledge.Knowledge = technicalKnowledgeRepo{}
 	s.knowledge.Chunks = technicalChunkRepo{text: text}
