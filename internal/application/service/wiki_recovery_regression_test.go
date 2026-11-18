@@ -134,6 +134,39 @@ func TestWikiRecoveryPublicationCompletesAfterOldCleanupDeadline(t *testing.T) {
 	worker := &wikiIngestService{wikiService: publisher}
 	ctx, cancel := wikiIngestPostProcessContext(context.Background(), 2)
 	defer cancel()
-	worker.publishDraftPages(ctx, "kb", []string{"entity/a", "entity/b"})
+	require.NoError(t, worker.publishDraftPages(ctx, "kb", []string{"entity/a", "entity/b"}))
 	require.Equal(t, 2, publisher.published)
+}
+
+type recoveryFailingPublisher struct {
+	interfaces.WikiPageService
+	readFailure bool
+	writeCalls  int
+}
+
+func (p *recoveryFailingPublisher) GetPageBySlug(_ context.Context, _, slug string) (*types.WikiPage, error) {
+	if p.readFailure && slug == "entity/a" {
+		return nil, context.DeadlineExceeded
+	}
+	return &types.WikiPage{Status: types.WikiPageStatusDraft}, nil
+}
+
+func (p *recoveryFailingPublisher) UpdatePageMeta(context.Context, *types.WikiPage) error {
+	p.writeCalls++
+	return repository.ErrWikiMCPInputsChanged
+}
+
+func TestWikiRecoveryPublicationFailuresRemainRetryableWork(t *testing.T) {
+	for _, readFailure := range []bool{true, false} {
+		publisher := &recoveryFailingPublisher{readFailure: readFailure}
+		worker := &wikiIngestService{wikiService: publisher}
+		err := worker.publishDraftPages(context.Background(), "kb", []string{"entity/a", "entity/b"})
+		require.ErrorIs(t, err, repository.ErrWikiMCPInputsChanged)
+		if readFailure {
+			require.ErrorIs(t, err, context.DeadlineExceeded)
+			require.Equal(t, 1, publisher.writeCalls, "one failed read must not skip remaining publications")
+		} else {
+			require.Equal(t, 2, publisher.writeCalls)
+		}
+	}
 }

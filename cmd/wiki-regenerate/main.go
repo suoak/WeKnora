@@ -8,6 +8,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"os"
 	"strconv"
 	"time"
@@ -45,9 +46,15 @@ func run() error {
 		"queue verified regeneration while keeping old browser pages until atomic replacement")
 	finishPreserving := flag.Bool("finish-preserving-pages", false,
 		"retire unchanged obsolete pages only after generation and current summary coverage are complete")
+	publishedBackup := flag.String("restore-published-snapshots", "",
+		"original recovery JSONL backup; restore browser snapshots without publishing drafts")
 	knowledge := flag.String("knowledge", "", "exact knowledge UUID for folder proof repair")
 	originalFolder := flag.String("original-folder", "", "original folder path proved by the publication digest")
 	flag.Parse()
+	if *publishedBackup != "" && (*preservePages || *finishPreserving || *folderProof || *documentPreview ||
+		*personalHandoff || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
+		return errors.New("choose one recovery mode")
+	}
 	if (*preservePages || *finishPreserving) &&
 		(*folderProof || *documentPreview || *personalHandoff || *resume || *retireEmpty ||
 			*isolatePages || *restoreParsed) {
@@ -117,6 +124,42 @@ func run() error {
 	defer func() { _ = rc.Close() }()
 	ctx, cancel := context.WithTimeout(context.Background(), *deadline)
 	defer cancel()
+	if *publishedBackup != "" {
+		file, err := os.Open(*publishedBackup)
+		if err != nil {
+			return errors.New("cannot open original recovery backup")
+		}
+		defer func() { _ = file.Close() }()
+		if stat, err := file.Stat(); err != nil || stat.Size() > 64<<20 {
+			return errors.New("original recovery backup exceeds bounded input")
+		}
+		decoder := json.NewDecoder(io.LimitReader(file, 64<<20))
+		var pages []json.RawMessage
+		for {
+			var row struct {
+				Table string          `json:"table"`
+				Row   json.RawMessage `json:"row"`
+			}
+			if err := decoder.Decode(&row); errors.Is(err, io.EOF) {
+				break
+			} else if err != nil {
+				return errors.New("invalid original recovery JSONL backup")
+			}
+			if row.Table == "wiki_pages" {
+				pages = append(pages, row.Row)
+			}
+		}
+		var plan *repository.WikiPublishedSnapshotPlan
+		err = wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.RestoreWikiPublishedSnapshots(locked, db, *tenant, *kb, pages, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
 	if *finishPreserving {
 		var plan *repository.WikiPreservingFinishPlan
 		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {

@@ -183,6 +183,9 @@ func replacePreservedWikiPage(ctx context.Context, tx *gorm.DB, page *types.Wiki
 	if wikiDigest(&previous) != expected || previous.Slug != page.Slug {
 		return false, ErrWikiPageConflict
 	}
+	if err := retainWikiPublishedSnapshot(ctx, tx, &previous, page); err != nil {
+		return false, err
+	}
 	revision := types.WikiPageRevision{
 		ID: uuid.NewString(), TenantID: previous.TenantID, KnowledgeBaseID: previous.KnowledgeBaseID,
 		PageID: previous.ID, Slug: previous.Slug, Version: previous.Version,

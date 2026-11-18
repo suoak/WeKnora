@@ -691,6 +691,57 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 		_, _, err = local.Begin(work, ds, item, hex.EncodeToString(hash[:]))
 		require.Error(t, err, "a completed request cannot be replayed to force another candidate")
 	})
+	t.Run("source-document-reparse-capacity-preserves-budget-and-checkpoint", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		request.ProgressWindows, request.CompletedChunks, request.TotalChunks = 4, 5100, 35443
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		originalID := request.ID
+		for generation := 1; generation <= 4; generation++ {
+			require.NoError(t, tx.Model(&types.SyncLog{}).Where("id=?", log.ID).
+				UpdateColumn("execution_generation", generation).Error)
+			run := types.WithSyncExecution(context.Background(), types.SyncExecution{
+				DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: int64(generation),
+			})
+			work, claimed, err := local.ClaimSourceDocumentReparse(run, ds)
+			require.NoError(t, err)
+			require.NotNil(t, claimed)
+			require.Equal(t, 1, claimed.Attempts)
+			require.NoError(t, local.FinishSourceDocumentReparse(
+				work, ds, "safe_staging_capacity_insufficient", true, false))
+			var op types.TaskPendingOp
+			require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
+				sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
+			var persisted types.FeishuDocumentReparse
+			require.NoError(t, json.Unmarshal(op.Payload, &persisted))
+			require.Equal(t, "queued", op.Op)
+			require.Zero(t, persisted.Attempts)
+			require.Equal(t, originalID, persisted.ID)
+			require.Equal(t, request.ProgressWindows, persisted.ProgressWindows)
+			require.Equal(t, request.CompletedChunks, persisted.CompletedChunks)
+			require.Equal(t, request.TotalChunks, persisted.TotalChunks)
+			require.Equal(t, request.ConfigHash, persisted.ConfigHash)
+			require.WithinDuration(t, time.Now().Add(20*time.Minute), persisted.RetryAfter, 10*time.Second)
+			_, pending, err := local.ClaimSourceDocumentReparse(run, ds)
+			require.NoError(t, err)
+			require.Nil(t, pending, "capacity waiting must not spin")
+			persisted.RetryAfter = time.Now().Add(-time.Second)
+			payload, err := json.Marshal(persisted)
+			require.NoError(t, err)
+			require.NoError(t, tx.Model(&op).UpdateColumn("payload", json.RawMessage(payload)).Error)
+		}
+		var oldChunks int64
+		require.NoError(t, tx.Model(&types.Chunk{}).
+			Where("id=? AND is_enabled", m.Chunks[0].ID).Count(&oldChunks).Error)
+		require.EqualValues(t, 1, oldChunks, "capacity backpressure must not rewrite serving output")
+	})
 	t.Run("source-document-reparse-retry-budget-survives-new-executions", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)

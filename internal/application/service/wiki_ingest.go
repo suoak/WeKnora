@@ -2620,20 +2620,28 @@ func splitSummaryLine(raw string) (summary string, content string) {
 
 // publishDraftPages transitions draft pages to published status after ingest completes.
 // This ensures users don't see half-built pages during the ingest process.
-func (s *wikiIngestService) publishDraftPages(ctx context.Context, kbID string, slugs []string) {
+func (s *wikiIngestService) publishDraftPages(ctx context.Context, kbID string, slugs []string) error {
+	var failures []error
 	for _, slug := range slugs {
 		page, err := s.wikiService.GetPageBySlug(ctx, kbID, slug)
 		if err != nil || page == nil {
+			if err == nil {
+				err = errors.New("wiki publication page unavailable")
+			}
+			recordWikiPostError(ctx, err)
+			failures = append(failures, err)
 			continue
 		}
 		if page.Status == types.WikiPageStatusDraft {
 			page.Status = types.WikiPageStatusPublished
 			if err := s.wikiService.UpdatePageMeta(ctx, page); err != nil {
+				failures = append(failures, err)
 				recordWikiPostError(ctx, err)
 				logger.Warnf(ctx, "wiki ingest: failed to publish page %s: %v", slug, err)
 			}
 		}
 	}
+	return errors.Join(failures...)
 }
 
 // writeDedupCandidateGroup renders one new item together with its own

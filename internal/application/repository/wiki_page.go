@@ -375,7 +375,7 @@ func (r *wikiPageRepository) UpdateMeta(ctx context.Context, page *types.WikiPag
 // GetByID retrieves a wiki page by its unique ID
 func (r *wikiPageRepository) GetByID(ctx context.Context, id string) (*types.WikiPage, error) {
 	var page types.WikiPage
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&page).Error; err != nil {
+	if err := wikiBrowserPageDB(ctx, r.db).Where("id = ?", id).First(&page).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWikiPageNotFound
 		}
@@ -391,7 +391,7 @@ func (r *wikiPageRepository) GetBySlug(
 	slug string,
 ) (*types.WikiPage, error) {
 	var page types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND slug = ?", kbID, slug).
 		First(&page).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -407,7 +407,7 @@ func (r *wikiPageRepository) List(
 	ctx context.Context,
 	req *types.WikiPageListRequest,
 ) ([]*types.WikiPage, int64, error) {
-	query := r.db.WithContext(ctx).Model(&types.WikiPage{}).
+	query := wikiBrowserPageDB(ctx, r.db).Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ?", req.KnowledgeBaseID)
 
 	if pageTypes := types.SplitWikiPageTypes(req.PageType); len(pageTypes) == 1 {
@@ -492,7 +492,7 @@ func (r *wikiPageRepository) ListByType(
 	pageType string,
 ) ([]*types.WikiPage, error) {
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND page_type = ?", kbID, pageType).
 		Order("updated_at DESC").
 		Find(&pages).Error; err != nil {
@@ -527,7 +527,7 @@ func (r *wikiPageRepository) ListByTypeLight(
 		offset = 0
 	}
 
-	base := r.db.WithContext(ctx).
+	base := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ? AND page_type = ? AND status <> ?",
 			kbID, pageType, types.WikiPageStatusArchived)
@@ -586,7 +586,7 @@ func (r *wikiPageRepository) ListBySourceRef(
 	likePattern := "%" + escapeLikePattern(prefixStr) + "%"
 
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND (source_refs @> ?::jsonb OR source_refs::text LIKE ?)",
 			kbID,
 			string(needle),
@@ -627,7 +627,7 @@ func (r *wikiPageRepository) ListSlugsBySourceRef(
 	likePattern := "%" + escapeLikePattern(prefixStr) + "%"
 
 	var slugs []string
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ? AND (source_refs @> ?::jsonb OR source_refs::text LIKE ?)",
 			kbID,
@@ -657,7 +657,7 @@ func (r *wikiPageRepository) ListBySlugs(
 		return nil, nil
 	}
 	var rows []types.WikiPageLite
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("slug", "title", "page_type", "status", "aliases", "out_links").
 		Where("knowledge_base_id = ? AND slug IN ?", kbID, slugs).
@@ -686,7 +686,7 @@ func (r *wikiPageRepository) ListDistinctCategoryPaths(
 		maxPaths = 150
 	}
 	var paths []string
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiFolder{}).
 		Where("knowledge_base_id = ? AND path <> ?", kbID, "").
 		Order("path ASC").
@@ -838,7 +838,7 @@ func (r *wikiPageRepository) CountPagesInFolder(
 	folderID string,
 ) (int64, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ? AND folder_id = ? AND status <> ?",
 			kbID, folderID, types.WikiPageStatusArchived).
@@ -856,7 +856,7 @@ func (r *wikiPageRepository) CountPagesByFolder(
 		Cnt      int64
 	}
 	var rows []folderCount
-	q := r.db.WithContext(ctx).
+	q := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("folder_id, COUNT(*) as cnt").
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived)
@@ -880,7 +880,7 @@ func (r *wikiPageRepository) ListPagesByFolderIDs(
 		return nil, nil
 	}
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND folder_id IN ?", kbID, folderIDs).
 		Find(&pages).Error; err != nil {
 		return nil, err
@@ -919,7 +919,7 @@ func (r *wikiPageRepository) ListSummariesByKnowledgeIDs(
 		SourceRefs types.StringArray `gorm:"column:source_refs"`
 	}
 
-	q := r.db.WithContext(ctx).
+	q := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("content", "source_refs").
 		Where("knowledge_base_id = ? AND page_type = ? AND status <> ?",
@@ -1028,7 +1028,7 @@ func (r *wikiPageRepository) ListAllSlugs(
 	kbID string,
 ) ([]string, error) {
 	var slugs []string
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived).
 		Pluck("slug", &slugs).Error; err != nil {
@@ -1057,7 +1057,7 @@ func (r *wikiPageRepository) ListPagesCursor(
 	if limit > 500 {
 		limit = 500
 	}
-	q := r.db.WithContext(ctx).
+	q := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived).
 		Order("id ASC").
 		Limit(limit)
@@ -1098,7 +1098,7 @@ func (r *wikiPageRepository) ListByTypeRecent(
 		limit = 1000
 	}
 	var entries []types.WikiIndexEntry
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("slug", "title", "summary").
 		Where("knowledge_base_id = ? AND page_type = ? AND status <> ?",
@@ -1145,7 +1145,7 @@ func (r *wikiPageRepository) FindSimilarPages(
 	q := strings.ToLower(strings.TrimSpace(query))
 
 	var rows []types.WikiPageLite
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("slug, title, page_type, status, aliases, out_links, similarity(lower(title), ?) AS sim", q).
 		Where("knowledge_base_id = ? AND page_type IN ? AND status <> ? AND lower(title) % ?",
@@ -1244,7 +1244,7 @@ func (r *wikiPageRepository) FindPagesByNormalizedTitles(
 		}
 		chunk := identities[start:end]
 		var rows []types.WikiPageLite
-		if err := r.db.WithContext(ctx).
+		if err := wikiBrowserPageDB(ctx, r.db).
 			Model(&types.WikiPage{}).
 			Select("slug, title, page_type, status, aliases, out_links").
 			Where("knowledge_base_id = ? AND page_type = ? AND status <> ? AND "+normSQL+" IN ?",
@@ -1265,7 +1265,7 @@ func (r *wikiPageRepository) FindPagesByNormalizedTitles(
 // ListAll retrieves all non-archived wiki pages in a knowledge base.
 func (r *wikiPageRepository) ListAll(ctx context.Context, kbID string) ([]*types.WikiPage, error) {
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived).
 		Order("page_type ASC, title ASC").
 		Find(&pages).Error; err != nil {
@@ -1288,7 +1288,7 @@ func (r *wikiPageRepository) ListRecentForSuggestions(
 		return nil, nil
 	}
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("tenant_id = ?", tenantID).
 		Where("knowledge_base_id IN ?", kbIDs).
 		Where("page_type <> ?", types.WikiPageTypeIndex).
@@ -1481,7 +1481,7 @@ func (r *wikiPageRepository) SearchAcross(
 	whereArgs = append(whereArgs, matchArgs...)
 
 	var pages []*types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Select("*, "+rankExpr, matchArgs...).
 		Where("knowledge_base_id IN ? AND "+matchClause, whereArgs...).
 		Where("status != ?", "archived").
@@ -1500,7 +1500,7 @@ func (r *wikiPageRepository) CountByType(ctx context.Context, kbID string) (map[
 		Count    int64
 	}
 	var results []result
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Select("page_type, count(*) as count").
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived).
@@ -1519,7 +1519,7 @@ func (r *wikiPageRepository) CountByType(ctx context.Context, kbID string) (map[
 // CountOrphans returns the number of pages with no inbound links
 func (r *wikiPageRepository) CountOrphans(ctx context.Context, kbID string) (int64, error) {
 	var count int64
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ? AND status <> ?", kbID, types.WikiPageStatusArchived).
 		Where(r.wikiEmptyInLinksPredicate()).
