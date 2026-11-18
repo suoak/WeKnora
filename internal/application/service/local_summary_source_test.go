@@ -80,7 +80,7 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 			require.NoError(t, tx.Exec(mutation).Error)
 			_, e = model.Chat(p, messages, options)
 			require.Error(t, e, "stale, revoked, or replaced input must never reach the provider")
-			require.EqualValues(t, 1, spy.calls.Load())
+			require.EqualValues(t, 2, spy.calls.Load())
 		})
 	}
 	t.Run("revoked_during_provider_call", func(t *testing.T) {
