@@ -11,6 +11,7 @@ import (
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 func TestWikiPublishedSnapshotSeparatesBrowserFromDraftGeneration(t *testing.T) {
@@ -79,6 +80,17 @@ func TestWikiPublishedSnapshotSeparatesBrowserFromDraftGeneration(t *testing.T) 
 	background, err := restarted.GetByID(context.Background(), old.ID)
 	require.NoError(t, err)
 	require.Equal(t, candidate.Content, background.Content)
+	strict := types.WithWikiVerifiedPageReadGuard(web, old.KnowledgeBaseID, []string{old.ID},
+		func(_ *gorm.DB, _, _ string, page *types.WikiPage) error {
+			if page != nil {
+				require.Equal(t, candidate.Content, page.Content)
+			}
+			return nil
+		})
+	strictPage, err := restarted.GetByID(strict, old.ID)
+	require.NoError(t, err)
+	require.Equal(t, candidate.Content, strictPage.Content,
+		"current-provenance views cannot substitute uncertified historical text")
 	t.Run("recover-existing-hidden-page-from-bound-backup", func(t *testing.T) {
 		tx := db.Begin()
 		defer tx.Rollback()

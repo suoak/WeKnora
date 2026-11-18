@@ -90,7 +90,15 @@ func (r *wikiPageRepository) guardedWikiWrite(
 				return err
 			}
 			var saved types.WikiPage
-			if err := tx.Where("id=?", page.ID).First(&saved).Error; err != nil {
+			var err error
+			if preservingGeneration(ctx) != nil {
+				// The row has just changed inside this fenced transaction. Read
+				// it only for sealing; its previous seal cannot validate new bytes.
+				err = readPreservingOutput(tx, page.ID, &saved)
+			} else {
+				err = tx.Where("id=?", page.ID).First(&saved).Error
+			}
+			if err != nil {
 				return err
 			}
 			return sealWikiMCPMutation(tx, ctx, &saved)

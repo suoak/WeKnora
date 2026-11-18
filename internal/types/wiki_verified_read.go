@@ -58,6 +58,13 @@ func CheckWikiVerifiedPageRead(db *gorm.DB, page *WikiPage) error {
 // request headers. Private KB checks still run before it is consumed.
 type WikiVerifiedReadGuard func(*gorm.DB, string, string, *WikiPage) error
 
+// WikiVerifiedReadActive reports a server-issued current-provenance read scope.
+// Presentation overlays must not substitute historical rows into that scope.
+func WikiVerifiedReadActive(ctx context.Context) bool {
+	scope, ok := ctx.Value(wikiVerifiedReadKey{}).(wikiVerifiedRead)
+	return ok && scope.Guard != nil
+}
+
 // WithWikiVerifiedReadGuard attaches a knowledge-base verified-read guard.
 func WithWikiVerifiedReadGuard(ctx context.Context, kb string, guard WikiVerifiedReadGuard) context.Context {
 	return context.WithValue(ctx, wikiVerifiedReadKey{}, wikiVerifiedRead{KB: kb, Guard: guard})

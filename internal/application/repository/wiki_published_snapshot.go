@@ -66,7 +66,7 @@ func retireWikiPublishedSnapshot(tx *gorm.DB, page *types.WikiPage) error {
 func wikiBrowserPageDB(ctx context.Context, db *gorm.DB) *gorm.DB {
 	tenant := types.WorkspaceWebReadTenant(ctx)
 	_, generating := WikiMCPGenerationTenant(ctx)
-	if tenant == 0 || generating || db.Name() != "postgres" {
+	if tenant == 0 || generating || types.WikiVerifiedReadActive(ctx) || db.Name() != "postgres" {
 		return db.WithContext(ctx)
 	}
 	return db.WithContext(ctx).Table(`(

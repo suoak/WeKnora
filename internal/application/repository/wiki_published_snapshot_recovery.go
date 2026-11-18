@@ -48,7 +48,8 @@ func RestoreWikiPublishedSnapshots(ctx context.Context, db *gorm.DB, tenant uint
 		var recovery WikiPreservingPlan
 		if json.Unmarshal(markers[0].Payload, &recovery) != nil || !recovery.Applied ||
 			recovery.TenantID != tenant || recovery.KnowledgeBaseID != kb ||
-			recovery.Snapshot != markers[0].DedupKey || len(recovery.OriginalPages) != len(originals) {
+			recovery.Snapshot != markers[0].DedupKey || len(recovery.SourceSHA256) != 64 ||
+			len(recovery.OriginalPages) != len(originals) || recovery.HistoricalPages != len(originals) {
 			return ErrWikiMCPUnverified
 		}
 		seen := map[string]bool{}
@@ -80,6 +81,7 @@ func RestoreWikiPublishedSnapshots(ctx context.Context, db *gorm.DB, tenant uint
 			}
 			fingerprints[old.ID] = wikiDigest(&current)
 			if current.Status != types.WikiPageStatusDraft || current.Slug != old.Slug ||
+				current.Version <= old.Version ||
 				current.LastEditSource != types.WikiEditSourcePipeline {
 				plan.Skipped[old.ID] = "not_a_pipeline_draft_replacement"
 				continue
