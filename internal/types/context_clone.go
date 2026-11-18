@@ -49,6 +49,11 @@ var contextCloneAcrossDetach = map[ContextKey]bool{
 	AuditAPIKeyContextKey: true,
 	// Agent retrieval may detach within an MCP call; retain its resource observations.
 	MCPUsageScopeContextKey: true,
+	// QA rebuilds request contexts before asynchronous model/tool work. Keep
+	// its local serving policy and actual read provenance together with the
+	// caller identity and key restrictions; neither grants resource access.
+	localSourceContentReadContextKey: true,
+	legacyReadScopeContextKey:        true,
 
 	// Session scope. SessionTenantID re-scopes session/message lookups, while
 	// SandboxTenantID keys the session→sandbox binding to the session owner
