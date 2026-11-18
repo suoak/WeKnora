@@ -116,7 +116,7 @@ func portalM7Management(t *testing.T, db *gorm.DB, g *gin.Engine, cfg *config.Co
 	r.Use(middleware.Auth(tenants, users, members, nil, cfg), guards.ensureAPIKeyAuthorizer().Middleware(), middleware.ErrorHandler())
 	RegisterPortalRoutes(r, handler.NewPortalHandler(portal), guards)
 	keys := service.NewTenantAPIKeyService(repository.NewTenantAPIKeyRepository(db))
-	RegisterUserMCPAPIKeyRoutes(r, handler.NewTenantHandler(tenants, keys, users, members, portalM7KBs{repo: repository.NewKnowledgeBaseRepository(db)}, nil, nil, cfg, nil))
+	RegisterUserMCPAPIKeyRoutes(r, handler.NewTenantHandler(tenants, keys, users, members, portalM7KBs{repo: repository.NewKnowledgeBaseRepository(db)}, nil, nil, cfg, nil, nil))
 	tokens := map[string]string{}
 	for _, id := range []string{"owner", "reviewer", "A"} {
 		u, err := repository.NewUserRepository(db).GetUserByID(context.Background(), id)

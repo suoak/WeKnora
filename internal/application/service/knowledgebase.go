@@ -1200,7 +1200,20 @@ func (s *knowledgeBaseService) SetEmbeddingModel(ctx context.Context, id string,
 		return err
 	}
 
-	// Update the knowledge base's embedding model
+	if kb.EmbeddingModelID == modelID {
+		return nil
+	}
+	if kb.EmbeddingModelID != "" {
+		return errors.New("embedding model is pinned to this knowledge base's vector index; a model or dimension change requires a separately approved rebuild")
+	}
+	model, err := s.modelService.GetModelByID(ctx, modelID)
+	if err != nil {
+		return err
+	}
+	if model == nil || model.Type != types.ModelTypeEmbedding || model.Status != types.ModelStatusActive {
+		return errors.New("an active embedding model is required")
+	}
+	// Initial binding only; existing vector spaces cannot be silently rebound.
 	kb.EmbeddingModelID = modelID
 	kb.UpdatedAt = time.Now()
 

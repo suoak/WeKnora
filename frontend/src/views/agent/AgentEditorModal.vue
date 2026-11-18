@@ -2961,6 +2961,8 @@ const applyDefaultModelsIfEmpty = () => {
   if (props.mode !== 'create' || !formData.value) return
   const chatModelId = selectInitialModelId(allModels.value, 'KnowledgeQA')
   const rerankModelId = selectInitialModelId(allModels.value, 'Rerank')
+  if (!formData.value.config.vlm_model_id) formData.value.config.vlm_model_id = selectInitialModelId(allModels.value, 'VLLM') || ''
+  if (!formData.value.config.asr_model_id) formData.value.config.asr_model_id = selectInitialModelId(allModels.value, 'ASR') || ''
   if (!formData.value.config.model_id && chatModelId) {
     formData.value.config.model_id = chatModelId
   }

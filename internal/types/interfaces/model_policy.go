@@ -10,6 +10,8 @@ import (
 // Business services use this abstraction rather than reading system setting
 // keys directly.
 type ModelPolicyService interface {
+	GetWorkspacePolicy(ctx context.Context) (*types.DefaultSettings, error)
+	UpdateWorkspacePolicy(ctx context.Context, next, previous *types.DefaultSettings) error
 	GetPolicy(ctx context.Context) (*types.DefaultModelPolicy, error)
 	UpdatePolicy(ctx context.Context, policy *types.DefaultModelPolicy) (*types.DefaultModelPolicy, error)
 	ResolveChatModelID(ctx context.Context) string

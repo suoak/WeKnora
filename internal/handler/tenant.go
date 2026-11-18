@@ -26,6 +26,7 @@ import (
 // Provides functionality for creating, retrieving, updating, and deleting tenants
 // through the REST API endpoints
 type TenantHandler struct {
+	modelPolicy     interfaces.ModelPolicyService
 	personalContent *service.PersonalContent
 	service         interfaces.TenantService
 	apiKeyService   interfaces.TenantAPIKeyService
@@ -69,8 +70,10 @@ func NewTenantHandler(
 	auditService interfaces.AuditLogService,
 	config *config.Config,
 	systemSettingSvc interfaces.SystemSettingService,
+	modelPolicy interfaces.ModelPolicyService,
 ) *TenantHandler {
 	return &TenantHandler{
+		modelPolicy:      modelPolicy,
 		service:          service,
 		apiKeyService:    apiKeyService,
 		userService:      userService,
@@ -1325,6 +1328,9 @@ func (h *TenantHandler) GetTenantKV(c *gin.Context) {
 	case "web-search-config":
 		h.GetTenantWebSearchConfig(c)
 		return
+	case "default-settings":
+		h.GetWorkspaceModelDefaults(c)
+		return
 	case "prompt-templates":
 		h.GetPromptTemplates(c)
 		return
@@ -1376,6 +1382,9 @@ func (h *TenantHandler) UpdateTenantKV(c *gin.Context) {
 	}
 
 	switch key {
+	case "default-settings":
+		h.UpdateWorkspaceModelDefaults(c)
+		return
 	case "web-search-config":
 		h.updateTenantWebSearchConfigInternal(c)
 		return

@@ -36,10 +36,11 @@ var modelPolicySettings = []struct {
 type modelPolicyService struct {
 	settings interfaces.SystemSettingService
 	models   interfaces.ModelRepository
+	tenants  interfaces.TenantRepository
 }
 
-func NewModelPolicyService(settings interfaces.SystemSettingService, models interfaces.ModelRepository) interfaces.ModelPolicyService {
-	return &modelPolicyService{settings: settings, models: models}
+func NewModelPolicyService(settings interfaces.SystemSettingService, models interfaces.ModelRepository, tenants interfaces.TenantRepository) interfaces.ModelPolicyService {
+	return &modelPolicyService{settings: settings, models: models, tenants: tenants}
 }
 
 func (s *modelPolicyService) GetPolicy(ctx context.Context) (*types.DefaultModelPolicy, error) {
@@ -57,9 +58,16 @@ func (s *modelPolicyService) UpdatePolicy(ctx context.Context, policy *types.Def
 	if policy == nil {
 		return nil, fmt.Errorf("model policy is required")
 	}
+	previous, err := s.GetPolicy(ctx)
+	if err != nil {
+		return nil, err
+	}
 	// Validate the complete document first so ordinary input errors cannot
 	// leave a partially written policy.
 	for _, spec := range modelPolicySettings {
+		if strings.TrimSpace(spec.get(policy)) == spec.get(previous) {
+			continue
+		}
 		if err := s.ValidateModelForRole(ctx, spec.role, spec.get(policy)); err != nil {
 			return nil, err
 		}
@@ -110,13 +118,36 @@ func (s *modelPolicyService) ValidateModelForRole(ctx context.Context, role type
 	if model.Status != types.ModelStatusActive {
 		return fmt.Errorf("model %s is not active", modelID)
 	}
-	if model.Type != want {
+	if !model.SupportsType(want) {
 		return fmt.Errorf("model %s has type %s; %s requires %s", modelID, model.Type, role, want)
 	}
 	return nil
 }
 
 func (s *modelPolicyService) resolve(ctx context.Context, role types.ModelPolicyRole, id string) string {
+	if tenantID, ok := types.TenantIDFromContext(ctx); ok {
+		var tenant *types.Tenant
+		if loaded, valid := types.TenantInfoFromContext(ctx); valid && loaded.ID == tenantID {
+			tenant = loaded
+		} else if s.tenants != nil {
+			var err error
+			tenant, err = s.tenants.GetTenantByID(ctx, tenantID)
+			if err != nil {
+				logger.Warnf(ctx, "Cannot resolve workspace model defaults: %v", err)
+				return ""
+			}
+		}
+		if tenant != nil && tenant.DefaultSettings != nil {
+			choice := workspaceModelID(tenant.DefaultSettings, role)
+			if choice != "" {
+				model, err := s.models.GetByID(ctx, tenantID, choice)
+				want, known := requiredTypeForRole(role)
+				if err == nil && model != nil && known && model.Status == types.ModelStatusActive && model.SupportsType(want) {
+					return choice
+				}
+			}
+		}
+	}
 	id = strings.TrimSpace(id)
 	if id == "" {
 		return ""
@@ -205,4 +236,22 @@ func (s *modelPolicyService) ApplyKnowledgeBaseDefaults(ctx context.Context, kb 
 		return fmt.Errorf("embedding model is required: configure one explicitly or set a system default")
 	}
 	return nil
+}
+
+func workspaceModelID(settings *types.DefaultSettings, role types.ModelPolicyRole) string {
+	switch role {
+	case types.ModelPolicyRoleChat:
+		return settings.ChatModelID
+	case types.ModelPolicyRoleSummary:
+		return settings.UtilityModelID
+	case types.ModelPolicyRoleEmbedding:
+		return settings.EmbeddingModelID
+	case types.ModelPolicyRoleRerank:
+		return settings.RerankModelID
+	case types.ModelPolicyRoleVLM:
+		return settings.VLMModelID
+	case types.ModelPolicyRoleASR:
+		return settings.ASRModelID
+	}
+	return ""
 }

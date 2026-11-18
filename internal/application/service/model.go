@@ -27,6 +27,7 @@ var ErrModelNotFound = errors.New("model not found")
 
 // modelService implements the model service interface
 type modelService struct {
+	modelPolicy      interfaces.ModelPolicyService
 	personalRecovery *PersonalRecovery
 	repo             interfaces.ModelRepository
 	kbRepo           interfaces.KnowledgeBaseRepository
@@ -320,6 +321,10 @@ func (s *modelService) ListModels(ctx context.Context) ([]*types.Model, error) {
 		return nil, err
 	}
 
+	models, err = s.projectModelDefaults(ctx, models)
+	if err != nil {
+		return nil, err
+	}
 	logger.Infof(ctx, "Retrieved %d models successfully", len(models))
 	return models, nil
 }
@@ -351,6 +356,9 @@ func (s *modelService) UpdateModel(ctx context.Context, model *types.Model) erro
 		model.ManagedBy = ""
 	}
 
+	if err := validateEmbeddingIdentity(existingModel, model); err != nil {
+		return apperrors.NewBadRequestError(err.Error())
+	}
 	// Update model in repository
 	err = s.repo.Update(ctx, model)
 	if err != nil {

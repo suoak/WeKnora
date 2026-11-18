@@ -837,15 +837,8 @@ func (s *sessionService) GenerateTitle(ctx context.Context,
 			logger.ErrorWithFields(ctx, err, nil)
 			return "", fmt.Errorf("failed to list models: %w", err)
 		}
-		for _, model := range models {
-			if model == nil {
-				continue
-			}
-			if model.Type == types.ModelTypeKnowledgeQA {
-				modelID = model.ID
-				logger.Infof(ctx, "Using first available KnowledgeQA model for title: %s", modelID)
-				break
-			}
+		if model := types.PickUtilityModel(models); model != nil {
+			modelID = model.ID
 		}
 		if modelID == "" {
 			logger.Error(ctx, "No KnowledgeQA model found")

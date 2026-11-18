@@ -49,13 +49,14 @@
       </div>
     </div>
 
+    <WorkspaceModelDefaults :models="allModels" @saved="refreshModelsAndDefaults" />
     <section v-if="authStore.isSystemAdmin" class="default-policy-card">
       <div class="default-policy-card__header">
         <div>
           <h3>{{ $t('modelSettings.defaultPolicy.title') }}</h3>
           <p>{{ $t('modelSettings.defaultPolicy.description') }}</p>
         </div>
-        <t-button theme="primary" :loading="savingPolicy" @click="saveDefaultPolicy">
+        <t-button theme="primary" :loading="savingPolicy" :disabled="!policyReady" @click="saveDefaultPolicy">
           {{ $t('common.save') }}
         </t-button>
       </div>
@@ -64,6 +65,7 @@
           <span>{{ $t(`modelSettings.defaultPolicy.${row.role}`) }}</span>
           <t-select
             v-model="defaultPolicy[row.key]"
+            :disabled="!policyReady || savingPolicy"
             :options="policyOptions(row.type)"
             :placeholder="$t('modelSettings.defaultPolicy.unconfigured')"
             clearable
@@ -333,6 +335,7 @@ import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import ModelEditorDialog from '@/components/ModelEditorDialog.vue'
 import ModelDebugDrawer from '@/components/ModelDebugDrawer.vue'
+import WorkspaceModelDefaults from '@/components/WorkspaceModelDefaults.vue'
 import {
   listModels,
   getDefaultModelPolicy,
@@ -386,6 +389,7 @@ const editingModel = ref<any>(null)
 const loading = ref(true)
 const activeTypeFilter = ref<FilterType>('all')
 const savingPolicy = ref(false)
+const policyReady = ref(false)
 const emptyPolicy = (): DefaultModelPolicy => ({
   chat_model_id: '', summary_model_id: '', embedding_model_id: '',
   rerank_model_id: '', vlm_model_id: '', asr_model_id: '',
@@ -426,7 +430,7 @@ const allModels = ref<ModelConfig[]>([])
 const copyingModelId = ref<string | null>(null)
 
 const policyOptions = (type: ModelConfig['type']) => allModels.value
-  .filter(model => model.is_builtin && model.status === 'active' && model.type === type)
+  .filter(model => model.is_builtin && model.status === 'active' && (model.type === type || (type === 'VLLM' && model.type === 'KnowledgeQA' && model.parameters?.supports_vision)))
   .map(model => ({ label: model.display_name || model.name, value: model.id! }))
 
 const isConfiguredPolicyInvalid = (row: { key: PolicyKey; type: ModelConfig['type'] }) => {
@@ -442,10 +446,12 @@ const defaultRolesForModel = (modelId: string) => {
 }
 
 const loadDefaultPolicies = async () => {
+  policyReady.value = false
 	try {
 		effectivePolicy.value = await getEffectiveDefaultModelPolicy()
 		if (authStore.isSystemAdmin) {
 			defaultPolicy.value = await getDefaultModelPolicy()
+      policyReady.value = true
 		}
 	} catch (error) {
 		console.warn('Failed to load default model policy:', error)
@@ -453,7 +459,13 @@ const loadDefaultPolicies = async () => {
 	}
 }
 
+const refreshModelsAndDefaults = async () => {
+  allModels.value = await listModels()
+  await loadDefaultPolicies()
+}
+
 const saveDefaultPolicy = async () => {
+  if (!policyReady.value) return
   savingPolicy.value = true
   try {
 		const normalized = Object.fromEntries(
