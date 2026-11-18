@@ -554,8 +554,9 @@ func (c *Client) doRequestBytesLoop(
 			Operation: operation, Category: apiErr.Category,
 			HTTPStatus: apiErr.HTTPStatus, Code: apiErr.Code,
 			RequestID: apiErr.RequestID, RequiredScopes: apiErr.Scopes,
-			ProviderReason: apiErr.ProviderReason,
-			TransportCause: TransportErrorCategory(apiErr.Cause),
+			ProviderReason:  apiErr.ProviderReason,
+			ProviderMessage: apiErr.Message,
+			TransportCause:  TransportErrorCategory(apiErr.Cause),
 		})
 		if authenticated && personal && !application && refreshHint == "" &&
 			apiErr.Category == ErrorCategoryAuth && attempt < c.retry.maxRetries &&

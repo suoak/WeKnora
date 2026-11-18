@@ -33,6 +33,7 @@ type FeishuBatchItem struct {
 	Status            string     `                  json:"status"`
 	ErrorCategory     string     `                  json:"error_category,omitempty"`
 	ProviderCode      int        `gorm:"-"          json:"provider_code,omitempty"`
+	ProviderMessage   string     `gorm:"-"          json:"provider_message,omitempty"`
 	Operation         string     `gorm:"-"          json:"operation,omitempty"`
 	Retryable         bool       `gorm:"-"          json:"retryable"`
 	CanRetry          bool       `gorm:"-"          json:"can_retry"`
