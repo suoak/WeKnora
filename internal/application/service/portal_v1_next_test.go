@@ -144,21 +144,22 @@ func TestV1NextWikiGenerationFencesInputsAndNormalCompletion(t *testing.T) {
 	spy := &legacySpyModel{}
 	model := &legacyGuardedChat{inner: spy, gate: gate, tenant: 1}
 	// A different held KB in the same tenant does not contaminate this complete
-	// server-bound generation closure. Unknown/unproven model inputs still deny.
+	// server-bound generation closure. Unrelated sources also cannot block a
+	// model call without KB inputs; bound generation inputs keep their fences.
 	require.NoError(t, f.DB.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,config,status,legacy_access_state) VALUES('held-other',1,'private-home','synthetic','feishu','{}','active','hold')`).Error)
 	_, e = model.Chat(ctx, []chat.Message{{Content: "verified wiki input"}}, nil)
 	require.NoError(t, e)
 	require.EqualValues(t, 1, spy.calls.Load())
 	_, e = model.Chat(context.Background(), []chat.Message{{Content: "unknown input closure"}}, nil)
-	require.Error(t, e)
-	require.EqualValues(t, 1, spy.calls.Load())
+	require.NoError(t, e)
+	require.EqualValues(t, 2, spy.calls.Load())
 	// Raw/old writer insertion followed by deletion must not evade the input
 	// fence just because the final set of visible pages looks the same (ABA).
 	require.NoError(t, f.DB.Exec(`INSERT INTO wiki_pages(id,tenant_id,knowledge_base_id,slug,title,content,page_type,status) VALUES('transient',1,'public-two','concept/transient','secret','TRANSIENT_CANARY','concept','published')`).Error)
 	require.NoError(t, f.DB.Exec("DELETE FROM wiki_pages WHERE id='transient'").Error)
 	_, e = model.Chat(ctx, []chat.Message{{Content: "TRANSIENT_CANARY"}}, nil)
 	require.Error(t, e)
-	require.EqualValues(t, 1, spy.calls.Load(), "unsafe input must not enter a model call")
+	require.EqualValues(t, 2, spy.calls.Load(), "unsafe input must not enter a model call")
 	page.ID = "late"
 	page.Slug = "concept/late"
 	require.Error(t, r.Create(ctx, page), "a stale generator cannot certify a late page")
