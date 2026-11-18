@@ -22,7 +22,8 @@ func feishuFailureAction(category string) (string, bool) {
 	case "app_scope_missing", "oauth_app_configuration":
 		return "contact_app_admin", false
 	case "source_read_denied", "source_copy_denied", "source_copy_export_denied", "source_permission_required",
-		"source_metadata_denied", "export_permission_required", "export_create_denied", "export_download_denied":
+		"source_metadata_denied", "source_copy_only_requires_policy", "export_permission_required",
+		"export_create_denied", "export_download_denied":
 		return "contact_document_owner", false
 	case "kb_permission_required":
 		return "request_kb_access", false

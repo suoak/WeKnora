@@ -17,6 +17,11 @@
           <p><strong>{{ item.document_name || `第 ${item.ordinal + 1} 篇文档` }}</strong><t-tag size="small" variant="light">{{ item.resource_type || '文档' }}</t-tag><span>{{ itemStatus(item) }}</span></p>
           <p v-if="item.stalled" class="warning" role="status">处理时间较长，请稍后查看或联系管理员。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
+          <div v-if="item.error_category === 'source_copy_only_requires_policy'" class="permission-help">
+            <p>请文档所有者在飞书「分享 → 权限设置」中，检查「谁可以创建副本、打印、下载」，为导入所用账号开通导出权限。</p>
+            <p>如果文档已允许导出，请企业管理员检查安全策略和服务器 IP 限制。权限修正前，重复导入不会解决此问题。</p>
+          </div>
+          <a v-if="originalDocumentURL(item.url)" :href="originalDocumentURL(item.url)" target="_blank" rel="noopener noreferrer">打开飞书原文（第 {{ item.ordinal + 1 }} 篇）</a>
           <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
           <router-link v-if="item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
         </article>
@@ -32,6 +37,7 @@ import {computed,ref,onMounted,onUnmounted,nextTick} from 'vue'
 import {useRoute,useRouter} from 'vue-router'
 import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFeishuBatch,retryFeishuBatch,type FeishuStatus,type FeishuBatch,type FeishuBatchHistory,type FeishuBatchItem} from '@/api/feishuPersonal'
 import {saveFeishuDraft,takeFeishuDraft} from '@/utils/feishuOAuthFlow'
+import {originalDocumentURL} from '@/utils/feishuImportPermissions'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
 const router=useRouter(), details=ref<HTMLElement>()
@@ -41,6 +47,7 @@ let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, 
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
 function itemStatus(item:FeishuBatchItem) {
+  if(item.error_category==='source_copy_only_requires_policy') return '需要导出权限'
   if(item.status==='succeeded' && !item.index_verified) return '等待索引验证'
   if(item.stage==='publication_pending') return '解析已完成，正在验证索引和发布'
   if(item.stage==='wiki_finishing') return '索引已验证，正在完成知识发布'
@@ -55,7 +62,7 @@ function failure(code:string) {
 	if(code==='source_copy_export_denied') return '当前账号可以阅读该文档，但没有复制或导出权限。请联系文档所有者开放相应权限，无需申请编辑权限。'
 	if(code==='source_read_denied') return '当前账号没有文档阅读权限，请联系文档所有者。'
 	if(code==='source_copy_denied') return '当前账号没有文档复制权限，请联系文档所有者。'
-	if(code==='source_copy_only_requires_policy') return '文档允许复制但导出受限，暂不能导入，请联系管理员。'
+	if(code==='source_copy_only_requires_policy') return '飞书允许当前账号阅读、复制，但禁止导出。文档尚未进入解析，需要先修正飞书导出权限。'
 	if(code==='source_acquisition_requires_review') return '文档获取方式需要核查，请联系管理员。'
 	if(code==='source_policy_verification_required') return '无法确认文档导出权限，请联系管理员。'
 	if(code==='blocks_content_requires_review') return '文档含暂不支持的内容，请联系管理员处理。'
@@ -166,4 +173,5 @@ async function connect(links:string) {
 details {margin-top:24px;}
 summary {cursor:pointer;}
 .warning {color:var(--td-warning-color);}
+.permission-help {color:var(--td-text-color-secondary);font-size:13px;line-height:1.7;}
 </style>
