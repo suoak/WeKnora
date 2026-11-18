@@ -21,6 +21,12 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 			ctx := context.Background()
 			operator := types.WithLegacyKBAdminMetadata(ctx, source.kb)
 			db := f.db.WithContext(operator)
+			var original struct{ IndexingStrategy types.IndexingStrategy }
+			require.NoError(t, db.Table("knowledge_bases").Where("id=?", source.kb).Take(&original).Error)
+			defer func() {
+				require.NoError(t, db.Table("knowledge_bases").Where("id=?", source.kb).
+					Updates(map[string]any{"indexing_strategy": original.IndexingStrategy}).Error)
+			}()
 			require.NoError(t, db.Table("knowledge_bases").Where("id=?", source.kb).
 				Updates(map[string]any{"indexing_strategy": types.IndexingStrategy{WikiEnabled: true}}).Error)
 			plan, err := repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, "", false)
@@ -28,6 +34,8 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 			_, err = repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, plan.Snapshot, true)
 			require.NoError(t, err)
 			pages := &wikiPageService{repo: repository.NewWikiPageRepository(f.db)}
+			originalPersonal := f.ks.config.PersonalMCP
+			defer func() { f.ks.config.PersonalMCP = originalPersonal }()
 			f.ks.config.PersonalMCP = &config.PersonalMCPConfig{Enabled: true}
 			ingest := &wikiIngestService{knowledgeSvc: f.ks, wikiService: pages}
 			require.True(t, ingest.personalWikiProofEnabled())
