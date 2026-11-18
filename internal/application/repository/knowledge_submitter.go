@@ -32,7 +32,9 @@ func (r *knowledgeRepository) ReadKnowledgeSubmitters(
  UNION ALL
  SELECT k.id,a.actor_user_id,2 AS priority FROM allowed k
  JOIN audit_logs a ON a.tenant_id=k.tenant_id AND a.scope_type='knowledge_base'
- AND a.scope_id=k.knowledge_base_id AND a.target_type='knowledge' AND a.target_id=k.id
+ AND (a.scope_id=k.knowledge_base_id OR EXISTS(SELECT 1 FROM knowledge_bases origin
+ WHERE origin.id=a.scope_id AND origin.tenant_id=k.tenant_id))
+ AND a.target_type='knowledge' AND a.target_id=k.id
  AND a.action='knowledge.created' AND a.outcome IN ('accepted','success')
  WHERE a.actor_user_id<>''
 ), best AS (SELECT id,MIN(priority) AS priority FROM people GROUP BY id), chosen AS (
@@ -48,7 +50,7 @@ SELECT k.id,coalesce(r.user_id,'') AS user_id,coalesce(r.name,'') AS name,
  WHEN EXISTS(SELECT 1 FROM people p WHERE p.id=k.id) THEN ''
  WHEN EXISTS(SELECT 1 FROM data_sources d WHERE d.id=k.datasource_id
  AND d.tenant_id=k.tenant_id AND d.knowledge_base_id=k.knowledge_base_id
- AND d.type=k.channel AND d.deleted_at IS NULL) THEN 'system_sync' ELSE '' END AS kind
+ AND d.type=k.channel) THEN 'system_sync' ELSE '' END AS kind
 FROM allowed k LEFT JOIN resolved r ON r.id=k.id`, tenant, kb, ids).Scan(&rows).Error
 	if err != nil {
 		return nil, err
