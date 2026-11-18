@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -27,9 +28,14 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 			_, err = repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, plan.Snapshot, true)
 			require.NoError(t, err)
 			pages := &wikiPageService{repo: repository.NewWikiPageRepository(f.db)}
+			f.ks.config.PersonalMCP = &config.PersonalMCPConfig{Enabled: true}
 			ingest := &wikiIngestService{knowledgeSvc: f.ks, wikiService: pages}
+			require.True(t, ingest.personalWikiProofEnabled())
 			work, err := ingest.personalWikiProofContext(ctx, source.kb)
 			require.NoError(t, err, "the real worker must choose preserving mode from the operator marker")
+			issuedTenant, issued := repository.WikiMCPGenerationTenant(work)
+			require.True(t, issued, "the enabled worker must issue a real generation proof")
+			require.EqualValues(t, 1, issuedTenant)
 			modelGate := repository.NewModelRepository(f.db).(legacyModelInputGate)
 			require.NoError(t, modelGate.CheckLegacyModelInputs(work, 1))
 			_, err = f.ks.GetKnowledgeByIDOnly(ctx, source.knowledge)
