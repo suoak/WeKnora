@@ -17,6 +17,9 @@ func BindPersonalPublishedSnapshotReads(portal *PortalMCPKnowledge, personal *Fe
 }
 
 func (s *PortalMCPKnowledge) publishedDocumentContext(ctx context.Context, id string) (context.Context, error) {
+	if ordinaryLocalSourceRead(ctx) {
+		return ctx, nil
+	}
 	if s.personalRecovery == nil {
 		return ctx, nil
 	}
