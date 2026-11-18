@@ -129,7 +129,7 @@ func run() error {
 		if err != nil {
 			return errors.New("cannot open original recovery backup")
 		}
-		defer file.Close()
+		defer func() { _ = file.Close() }()
 		if stat, err := file.Stat(); err != nil || stat.Size() > 64<<20 {
 			return errors.New("original recovery backup exceeds bounded input")
 		}

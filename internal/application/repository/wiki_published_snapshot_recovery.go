@@ -12,6 +12,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// WikiPublishedSnapshotPlan binds browser-only recovery to the original backup and current rows.
 type WikiPublishedSnapshotPlan struct {
 	TenantID        uint64            `json:"tenant_id"`
 	KnowledgeBaseID string            `json:"knowledge_base_id"`

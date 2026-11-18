@@ -2626,7 +2626,7 @@ func (s *wikiIngestService) publishDraftPages(ctx context.Context, kbID string, 
 		page, err := s.wikiService.GetPageBySlug(ctx, kbID, slug)
 		if err != nil || page == nil {
 			if err == nil {
-				err = errors.New("Wiki publication page unavailable")
+				err = errors.New("wiki publication page unavailable")
 			}
 			recordWikiPostError(ctx, err)
 			failures = append(failures, err)
