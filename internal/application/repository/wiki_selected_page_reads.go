@@ -90,7 +90,9 @@ func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGener
 		}
 		for id := range sources {
 			var count int64
-			if err := db.Table("knowledges").Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL AND enable_status='enabled'", id, page.TenantID, kb).Count(&count).Error; err != nil {
+			if err := db.Table("knowledges").Where(
+				"id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL AND enable_status='enabled'",
+				id, page.TenantID, kb).Count(&count).Error; err != nil {
 				return nil, err
 			}
 			if count != 1 {

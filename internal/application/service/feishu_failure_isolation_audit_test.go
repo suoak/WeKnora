@@ -59,7 +59,8 @@ func TestAuditFeishuMixedSearchOmitsHealthyConnectorDocuments(t *testing.T) {
 	} {
 		handled, _, err := s.exactRecoveryHybridSearch(ctx, "kb", params)
 		require.NoError(t, err)
-		require.False(t, handled, "platform queries must retain the ordinary pipeline including all authorized channels")
+		require.False(t, handled,
+			"platform queries must retain the ordinary pipeline including all authorized channels")
 	}
 }
 
@@ -77,11 +78,15 @@ func TestAuditFeishuPersonalReceiptRejectsWorkspaceMCPPrincipal(t *testing.T) {
 	read, err = kb.exactSearchContext(ctx, "kb", types.SearchParams{KnowledgeIDs: []string{"personal"}})
 	require.NoError(t, err)
 	require.Equal(t, ctx, read)
-	bundle, err := f.p.preparePublishedReadBundle(ctx, []*types.SearchResult{{KnowledgeID: "personal", KnowledgeBaseID: "kb"}})
+	bundle, err := f.p.preparePublishedReadBundle(ctx, []*types.SearchResult{
+		{KnowledgeID: "personal", KnowledgeBaseID: "kb"},
+	})
 	require.NoError(t, err)
 	require.Nil(t, bundle)
 	model := &modelService{personalRecovery: f.p}
-	read, err = model.AuthorizeExactPersonalRead(ctx, []*types.SearchResult{{KnowledgeID: "personal", KnowledgeBaseID: "kb"}})
+	read, err = model.AuthorizeExactPersonalRead(ctx, []*types.SearchResult{
+		{KnowledgeID: "personal", KnowledgeBaseID: "kb"},
+	})
 	require.NoError(t, err)
 	require.Equal(t, ctx, read)
 }
