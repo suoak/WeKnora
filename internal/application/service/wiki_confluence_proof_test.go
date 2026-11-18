@@ -55,7 +55,8 @@ func TestWikiProductionConfluenceRequiresCurrentConnectorBinding(t *testing.T) {
 				`UPDATE data_sources SET legacy_access_state='unmanaged',type='gitlab' WHERE id='confluence'`,
 				`UPDATE data_sources SET type='confluence',tenant_id=99 WHERE id='confluence'`,
 				`UPDATE data_sources SET tenant_id=1,knowledge_base_id='foreign-kb' WHERE id='confluence'`,
-				`UPDATE data_sources SET knowledge_base_id='public-two',deleted_at=CURRENT_TIMESTAMP WHERE id='confluence'`,
+				`UPDATE data_sources SET knowledge_base_id='public-two',deleted_at=CURRENT_TIMESTAMP
+ WHERE id='confluence'`,
 			} {
 				require.NoError(t, db.Exec(mutation).Error)
 				_, err := begin()
