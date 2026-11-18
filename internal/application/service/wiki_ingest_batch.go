@@ -992,7 +992,16 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	// written, not after the debounce window. This is a cheap status flip.
 	if len(allPagesAffected) > 0 {
 		logger.Infof(ctx, "wiki ingest: publishing draft pages")
-		s.publishDraftPages(tailCtx, payload.KnowledgeBaseID, allPagesAffected)
+		if err := s.publishDraftPages(tailCtx, payload.KnowledgeBaseID, allPagesAffected); err != nil {
+			// Publication is required for every source kind, not only personal
+			// first-add documents. Keep original operations/counter slots until
+			// a bounded retry actually publishes the generated pages.
+			for _, result := range docResults {
+				if result != nil {
+					unappliedSlugKIDs[result.KnowledgeID] = struct{}{}
+				}
+			}
+		}
 	}
 
 	// Defer KB-global convergence (index-intro rebuild + dead-link cleanup +

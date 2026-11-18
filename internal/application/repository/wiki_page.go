@@ -375,7 +375,7 @@ func (r *wikiPageRepository) UpdateMeta(ctx context.Context, page *types.WikiPag
 // GetByID retrieves a wiki page by its unique ID
 func (r *wikiPageRepository) GetByID(ctx context.Context, id string) (*types.WikiPage, error) {
 	var page types.WikiPage
-	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&page).Error; err != nil {
+	if err := wikiBrowserPageDB(ctx, r.db).Where("id = ?", id).First(&page).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, ErrWikiPageNotFound
 		}
@@ -391,7 +391,7 @@ func (r *wikiPageRepository) GetBySlug(
 	slug string,
 ) (*types.WikiPage, error) {
 	var page types.WikiPage
-	if err := r.db.WithContext(ctx).
+	if err := wikiBrowserPageDB(ctx, r.db).
 		Where("knowledge_base_id = ? AND slug = ?", kbID, slug).
 		First(&page).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -407,7 +407,7 @@ func (r *wikiPageRepository) List(
 	ctx context.Context,
 	req *types.WikiPageListRequest,
 ) ([]*types.WikiPage, int64, error) {
-	query := r.db.WithContext(ctx).Model(&types.WikiPage{}).
+	query := wikiBrowserPageDB(ctx, r.db).Model(&types.WikiPage{}).
 		Where("knowledge_base_id = ?", req.KnowledgeBaseID)
 
 	if pageTypes := types.SplitWikiPageTypes(req.PageType); len(pageTypes) == 1 {

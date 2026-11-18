@@ -86,6 +86,9 @@ func (r *wikiPageRepository) guardedWikiWrite(
 			if err := write(tx); err != nil {
 				return err
 			}
+			if err := retireWikiPublishedSnapshot(tx, page); err != nil {
+				return err
+			}
 			var saved types.WikiPage
 			if err := tx.Where("id=?", page.ID).First(&saved).Error; err != nil {
 				return err
