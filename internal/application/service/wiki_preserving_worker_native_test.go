@@ -16,6 +16,7 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 		Format: "docx", SkipAdditionalReadMatrix: true,
 		AssertPublished: func(f *personalRecoveryFixture, source *personalExactDocument, _ types.PersonalExactReceipt) {
 			assertPersonalWikiGeneration(t, f, source)
+			require.NoError(t, f.db.AutoMigrate(&types.KnowledgeProcessingSpan{}))
 			ctx := context.Background()
 			operator := types.WithLegacyKBAdminMetadata(ctx, source.kb)
 			db := f.db.WithContext(operator)
