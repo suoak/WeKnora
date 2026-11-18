@@ -137,15 +137,14 @@ func TestAuditFeishuLocalPolicyPreservesExplicitDocumentScope(t *testing.T) {
 // Exercise actual personal MCP resolution, repository reads and final key check.
 func TestAuditFeishuPersonalMCPReadsAndRevalidatesKey(t *testing.T) {
 	f := fixture.New(t)
-	resolver := f.Portal(t)
+	f.PreparePublished(t)
+	portal := publishedServiceM7(t, f)
 	require.NoError(t, f.DB.Exec("UPDATE knowledges SET channel='feishu_personal' WHERE id='public-two-doc'").Error)
-	ks := &knowledgeService{repo: repository.NewKnowledgeRepository(f.DB)}
+	ks := &knowledgeService{repo: portal.Knowledge}
 	personal := &FeishuPersonalService{db: f.DB, knowledge: ks}
 	recovery := &PersonalRecovery{service: personal}
 	ks.personalRecovery = recovery
-	portal := &PortalMCPKnowledge{
-		Resolver: resolver, Knowledge: ks.repo, Chunks: repository.NewChunkRepository(f.DB), personalRecovery: recovery,
-	}
+	portal.personalRecovery = recovery
 	ctx := types.WithLocalSourceContentRead(fixture.Key("A", 1, 1, true))
 	hits, err := portal.ReadDocument(ctx, "public-two-doc")
 	require.NoError(t, err)
