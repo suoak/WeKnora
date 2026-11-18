@@ -38,6 +38,7 @@ type (
 		WikiIncarnation  string
 		InputStamps      map[string]string
 		SelectedSources  map[string]bool
+		Replacement      *wikiPreservingGeneration
 	}
 )
 
@@ -191,6 +192,9 @@ func wikiDependencies(
 	kb string,
 	previous ...*wikiGenerationProof,
 ) (*wikiGenerationProof, error) {
+	if len(previous) == 1 && previous[0] != nil && previous[0].Replacement != nil {
+		return wikiPreservingDependencies(db, kb, previous...)
+	}
 	if len(previous) == 1 && previous[0] != nil && previous[0].SelectedSources != nil {
 		return wikiDependenciesSelected(db, kb, nil, previous[0].SelectedSources, previous...)
 	}

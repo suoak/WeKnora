@@ -95,15 +95,27 @@ func (r *wikiPageRepository) wikiEmptyInLinksPredicate() string {
 // Create inserts a new wiki page record
 func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) error {
 	return withWikiMCPProofWrite(ctx, func() error {
-		return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		original := *page
+		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 			if err := beforeWikiMCPMutation(tx, ctx); err != nil {
 				return err
 			}
-			if err := tx.Create(page).Error; err != nil {
+			replaced, err := replacePreservedWikiPage(ctx, tx, page)
+			if err != nil {
 				return err
 			}
+			if !replaced {
+				if err := tx.Create(page).Error; err != nil {
+					return err
+				}
+			}
 			var saved types.WikiPage
-			if err := tx.Where("id=?", page.ID).First(&saved).Error; err != nil {
+			if preservingGeneration(ctx) != nil {
+				err = readPreservingOutput(tx, page.ID, &saved)
+			} else {
+				err = tx.Where("id=?", page.ID).First(&saved).Error
+			}
+			if err != nil {
 				return err
 			}
 			if err := sealWikiMCPMutation(tx, ctx, &saved); err != nil {
@@ -112,6 +124,17 @@ func (r *wikiPageRepository) Create(ctx context.Context, page *types.WikiPage) e
 			*page = saved
 			return nil
 		})
+		if err != nil {
+			*page = original
+			return err
+		}
+		if state := preservingGeneration(ctx); state != nil {
+			state.mu.Lock()
+			state.readable[page.ID] = true
+			state.mu.Unlock()
+			delete(state.stale, page.Slug)
+		}
+		return nil
 	})
 }
 

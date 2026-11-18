@@ -16,7 +16,7 @@ func (r *knowledgeRepository) ReadWikiGenerationKnowledge(
 	if !selected || !proved {
 		return nil, false, nil
 	}
-	if !selection.Eligible[id] || !WikiDocumentSelectionForKB(proof.KB) {
+	if !selection.Eligible[id] || (!WikiDocumentSelectionForKB(proof.KB) && proof.Replacement == nil) {
 		return nil, true, ErrWikiMCPUnverified
 	}
 	if tenant, ok := types.TenantIDFromContext(ctx); ok && tenant != proof.Tenant {
