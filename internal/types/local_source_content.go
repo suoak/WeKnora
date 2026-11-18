@@ -12,6 +12,7 @@ func WithLocalSourceContentRead(ctx context.Context) context.Context {
 	return context.WithValue(ctx, localSourceContentReadKey{}, true)
 }
 
+// LocalSourceContentRead reports whether this request serves platform content.
 func LocalSourceContentRead(ctx context.Context) bool {
 	local, _ := ctx.Value(localSourceContentReadKey{}).(bool)
 	return local

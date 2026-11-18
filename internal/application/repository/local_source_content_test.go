@@ -26,13 +26,16 @@ INSERT INTO knowledges VALUES('doc','local','feishu_personal',NULL);`).Error)
 		t.Run(principal, func(t *testing.T) {
 			ctx := types.WithLocalSourceContentRead(types.WithLegacyReadScope(context.Background()))
 			if principal == "mcp" {
-				ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: 1, ScopeType: types.APIKeyScopeUserMCP})
+				ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{
+					KeyID: 1, ScopeType: types.APIKeyScopeUserMCP,
+				})
 			}
 			require.NoError(t, types.CheckLegacySourceRead(guarded.WithContext(ctx), "doc", "local"))
 			require.NoError(t, types.CheckLegacyReadScope(guarded.WithContext(ctx)))
 			require.NoError(t, legacyTenantModelGate(ctx, guarded, 1))
 			require.NoError(t, db.Exec("INSERT INTO feishu_private_kbs VALUES('local','owner')").Error)
-			require.ErrorIs(t, types.CheckLegacySourceRead(guarded.WithContext(ctx), "doc", "local"), types.ErrPrivateKnowledgeBase)
+			require.ErrorIs(t,
+				types.CheckLegacySourceRead(guarded.WithContext(ctx), "doc", "local"), types.ErrPrivateKnowledgeBase)
 			require.ErrorIs(t, types.CheckLegacyReadScope(guarded.WithContext(ctx)), types.ErrPrivateKnowledgeBase)
 			require.NoError(t, db.Exec("DELETE FROM feishu_private_kbs").Error)
 			require.NoError(t, db.Exec("UPDATE tenants SET status='disabled'").Error)
