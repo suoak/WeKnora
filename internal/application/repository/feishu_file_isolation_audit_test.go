@@ -39,17 +39,20 @@ CREATE TABLE IF NOT EXISTS data_sources(id TEXT,type TEXT,legacy_access_state TE
 	require.NoError(t, err)
 	require.False(t, managed)
 	for _, row := range []types.StoredResource{
-		{ID: "remote",
-			Handle:   strings.Repeat("b", types.ResourceHandleLength),
+		{
+			ID: "remote", Handle: strings.Repeat("b", types.ResourceHandleLength),
 			TenantID: 1, Provider: "s3", PhysicalPath: "s3://bucket/key.docx",
-			LocationHash: "remote", State: types.ResourceStateActive},
-		{ID: "empty",
-			Handle:   strings.Repeat("c", types.ResourceHandleLength),
-			TenantID: 1, Provider: "local", LocationHash: "empty", State: types.ResourceStateDeleted},
-		{ID: "foreign",
-			Handle:   strings.Repeat("d", types.ResourceHandleLength),
+			LocationHash: "remote", State: types.ResourceStateActive,
+		},
+		{
+			ID: "empty", Handle: strings.Repeat("c", types.ResourceHandleLength),
+			TenantID: 1, Provider: "local", LocationHash: "empty", State: types.ResourceStateDeleted,
+		},
+		{
+			ID: "foreign", Handle: strings.Repeat("d", types.ResourceHandleLength),
 			TenantID: 2, Provider: "local", PhysicalPath: "local://1/foreign/source.docx",
-			LocationHash: "foreign", State: types.ResourceStateActive},
+			LocationHash: "foreign", State: types.ResourceStateActive,
+		},
 	} {
 		require.NoError(t, db.Create(&row).Error)
 		reference := types.BuildResourcePath(row.Handle)
