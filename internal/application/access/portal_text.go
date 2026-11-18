@@ -17,6 +17,7 @@ var (
 	portalFormat        = regexp.MustCompile(`\p{Cf}`)
 	portalSchemeSlashes = regexp.MustCompile(`(?i)([a-z][a-z0-9+.-]*:)[\\/]+`)
 	portalLocation      = regexp.MustCompile(`(?i)(?:[a-z][a-z0-9+.-]*:/+|//|(?:resource|storage|backend|local|cos|s3|file|data|javascript):|/(?:files|r|api|preview|download|attachments?)(?:/|\?))[^\s<>"'\[\]{}]*`)
+	portalAbsolutePath  = regexp.MustCompile(`(^|[\s"'=:\x60(\[{])(?:[A-Za-z]:[\\/]|\\\\|/)[^\s<>"'\x60\[\]{}(),;!?，。；！？、]+`)
 )
 
 // SanitizePortalText projects already-authorized text to link-free inert text.
@@ -42,42 +43,59 @@ func SanitizePortalText(text string) (string, error) {
 		{portalDefinition, "[link omitted]"},
 		{portalLocation, "[link omitted]"},
 	} {
-		view, err := portalDetectionView(text)
+		var err error
+		text, err = redactPortalSpans(text, rule.pattern, rule.marker)
 		if err != nil {
 			return "", err
 		}
-		matches := rule.pattern.FindAllStringSubmatchIndex(view.text, -1)
-		if len(matches) == 0 {
-			continue
-		}
-		var out strings.Builder
-		last := 0
-		for _, match := range matches {
-			start, end := view.sourceRange(match[0], match[1])
-			if start < last { // one encoded entity can expand to multiple runes
-				return "", ErrForbidden
-			}
-			out.WriteString(text[last:start])
-			if rule.pattern == portalLink {
-				for g := 2; g < len(match); g += 2 {
-					if match[g] >= 0 && match[g+1] > match[g] {
-						a, b := view.sourceRange(match[g], match[g+1])
-						out.WriteString(text[a:b])
-					}
-				}
-			} else {
-				out.WriteString(rule.marker)
-			}
-			last = end
-		}
-		out.WriteString(text[last:])
-		text = out.String()
 	}
 	view, err := portalDetectionView(text)
 	if err != nil || !SafeDocumentText(view.text) || strings.ContainsRune(view.text, '\x00') {
 		return "", ErrForbidden
 	}
 	return text, nil
+}
+
+// SanitizePortalOutputText additionally applies the existing personal MCP
+// machine-path containment policy, using the same encoded detection view.
+func SanitizePortalOutputText(text string) (string, error) {
+	text, err := SanitizePortalText(text)
+	if err != nil {
+		return "", err
+	}
+	return redactPortalSpans(text, portalAbsolutePath, "[path omitted]")
+}
+
+func redactPortalSpans(text string, pattern *regexp.Regexp, marker string) (string, error) {
+	view, err := portalDetectionView(text)
+	if err != nil {
+		return "", err
+	}
+	matches := pattern.FindAllStringSubmatchIndex(view.text, -1)
+	if len(matches) == 0 {
+		return text, nil
+	}
+	var out strings.Builder
+	last := 0
+	for _, match := range matches {
+		start, end := view.sourceRange(match[0], match[1])
+		if start < last { // one encoded entity can expand to multiple runes
+			return "", ErrForbidden
+		}
+		out.WriteString(text[last:start])
+		if pattern == portalLink || pattern == portalAbsolutePath {
+			for g := 2; g < len(match); g += 2 {
+				if match[g] >= 0 && match[g+1] > match[g] {
+					a, b := view.sourceRange(match[g], match[g+1])
+					out.WriteString(text[a:b])
+				}
+			}
+		}
+		out.WriteString(marker)
+		last = end
+	}
+	out.WriteString(text[last:])
+	return out.String(), nil
 }
 
 // ValidatePortalQuery never rewrites search syntax or literals. Destinations

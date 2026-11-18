@@ -38,6 +38,7 @@ func TestPersonalOutputNoPhysicalPathsOrBearerURLs(t *testing.T) {
 		"content": "PUBLIC /home/SYNTHETIC_PATH/a.txt C:\\SYNTHETIC_PATH\\secret.txt " +
 			"\\\\SYNTHETIC_PATH\\share /custom/SYNTHETIC_PATH/data /etc/passwd",
 		"name":      "metadata https://files.invalid/file?sig=SYNTHETIC_SIGNATURE",
+		"encoded":   "path %2Fhome%2FSYNTHETIC_PATH%2Fa.txt and C%3A%5CSYNTHETIC_PATH%5Ca.txt",
 		"reference": "knowhub:tenant:1:kb:public-two:document:public-two-doc",
 		"slug":      "concept/verified",
 	}
