@@ -16,6 +16,44 @@ type nestedReparseHandler struct {
 	called     bool
 }
 
+type checkpointHandoffHandler struct {
+	t      *testing.T
+	policy *appPolicy
+	prior  context.Context
+	emits  int
+}
+
+func (h *checkpointHandoffHandler) Emit(ctx context.Context, _ types.FetchedItem) error {
+	require.NoError(h.t, ctx.Err())
+	require.Len(h.t, h.policy.workflowGate, 1)
+	if h.prior != nil {
+		require.ErrorIs(h.t, h.prior.Err(), context.Canceled,
+			"a completed checkpoint must release its old workflow before the next document")
+	}
+	h.emits++
+	return nil
+}
+
+func (h *checkpointHandoffHandler) Checkpoint(ctx context.Context, _ *types.SyncCursor) error {
+	h.prior = ctx
+	return nil
+}
+
+func TestWorkflowStreamHandsOffAdmissionAfterDurableCheckpoint(t *testing.T) {
+	interval := FeishuStreamCheckpointInterval
+	FeishuStreamCheckpointInterval = 1
+	t.Cleanup(func() { FeishuStreamCheckpointInterval = interval })
+	p := &appPolicy{workflowGate: make(chan struct{}, 1)}
+	client := &Client{policy: p}
+	config := &types.DataSourceConfig{ResourceIDs: []string{"root"}}
+	h := &checkpointHandoffHandler{t: t, policy: p}
+	_, err := runSync(context.Background(), client, config, config.ResourceIDs, nil, h,
+		&documentFetchOps{nodes: []string{"first", "second"}})
+	require.NoError(t, err)
+	require.Equal(t, 2, h.emits)
+	require.Empty(t, p.workflowGate)
+}
+
 func (h *nestedReparseHandler) reparse(ctx context.Context) error {
 	if h.called {
 		return nil
