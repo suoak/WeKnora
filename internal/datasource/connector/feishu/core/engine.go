@@ -109,7 +109,7 @@ func runSyncMode[N any](
 	ops NodeOps[N], forceFull bool,
 ) (*types.SyncCursor, error) {
 	client.ensureRuntime()
-	releaseWorkflow, err := client.policy.acquireWorkflow(ctx)
+	ctx, releaseWorkflow, err := client.policy.workflowContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -278,6 +278,11 @@ func runSyncMode[N any](
 							Metadata["attachment"] != "true" {
 							id := it.ExternalID
 							it.CurrentSnapshot = func(check context.Context) (*types.FetchedItem, error) {
+								check, release, err := client.policy.workflowContext(check)
+								if err != nil {
+									return nil, err
+								}
+								defer release()
 								// Re-list the binding as well as re-fetching its body. A
 								// captured node can retain stale object IDs or edit times.
 								currentNodes, partial, err := ops.List(check, client, resourceID)
