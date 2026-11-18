@@ -107,3 +107,28 @@ func TestWikiPreservingGenerationCannotOverwriteConcurrentHumanEdit(t *testing.T
 	require.Equal(t, "NEW_HUMAN_EDIT", saved.Content)
 	require.False(t, saved.DeletedAt.Valid)
 }
+
+func TestWikiPreservingGenerationRejectsNewSourceOutsideCapturedInventory(t *testing.T) {
+	f := fixture.New(t)
+	f.PreparePublished(t)
+	db := types.EnableLegacyReadGuards(f.DB)
+	repo := repository.NewWikiPageRepository(db)
+	ctx, err := repository.BeginWikiPreservingGeneration(context.Background(), repo, "public-two")
+	require.NoError(t, err)
+	newSource := &types.Knowledge{
+		ID: "new-pending-source", TenantID: 1, KnowledgeBaseID: "public-two",
+		Type: "file", ParseStatus: "pending", EnableStatus: "enabled",
+	}
+	require.NoError(t, db.Create(newSource).Error)
+	gate := repository.NewModelRepository(db).(legacyModelInputGate)
+	require.Error(t, gate.CheckLegacyModelInputs(ctx, 1), "never reuse the old selection after inventory growth")
+	page := &types.WikiPage{
+		ID: "must-not-publish", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "summary/stale",
+		Title: "Stale", Content: "must not publish", PageType: "summary", Status: "published",
+		SourceRefs: types.StringArray{"public-two-doc"},
+	}
+	require.Error(t, repo.Create(ctx, page))
+	var count int64
+	require.NoError(t, db.Model(&types.WikiPage{}).Where("id=?", page.ID).Count(&count).Error)
+	require.Zero(t, count)
+}

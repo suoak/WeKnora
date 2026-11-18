@@ -18,8 +18,9 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 			assertPersonalWikiGeneration(t, f, source)
 			ctx := context.Background()
 			operator := types.WithLegacyKBAdminMetadata(ctx, source.kb)
-			require.NoError(t, f.db.WithContext(operator).Model(&types.KnowledgeBase{}).Where("id=?", source.kb).
-				Update("indexing_strategy", types.IndexingStrategy{WikiEnabled: true}).Error)
+			db := f.db.WithContext(operator)
+			require.NoError(t, db.Table("knowledge_bases").Where("id=?", source.kb).
+				Updates(map[string]any{"indexing_strategy": types.IndexingStrategy{WikiEnabled: true}}).Error)
 			plan, err := repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, "", false)
 			require.NoError(t, err)
 			_, err = repository.PrepareWikiPreservingRecovery(operator, f.db, 1, source.kb, plan.Snapshot, true)
@@ -28,6 +29,8 @@ func TestPersonalWikiPreservingWorkerUsesVerifiedSourceWithoutViewerGrant(t *tes
 			ingest := &wikiIngestService{knowledgeSvc: f.ks, wikiService: pages}
 			work, err := ingest.personalWikiProofContext(ctx, source.kb)
 			require.NoError(t, err, "the real worker must choose preserving mode from the operator marker")
+			modelGate := repository.NewModelRepository(f.db).(legacyModelInputGate)
+			require.NoError(t, modelGate.CheckLegacyModelInputs(work, 1))
 			_, err = f.ks.GetKnowledgeByIDOnly(ctx, source.knowledge)
 			require.Error(t, err, "recovery must not grant interactive viewer access")
 			gone, err := ingest.isKnowledgeGone(work, source.kb, source.knowledge)

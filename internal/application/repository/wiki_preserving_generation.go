@@ -39,6 +39,38 @@ func preservingGeneration(ctx context.Context) *wikiPreservingGeneration {
 	return proof.Replacement
 }
 
+// Enumerate the complete current KB on every check. Selecting all documents
+// enables the existing personal-publication verifier without skipping failed,
+// denied or newly added sources. A previous selection is never reused as the
+// current inventory. The normal personal-KB opt-in still applies.
+func wikiPreservingDependencies(db *gorm.DB, kb string, previous ...*wikiGenerationProof) (*wikiGenerationProof, error) {
+	var ids []string
+	if err := db.Table("knowledges").Where("knowledge_base_id=? AND deleted_at IS NULL", kb).
+		Order("id").Limit(2049).Pluck("id", &ids).Error; err != nil {
+		return nil, err
+	}
+	if len(ids) == 0 || len(ids) > 2048 {
+		return nil, ErrWikiMCPUnverified
+	}
+	selected := make(map[string]bool, len(ids))
+	for _, id := range ids {
+		selected[id] = true
+	}
+	proof, err := wikiDependenciesSelected(db, kb, nil, selected, previous...)
+	if err != nil {
+		return nil, err
+	}
+	var current []string
+	if err := db.Table("knowledges").Where("knowledge_base_id=? AND deleted_at IS NULL", kb).
+		Order("id").Limit(2049).Pluck("id", &current).Error; err != nil {
+		return nil, err
+	}
+	if wikiDigest(ids) != wikiDigest(current) {
+		return nil, ErrWikiMCPInputsChanged
+	}
+	return proof, nil
+}
+
 // BeginWikiPreservingGeneration keeps historical pages in the browser namespace
 // while excluding unverified old rows from every guarded generation read. The
 // caller must separately authorize the operator recovery; this grants no source
@@ -60,7 +92,7 @@ func BeginWikiPreservingGeneration(
 		if err != nil {
 			return err
 		}
-		proof, err = wikiDependencies(tx, kb)
+		proof, err = wikiPreservingDependencies(tx, kb)
 		if err != nil {
 			return err
 		}

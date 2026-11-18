@@ -78,7 +78,7 @@ func PrepareWikiPreservingRecovery(
 		if err := checkWikiMCPEpochCoverage(tx); err != nil {
 			return err
 		}
-		proof, err := wikiDependencies(tx, kb)
+		proof, err := wikiPreservingDependencies(tx, kb)
 		if err != nil {
 			return err
 		}
@@ -168,7 +168,7 @@ func PrepareWikiPreservingRecovery(
 			}
 		}
 		plan.Applied = true
-		fresh, err := wikiDependencies(tx, kb)
+		fresh, err := wikiPreservingDependencies(tx, kb)
 		if err != nil {
 			return err
 		}
@@ -241,7 +241,7 @@ func FinishWikiPreservingRecovery(
 		if pending != 0 {
 			return errors.New("wiki generation is still pending")
 		}
-		proof, err := wikiDependencies(tx, kb)
+		proof, err := wikiPreservingDependencies(tx, kb)
 		if err != nil {
 			return err
 		}
@@ -310,7 +310,7 @@ func FinishWikiPreservingRecovery(
 			}
 		}
 		plan.Applied = true
-		fresh, err := wikiDependencies(tx, kb)
+		fresh, err := wikiPreservingDependencies(tx, kb)
 		if err != nil {
 			return err
 		}
