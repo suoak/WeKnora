@@ -73,6 +73,9 @@ func (legacyReadGuardPlugin) Initialize(db *gorm.DB) error {
 				}
 				return
 			}
+			if LocalSourceContentRead(tx.Statement.Context) {
+				return
+			}
 			predicate := `NOT EXISTS (SELECT 1 FROM feishu_legacy_resources lr WHERE lr.knowledge_base_id=` + table +
 				`.knowledge_base_id AND lr.state IN ('hold','revoked'))
 AND NOT EXISTS (SELECT 1 FROM data_sources ld WHERE ld.knowledge_base_id=` + table + `.knowledge_base_id
@@ -140,6 +143,22 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	}
 	if scoped, err := CheckWikiVerifiedRead(db, knowledgeID, kbID, nil); scoped {
 		return err
+	}
+	if LocalSourceContentRead(db.Statement.Context) {
+		var alive bool
+		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM knowledge_bases k
+JOIN tenants t ON t.id=k.tenant_id WHERE k.id=? AND k.deleted_at IS NULL
+AND t.status='active' AND t.deleted_at IS NULL)`, kbID).Scan(&alive).Error; err != nil {
+			return err
+		}
+		if !alive {
+			return ErrLegacySourceRestricted
+		}
+		if knowledgeID != "" {
+			recordLegacyDocumentRead(db.Statement.Context, knowledgeID, kbID)
+		}
+		recordLegacyRead(db.Statement.Context, kbID)
+		return nil
 	}
 	if knowledgeID != "" {
 		var personal bool

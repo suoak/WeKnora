@@ -381,10 +381,9 @@ func exerciseOriginalExactPublication(
 	inner, err := originalAcceptanceChat(t, provider)
 	require.NoError(t, err)
 	gate := repository.NewModelRepository(f.db).(legacyModelInputGate)
-	require.ErrorIs(
+	require.NoError(
 		t,
 		gate.CheckLegacyModelInputs(context.Background(), consumer.source.tenant),
-		types.ErrLegacySourceRestricted,
 	)
 	f.ks.modelService = &exactAcceptanceModels{
 		v2PipelineModel: f.ks.modelService.(*v2PipelineModel),

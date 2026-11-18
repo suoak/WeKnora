@@ -7,9 +7,10 @@ import (
 	"gorm.io/gorm"
 )
 
+const legacyReadScopeContextKey ContextKey = "feishu_legacy_read_scope"
+
 type (
-	legacyReadScopeKey struct{}
-	legacyReadScope    struct {
+	legacyReadScope struct {
 		mu        sync.Mutex
 		kb        map[string]bool
 		metadata  map[string]bool
@@ -20,7 +21,7 @@ type (
 )
 
 func RecordLegacyReadExclusion(ctx context.Context) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		scope.excluded = true
 		scope.mu.Unlock()
@@ -28,7 +29,7 @@ func RecordLegacyReadExclusion(ctx context.Context) {
 }
 
 func LegacyReadPartial(ctx context.Context) bool {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		defer scope.mu.Unlock()
 		return scope.excluded
@@ -41,7 +42,7 @@ func LegacyReadPartial(ctx context.Context) bool {
 // Keep the shared scope object so the final HTTP writer validates the new
 // attempt's reads; retain the partial warning. It confers no read authority.
 func DiscardLegacyReadAttempt(ctx context.Context) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		scope.kb = map[string]bool{}
 		scope.metadata = map[string]bool{}
@@ -55,11 +56,11 @@ func DiscardLegacyReadAttempt(ctx context.Context) {
 // Per-request provenance only, not another permission store or grant. IDs are
 // recorded by actual server-side resource reads, never by identity headers.
 func WithLegacyReadScope(ctx context.Context) context.Context {
-	return context.WithValue(ctx, legacyReadScopeKey{}, &legacyReadScope{kb: map[string]bool{}})
+	return context.WithValue(ctx, legacyReadScopeContextKey, &legacyReadScope{kb: map[string]bool{}})
 }
 
 func recordLegacyRead(ctx context.Context, kb string) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && kb != "" {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok && kb != "" {
 		scope.mu.Lock()
 		scope.kb[kb] = true
 		scope.mu.Unlock()
@@ -69,7 +70,7 @@ func recordLegacyRead(ctx context.Context, kb string) {
 // Workspace metadata availability cannot authorize a document after its source
 // or resource is revoked before the response is written.
 func recordLegacyDocumentRead(ctx context.Context, id, kb string) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && id != "" {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok && id != "" {
 		scope.mu.Lock()
 		defer scope.mu.Unlock()
 		if scope.documents == nil {
@@ -80,7 +81,7 @@ func recordLegacyDocumentRead(ctx context.Context, id, kb string) {
 }
 
 func recordSourceHandoffRead(ctx context.Context, id, kb string) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		defer scope.mu.Unlock()
 		if scope.handoffs == nil {
@@ -92,7 +93,7 @@ func recordSourceHandoffRead(ctx context.Context, id, kb string) {
 
 // Metadata still needs a final private-owner check, but carries no source body.
 func recordPrivateMetadataRead(ctx context.Context, kb string) {
-	if scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope); ok && kb != "" {
+	if scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope); ok && kb != "" {
 		scope.mu.Lock()
 		defer scope.mu.Unlock()
 		if scope.metadata == nil {
@@ -105,8 +106,8 @@ func recordPrivateMetadataRead(ctx context.Context, kb string) {
 // MergeLegacyReadScope retains only a successful catalog lookup's provenance.
 // A rejected lookup's contents are discarded before a metadata-only retry.
 func MergeLegacyReadScope(dst, src context.Context) {
-	from, ok := src.Value(legacyReadScopeKey{}).(*legacyReadScope)
-	to, target := dst.Value(legacyReadScopeKey{}).(*legacyReadScope)
+	from, ok := src.Value(legacyReadScopeContextKey).(*legacyReadScope)
+	to, target := dst.Value(legacyReadScopeContextKey).(*legacyReadScope)
 	if !ok || !target || from == to {
 		return
 	}
@@ -143,7 +144,7 @@ func MergeLegacyReadScope(dst, src context.Context) {
 func RecordLegacyCandidateRead(ctx context.Context, kb string) { recordLegacyRead(ctx, kb) }
 
 func legacyReadKBs(ctx context.Context) []string {
-	scope, ok := ctx.Value(legacyReadScopeKey{}).(*legacyReadScope)
+	scope, ok := ctx.Value(legacyReadScopeContextKey).(*legacyReadScope)
 	if !ok {
 		return nil
 	}
@@ -162,7 +163,7 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	if !LegacyReadGuardsEnabled(db) && !PrivateKBGuardsEnabled(db) {
 		return nil
 	}
-	if scope, ok := db.Statement.Context.Value(legacyReadScopeKey{}).(*legacyReadScope); ok {
+	if scope, ok := db.Statement.Context.Value(legacyReadScopeContextKey).(*legacyReadScope); ok {
 		scope.mu.Lock()
 		documents := make(map[string]string, len(scope.documents))
 		for id, kb := range scope.documents {
@@ -236,6 +237,9 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	}
 	if invalid {
 		return ErrLegacySourceRestricted
+	}
+	if LocalSourceContentRead(db.Statement.Context) {
+		return nil
 	}
 	// Apply the workspace/source distinction again before browser output;
 	// retain the batched strict check for API/MCP requests.

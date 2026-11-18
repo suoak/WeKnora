@@ -10,33 +10,10 @@ import (
 )
 
 func legacyTenantModelGate(ctx context.Context, db *gorm.DB, tenant uint64) error {
-	if !types.LegacyReadGuardsEnabled(db) && !types.PrivateKBGuardsEnabled(db) {
-		return nil
-	}
-	if err := types.CheckLegacyReadScope(db.WithContext(ctx)); err != nil {
-		return err
-	}
-	if !types.LegacyReadGuardsEnabled(db) {
-		return nil
-	}
-	var denied bool
-	sourceStates := []string{"hold", "revoked"}
-	if types.WorkspaceWebReadTenant(ctx) == tenant {
-		sourceStates = []string{"revoked"}
-	}
-	err := db.WithContext(ctx).
-		Raw(`SELECT EXISTS(SELECT 1 FROM feishu_legacy_resources WHERE tenant_id=? AND state IN ('hold','revoked'))
- OR EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND legacy_access_state IN ?)`,
-			tenant, tenant, sourceStates).
-		Scan(&denied).
-		Error
-	if err != nil {
-		return err
-	}
-	if denied {
-		return types.ErrLegacySourceRestricted
-	}
-	return nil
+	// Only inputs actually read by this request participate. An unrelated
+	// connector/document must not disable every model call in the tenant,
+	// including the first agent iteration and session title generation.
+	return types.CheckLegacyReadScope(db.WithContext(ctx))
 }
 
 func (r *tenantRepository) CheckLegacyReadScope(ctx context.Context) error {
@@ -203,7 +180,7 @@ r.knowledge_base_id AS kb_id
 		if !strings.HasPrefix(path, dir) {
 			continue
 		}
-		if unavailable || b.State != "active" || b.Attempt != b.ActiveAttempt {
+		if unavailable || (!types.LocalSourceContentRead(ctx) && b.State != "active") || b.Attempt != b.ActiveAttempt {
 			return true, types.ErrLegacySourceRestricted
 		}
 		if e := types.CheckLegacySourceRead(r.db.WithContext(ctx), "", b.KBID); e != nil {

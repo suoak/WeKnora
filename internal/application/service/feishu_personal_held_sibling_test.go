@@ -130,13 +130,11 @@ func TestPersonalRecoveryHeldSiblingModelGateIsIndependent(t *testing.T) {
 	require.NoError(t, f.db.Exec(`INSERT INTO feishu_legacy_resources VALUES
  ('old-resource',1,'old-kb','no-published-knowledge','hold')`).Error)
 	types.EnableLegacyReadGuards(f.db)
-	// Current user/KB/OAuth identity can be valid while an unrelated tenant
-	// resource still blocks model input. Never infer model permission from a
-	// successful destination grant or a queue acknowledgment.
+	// An unrelated resource hold must not block an authorized model request.
 	work, err := f.p.authorize(context.Background(), m, a)
 	require.NoError(t, err)
 	gate := repository.NewModelRepository(f.db).(interface {
 		CheckLegacyModelInputs(context.Context, uint64) error
 	})
-	require.ErrorIs(t, gate.CheckLegacyModelInputs(work, 1), types.ErrLegacySourceRestricted)
+	require.NoError(t, gate.CheckLegacyModelInputs(work, 1))
 }
