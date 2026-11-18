@@ -116,10 +116,18 @@ VALUES('deleted-source',1,'public-two','audit','feishu','{}','paused','revoked',
 	require.NoError(t, err)
 	require.Len(t, visible, 1)
 	require.NoError(t, store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, visible))
+	_, err = repository.BeginWikiMCPGeneration(ctx, pages, "public-two")
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "published read policy cannot authorize generation")
 	restricted, _, err := store.VerifiedPages(ctx, 1, "public-two", []string{"another-doc"})
 	require.NoError(t, err)
 	require.Empty(t, restricted, "personal MCP document scope still constrains Wiki provenance")
 	require.Error(t, store.RevalidatePages(ctx, 1, "public-two", []string{"another-doc"}, visible))
+	require.NoError(t, f.DB.Exec(
+		"UPDATE chunks SET content='changed without timestamp' WHERE knowledge_id='public-two-doc'").Error)
+	stale, _, err := store.VerifiedPages(ctx, 1, "public-two", []string{"public-two-doc"})
+	require.NoError(t, err)
+	require.Empty(t, stale, "actual page input changes invalidate only the affected publication")
+	require.Error(t, store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, visible))
 }
 
 func TestAuditFeishuLocalPolicyPreservesExplicitDocumentScope(t *testing.T) {
