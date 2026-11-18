@@ -15,7 +15,7 @@ func bulkPortalVector(ctx context.Context) bool {
 	_, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx)
 	// Exact serving receipts have their own row-bound manifest predicates.
 	// Workspace reads retain their existing source-hold exception as well.
-	return protected && !exact && types.WorkspaceWebReadTenant(ctx) == 0
+	return protected && !exact && types.WorkspaceWebReadTenant(ctx) == 0 && !types.LocalSourceContentRead(ctx)
 }
 
 // A statement-local set, never a process authorization cache. Explicit NULL

@@ -237,6 +237,9 @@ func CheckLegacyReadScope(db *gorm.DB) error {
 	if invalid {
 		return ErrLegacySourceRestricted
 	}
+	if LocalSourceContentRead(db.Statement.Context) {
+		return nil
+	}
 	// Apply the workspace/source distinction again before browser output;
 	// retain the batched strict check for API/MCP requests.
 	if WorkspaceWebReadTenant(db.Statement.Context) != 0 {

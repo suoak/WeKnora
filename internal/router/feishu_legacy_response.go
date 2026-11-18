@@ -47,7 +47,7 @@ func (w *legacyScopedResponse) Write(body []byte) (int, error) {
 func (w *legacyScopedResponse) WriteString(body string) (int, error) { return w.Write([]byte(body)) }
 func legacyReadScopeMiddleware(service any) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		ctx := types.WithLegacyReadScope(c.Request.Context())
+		ctx := types.WithLocalSourceContentRead(types.WithLegacyReadScope(c.Request.Context()))
 		c.Request = c.Request.WithContext(ctx)
 		if gate, ok := service.(legacyReadScopeGate); ok {
 			c.Writer = &legacyScopedResponse{

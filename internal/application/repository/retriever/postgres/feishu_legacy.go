@@ -66,6 +66,10 @@ encode(sha256(convert_to((to_jsonb(embeddings)-'created_at'-'updated_at'-'id'-'s
 }
 
 func ordinaryLegacySourceCandidatePredicate(ctx context.Context) string {
+	if types.LocalSourceContentRead(ctx) {
+		// Uploaded content follows platform KB permissions for Web and MCP.
+		return "TRUE"
+	}
 	// Staged/recovered output requires an exact serving receipt, independent
 	// of the older workspace exception for a held datasource. Apply this at
 	// candidate selection, before returning content, snippets or scores.

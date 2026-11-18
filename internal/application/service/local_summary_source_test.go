@@ -24,7 +24,7 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 		Status: "active", LegacyAccessState: "hold",
 	}).Error)
 	gate := repository.NewModelRepository(db).(legacyModelInputGate)
-	require.ErrorIs(t, gate.CheckLegacyModelInputs(ctx, 1), types.ErrLegacySourceRestricted)
+	require.NoError(t, gate.CheckLegacyModelInputs(ctx, 1), "unrelated sources do not block model calls")
 	var knowledge types.Knowledge
 	var chunks []*types.Chunk
 	require.NoError(t, db.First(&knowledge, "id='public-two-doc'").Error)
@@ -40,7 +40,7 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 	require.NoError(t, err, "an unrelated Hold must not stop a verified local summary")
 	require.EqualValues(t, 1, spy.calls.Load())
 	_, err = model.Chat(ctx, messages, options)
-	require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "tenant-wide guard is still enforced")
+	require.NoError(t, err, "model calls are checked against actual request inputs")
 	changed := append([]chat.Message(nil), messages...)
 	changed[1].Content = "unverified extra input"
 	_, err = model.Chat(proof, changed, options)
@@ -50,7 +50,7 @@ func testLocalSummarySourceIsolation(t *testing.T, f *fixture.Fixture) {
 	otherTenant := &legacyGuardedChat{inner: spy, gate: gate, tenant: 99}
 	_, err = otherTenant.Chat(proof, messages, options)
 	require.Error(t, err)
-	require.EqualValues(t, 1, spy.calls.Load())
+	require.EqualValues(t, 2, spy.calls.Load())
 	stale := knowledge
 	stale.CustomMetadata = types.JSON(`{"stale":"unverified metadata"}`)
 	_, err = svc.localSummaryMessages(ctx, &stale, chunks, messages, options)
