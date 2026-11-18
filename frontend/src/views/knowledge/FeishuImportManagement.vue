@@ -18,8 +18,9 @@
           <p v-if="item.stalled" class="warning" role="status">处理时间较长，请稍后查看或联系管理员。</p>
           <p v-if="item.error_category" class="warning">{{ failure(item.error_category) }}</p>
           <div v-if="item.error_category === 'source_copy_only_requires_policy'" class="permission-help">
-            <p>请文档所有者在飞书「分享 → 权限设置」中，检查「谁可以创建副本、打印、下载」，为导入所用账号开通导出权限。</p>
-            <p>如果文档已允许导出，请企业管理员检查安全策略和服务器 IP 限制。权限修正前，重复导入不会解决此问题。</p>
+            <p>请先用导入所用的同一飞书账号，检查能否在飞书网页中导出原文。</p>
+            <p>网页可以导出：请企业管理员检查「安全与合规 → 成员权限 → 文件权限」中的下载、导出规则及应用服务器出口 IP 条件。网页和应用接口的权限结果可能不同。</p>
+            <p>网页也不能导出：请文档所有者检查「分享 → 权限设置 → 谁可以创建副本、打印和下载」。限制解除前，重复导入不会解决此问题。</p>
           </div>
           <a v-if="originalDocumentURL(item.url)" :href="originalDocumentURL(item.url)" target="_blank" rel="noopener noreferrer">打开飞书原文（第 {{ item.ordinal + 1 }} 篇）</a>
           <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
@@ -47,7 +48,7 @@ let mounted=true, selectedID='', timer:ReturnType<typeof setTimeout>|undefined, 
 onUnmounted(()=>{mounted=false;clearTimeout(timer)})
 function formatTime(value:string) { return new Date(value).toLocaleString() }
 function itemStatus(item:FeishuBatchItem) {
-  if(item.error_category==='source_copy_only_requires_policy') return '需要导出权限'
+  if(item.error_category==='source_copy_only_requires_policy') return '需检查接口导出权限'
   if(item.status==='succeeded' && !item.index_verified) return '等待索引验证'
   if(item.stage==='publication_pending') return '解析已完成，正在验证索引和发布'
   if(item.stage==='wiki_finishing') return '索引已验证，正在完成知识发布'
@@ -62,7 +63,7 @@ function failure(code:string) {
 	if(code==='source_copy_export_denied') return '当前账号可以阅读该文档，但没有复制或导出权限。请联系文档所有者开放相应权限，无需申请编辑权限。'
 	if(code==='source_read_denied') return '当前账号没有文档阅读权限，请联系文档所有者。'
 	if(code==='source_copy_denied') return '当前账号没有文档复制权限，请联系文档所有者。'
-	if(code==='source_copy_only_requires_policy') return '飞书允许当前账号阅读、复制，但禁止导出。文档尚未进入解析，需要先修正飞书导出权限。'
+	if(code==='source_copy_only_requires_policy') return '飞书接口允许当前连接阅读、复制，但拒绝导出，文档尚未进入解析。这不代表同一账号在飞书网页中也无法导出。'
 	if(code==='source_acquisition_requires_review') return '文档获取方式需要核查，请联系管理员。'
 	if(code==='source_policy_verification_required') return '无法确认文档导出权限，请联系管理员。'
 	if(code==='blocks_content_requires_review') return '文档含暂不支持的内容，请联系管理员处理。'

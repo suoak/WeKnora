@@ -21,8 +21,12 @@ func feishuFailureAction(category string) (string, bool) {
 		return "connect_feishu", false
 	case "app_scope_missing", "oauth_app_configuration":
 		return "contact_app_admin", false
+	case "source_copy_only_requires_policy":
+		// An API export refusal does not prove the browser has the same policy.
+		// Enterprise file-operation/IP rules may distinguish the app server.
+		return "check_export_policy", false
 	case "source_read_denied", "source_copy_denied", "source_copy_export_denied", "source_permission_required",
-		"source_metadata_denied", "source_copy_only_requires_policy", "export_permission_required",
+		"source_metadata_denied", "export_permission_required",
 		"export_create_denied", "export_download_denied":
 		return "contact_document_owner", false
 	case "kb_permission_required":

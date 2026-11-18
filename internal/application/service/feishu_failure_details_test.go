@@ -31,14 +31,17 @@ func TestFeishuFailureDetailsUseOnlyExactOwnerAttemptEvidence(t *testing.T) {
 			)),
 		}).Error)
 	}
-	for _, category := range []string{"source_copy_export_denied", "source_copy_only_requires_policy"} {
-		t.Run(category, func(t *testing.T) {
-			item := &types.FeishuBatchItem{ErrorCategory: category}
+	for _, tc := range []struct{ category, action string }{
+		{"source_copy_export_denied", "contact_document_owner"},
+		{"source_copy_only_requires_policy", "check_export_policy"},
+	} {
+		t.Run(tc.category, func(t *testing.T) {
+			item := &types.FeishuBatchItem{ErrorCategory: tc.category}
 			s.decorateFeishuFailure(context.Background(), item, m, "attempt-a", 1)
 			require.Equal(t, 1069902, item.ProviderCode)
 			require.Equal(t, "create_export_task", item.Operation)
 			require.Equal(t, "123456789abc", item.RequestIDHash)
-			require.Equal(t, "contact_document_owner", item.UserAction)
+			require.Equal(t, tc.action, item.UserAction)
 			require.False(t, item.Retryable)
 		})
 	}
