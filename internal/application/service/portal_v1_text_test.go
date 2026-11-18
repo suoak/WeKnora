@@ -60,7 +60,11 @@ func TestPortalV1LinkTextAuthorizationAndModelBoundary(t *testing.T) {
 		}
 		return nil
 	}}
-	result, err := s.Search(ctx, []string{"public-kb"}, "PUBLIC https://objects.test/V1_URL_SECRET", "hybrid", 10)
+	_, err = s.Search(ctx, []string{"public-kb"}, "PUBLIC https://objects.test/V1_URL_SECRET", "hybrid", 10)
+	require.Error(t, err, "reject unsafe search terms instead of changing their meaning")
+	require.Zero(t, embeds)
+	require.Zero(t, consumed)
+	result, err := s.Search(ctx, []string{"public-kb"}, "PUBLIC", "hybrid", 10)
 	require.NoError(t, err)
 	require.NotEmpty(t, result.Results)
 	require.Equal(t, 1, embeds)
@@ -77,4 +81,45 @@ func TestPortalV1LinkTextAuthorizationAndModelBoundary(t *testing.T) {
 	require.Error(t, err)
 	_, err = s.ReadDocument(ctx, original.KnowledgeID)
 	require.Error(t, err)
+}
+
+func TestPortalTechnicalReadSearchAndGrepPreserveLiterals(t *testing.T) {
+	f := fixture.New(t)
+	f.PreparePublished(t)
+	s := publishedServiceM7(t, f)
+	ctx := fixture.Key("A", 1, 1, true)
+	var original types.Chunk
+	require.NoError(t, f.DB.Where("knowledge_base_id=? AND chunk_type=?", "public-kb", types.ChunkTypeText).First(&original).Error)
+	text := "| **NETCONF 操作** | `<edit-config>`, `<get-config>` | `<get>` |\n```xml\n<rpc><get/></rpc>\n```\n& lt; %2F"
+	require.NoError(t, f.DB.Model(&types.Chunk{}).Where("id=?", original.ID).Update("content", text).Error)
+	rows, err := s.ReadDocument(ctx, original.KnowledgeID)
+	require.NoError(t, err)
+	found := false
+	for _, row := range rows {
+		if row.ChunkID == original.ID {
+			require.Equal(t, text, row.Text)
+			found = true
+		}
+	}
+	require.True(t, found)
+	query := "<get-config>"
+	s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+		return portalV1Driver{f: func(_ context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
+			require.Equal(t, query, p.Query, "literal and regex terms must reach retrieval unchanged")
+			return []*types.RetrieveResult{{Results: []*types.IndexWithScore{{KnowledgeID: original.KnowledgeID, KnowledgeBaseID: original.KnowledgeBaseID, ChunkID: original.ID, SourceType: types.ChunkSourceType, Content: text}}}}, nil
+		}}, nil
+	}
+	s.Embed = func(_ context.Context, _ access.PortalKBDescriptor, q string) ([]float32, error) {
+		require.Equal(t, query, q)
+		return []float32{1}, nil
+	}
+	for _, mode := range []string{"keyword", "semantic", "hybrid", "grep"} {
+		result, err := s.Search(ctx, []string{"public-kb"}, query, mode, 10)
+		require.NoError(t, err, mode)
+		require.Len(t, result.Results, 1, mode)
+		require.Equal(t, text, result.Results[0].Text)
+	}
+	var stored types.Chunk
+	require.NoError(t, f.DB.First(&stored, "id=?", original.ID).Error)
+	require.Equal(t, text, stored.Content, "projections cannot mutate canonical chunks")
 }

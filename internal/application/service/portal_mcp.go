@@ -206,8 +206,7 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 		return nil, access.ErrForbidden
 	}
 	// User-supplied destinations are not forwarded to external embedders either.
-	query, cleanErr := access.SanitizePortalText(query)
-	if cleanErr != nil || query == "" {
+	if cleanErr := access.ValidatePortalQuery(query); cleanErr != nil {
 		return nil, access.ErrForbidden
 	}
 	var pattern *regexp.Regexp

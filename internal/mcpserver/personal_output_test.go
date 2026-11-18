@@ -38,6 +38,7 @@ func TestPersonalOutputNoPhysicalPathsOrBearerURLs(t *testing.T) {
 		"content": "PUBLIC /home/SYNTHETIC_PATH/a.txt C:\\SYNTHETIC_PATH\\secret.txt " +
 			"\\\\SYNTHETIC_PATH\\share /custom/SYNTHETIC_PATH/data /etc/passwd",
 		"name":      "metadata https://files.invalid/file?sig=SYNTHETIC_SIGNATURE",
+		"encoded":   "path %2Fhome%2FSYNTHETIC_PATH%2Fa.txt and C%3A%5CSYNTHETIC_PATH%5Ca.txt",
 		"reference": "knowhub:tenant:1:kb:public-two:document:public-two-doc",
 		"slug":      "concept/verified",
 	}
@@ -82,4 +83,27 @@ func TestIsolatedOutputDoesNotChangeOriginalPersonalContent(t *testing.T) {
 	require.Contains(t, legacyText, "/home/app/private.txt，继续")
 	require.Contains(t, isolatedText, "[path omitted]，继续")
 	require.NotContains(t, isolatedText, "/home/app/private.txt")
+}
+
+func TestPersonalOutputTechnicalTextSurvivesFinalSerialization(t *testing.T) {
+	text := "| **NETCONF 操作** | `<edit-config>`, `<get-config>` | `<get>` |\n```xml\n<rpc><get/></rpc>\n```\n&lt;filter&gt; %2F"
+	value := map[string]any{"chunks": []any{map[string]any{"content": text}}, "title": "NETCONF <get-config>"}
+	result, err := personalJSON(logger.WithIsolatedPersonalPayload(context.Background()), value)
+	require.NoError(t, err)
+	require.False(t, result.IsError)
+	var got struct {
+		Chunks []struct{ Content string } `json:"chunks"`
+		Title  string                     `json:"title"`
+	}
+	require.NoError(t, json.Unmarshal([]byte(result.Content[0].(mcp.TextContent).Text), &got))
+	require.Equal(t, text, got.Chunks[0].Content)
+	require.Equal(t, value["title"], got.Title)
+	// Exercise a second full output projection, as happens after service reads.
+	clean, err := redactPersonalOutput([]byte(result.Content[0].(mcp.TextContent).Text))
+	require.NoError(t, err)
+	var again any
+	var first any
+	require.NoError(t, json.Unmarshal(clean, &again))
+	require.NoError(t, json.Unmarshal([]byte(result.Content[0].(mcp.TextContent).Text), &first))
+	require.Equal(t, first, again)
 }

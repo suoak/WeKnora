@@ -4,19 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"regexp"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/mark3labs/mcp-go/server"
-)
-
-// A bare absolute path can occur in an authorized title/chunk/KB name as well
-// as storage metadata. Keep relative Wiki slugs and knowhub: references intact.
-var personalAbsolutePath = regexp.MustCompile(
-	`(^|[\s"'=:\x60(\[{])` +
-		`(?:[A-Za-z]:[\\/]|\\\\|/)` +
-		`[^\s<>"'\x60\[\]{}(),;!?，。；！？、]+`,
 )
 
 // Error and panic values are opaque: neither is an authorized document result.
@@ -46,11 +37,7 @@ func redactPersonalOutput(raw []byte) ([]byte, error) {
 	walk = func(value any) (any, error) {
 		switch v := value.(type) {
 		case string:
-			text, err := access.SanitizePortalText(v)
-			if err != nil {
-				return nil, err
-			}
-			return personalAbsolutePath.ReplaceAllString(text, "${1}[path omitted]"), nil
+			return access.SanitizePortalOutputText(v)
 		case []any:
 			for i := range v {
 				next, err := walk(v[i])
