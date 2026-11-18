@@ -20,13 +20,20 @@ func TestWikiProductionConfluenceRequiresCurrentConnectorBinding(t *testing.T) {
  id,tenant_id,knowledge_base_id,name,type,status,legacy_access_state,config)
  VALUES('confluence',1,'public-two','synthetic','confluence','active','unmanaged',
  '{"settings":{"credential_source":"system"},"resource_ids":["space"]}')`).Error)
-			require.NoError(t, db.Exec(`UPDATE knowledges SET channel='confluence',parse_status='finalizing',
+			require.NoError(
+				t,
+				db.Exec(`UPDATE knowledges SET channel='confluence',parse_status='finalizing',
  metadata='{"datasource_id":"confluence","external_id":"page:42","page_id":"42","space_key":"space"}'
- WHERE id='public-two-doc'`).Error)
+ WHERE id='public-two-doc'`).Error,
+			)
 			repo := repository.NewWikiPageRepository(db)
 			begin := func() (context.Context, error) {
 				if mode == "preserving" {
-					return repository.BeginWikiPreservingGeneration(context.Background(), repo, "public-two")
+					return repository.BeginWikiPreservingGeneration(
+						context.Background(),
+						repo,
+						"public-two",
+					)
 				}
 				return repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 			}
@@ -42,10 +49,21 @@ func TestWikiProductionConfluenceRequiresCurrentConnectorBinding(t *testing.T) {
 			require.NoError(t, repo.Create(work, page))
 			require.NoError(t, db.Exec(`UPDATE data_sources SET last_sync_at=CURRENT_TIMESTAMP,
  updated_at=CURRENT_TIMESTAMP WHERE id='confluence'`).Error)
-			require.NoError(t, gate.CheckLegacyModelInputs(work, 1), "an unchanged sync does not revoke its source")
-			require.NoError(t, db.Exec(`UPDATE data_sources SET config='{"resource_ids":["changed"]}'
- WHERE id='confluence'`).Error)
-			require.Error(t, gate.CheckLegacyModelInputs(work, 1), "configuration changes invalidate in-flight inputs")
+			require.NoError(
+				t,
+				gate.CheckLegacyModelInputs(work, 1),
+				"an unchanged sync does not revoke its source",
+			)
+			require.NoError(
+				t,
+				db.Exec(`UPDATE data_sources SET config='{"resource_ids":["changed"]}'
+ WHERE id='confluence'`).Error,
+			)
+			require.Error(
+				t,
+				gate.CheckLegacyModelInputs(work, 1),
+				"configuration changes invalidate in-flight inputs",
+			)
 			page.Content = "must not publish against old source configuration"
 			require.Error(t, repo.Update(work, page))
 			for _, mutation := range []string{
@@ -60,7 +78,11 @@ func TestWikiProductionConfluenceRequiresCurrentConnectorBinding(t *testing.T) {
 			} {
 				require.NoError(t, db.Exec(mutation).Error)
 				_, err := begin()
-				require.Error(t, err, "denied, mismatched or deleted connectors cannot supply Wiki inputs")
+				require.Error(
+					t,
+					err,
+					"denied, mismatched or deleted connectors cannot supply Wiki inputs",
+				)
 			}
 		})
 	}
