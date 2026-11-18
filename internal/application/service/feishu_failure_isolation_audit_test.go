@@ -3,13 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"gorm.io/gorm"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
+	"gorm.io/gorm"
 )
 
 // Regressions for independent platform reads after Feishu connector failures.
