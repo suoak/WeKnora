@@ -13,7 +13,8 @@ import (
 func TestStandaloneWorkbookPreservesConditionalFormatting(t *testing.T) {
 	data := standaloneTestWorkbook(t, func(parts map[string][]byte) {
 		appendStandaloneTestXML(parts, "xl/worksheets/sheet1.xml", "</worksheet>",
-			`<conditionalFormatting sqref="A1:A8"><cfRule type="expression" priority="1"><formula>A1&gt;3</formula></cfRule></conditionalFormatting>`)
+			`<conditionalFormatting sqref="A1:A8"><cfRule type="expression" priority="1">`+
+				`<formula>A1&gt;3</formula></cfRule></conditionalFormatting>`)
 	})
 	parsed, err := parseExactStandaloneWorkbook(context.Background(), "rules.xlsx", data)
 	require.NoError(t, err)
@@ -30,7 +31,8 @@ func TestStandaloneWorkbookPreservesConditionalFormatting(t *testing.T) {
 func TestStandaloneWorkbookRefusesUnboundOrExternalConditionalFormula(t *testing.T) {
 	for _, extra := range []string{
 		`<formula>A1</formula>`,
-		`<conditionalFormatting sqref="A1"><cfRule type="expression"><formula>[other.xlsx]Sheet1!A1</formula></cfRule></conditionalFormatting>`,
+		`<conditionalFormatting sqref="A1"><cfRule type="expression">` +
+			`<formula>[other.xlsx]Sheet1!A1</formula></cfRule></conditionalFormatting>`,
 	} {
 		data := standaloneTestWorkbook(t, func(parts map[string][]byte) {
 			appendStandaloneTestXML(parts, "xl/worksheets/sheet1.xml", "</worksheet>", extra)
@@ -53,7 +55,10 @@ func TestStandaloneFormulaStringLiterals(t *testing.T) {
 		require.True(t, standaloneFormulaDependency(formula))
 	}
 	data := standaloneTestWorkbook(t, func(parts map[string][]byte) {
-		parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="` + standaloneMainNS + `"><sheetData><row r="1"><c r="A1" t="str"><f>HYPERLINK("https://example.invalid/doc", "[label] A | B")</f><v>[label] A | B</v></c></row></sheetData></worksheet>`)
+		parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="` + standaloneMainNS + `">` +
+			`<sheetData><row r="1"><c r="A1" t="str">` +
+			`<f>HYPERLINK("https://example.invalid/doc", "[label] A | B")</f>` +
+			`<v>[label] A | B</v></c></row></sheetData></worksheet>`)
 	})
 	parsed, err := parseExactStandaloneWorkbook(context.Background(), "literal.xlsx", data)
 	require.NoError(t, err)
@@ -66,7 +71,7 @@ func TestStandaloneFormulaStringLiterals(t *testing.T) {
 
 func TestStandaloneWorkbookPreservesMoreThanTenThousandCells(t *testing.T) {
 	file := excelize.NewFile()
-	defer file.Close()
+	defer func() { require.NoError(t, file.Close()) }()
 	for row := 1; row <= 101; row++ {
 		values := make([]interface{}, 100)
 		for i := range values {
@@ -92,7 +97,9 @@ func TestStandaloneWorkbookPreservesMoreThanTenThousandCells(t *testing.T) {
 func TestStandaloneWorkbookPreservesCellXMLSpace(t *testing.T) {
 	for _, mode := range []string{"preserve", "default", "unknown"} {
 		data := standaloneTestWorkbook(t, func(parts map[string][]byte) {
-			parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="` + standaloneMainNS + `"><sheetData><row r="1"><c r="A1" t="inlineStr" xml:space="` + mode + `"><is><t xml:space="preserve">  text  </t></is></c></row></sheetData></worksheet>`)
+			parts["xl/worksheets/sheet1.xml"] = []byte(`<worksheet xmlns="` + standaloneMainNS + `">` +
+				`<sheetData><row r="1"><c r="A1" t="inlineStr" xml:space="` + mode + `">` +
+				`<is><t xml:space="preserve">  text  </t></is></c></row></sheetData></worksheet>`)
 		})
 		parsed, err := parseExactStandaloneWorkbook(context.Background(), "spaces.xlsx", data)
 		if mode == "unknown" {

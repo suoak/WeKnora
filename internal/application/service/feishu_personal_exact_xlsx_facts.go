@@ -128,7 +128,8 @@ func standaloneXMLFacts(body []byte, schema map[string]string, worksheet bool) (
 			if emit() && strings.TrimSpace(string(token)) != "" {
 				value := string(token)
 				last := stack[len(stack)-1]
-				formula := last == "definedName" || last == "f" || last == "formula" || last == "formula1" || last == "formula2"
+				formula := last == "definedName" || last == "f" || last == "formula" ||
+					last == "formula1" || last == "formula2"
 				if len(value) > 16<<10 || formula && standaloneFormulaDependency(value) {
 					return "", errExactWorkbookUnsupported
 				}
