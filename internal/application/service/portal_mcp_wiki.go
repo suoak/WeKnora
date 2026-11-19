@@ -51,6 +51,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	ctx = repository.WithWikiReadProofSession(ctx)
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
 	if len(requested) > 128 || len(requested) > 0 && operation != "wiki_search" || operation == "wiki_search" && limit > 50 {
 		return nil, access.ErrForbidden
@@ -128,7 +129,11 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 			result.Pages = append(result.Pages, row)
 		}
 		used = append(used, target)
-		readSets = append(readSets, readSet{target: target, pages: pages})
+		// No page body or title was read when verification returned an empty
+		// set. Live target/Key checks below remain mandatory for every target.
+		if len(pages) > 0 {
+			readSets = append(readSets, readSet{target: target, pages: pages})
+		}
 		if e = target.Revalidate(ctx); e != nil {
 			return nil, e
 		}

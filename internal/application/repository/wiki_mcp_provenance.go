@@ -273,6 +273,11 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		InputStamps:     map[string]string{},
 		SelectedSources: selected,
 	}
+	versionIDs := make([]string, len(docs))
+	for i, doc := range docs {
+		versionIDs[i] = doc.ID
+	}
+	versions := newWikiEpochVersions(db, kb, anchor.TenantID, versionIDs)
 	for _, d := range docs {
 		if selected != nil && !selected[d.ID] {
 			continue
@@ -370,7 +375,7 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 				continue
 			}
 		}
-		version, tenant, e := resourceVersion(db, types.EnterprisePolicyTarget{Kind: "knowledge", ID: d.ID})
+		version, tenant, e := versions.get(d.ID)
 		if e != nil {
 			return nil, e
 		}

@@ -61,7 +61,7 @@ type wikiLocalPublishedReadKey struct{}
 func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGenerationProof, error) {
 	local := types.LocalSourceContentRead(db.Statement.Context)
 	if !local && !WikiDocumentSelectionForKB(kb) {
-		return wikiDependencies(db, kb)
+		return wikiReadDependencies(db, kb)
 	}
 	if page == nil {
 		if err := types.CheckPrivateKBRead(db, "", kb); err != nil {
