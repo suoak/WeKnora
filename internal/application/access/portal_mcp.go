@@ -57,6 +57,7 @@ func (t *PortalKBTarget) DocumentIDs() []string {
 	}
 	return ids
 }
+
 func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]*PortalKBTarget, error) {
 	defer perftrace.Measure(ctx, perftrace.Resolve)()
 	ctx, diagnostics := WithPortalDiagnostics(ctx)
@@ -88,12 +89,28 @@ func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]
 	}
 	wanted := map[string]bool{}
 	selected := map[string]bool{}
-	for _, id := range requested {
-		if id == "" {
+	for _, selector := range requested {
+		if selector == "" {
 			return nil, ErrForbidden
 		}
-		wanted[id] = true
-		selected[id] = true
+		// Resolve names using directory metadata before loading any policy or
+		// document snapshot. Exact IDs take precedence over matching names.
+		var matched []string
+		for _, kb := range candidates {
+			if kb.ID == selector {
+				matched = []string{kb.ID}
+				break
+			}
+			if kb.Name == selector {
+				matched = append(matched, kb.ID)
+			}
+		}
+		if len(matched) == 0 {
+			return nil, ErrForbidden
+		}
+		for _, id := range matched {
+			wanted[id], selected[id] = true, true
+		}
 	}
 	out := []*PortalKBTarget{}
 candidateLoop:
@@ -242,6 +259,7 @@ candidateLoop:
 	}
 	return out, nil
 }
+
 func (t *PortalKBTarget) Revalidate(ctx context.Context) error {
 	if t == nil || t.resolver == nil || !t.resolver.Enabled {
 		return ErrForbidden
@@ -320,6 +338,7 @@ func (t *PortalKBTarget) privateContext(ctx context.Context) (context.Context, e
 	}
 	return base.PrivateWorkspaceContext(ctx, t.privateTenant)
 }
+
 func (t *PortalKBTarget) authorizePrivate(ctx context.Context, snapshot *types.EnterpriseReadSnapshot) error {
 	t.reads = nil
 	t.searches = nil
@@ -356,10 +375,12 @@ func (t *PortalKBTarget) authorizePrivateSnapshot(ctx context.Context, snapshot 
 	return nil
 }
 
-type portalRetrievalKey struct{}
-type portalRetrievalScope struct {
-	target *PortalKBTarget
-}
+type (
+	portalRetrievalKey   struct{}
+	portalRetrievalScope struct {
+		target *PortalKBTarget
+	}
+)
 
 func (t *PortalKBTarget) SearchContext(ctx context.Context) (context.Context, error) {
 	if err := t.Revalidate(ctx); err != nil {
@@ -412,6 +433,7 @@ func GuardPortalRetrieval(ctx context.Context, engine types.RetrieverEngineType,
 	set := AuthorizedDocumentSet{tenantID: tenant, kbID: s.target.descriptor.ID, ids: s.target.DocumentIDs()}
 	return set.Constrain(tenant, s.target.descriptor.ID, params, true)
 }
+
 func PortalRetrievalTenant(ctx context.Context) (uint64, bool) {
 	s, ok := ctx.Value(portalRetrievalKey{}).(portalRetrievalScope)
 	if !ok || s.target == nil {

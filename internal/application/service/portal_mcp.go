@@ -70,7 +70,11 @@ func portalContains(t *access.PortalKBTarget, id string) bool {
 	return false
 }
 
-func (s *PortalMCPKnowledge) document(ctx context.Context, t *access.PortalKBTarget, id string) (*types.Knowledge, error) {
+func (s *PortalMCPKnowledge) document(
+	ctx context.Context,
+	t *access.PortalKBTarget,
+	id string,
+) (*types.Knowledge, error) {
 	if s.Knowledge == nil || !portalContains(t, id) {
 		return nil, access.ErrForbidden
 	}
@@ -128,7 +132,15 @@ func (s *PortalMCPKnowledge) ListDocuments(ctx context.Context, kb string) ([]Po
 
 func portalHit(t *access.PortalKBTarget, row *types.Knowledge, c *types.Chunk) PortalMCPHit {
 	d := t.Descriptor()
-	h := PortalMCPHit{TenantID: d.TenantID, Space: d.SpaceName, KBID: d.ID, KBName: d.Name, DocumentID: row.ID, Title: row.Title, Reference: fmt.Sprintf("knowhub:tenant:%d:kb:%s:document:%s", d.TenantID, d.ID, row.ID)}
+	h := PortalMCPHit{
+		TenantID:   d.TenantID,
+		Space:      d.SpaceName,
+		KBID:       d.ID,
+		KBName:     d.Name,
+		DocumentID: row.ID,
+		Title:      row.Title,
+		Reference:  fmt.Sprintf("knowhub:tenant:%d:kb:%s:document:%s", d.TenantID, d.ID, row.ID),
+	}
 	if c != nil {
 		h.ChunkID = c.ID
 		h.Text = c.Content
@@ -165,7 +177,9 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 		}
 		out := []PortalMCPHit{}
 		for _, c := range chunks {
-			if c == nil || c.KnowledgeID != id || c.KnowledgeBaseID != row.KnowledgeBaseID || c.TenantID != row.TenantID || c.DeletedAt.Valid {
+			if c == nil || c.KnowledgeID != id || c.KnowledgeBaseID != row.KnowledgeBaseID ||
+				c.TenantID != row.TenantID ||
+				c.DeletedAt.Valid {
 				return nil, access.ErrForbidden
 			}
 			if !c.IsEnabled {
@@ -195,7 +209,37 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 
 // Search uses per-target/per-mode ranks (RRF), never compares raw cosine/BM25
 // scores across different indexes or embeddings. Failed targets are explicit.
-func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mode string, limit int) (*PortalMCPSearchResult, error) {
+func (s *PortalMCPKnowledge) Search(
+	ctx context.Context,
+	ids []string,
+	query, mode string,
+	limit int,
+) (*PortalMCPSearchResult, error) {
+	return s.search(ctx, ids, query, mode, limit, nil)
+}
+
+// SearchPattern uses index terms separately from the regular expression, as
+// the built-in MCP does. Every returned chunk still has to match the pattern.
+func (s *PortalMCPKnowledge) SearchPattern(
+	ctx context.Context,
+	ids []string,
+	terms string,
+	pattern *regexp.Regexp,
+	limit int,
+) (*PortalMCPSearchResult, error) {
+	if pattern == nil {
+		return nil, access.ErrForbidden
+	}
+	return s.search(ctx, ids, terms, "grep", limit, pattern)
+}
+
+func (s *PortalMCPKnowledge) search(
+	ctx context.Context,
+	ids []string,
+	query, mode string,
+	limit int,
+	pattern *regexp.Regexp,
+) (*PortalMCPSearchResult, error) {
 	if query == "" || len(query) > 4096 || limit < 1 || limit > 30 || s.Engine == nil {
 		return nil, access.ErrForbidden
 	}
@@ -209,9 +253,8 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 	if cleanErr := access.ValidatePortalQuery(query); cleanErr != nil {
 		return nil, access.ErrForbidden
 	}
-	var pattern *regexp.Regexp
 	var err error
-	if mode == "grep" {
+	if mode == "grep" && pattern == nil {
 		pattern, err = regexp.Compile("(?i)" + query)
 		if err != nil {
 			return nil, access.ErrForbidden
@@ -224,12 +267,14 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 	}
 	result := &PortalMCPSearchResult{Results: []PortalMCPHit{}, Status: "complete"}
 	aggregate := map[string]*PortalMCPHit{}
+	byKB := map[string]*access.PortalKBTarget{}
 	for _, t := range targets {
 		execution, e := t.SearchContext(ctx)
 		if e != nil {
 			return nil, e
 		}
 		descriptor := t.Descriptor()
+		byKB[descriptor.ID] = t
 		types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
 		engine, e := s.Engine(execution, descriptor)
 		if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
@@ -284,8 +329,25 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 				}
 				for _, candidate := range g.Results {
 					rank++
-					if candidate == nil || !portalContains(t, candidate.KnowledgeID) || candidate.KnowledgeBaseID != descriptor.ID || candidate.SourceType != types.ChunkSourceType {
+					if candidate == nil || !portalContains(t, candidate.KnowledgeID) ||
+						candidate.KnowledgeBaseID != descriptor.ID ||
+						candidate.SourceType != types.ChunkSourceType {
 						return nil, access.ErrForbidden
+					}
+					if mode != "grep" {
+						// Rank the complete authorized index candidate set first.
+						// Only final hits need canonical body/title reads; source and
+						// credential revalidation still precede every output boundary.
+						hit := portalHit(t, &types.Knowledge{ID: candidate.KnowledgeID},
+							&types.Chunk{ID: candidate.ChunkID, Content: candidate.Content})
+						key := hit.Reference + ":" + candidate.ChunkID
+						if local[key] == nil {
+							local[key] = &hit
+						} else if local[key].Text != hit.Text {
+							return nil, access.ErrForbidden
+						}
+						local[key].RankScore += 1 / float64(60+rank)
+						continue
 					}
 					// Completeness/canonical equality is enforced in SQL before candidates.
 					// Re-read canonical title/content after obtaining the live target lease.
@@ -301,7 +363,12 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 					if e != nil {
 						return nil, e
 					}
-					if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != descriptor.ID || chunk.TenantID != descriptor.TenantID || chunk.DeletedAt.Valid || !chunk.IsEnabled || chunk.ChunkType != types.ChunkTypeText || chunk.Content != candidate.Content {
+					if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != descriptor.ID ||
+						chunk.TenantID != descriptor.TenantID ||
+						chunk.DeletedAt.Valid ||
+						!chunk.IsEnabled ||
+						chunk.ChunkType != types.ChunkTypeText ||
+						chunk.Content != candidate.Content {
 						return nil, access.ErrForbidden
 					}
 					text, e := access.SanitizePortalText(chunk.Content)
@@ -349,6 +416,40 @@ func (s *PortalMCPKnowledge) Search(ctx context.Context, ids []string, query, mo
 		result.Results = result.Results[:limit]
 	}
 	mergeDone()
+	if mode != "grep" {
+		for i, ranked := range result.Results {
+			t := byKB[ranked.KBID]
+			if t == nil {
+				return nil, access.ErrForbidden
+			}
+			row, e := s.document(ctx, t, ranked.DocumentID)
+			if e != nil {
+				return nil, e
+			}
+			read, e := s.publishedDocumentContext(ctx, ranked.DocumentID)
+			if e != nil {
+				return nil, e
+			}
+			chunk, e := s.Chunks.GetChunkByID(read, ranked.TenantID, ranked.ChunkID)
+			if e != nil {
+				return nil, e
+			}
+			if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != ranked.KBID ||
+				chunk.TenantID != ranked.TenantID || chunk.DeletedAt.Valid || !chunk.IsEnabled ||
+				chunk.ChunkType != types.ChunkTypeText || chunk.Content != ranked.Text {
+				return nil, access.ErrForbidden
+			}
+			text, e := access.SanitizePortalText(chunk.Content)
+			if e != nil {
+				return nil, e
+			}
+			canonical := *chunk
+			canonical.Content = text
+			hit := portalHit(t, row, &canonical)
+			hit.RankScore = ranked.RankScore
+			result.Results[i] = hit
+		}
+	}
 	if diagnostics.Partial() {
 		result.Status = "partial"
 	}

@@ -55,6 +55,11 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 	if len(requested) > 128 || len(requested) > 0 && operation != "wiki_search" || operation == "wiki_search" && limit > 50 {
 		return nil, access.ErrForbidden
 	}
+	// A single selected Wiki must not authorize every unrelated knowledge base
+	// before filtering by its name/ID. The resolver still checks live authority.
+	if kb != "" && len(requested) == 0 {
+		requested = []string{kb}
+	}
 	targets, e := s.Resolve(ctx, requested)
 	if e != nil {
 		return nil, e

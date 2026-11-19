@@ -3,8 +3,10 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -24,6 +26,9 @@ func (g *pgRepository) lexicalSearchScope(
 ) (string, []interface{}, error) {
 	_, _, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if !exact {
+		if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
+			return g.portalLexicalSearchScope(ctx, tenant, where, vars, params)
+		}
 		where, vars = lexicalCandidateScope(where, vars, params)
 		return where, vars, nil
 	}
@@ -57,6 +62,51 @@ func (g *pgRepository) lexicalSearchScope(
 	// The key set is a filter, not textual evidence: it must add no score.
 	return where + " AND id @@@ paradedb.boost(0::real,paradedb.term_set('id',ARRAY[" +
 		strings.Join(marks, ",") + "]::bigint[]))", vars, nil
+}
+
+// UUID columns in the deployed ParadeDB index use heap_filter. Constrain the
+// native postings by their numeric indexed identities instead. This is only a
+// coarse accelerator: the caller retains every live tenant/document/canonical
+// predicate outside MATERIALIZED and before its sole ranking LIMIT.
+const maxPortalLexicalCandidateIDs = 131072
+
+func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint64,
+	where string, vars []interface{}, params types.RetrieveParams,
+) (string, []interface{}, error) {
+	if tenant == 0 || len(params.KnowledgeBaseIDs) != 1 {
+		where, vars = lexicalCandidateScope(where, vars, params)
+		return where, vars, nil
+	}
+	var ids []int64
+	q := g.db.WithContext(ctx).Table("embeddings AS e").
+		Where("e.knowledge_base_id=?", params.KnowledgeBaseIDs[0]).
+		Where("EXISTS(SELECT 1 FROM knowledge_bases kb WHERE kb.id=e.knowledge_base_id "+
+			"AND kb.tenant_id=? AND kb.deleted_at IS NULL)", tenant)
+	if len(params.KnowledgeIDs) > 0 {
+		q = q.Where("e.knowledge_id IN ?", params.KnowledgeIDs)
+	}
+	if err := q.Order("e.id").Limit(maxPortalLexicalCandidateIDs+1).Pluck("e.id", &ids).Error; err != nil {
+		return "", nil, err
+	}
+	if len(ids) > maxPortalLexicalCandidateIDs {
+		// Never truncate a search corpus before ranking or authorization.
+		where, vars = lexicalCandidateScope(where, vars, params)
+		return where, vars, nil
+	}
+	if len(ids) == 0 {
+		return where + " AND FALSE", vars, nil
+	}
+	values := make([]string, len(ids))
+	for i, id := range ids {
+		values[i] = strconv.FormatInt(id, 10)
+	}
+	// One scalar array binding avoids PostgreSQL's parameter-count limit. Values
+	// are server-loaded integers; no query/document text is interpolated in SQL.
+	vars = append(vars, "{"+strings.Join(values, ",")+"}")
+	return where + fmt.Sprintf(
+		" AND id @@@ paradedb.boost(0::real,paradedb.term_set('id',$%d::bigint[]))",
+		len(vars),
+	), vars, nil
 }
 
 // Coarse, scalar restrictions only. The outer query retains every canonical
