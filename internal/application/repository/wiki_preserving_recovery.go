@@ -20,6 +20,7 @@ type WikiPreservingPlan struct {
 	TenantID          uint64            `json:"tenant_id"`
 	KnowledgeBaseID   string            `json:"knowledge_base_id"`
 	Documents         []string          `json:"documents"`
+	RetiredRetracts   []int64           `json:"retired_retracts,omitempty"`
 	HistoricalPages   int               `json:"historical_pages"`
 	UnverifiedPages   int               `json:"unverified_pages"`
 	PendingOperations int               `json:"pending_operations"`
@@ -57,7 +58,8 @@ func WikiPreservingRecoveryActive(ctx context.Context, repo interfaces.WikiPageR
 
 // PrepareWikiPreservingRecovery queues current verified source documents and
 // authorizes a scoped worker mode. Preview and apply never alter old pages,
-// historical proofs, original operations, document lifecycles or source cursors.
+// historical proofs, document lifecycles or source cursors. Superseded
+// replacement retractions are retained intact in an audit namespace.
 // The caller holds the same per-KB lock as generation.
 func PrepareWikiPreservingRecovery(
 	ctx context.Context, db *gorm.DB, tenant uint64, kb, expected string, apply bool,
@@ -102,12 +104,39 @@ func PrepareWikiPreservingRecovery(
 			return errors.New("pending operation bound exceeded")
 		}
 		existing := map[string]bool{}
+		var retracts []types.TaskPendingOp
 		for _, op := range pending {
-			if op.TenantID != tenant || op.ClaimedAt != nil || op.TaskType != "wiki:ingest" || op.Op != "ingest" ||
-				proof.Sources[op.DedupKey] == "" {
+			if op.TenantID != tenant || op.ClaimedAt != nil || op.TaskType != "wiki:ingest" ||
+				(op.Op != "ingest" && op.Op != "retract") || op.Op == "ingest" && proof.Sources[op.DedupKey] == "" {
 				return errors.New("pending Wiki operations are not safely resumable")
 			}
+			var identity struct {
+				Op          string `json:"op"`
+				KnowledgeID string `json:"knowledge_id"`
+			}
+			if json.Unmarshal(op.Payload, &identity) != nil || identity.Op != op.Op ||
+				identity.KnowledgeID != op.DedupKey {
+				return errors.New("pending Wiki operation identity is inconsistent")
+			}
+			if op.Op == "retract" {
+				retracts = append(retracts, op)
+				continue
+			}
+			if existing[op.DedupKey] {
+				return errors.New("pending Wiki replacement is ambiguous")
+			}
 			existing[op.DedupKey] = true
+		}
+		deletedEvidence := make(map[string]string)
+		for _, op := range retracts {
+			if existing[op.DedupKey] && !proof.EmptySources[op.DedupKey] {
+				continue
+			}
+			evidence, err := wikiPreservingDeletedEvidence(tx, tenant, kb, op.DedupKey)
+			if err != nil {
+				return err
+			}
+			deletedEvidence[op.DedupKey] = evidence
 		}
 		var pages []*types.WikiPage
 		if err := tx.Session(&gorm.Session{SkipHooks: true}).Table("wiki_pages AS preserving_plan").
@@ -127,6 +156,9 @@ func PrepareWikiPreservingRecovery(
 			OriginalPages:     map[string]string{},
 			PendingOperations: len(pending), SourceSHA256: proof.DependencySHA256, Documents: []string{},
 		}
+		for _, op := range retracts {
+			plan.RetiredRetracts = append(plan.RetiredRetracts, op.ID)
+		}
 		for id := range proof.Sources {
 			if !proof.EmptySources[id] {
 				plan.Documents = append(plan.Documents, id)
@@ -141,7 +173,7 @@ func PrepareWikiPreservingRecovery(
 				return err
 			}
 		}
-		plan.Snapshot = wikiDigest([]any{anchor, proof.Sources, proof.Epochs, pages, pending, epoch})
+		plan.Snapshot = wikiDigest([]any{anchor, proof.Sources, proof.Epochs, pages, pending, epoch, deletedEvidence})
 		if !apply {
 			return nil
 		}
@@ -165,6 +197,20 @@ func PrepareWikiPreservingRecovery(
 				ScopeID: kb, Op: "ingest", DedupKey: id, Payload: payload, EnqueuedAt: time.Now().UTC(),
 			}).Error; err != nil {
 				return err
+			}
+		}
+		for _, op := range retracts {
+			// Preserve the original ID, payload, counter and enqueue timestamp
+			// in an audit namespace, atomically with the replacement marker.
+			updated := tx.Model(&types.TaskPendingOp{}).
+				Where("id=? AND scope='knowledge_base' AND scope_id=? AND tenant_id=? AND claimed_at IS NULL",
+					op.ID, kb, tenant).
+				Update("scope", "wiki_preserve_retract_archive")
+			if updated.Error != nil {
+				return updated.Error
+			}
+			if updated.RowsAffected != 1 {
+				return ErrWikiMCPInputsChanged
 			}
 		}
 		plan.Applied = true
@@ -332,4 +378,27 @@ func FinishWikiPreservingRecovery(
 		return WriteWikiProcessingBlock(ctx, NewWikiPageRepository(tx), tenant, kb, "")
 	})
 	return plan, err
+}
+
+// Absence alone never authorizes retiring a retraction. Existing rows must
+// carry a scoped deletion marker; hard-deleted rows need retained epoch/chunk
+// evidence from the same tenant and KB. Locks remain held through commit.
+func wikiPreservingDeletedEvidence(tx *gorm.DB, tenant uint64, kb, id string) (string, error) {
+	var row struct {
+		ID        string
+		DeletedAt *time.Time
+	}
+	err := tx.Table("knowledges").Select("id,deleted_at").
+		Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("id=? AND tenant_id=? AND knowledge_base_id=?", id, tenant, kb).Take(&row).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return deletedWikiInputEvidence(tx, tenant, kb, id)
+	}
+	if err != nil {
+		return "", err
+	}
+	if row.DeletedAt == nil {
+		return "", errors.New("retraction has no verified deletion or replacement ingest")
+	}
+	return wikiDigest(row), nil
 }
