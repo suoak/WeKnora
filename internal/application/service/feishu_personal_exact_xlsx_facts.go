@@ -128,8 +128,9 @@ func standaloneXMLFacts(body []byte, schema map[string]string, worksheet bool) (
 			if emit() && strings.TrimSpace(string(token)) != "" {
 				value := string(token)
 				last := stack[len(stack)-1]
-				formula := last == "definedName" || last == "f" || last == "formula1" || last == "formula2"
-				if len(value) > 16<<10 || formula && strings.ContainsAny(value, "[|\x00") {
+				formula := last == "definedName" || last == "f" || last == "formula" ||
+					last == "formula1" || last == "formula2"
+				if len(value) > 16<<10 || formula && standaloneFormulaDependency(value) {
 					return "", errExactWorkbookUnsupported
 				}
 				fmt.Fprintf(&out, "Source fact %s text: %s\n", strings.Join(stack, "/"), standaloneFactText(value))
@@ -179,7 +180,8 @@ func standaloneWorkbookFacts(
 		"printOptions pageMargins pageSetup headerFooter oddHeader oddFooter evenHeader evenFooter firstHeader " +
 		"firstFooter drawing legacyDrawing picture dataValidations dataValidation formula1 formula2 autoFilter " +
 		"filterColumn filters filter customFilters customFilter sortState sortCondition sheetProtection " +
-		"protectedRanges protectedRange hyperlinks hyperlink ignoredErrors ignoredError extLst ext"}
+		"protectedRanges protectedRange hyperlinks hyperlink ignoredErrors ignoredError extLst ext " +
+		"conditionalFormatting cfRule formula"}
 	validationNS := "http://schemas.microsoft.com/office/spreadsheetml/2009/9/main"
 	worksheetSchema[validationNS] = "dataValidations dataValidation formula1 formula2"
 	worksheetSchema["http://schemas.microsoft.com/office/excel/2006/main"] = "f sqref"

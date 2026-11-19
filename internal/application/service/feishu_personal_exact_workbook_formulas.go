@@ -8,6 +8,31 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// Excel string literals use double quotes and escape a quote by doubling it.
+// Brackets and pipes in a saved HYPERLINK label are ordinary text; outside
+// strings they can introduce external workbook or DDE inputs. Single-quoted
+// workbook/sheet identifiers deliberately remain subject to this check.
+func standaloneFormulaDependency(text string) bool {
+	quoted := false
+	for i := 0; i < len(text); i++ {
+		switch text[i] {
+		case 0:
+			return true
+		case '"':
+			if quoted && i+1 < len(text) && text[i+1] == '"' {
+				i++
+				continue
+			}
+			quoted = !quoted
+		case '[', '|':
+			if !quoted {
+				return true
+			}
+		}
+	}
+	return quoted // Malformed strings cannot establish a literal boundary.
+}
+
 // Read the saved value and formula as separate source facts. GetCellFormula
 // expands shared references; neither it nor GetCellValue evaluates the formula.
 func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (string, error) {
@@ -17,6 +42,12 @@ func exactWorkbookFormulaNotes(file *excelize.File, sheet string, body []byte) (
 func exactWorkbookFormulaNotesForFormat(
 	file *excelize.File, sheet string, body []byte, standalone bool,
 ) (string, error) {
+	hasDependency := func(text string) bool {
+		if standalone {
+			return standaloneFormulaDependency(text)
+		}
+		return strings.ContainsAny(text, "[|\x00")
+	}
 	type formula struct {
 		Text  string     `xml:",chardata"`
 		Attrs []xml.Attr `xml:",any,attr"`
@@ -41,7 +72,7 @@ func exactWorkbookFormulaNotesForFormat(
 			if c.Formula == nil {
 				continue
 			}
-			if strings.ContainsAny(c.Formula.Text, "[|\x00") || len(c.Formula.Text) > 8192 {
+			if hasDependency(c.Formula.Text) || len(c.Formula.Text) > 8192 {
 				return "", errExactWorkbookUnsupported
 			}
 			if formulas[c.Ref] != nil || len(formulas) >= 1024 {
@@ -125,7 +156,7 @@ func exactWorkbookFormulaNotesForFormat(
 				return "", errExactWorkbookUnsupported
 			}
 			// External workbook/DDE inputs cannot be represented by this package.
-			if strings.ContainsAny(text, "[|\x00") {
+			if hasDependency(text) {
 				return "", errExactWorkbookUnsupported
 			}
 			if strings.TrimSpace(text) == "" {
