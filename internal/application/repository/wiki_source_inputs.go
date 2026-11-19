@@ -44,7 +44,7 @@ func (v *wikiSourceInputs) boundedRows(
 	terms := []string{}
 	for _, column := range strings.Split(columns, ",") {
 		text := "COALESCE(CAST(" + column + " AS TEXT),'')"
-		if v.db.Dialector.Name() == "postgres" {
+		if v.db.Name() == "postgres" {
 			text = "octet_length(" + text + ")"
 		} else {
 			text = "length(CAST(" + text + " AS BLOB))"

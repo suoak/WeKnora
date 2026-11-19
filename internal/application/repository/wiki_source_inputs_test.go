@@ -36,7 +36,8 @@ func testWikiSourceInputBatch(t *testing.T, db *gorm.DB) {
 			t,
 			f.db.Exec(
 				`INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel,updated_at)
-SELECT ?,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel,updated_at FROM knowledges WHERE id='doc'`,
+SELECT ?,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel,updated_at
+FROM knowledges WHERE id='doc'`,
 				id,
 			).Error,
 		)
