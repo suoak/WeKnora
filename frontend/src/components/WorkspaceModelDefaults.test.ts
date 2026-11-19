@@ -98,3 +98,13 @@ test('purpose defaults keep chat and vision independent and skip inactive models
   assert.equal(selectInitialModelId(models, 'VLLM'), 'vision')
   assert.equal(selectInitialModelId(models, 'ASR'), 'speech')
 })
+
+test('localized default settings remain readable after file generation', async () => {
+  for (const locale of ['zh-CN', 'en-US', 'ja-JP', 'ko-KR', 'ru-RU']) {
+    const { default: messages } = await import(`../i18n/locales/${locale}.ts`)
+    for (const text of Object.values(messages.workspaceDefaults)) {
+      assert.equal(typeof text, 'string')
+      assert.ok(!/\?{2,}/.test(text as string), `${locale}: localization was corrupted`)
+    }
+  }
+})

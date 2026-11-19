@@ -1,7 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
-  workspaceDefaults: {"title": "Workspace default models", "description": "Unset slots inherit enterprise defaults. Explicit choices on existing knowledge bases and agents are preserved.", "inherit": "Inherit enterprise default", "loadFailed": "Loading failed. Retry before editing."},
+  workspaceDefaults: {"title":"Workspace default models","description":"Unset slots inherit enterprise defaults. Explicit choices on existing knowledge bases and agents are preserved.","inherit":"Inherit enterprise default","loadFailed":"Loading failed. Retry before editing."},
 
   localBrowser: {
     settingsTitle: 'Browser connection', settingsDescription: 'Pair BrowserSkill with your local Chrome or Edge to operate real web pages from conversations.',

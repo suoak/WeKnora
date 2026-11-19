@@ -1,7 +1,7 @@
 import { branding } from '../../config/branding'
 
 export default {
-  workspaceDefaults: {"title": "??????", "description": "??????????????????????????????????", "inherit": "????????", "loadFailed": "????????????"},
+  workspaceDefaults: {"title":"空间默认模型","description":"未单独选择模型时继承企业配置。已有知识库和智能体的显式配置保持不变。","inherit":"继承企业默认模型","loadFailed":"加载失败，请重试后编辑。"},
 
   localBrowser: {
     settingsTitle: '浏览器连接', settingsDescription: '通过 BrowserSkill 连接本机 Chrome 或 Edge，配对后即可在对话中操作真实网页。',
@@ -343,7 +343,7 @@ export default {
         denied: '拒绝'
       },
       action: {
-        'model.workspace_defaults_changed': '?????????',
+        'model.workspace_defaults_changed': '空间默认模型已更改',
         'rbac.member_added': '新增成员',
         'rbac.member_removed': '移除成员',
         'rbac.member_role_changed': '角色变更',

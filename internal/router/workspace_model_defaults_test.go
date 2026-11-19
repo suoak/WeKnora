@@ -48,7 +48,8 @@ func TestWorkspaceDefaultsRealHTTPAuthorizationAndInheritance(t *testing.T) {
 	modelService := service.NewModelService(models, nil, nil, nil, nil, nil)
 	service.AttachModelDefaults(modelService, policy)
 	tenantHandler := handler.NewTenantHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, policy)
-	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: true}}
+	enforceRBAC := true
+	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &enforceRBAC}}
 	r := gin.New()
 	group := r.Group("/api/v1")
 	guards := &rbacGuards{cfg: cfg}

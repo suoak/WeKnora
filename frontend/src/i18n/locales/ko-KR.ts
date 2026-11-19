@@ -2,7 +2,7 @@ import { branding } from '../../config/branding'
 import enUS from './en-US'
 
 const messages = {
-  workspaceDefaults: {"title": "?????? ?? ??", "description": "???? ??? ?? ???? ?????. ?? ??? ??? ?????.", "inherit": "?? ??? ??", "loadFailed": "????? ??????. ?? ?????."},
+  workspaceDefaults: {"title":"워크스페이스 기본 모델","description":"설정하지 않으면 기업 기본값을 상속합니다. 기존 명시적 선택은 유지됩니다.","inherit":"기업 기본값 상속","loadFailed":"불러오기에 실패했습니다. 다시 시도하세요."},
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: '페어링된 로컬 브라우저 사용',
   reconnectHint: '브라우저 확장을 다시 연결하세요',
@@ -273,7 +273,7 @@ const messages = {
         denied: '거부'
       },
       action: {
-        'model.workspace_defaults_changed': '?????? ?? ?? ??',
+        'model.workspace_defaults_changed': '워크스페이스 기본 모델 변경',
         'rbac.member_added': '멤버 추가',
         'rbac.member_removed': '멤버 제거',
         'rbac.member_role_changed': '역할 변경',
