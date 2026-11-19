@@ -21,6 +21,21 @@ func populateDocumentVersions(tx *gorm.DB, docs []types.EnterpriseDocumentState)
 func populateDocumentVersionsCached(
 	tx *gorm.DB, docs []types.EnterpriseDocumentState, cache *documentVersionCache,
 ) error {
+	return populateCanonicalDocumentVersions(tx, docs, cache, true, 0)
+}
+
+var errDocumentVersionBatchTooLarge = errors.New("document version batch exceeds chunk metadata limit")
+
+// Wiki provenance needs the same canonical epoch/version representation but
+// never turns a policy row into authority. Keep its batch primitive independent
+// of policy storage; the existing Wiki source and publication fences still run.
+func populateCanonicalDocumentVersions(
+	tx *gorm.DB,
+	docs []types.EnterpriseDocumentState,
+	cache *documentVersionCache,
+	includePolicies bool,
+	chunkLimit int,
+) error {
 	if err := checkDocumentEpochCoverage(tx); err != nil {
 		return err
 	}
@@ -39,8 +54,10 @@ func populateDocumentVersionsCached(
 		types.EnterprisePolicy
 	}
 	var policies []policyRow
-	if err := tx.Table("knowledge_access_policies").Where("knowledge_id IN ?", ids).Find(&policies).Error; err != nil {
-		return err
+	if includePolicies {
+		if err := tx.Table("knowledge_access_policies").Where("knowledge_id IN ?", ids).Find(&policies).Error; err != nil {
+			return err
+		}
 	}
 	pm := map[string]types.EnterprisePolicy{}
 	for _, p := range policies {
@@ -107,10 +124,17 @@ func populateDocumentVersionsCached(
 		return nil
 	}
 	var chunks []map[string]interface{}
-	if err := tx.Table("chunks").
+	chunkQuery := tx.Table("chunks").
 		Select("knowledge_id,id,content_revision,updated_at,is_enabled,deleted_at").
-		Where("knowledge_id IN ?", missing).Order("knowledge_id,id").Find(&chunks).Error; err != nil {
+		Where("knowledge_id IN ?", missing).Order("knowledge_id,id")
+	if chunkLimit > 0 {
+		chunkQuery = chunkQuery.Limit(chunkLimit + 1)
+	}
+	if err := chunkQuery.Find(&chunks).Error; err != nil {
 		return err
+	}
+	if chunkLimit > 0 && len(chunks) > chunkLimit {
+		return errDocumentVersionBatchTooLarge
 	}
 	cm := map[string][]map[string]interface{}{}
 	for _, c := range chunks {
