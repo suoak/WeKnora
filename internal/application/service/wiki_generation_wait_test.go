@@ -67,17 +67,21 @@ func TestWikiGenerationWaitDoesNotAcknowledgeTerminalOrWrongScope(t *testing.T) 
 	require.NoError(t, err)
 	require.Len(t, tasks, 1)
 	require.NoError(t, inspector.ArchiveTask(types.QueueWiki, tasks[0].ID))
-	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now), "an archive cannot replace a live delivery")
+	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now),
+		"an archive cannot replace a live delivery")
 	payload.TenantID = 8
-	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now), "another tenant cannot cover the original delivery")
+	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now),
+		"another tenant cannot cover the original delivery")
 	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, WikiIngestPayload{}, now))
 	finalize := asynq.NewTask(wikiFinalizeTaskType, data)
-	require.True(t, svc.coalesceWikiGenerationWait(ctx, finalize, WikiIngestPayload{TenantID: 7, KnowledgeBaseID: "busy"}, now))
+	require.True(t, svc.coalesceWikiGenerationWait(ctx, finalize,
+		WikiIngestPayload{TenantID: 7, KnowledgeBaseID: "busy"}, now))
 	canceled, cancel := context.WithCancel(ctx)
 	cancel()
 	require.False(t, svc.coalesceWikiGenerationWait(canceled, task, payload, now))
 	server.Close()
-	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now.Add(time.Minute)), "failed enqueue must preserve original retry")
+	require.False(t, svc.coalesceWikiGenerationWait(ctx, task, payload, now.Add(time.Minute)),
+		"failed enqueue must preserve original retry")
 }
 
 func TestWikiGenerationWaitServiceAcknowledgesOnlyDurableSuccessor(t *testing.T) {
