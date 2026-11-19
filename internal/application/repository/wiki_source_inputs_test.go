@@ -35,7 +35,8 @@ func testWikiSourceInputBatch(t *testing.T, db *gorm.DB) {
 		require.NoError(
 			t,
 			f.db.Exec(
-				`INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel,updated_at)
+				`INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,parse_status,
+enable_status,channel,updated_at)
 SELECT ?,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel,updated_at
 FROM knowledges WHERE id='doc'`,
 				id,
@@ -43,7 +44,8 @@ FROM knowledges WHERE id='doc'`,
 		)
 		require.NoError(
 			t,
-			f.db.Exec(`INSERT INTO chunks(id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_type,chunk_index)
+			f.db.Exec(`INSERT INTO chunks(id,tenant_id,knowledge_base_id,knowledge_id,content,
+chunk_type,chunk_index)
 VALUES(?,99,'public-kb',?,'unicode source text','text',1)`, id+"-c", id).Error,
 		)
 	}
@@ -103,7 +105,8 @@ func TestWikiSourceInputBatchPostgres(t *testing.T) {
 	for _, query := range []string{
 		`CREATE TABLE knowledges(id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,type text,
 parse_status text,enable_status text,channel text,updated_at timestamptz,deleted_at timestamptz)`,
-		`CREATE TABLE chunks(id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,knowledge_id text,content text,
+		`CREATE TABLE chunks(id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text,
+knowledge_id text,content text,
 content_revision bigint,is_enabled bool,chunk_type text,chunk_index integer,
 updated_at timestamptz,deleted_at timestamptz)`,
 		`INSERT INTO knowledges VALUES('doc',99,'public-kb','file','completed','enabled','web',now(),NULL)`,
