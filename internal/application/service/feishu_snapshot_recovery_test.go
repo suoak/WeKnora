@@ -39,6 +39,34 @@ func snapshotChanged(current *types.FetchedItem) error {
 	}
 }
 
+func TestFeishuSnapshotMismatchDiagnosticsPreserveFenceWithoutSourceValues(t *testing.T) {
+	original, _ := snapshotRecoveryItems()
+	cases := []struct {
+		name   string
+		mutate func(*types.FetchedItem)
+	}{
+		{"revision", func(item *types.FetchedItem) { item.UpdatedAt = item.UpdatedAt.Add(time.Second) }},
+		{"title", func(item *types.FetchedItem) { item.Title = "private renamed source" }},
+		{"export_filename", func(item *types.FetchedItem) { item.FileName = "private export name.docx" }},
+		{"content_or_export", func(item *types.FetchedItem) { item.Content = []byte("private new package") }},
+		{"incomplete_observation", func(item *types.FetchedItem) { item.Content = nil }},
+	}
+	for _, test := range cases {
+		t.Run(test.name, func(t *testing.T) {
+			fresh := *original
+			test.mutate(&fresh)
+			cause := &repository.LegacyFenceError{Reason: "latest_source_snapshot_changed"}
+			err := snapshotObservationError(cause, original, &fresh)
+			var changed *feishuSnapshotChangedError
+			require.ErrorAs(t, err, &changed)
+			require.Equal(t, test.name, changed.dimension)
+			require.ErrorIs(t, err, cause)
+			require.NotContains(t, err.Error(), "private")
+			require.Same(t, &fresh, changed.current)
+		})
+	}
+}
+
 func recoveryReceipt() *types.FeishuLegacyReceipt {
 	return &types.FeishuLegacyReceipt{
 		ResourceID: "resource", AttemptID: "attempt", KnowledgeID: "knowledge", ManifestSHA256: "manifest",
