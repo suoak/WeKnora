@@ -155,7 +155,8 @@ func TestWikiPreservingRecoveryArchivesOnlyVerifiedReplacementRetractions(t *tes
 				require.NoError(t, db.Save(retract).Error)
 				if scenario != "unproved_absence" {
 					require.NoError(t, db.Create(&types.Knowledge{
-						ID: "deleted-source", TenantID: 1, KnowledgeBaseID: "public-two", Title: "deleted source", Type: "file",
+						ID: "deleted-source", TenantID: 1, KnowledgeBaseID: "public-two",
+						Title: "deleted source", Type: "file",
 						ParseStatus: "completed", EnableStatus: "enabled", Channel: "web",
 					}).Error)
 					require.NoError(
