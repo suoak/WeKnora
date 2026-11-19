@@ -55,7 +55,8 @@ func populateCanonicalDocumentVersions(
 	}
 	var policies []policyRow
 	if includePolicies {
-		if err := tx.Table("knowledge_access_policies").Where("knowledge_id IN ?", ids).Find(&policies).Error; err != nil {
+		if err := tx.Table("knowledge_access_policies").
+			Where("knowledge_id IN ?", ids).Find(&policies).Error; err != nil {
 			return err
 		}
 	}
