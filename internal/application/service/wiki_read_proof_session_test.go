@@ -81,3 +81,54 @@ VALUES('held-session-source',1,'public-two','held source','feishu','{}','hold','
 		"an unchanged document epoch must not bypass a newly held source",
 	)
 }
+
+func TestWikiReadSealPrefilterRejectsUnreturnablePagesWithoutSourceBodyReads(t *testing.T) {
+	for _, mutation := range []string{
+		"DELETE FROM wiki_mcp_provenance WHERE page_id='session-page'",
+		"UPDATE wiki_pages SET content='unsealed raw edit' WHERE id='session-page'",
+		"UPDATE wiki_mcp_provenance SET source_versions='{}' WHERE page_id='session-page'",
+	} {
+		t.Run(mutation, func(t *testing.T) {
+			f, store, _, _, reads := wikiReadSessionFixture(t)
+			require.NoError(t, f.DB.Exec(mutation).Error)
+			*reads = 0
+			ctx := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+			pages, partial, err := store.VerifiedPages(ctx, 1, "public-two", []string{"public-two-doc"})
+			require.NoError(t, err)
+			require.Empty(t, pages)
+			require.True(t, partial)
+			require.Zero(t, *reads, "rejected page seals must not trigger full KB body hashing")
+		})
+	}
+}
+
+func TestWikiReadSealPrefilterStillChecksCurrentSourceContent(t *testing.T) {
+	f, store, _, _, reads := wikiReadSessionFixture(t)
+	require.NoError(
+		t,
+		f.DB.Exec("UPDATE chunks SET content='new source body' WHERE knowledge_id='public-two-doc'").Error,
+	)
+	*reads = 0
+	ctx := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+	pages, partial, err := store.VerifiedPages(ctx, 1, "public-two", []string{"public-two-doc"})
+	require.NoError(t, err)
+	require.Empty(t, pages)
+	require.True(t, partial)
+	require.Greater(t, *reads, 0, "a valid persisted seal must still check live content")
+}
+
+func TestWikiReadInputBatchPreservesHashesAndRejectsSourceMutation(t *testing.T) {
+	f, store, _, _, _ := wikiReadSessionFixture(t)
+	// Existing seal was generated through the same complete canonical digest.
+	// A fresh operation must return the same published body, then reject a raw edit.
+	ctx := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+	pages, _, err := store.VerifiedPages(ctx, 1, "public-two", []string{"public-two-doc"})
+	require.NoError(t, err)
+	require.Len(t, pages, 1)
+	require.Equal(t, "verified source body", pages[0].Content)
+	require.NoError(
+		t,
+		f.DB.Exec("UPDATE chunks SET content='raw batch mutation' WHERE knowledge_id='public-two-doc'").Error,
+	)
+	require.Error(t, store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages))
+}

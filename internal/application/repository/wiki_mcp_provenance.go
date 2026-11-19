@@ -278,6 +278,7 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 		versionIDs[i] = doc.ID
 	}
 	versions := newWikiEpochVersions(db, kb, anchor.TenantID, versionIDs)
+	sourceInputs := newWikiSourceInputs(db, versionIDs)
 	for _, d := range docs {
 		if selected != nil && !selected[d.ID] {
 			continue
@@ -383,26 +384,13 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 			return nil, ErrWikiMCPUnverified
 		}
 		p.Epochs[d.ID] = version
-		var identity map[string]interface{}
-		if e = db.Table("knowledges").
-			Select("id,tenant_id,knowledge_base_id,type,title,description,source,channel,enable_status,"+
-				"file_name,file_type,file_hash,file_path,embedding_model_id").
-			Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL", d.ID, p.Tenant, kb).
-			Take(&identity).Error; e != nil {
+		identity, inputs, e := sourceInputs.get(d.ID, p.Tenant, kb)
+		if e != nil {
 			return nil, e
 		}
 		if connectorProof != "" {
 			identity["connector_proof"] = connectorProof
 			identity["connector_metadata"] = string(d.Metadata)
-		}
-		var inputs []map[string]interface{}
-		if e = db.Table("chunks").
-			Select("id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_index,chunk_type,context_header,"+
-				"is_enabled,parent_chunk_id,image_info,deleted_at").
-			Where("knowledge_id=? AND chunk_type IN "+
-				"('','text','parent_text','image_ocr','image_caption')", d.ID).
-			Order("id").Find(&inputs).Error; e != nil {
-			return nil, e
 		}
 		if len(inputs) == 0 {
 			if connectorProof == "" {
@@ -562,6 +550,13 @@ func verifyWikiProof(
 		}
 		return e
 	}
+	return verifyWikiSeal(page, p, &seal, allowed, true)
+}
+
+// Verify the persisted page seal before loading any current source bodies.
+func verifyWikiSeal(
+	page *types.WikiPage, p *wikiGenerationProof, seal *WikiMCPProvenance, allowed map[string]bool, current bool,
+) error {
 	if seal.PageSHA256 != wikiPageDigest(page) {
 		return ErrWikiMCPUnverified
 	}
@@ -571,7 +566,7 @@ func verifyWikiProof(
 		return ErrWikiMCPUnverified
 	}
 	for id, version := range sources {
-		if p.Sources[id] != version || allowed != nil && !allowed[id] {
+		if current && p.Sources[id] != version || allowed != nil && !allowed[id] {
 			return ErrWikiMCPUnverified
 		}
 	}
@@ -655,14 +650,7 @@ func (s *PersonalWikiStore) VerifiedPages(
 	var result []*types.WikiPage
 	partial := false
 	e := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		p, e := wikiPageReadProof(tx, kb, nil)
-		if e != nil {
-			return e
-		}
-		if p.Tenant != tenant {
-			return ErrWikiMCPUnverified
-		}
-
+		var e error
 		var total int64
 		if e = tx.Model(&types.WikiPage{}).Where("tenant_id=? AND knowledge_base_id=? AND status=?",
 			tenant, kb, types.WikiPageStatusPublished).Count(&total).Error; e != nil {
@@ -688,6 +676,46 @@ func (s *PersonalWikiStore) VerifiedPages(
 		if len(pages) > 200 {
 			pages = pages[:200]
 			partial = true
+		}
+		// A bounded batch of persisted seals can reject unsealed historical,
+		// edited, or out-of-scope pages before hashing the entire KB corpus.
+		// This is only a negative prefilter: retained pages still pass the
+		// original current source proof and final output revalidation.
+		ids := make([]string, len(pages))
+		for i, page := range pages {
+			ids[i] = page.ID
+		}
+		var seals []WikiMCPProvenance
+		if len(ids) > 0 {
+			if err := tx.Where("page_id IN ? AND tenant_id=? AND knowledge_base_id=?", ids, tenant, kb).
+				Find(&seals).Error; err != nil {
+				return err
+			}
+		}
+		sealed := make(map[string]*WikiMCPProvenance, len(seals))
+		for i := range seals {
+			sealed[seals[i].PageID] = &seals[i]
+		}
+		eligible := pages[:0]
+		for _, page := range pages {
+			seal := sealed[page.ID]
+			if seal == nil ||
+				verifyWikiSeal(page, &wikiGenerationProof{KB: kb, Tenant: tenant}, seal, allowed, false) != nil {
+				partial = true
+				continue
+			}
+			eligible = append(eligible, page)
+		}
+		pages = eligible
+		if len(pages) == 0 {
+			return nil
+		}
+		p, e := wikiPageReadProof(tx, kb, nil)
+		if e != nil {
+			return e
+		}
+		if p.Tenant != tenant {
+			return ErrWikiMCPUnverified
 		}
 		for _, page := range pages {
 			if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
