@@ -3116,6 +3116,10 @@ func (s *wikiIngestService) generateWithTemplateResult(
 	)
 
 	execute := func() (interface{}, error) {
+		checkpoint := s.wikiModelCheckpoint(ctx, chatModel.GetModelID(), purpose, requestKey)
+		if result, ok := s.loadWikiModelCheckpoint(ctx, checkpoint); ok {
+			return result, nil
+		}
 		releaseWarmup := func() {}
 		if tenantScoped && promptTpl == agent.WikiPageModifyUserPrompt &&
 			strings.TrimSpace(maskedData["SharedSourceContexts"]) != "" {
@@ -3229,7 +3233,9 @@ func (s *wikiIngestService) generateWithTemplateResult(
 				errWikiPageRewriteTruncated, finishReason, wikiPageModifyMaxContinuations, len(content))
 		}
 
-		return wikiTemplateResult{Content: content, FinishReason: finishReason}, nil
+		result := wikiTemplateResult{Content: content, FinishReason: finishReason}
+		s.saveWikiModelCheckpoint(ctx, checkpoint, result)
+		return result, nil
 	}
 
 	// Missing tenant context is unexpected for production Wiki work. Fail safe
