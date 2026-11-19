@@ -150,6 +150,9 @@ func TestEmbeddingIdentityBlocksDimensionAndSameDimensionReplacement(t *testing.
 	next.Name = "embed-v2"
 	assert.Error(t, validateEmbeddingIdentity(before, &next), "same dimension does not mean compatible vector space")
 	next = *before
+	next.Parameters.Spec = &types.ModelSpecOverride{API: "different-embedding-protocol"}
+	assert.Error(t, validateEmbeddingIdentity(before, &next), "protocol overrides cannot bypass identity protection")
+	next = *before
 	next.DisplayName = "new label"
 	next.Parameters.APIKey = "rotated"
 	assert.NoError(t, validateEmbeddingIdentity(before, &next))

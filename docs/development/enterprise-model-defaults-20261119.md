@@ -41,8 +41,12 @@ schema down 前先停新版本写入，导出空间模型 ID/审计，确认无�
 
 PR：<https://github.com/suoak/WeKnora/pull/209>，验收前保持 Draft。
 
-已通过前端类型检查、90 项相关测试和上游模型选择 helper 的 Go 测试。Windows 大服务包有原生链接依赖限制，后端按用户要求转到打包服务器。
+完整修改清单见 [文件清单](enterprise-model-defaults-files-20261119.txt)。主要入口：服务层 `model_policy.go` / `workspace_model_defaults.go`；仓储 `workspace_model_defaults.go` / `tenant.go`；HTTP handler `workspace_model_defaults.go` / `tenant.go`；前端 `WorkspaceModelDefaults.vue` / `ModelSettings.vue`；迁移 `003049_workspace_model_defaults`；新增 CI `model-defaults.yml`。
 
-打包服务器使用独立 SATA 目录和无外网的临时 PostgreSQL/构建容器，不改已有服务。首轮六个后端包定向测试及新增 PostgreSQL/SQLite up/down/up 已通过；原迁移夹具固定 3048 的问题已修复，正在验证新提交。新增 Enterprise Model Defaults CI 显式提供一次性 PostgreSQL，避免事务测试缺 DSN 而跳过。
+已通过前端类型检查、91 项相关测试和上游模型选择 helper 的 Go 测试。Windows 大服务包有原生链接依赖限制，后端按用户要求转到打包服务器。
 
-最终 CI、HTTP/数据库验收和构建结果待更新。未合入 main，未发布生产，未执行生产迁移、向量重建或批量同步。第一项验收前不开始第二/三项编码。
+打包服务器使用独立 SATA 目录和无外网的临时 PostgreSQL/构建容器，不改已有服务。提交 `3460a0f2846eee37e49a1db447e90df213bd327d` 的 8,512 个源码 blob 经 Git SHA 校验后，七个后端包的定向测试、完整 memory 包、真实 PostgreSQL 事务及完整 migration chain、SQLite 新装和升级、新迁移 up/down/up、Gin HTTP 权限/继承/409 契约、go vet 和 Linux server 构建全部通过（230 秒）。临时容器已停止，原有服务不变。该轮二进制 SHA256 为 `57e44314398d6ab1fde48a779e84e3c6ea6f6bafc42e711ea47e413104f6e3de`。
+
+原迁移测试的最新版本断言已更新至 3049；历史 schema 夹具只跳过当时不存在的新字段，其数据完整性断言保留。新增 Enterprise Model Defaults CI 显式提供一次性 PostgreSQL 并运行 race，避免事务测试缺 DSN 而跳过。后续提交补充 Spec 协议覆盖的向量身份保护，须以最新提交的 CI 和打包服务器复验为最终结果，见 PR 说明。
+
+以上为自动化契约和隔离数据库验收，未宣称真实供应商推理、人工浏览器业务验收或生产验收已完成。未发布生产，未执行生产迁移、向量重建或批量同步；这些操作仍须先批准。第一项验收前不开始第二/三项编码。

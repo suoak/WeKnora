@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"maps"
+	"reflect"
 
 	"github.com/Tencent/WeKnora/internal/types"
 )
@@ -19,7 +20,7 @@ func validateEmbeddingIdentity(previous, next *types.Model) error {
 		before.Provider != after.Provider || before.BaseURL != after.BaseURL ||
 		before.InterfaceType != after.InterfaceType ||
 		before.EmbeddingParameters != after.EmbeddingParameters || !maps.Equal(before.ExtraConfig, after.ExtraConfig) ||
-		!maps.Equal(before.CustomHeaders, after.CustomHeaders) {
+		!maps.Equal(before.CustomHeaders, after.CustomHeaders) || !reflect.DeepEqual(before.Spec, after.Spec) {
 		return fmt.Errorf("embedding model identity is immutable (dimension %d -> %d); "+
 			"create a new model ID and obtain approval before rebuilding existing vector indexes",
 			before.EmbeddingParameters.Dimension, after.EmbeddingParameters.Dimension)
