@@ -56,6 +56,11 @@ func (s *wikiIngestService) scheduleFollowUp(
 	if s.pendingRepo == nil {
 		return false
 	}
+	// Proof-backed generation serializes this KB under one renewable lease.
+	// Its follow-ups cannot use the legacy parallel-batch fan-out capacity.
+	if s.personalWikiProofEnabled() {
+		maxInflight = 1
+	}
 	count, err := s.pendingRepo.PendingCount(ctx, wikiTaskType, wikiTaskScope, payload.KnowledgeBaseID)
 	if err != nil || count == 0 {
 		return false
