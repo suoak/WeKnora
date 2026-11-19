@@ -68,7 +68,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	chdirAndRestore(t, root)
 	require.NoError(t, RunMigrationsWithOptions("sqlite3://unused", MigrationOptions{SQLiteDBPath: path}))
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3048, version)
+	require.Equal(t, 3049, version)
 	require.False(t, dirty)
 	for _, table := range []string{
 		"enterprise_space_policies",
@@ -106,7 +106,7 @@ func TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp(t *testing.T) {
 	}
 	require.NoError(t, m.Up())
 	version, dirty = sqliteMigrationState(t, db)
-	require.Equal(t, 3048, version)
+	require.Equal(t, 3049, version)
 	require.False(t, dirty)
 	require.NoError(
 		t,
@@ -137,6 +137,12 @@ func sqliteEnterpriseRowsDigest(t *testing.T, db *sql.DB, table string) [32]byte
 		require.NoError(t, rows.Scan(pointers...))
 		original := make([]any, 0, len(values))
 		for i, column := range columns {
+			if table == "tenants" && column == "default_settings" {
+				// The additive defaults column must leave historical tenants
+				// inheriting the enterprise policy. Hash every original column.
+				require.Nil(t, values[i], "migration must not backfill workspace model overrides")
+				continue
+			}
 			if table == "tenant_api_keys" && column == "personal_scope_mode" {
 				// The only new credential metadata must remain the conservative
 				// fixed default. Compare every pre-existing column unchanged.
@@ -193,7 +199,7 @@ func TestSQLiteEnterpriseMigrationFailureAndSnapshotRecovery(t *testing.T) {
 	)
 	version, dirty, ok = CachedMigrationVersion()
 	require.True(t, ok)
-	require.Equal(t, uint(3048), version)
+	require.Equal(t, uint(3049), version)
 	require.False(t, dirty)
 	require.Empty(t, CachedMigrationError())
 }

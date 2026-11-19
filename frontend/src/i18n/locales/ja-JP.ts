@@ -1,6 +1,7 @@
 import enUS from './en-US'
 
 const messages = {
+  workspaceDefaults: {"title":"ワークスペースの既定モデル","description":"未設定の場合は企業の既定値を継承します。既存の明示的な選択は維持されます。","inherit":"企業の既定値を継承","loadFailed":"読み込みに失敗しました。再試行してください。"},
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: 'ペアリング済みのローカルブラウザーを使用',
   reconnectHint: 'ブラウザー拡張機能を再接続してください',
@@ -7519,6 +7520,7 @@ const messages = {
         outcome: '結果'
       },
       action: {
+        'model.workspace_defaults_changed': 'ワークスペースの既定モデルを変更',
         'rbac.member_added': 'メンバー追加',
         'rbac.member_removed': 'メンバー削除',
         'rbac.member_role_changed': 'ロール変更',

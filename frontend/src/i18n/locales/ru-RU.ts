@@ -2,6 +2,7 @@ import { branding } from '../../config/branding'
 import enUS from './en-US'
 
 const messages = {
+  workspaceDefaults: {"title":"Модели пространства по умолчанию","description":"Пустые поля наследуют настройки организации. Явный выбор существующих ресурсов сохраняется.","inherit":"Наследовать настройки организации","loadFailed":"Ошибка загрузки. Повторите попытку."},
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: 'Использовать сопряжённый локальный браузер',
   reconnectHint: 'Подключите расширение браузера заново',
@@ -272,6 +273,7 @@ const messages = {
         denied: 'Отказ'
       },
       action: {
+        'model.workspace_defaults_changed': 'Модели пространства по умолчанию изменены',
         'rbac.member_added': 'Добавлен участник',
         'rbac.member_removed': 'Удалён участник',
         'rbac.member_role_changed': 'Изменение роли',

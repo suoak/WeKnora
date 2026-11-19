@@ -575,6 +575,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 		),
 	)
 	must(container.Invoke(service.AttachModelUsageAnalytics))
+	must(container.Invoke(service.AttachModelDefaults))
 	must(container.Provide(handler.NewUsageAnalyticsHandler))
 	must(container.Provide(handler.NewKnowledgeBaseHandler))
 	must(container.Provide(handler.NewKnowledgeHandler))

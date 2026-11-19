@@ -232,7 +232,8 @@ type Model struct {
 	// Model parameters in JSON format
 	Parameters ModelParameters `yaml:"parameters"  json:"parameters"  gorm:"type:json"`
 	// Whether the model is the default model
-	IsDefault bool `yaml:"is_default"  json:"is_default"`
+	IsDefault  bool     `yaml:"is_default"  json:"is_default"`
+	DefaultFor []string `json:"default_for,omitempty" gorm:"-"`
 	// Whether the model is a builtin model (visible to all tenants)
 	IsBuiltin bool `yaml:"is_builtin"  json:"is_builtin"  gorm:"default:false"`
 	// ManagedBy identifies which subsystem owns this row's lifecycle.

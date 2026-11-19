@@ -119,7 +119,10 @@ func (r *tenantRepository) SearchTenants(ctx context.Context, keyword string, te
 
 // UpdateTenant updates tenant.
 func (r *tenantRepository) UpdateTenant(ctx context.Context, tenant *types.Tenant) error {
-	return r.db.WithContext(ctx).Model(&types.Tenant{}).Where("id = ?", tenant.ID).Updates(tenant).Error
+	// Model defaults have a dedicated audited CAS path. A stale unrelated
+	// tenant update must never overwrite a newer administrator choice.
+	return r.db.WithContext(ctx).Model(&types.Tenant{}).Where("id = ?", tenant.ID).
+		Omit("DefaultSettings").Updates(tenant).Error
 }
 
 // DeleteTenant soft-deletes the tenant and every active membership row

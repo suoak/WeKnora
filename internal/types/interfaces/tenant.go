@@ -42,6 +42,8 @@ type TenantService interface {
 
 // TenantRepository defines the tenant repository interface
 type TenantRepository interface {
+	// UpdateDefaultSettings changes only this column and writes its audit in the same transaction.
+	UpdateDefaultSettings(ctx context.Context, tenantID uint64, next, previous *types.DefaultSettings) error
 	// CreateTenant creates a tenant
 	CreateTenant(ctx context.Context, tenant *types.Tenant) error
 	// GetTenantByID gets a tenant by ID

@@ -108,6 +108,9 @@ const (
 	// tenant_id=0 because the change is system-scope, not workspace-scoped.
 	AuditActionSystemSettingChanged AuditAction = "system.setting_changed"
 
+	// AuditActionWorkspaceModelDefaultsChanged records an audited workspace model policy CAS.
+	AuditActionWorkspaceModelDefaultsChanged AuditAction = "model.workspace_defaults_changed"
+
 	// AuditActionSystemAdminPromoted fires when a SystemAdmin grants
 	// system-administrator privileges to another user via
 	// POST /api/v1/system/admin/promote. ActorUserID is the promoter,
