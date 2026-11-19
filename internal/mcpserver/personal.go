@@ -437,7 +437,21 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		ids := r.GetStringSlice("knowledge_base_ids", nil)
 		mode := r.GetString("mode", "hybrid")
 		if r.Params.Name == "grep_chunks" {
-			mode = "grep"
+			query := r.GetString("query", "")
+			if len(query) > 4096 {
+				return fail()
+			}
+			pattern, terms := grepPatternAndTerms(strings.TrimSpace(query))
+			if terms == "" {
+				return mcp.NewToolResultError(
+					"the pattern contains no literal text to look up; include a word or identifier",
+				), nil
+			}
+			rows, e := s.knowledge.SearchPattern(ctx, ids, terms, pattern, r.GetInt("limit", 10))
+			if e != nil {
+				return fail()
+			}
+			return personalJSON(ctx, rows)
 		}
 		rows, e := s.knowledge.Search(ctx, ids, r.GetString("query", ""), mode, r.GetInt("limit", 10))
 		if e != nil {
