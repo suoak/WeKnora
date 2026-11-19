@@ -26,6 +26,9 @@ const (
 	Merge
 	Serialize
 	UsageAnalytics
+	WikiSourceProof
+	WikiCandidates
+	WikiOutputProof
 	stageCount
 )
 
@@ -40,7 +43,7 @@ type AdmissionLoad struct {
 
 var names = [stageCount]string{
 	"auth", "resolve", "snapshot", "dimension_sql", "bm25_sql", "vector_sql", "embedding", "merge", "serialize",
-	"usage_analytics",
+	"usage_analytics", "wiki_source_proof", "wiki_candidates", "wiki_output_proof",
 }
 
 // Trace belongs to one HTTP request; no user ID, query, result, or Key is stored.

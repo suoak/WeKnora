@@ -39,21 +39,30 @@ var (
 
 // PersonalWiki shares the five-tool resolver and live grants. It never calls
 // GetIndex/GetIndexView or any create/update/Agent entry point.
-func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query, kb, slug string, limit, offset int, requested ...string) (*PortalWikiResult, error) {
-	if s == nil || s.Wiki == nil || limit < 1 || limit > 200 || offset < 0 || offset > 1000 || len(query) > 4096 || len(slug) > 255 || len(kb) > 512 {
+func (s *PortalMCPKnowledge) PersonalWiki(
+	ctx context.Context,
+	operation, query, kb, slug string,
+	limit, offset int,
+	requested ...string,
+) (*PortalWikiResult, error) {
+	if s == nil || s.Wiki == nil || limit < 1 || limit > 200 || offset < 0 || offset > 1000 || len(query) > 4096 ||
+		len(slug) > 255 ||
+		len(kb) > 512 {
 		return nil, access.ErrForbidden
 	}
 	if operation != "wiki_search" && operation != "wiki_read_page" && operation != "wiki_index" {
 		return nil, access.ErrForbidden
 	}
-	if operation == "wiki_search" && strings.TrimSpace(query) == "" || operation == "wiki_read_page" && slug == "" || operation == "wiki_index" && kb == "" {
+	if operation == "wiki_search" && strings.TrimSpace(query) == "" || operation == "wiki_read_page" && slug == "" ||
+		operation == "wiki_index" && kb == "" {
 		return nil, access.ErrForbidden
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	ctx = repository.WithWikiReadProofSession(ctx)
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
-	if len(requested) > 128 || len(requested) > 0 && operation != "wiki_search" || operation == "wiki_search" && limit > 50 {
+	if len(requested) > 128 || len(requested) > 0 && operation != "wiki_search" ||
+		operation == "wiki_search" && limit > 50 {
 		return nil, access.ErrForbidden
 	}
 	// A single selected Wiki must not authorize every unrelated knowledge base
@@ -86,7 +95,29 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 			return nil, e
 		}
 		types.ObserveMCPKnowledgeBase(ctx, d.ID)
-		pages, partial, err := s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
+		var pages []*types.WikiPage
+		var partial bool
+		var err error
+		if bounded, ok := s.Wiki.(interface {
+			VerifiedPagesWindow(context.Context, uint64, string, []string, string, int) ([]*types.WikiPage, bool, error)
+		}); ok && operation != "wiki_search" {
+			take := min(200, offset+limit+1)
+			exactSlug := ""
+			if operation == "wiki_read_page" {
+				exactSlug = slug
+				take = 1
+			}
+			pages, partial, err = bounded.VerifiedPagesWindow(
+				ctx,
+				d.TenantID,
+				d.ID,
+				target.DocumentIDs(),
+				exactSlug,
+				take,
+			)
+		} else {
+			pages, partial, err = s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
+		}
 		if err != nil {
 			if errors.Is(err, types.ErrLegacySourceRestricted) || errors.Is(err, repository.ErrWikiMCPUnverified) {
 				result.Status = "partial"
@@ -106,7 +137,11 @@ func (s *PortalMCPKnowledge) PersonalWiki(ctx context.Context, operation, query,
 			if operation == "wiki_read_page" && page.Slug != slug {
 				continue
 			}
-			if operation == "wiki_search" && !strings.Contains(strings.ToLower(page.Title+"\n"+page.Summary+"\n"+page.Content), strings.ToLower(query)) {
+			if operation == "wiki_search" &&
+				!strings.Contains(
+					strings.ToLower(page.Title+"\n"+page.Summary+"\n"+page.Content),
+					strings.ToLower(query),
+				) {
 				continue
 			}
 			title, err := access.SanitizePortalText(personalWikiLink.ReplaceAllString(page.Title, ""))
