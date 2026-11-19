@@ -137,6 +137,12 @@ func sqliteEnterpriseRowsDigest(t *testing.T, db *sql.DB, table string) [32]byte
 		require.NoError(t, rows.Scan(pointers...))
 		original := make([]any, 0, len(values))
 		for i, column := range columns {
+			if table == "tenants" && column == "default_settings" {
+				// The additive defaults column must leave historical tenants
+				// inheriting the enterprise policy. Hash every original column.
+				require.Nil(t, values[i], "migration must not backfill workspace model overrides")
+				continue
+			}
 			if table == "tenant_api_keys" && column == "personal_scope_mode" {
 				// The only new credential metadata must remain the conservative
 				// fixed default. Compare every pre-existing column unchanged.
