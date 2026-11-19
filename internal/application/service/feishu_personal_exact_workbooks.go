@@ -283,6 +283,7 @@ func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[strin
 		}
 		decoder := xml.NewDecoder(bytes.NewReader(body))
 		ids := map[string]bool{}
+		var elements []xml.Name
 		for {
 			token, tokenErr := decoder.Token()
 			if tokenErr == io.EOF {
@@ -296,13 +297,31 @@ func exactWorkbookPartsForFormat(data []byte, standalone bool) (result map[strin
 			}
 			start, ok := token.(xml.StartElement)
 			if !ok {
+				if _, end := token.(xml.EndElement); end && len(elements) > 0 {
+					elements = elements[:len(elements)-1]
+				}
 				continue
 			}
+			parent := xml.Name{}
+			if len(elements) > 0 {
+				parent = elements[len(elements)-1]
+			}
+			elements = append(elements, start.Name)
 			// These dependencies carry data that this bounded reader cannot
 			// completely represent. Preserve pending instead of omitting it.
 			switch start.Name.Local {
-			case "formula",
-				"oleObject", "control", "externalReference", "AlternateContent":
+			case "formula":
+				// Saved conditional-format rules are preserved as literal facts;
+				// no formula evaluator or external resolver is invoked.
+				if !standalone || path.Dir(name) != "xl/worksheets" ||
+					start.Name.Space != standaloneMainNS ||
+					parent != (xml.Name{Space: standaloneMainNS, Local: "cfRule"}) ||
+					len(elements) != 4 ||
+					elements[0] != (xml.Name{Space: standaloneMainNS, Local: "worksheet"}) ||
+					elements[1] != (xml.Name{Space: standaloneMainNS, Local: "conditionalFormatting"}) {
+					return nil, errExactWorkbookUnsupported
+				}
+			case "oleObject", "control", "externalReference", "AlternateContent":
 				return nil, errExactWorkbookUnsupported
 			}
 			if start.Name.Local != "Relationship" || !strings.HasSuffix(name, ".rels") {
@@ -413,10 +432,15 @@ func exactWorkbookCellGridForFormat(
 		ref, kind := "", ""
 		seenAttributes := map[xml.Name]bool{}
 		for _, attr := range start.Attr {
-			if standalone && (attr.Name.Space != "" || seenAttributes[attr.Name]) {
+			literalSpace := standalone && attr.Name.Space == "http://www.w3.org/XML/1998/namespace" &&
+				attr.Name.Local == "space" && (attr.Value == "preserve" || attr.Value == "default")
+			if standalone && (attr.Name.Space != "" && !literalSpace || seenAttributes[attr.Name]) {
 				return "", 0, 0, 0, errExactWorkbookUnsupported
 			}
 			seenAttributes[attr.Name] = true
+			if literalSpace {
+				continue // Whitespace policy is local text formatting, not a dependency.
+			}
 			switch attr.Name.Local {
 			case "r":
 				ref = attr.Value
@@ -433,11 +457,12 @@ func exactWorkbookCellGridForFormat(
 		}
 		col, row, err := excelize.CellNameToCoordinates(ref)
 		canonical, canonicalErr := excelize.CoordinatesToCellName(col, row)
-		maxColumns := 64
+		maxColumns, maxCells := 64, 10000
 		if standalone {
 			maxColumns = 256
+			maxCells = maxColumns * 1024
 		}
-		if err != nil || row > 1024 || col > maxColumns || cells[ref] || len(cells) >= 10000 ||
+		if err != nil || row > 1024 || col > maxColumns || cells[ref] || len(cells) >= maxCells ||
 			canonicalErr != nil || canonical != ref ||
 			kind != "" && kind != "s" && kind != "inlineStr" &&
 				kind != "str" && kind != "n" && kind != "b" && (!standalone || kind != "e") {
