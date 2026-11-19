@@ -80,7 +80,8 @@ func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint
 	var ids []int64
 	q := g.db.WithContext(ctx).Table("embeddings AS e").
 		Where("e.knowledge_base_id=?", params.KnowledgeBaseIDs[0]).
-		Where("EXISTS(SELECT 1 FROM knowledge_bases kb WHERE kb.id=e.knowledge_base_id AND kb.tenant_id=? AND kb.deleted_at IS NULL)", tenant)
+		Where("EXISTS(SELECT 1 FROM knowledge_bases kb WHERE kb.id=e.knowledge_base_id "+
+			"AND kb.tenant_id=? AND kb.deleted_at IS NULL)", tenant)
 	if len(params.KnowledgeIDs) > 0 {
 		q = q.Where("e.knowledge_id IN ?", params.KnowledgeIDs)
 	}

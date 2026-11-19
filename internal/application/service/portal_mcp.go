@@ -443,9 +443,9 @@ func (s *PortalMCPKnowledge) search(
 			if e != nil {
 				return nil, e
 			}
-			copy := *chunk
-			copy.Content = text
-			hit := portalHit(t, row, &copy)
+			canonical := *chunk
+			canonical.Content = text
+			hit := portalHit(t, row, &canonical)
 			hit.RankScore = ranked.RankScore
 			result.Results[i] = hit
 		}

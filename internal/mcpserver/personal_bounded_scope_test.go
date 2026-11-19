@@ -111,6 +111,7 @@ type boundedWikiReader struct{}
 func (boundedWikiReader) VerifiedPages(context.Context, uint64, string, []string) ([]*types.WikiPage, bool, error) {
 	return nil, false, nil
 }
+
 func (boundedWikiReader) RevalidatePages(context.Context, uint64, string, []string, []*types.WikiPage) error {
 	return nil
 }

@@ -26,7 +26,8 @@ INSERT INTO knowledges VALUES('doc',1,'kb'),('other',1,'kb'),('foreign',2,'kb');
 INSERT INTO embeddings VALUES(1,'needle alpha','kb','doc',true),(2,repeat('needle ',20),'kb','doc',false),
 (3,'needle','kb','other',true),(4,'needle','kb','foreign',true);
 INSERT INTO embeddings SELECT n,'needle','global','outside',true FROM generate_series(10,1010)n;
-CREATE INDEX portal_lexical_bm25 ON embeddings USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
+CREATE INDEX portal_lexical_bm25 ON embeddings
+USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
 	r := &pgRepository{db: db}
 	params := types.RetrieveParams{KnowledgeBaseIDs: []string{"kb"}, KnowledgeIDs: []string{"doc"}}
 	where, vars, err := r.portalLexicalSearchScope(
@@ -75,8 +76,9 @@ SELECT * FROM lexical WHERE id IN(1,2) ORDER BY id`, "needle").Scan(&baseline).E
 		params,
 	)
 	require.NoError(t, err)
-	require.Equal(t, "{1,2,3,4}", all[1], "this is only a coarse KB corpus; document and tenant authority remains in the outer relation")
-	foreign, _, err := r.portalLexicalSearchScope(context.Background(), 2, "content ||| $1", []interface{}{"needle"}, params)
+	require.Equal(t, "{1,2,3,4}", all[1], "coarse KB corpus; document authority remains in the outer relation")
+	foreign, _, err := r.portalLexicalSearchScope(
+		context.Background(), 2, "content ||| $1", []interface{}{"needle"}, params)
 	require.NoError(t, err)
 	require.Contains(t, foreign, "AND FALSE", "a different tenant cannot select this KB's index identities")
 	params.KnowledgeIDs = []string{"doc' OR 1=1 --"}
