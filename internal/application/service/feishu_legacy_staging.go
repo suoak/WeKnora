@@ -188,6 +188,11 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		if errors.As(err, &fence) {
 			// IDs and a stable reason only: no content, URLs, credentials or nonce.
 			execution, _ := types.SyncExecutionFromContext(ctx)
+			var changed *feishuSnapshotChangedError
+			if errors.As(err, &changed) && changed.dimension != "" {
+				logger.Warnf(ctx, "feishu_snapshot_mismatch dimension=%s tenant_id=%d datasource_id=%s sync_log_id=%s",
+					changed.dimension, ds.TenantID, ds.ID, execution.SyncLogID)
+			}
 			logger.Warnf(
 				ctx,
 				"feishu_version_fence reason=%s tenant_id=%d datasource_id=%s "+

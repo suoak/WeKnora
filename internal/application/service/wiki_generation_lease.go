@@ -34,7 +34,12 @@ func (s *wikiIngestService) withGenerationLease(
 		}
 		return fn(locked, task)
 	}
-	return withWorkerWikiGenerationLease(ctx, s.redisClient, payload.KnowledgeBaseID, run)
+	err := withWorkerWikiGenerationLease(ctx, s.redisClient, payload.KnowledgeBaseID, run)
+	if errors.Is(err, ErrWikiIngestConcurrent) && s.coalesceWikiGenerationWait(ctx, task, payload, time.Now()) {
+		s.releaseFollowUpTask(ctx, payload.KnowledgeBaseID)
+		return nil
+	}
+	return err
 }
 
 // Bound acquisition only. Waiting behind one KB must not occupy every worker

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"maps"
@@ -13,8 +14,9 @@ import (
 // Only the in-process live connector observation can issue a recovery candidate.
 // The error retains the original version fence and never serializes source bytes.
 type feishuSnapshotChangedError struct {
-	cause   error
-	current *types.FetchedItem
+	cause     error
+	current   *types.FetchedItem
+	dimension string
 }
 
 func (e *feishuSnapshotChangedError) Error() string { return e.cause.Error() }
@@ -22,12 +24,36 @@ func (e *feishuSnapshotChangedError) Unwrap() error { return e.cause }
 
 // Both the pre-parse proof and final pre-publication check carry the actual
 // live observation. A bare version fence must never invent a recovery identity.
-func snapshotObservationError(err error, current *types.FetchedItem) error {
+func snapshotObservationError(err error, original, current *types.FetchedItem) error {
 	var fence *repository.LegacyFenceError
 	if errors.As(err, &fence) && fence.Reason == "latest_source_snapshot_changed" {
-		return &feishuSnapshotChangedError{cause: err, current: current}
+		return &feishuSnapshotChangedError{
+			cause: err, current: current,
+			dimension: snapshotMismatchDimension(original, current),
+		}
 	}
 	return err
+}
+
+// Report only the mismatching dimension, never source values or package bytes.
+// A content/export mismatch is not evidence that the author edited the document.
+func snapshotMismatchDimension(original, current *types.FetchedItem) string {
+	switch {
+	case original == nil || current == nil || len(original.Content) == 0 || len(current.Content) == 0:
+		return "incomplete_observation"
+	case original.ExternalID != current.ExternalID || original.IsDeleted || current.IsDeleted:
+		return "source_binding"
+	case !original.UpdatedAt.Equal(current.UpdatedAt):
+		return "revision"
+	case original.Title != current.Title:
+		return "title"
+	case original.FileName != current.FileName:
+		return "export_filename"
+	case !bytes.Equal(original.Content, current.Content):
+		return "content_or_export"
+	default:
+		return "snapshot_metadata"
+	}
 }
 
 func verifyFinalFeishuSnapshot(ctx context.Context, item *types.FetchedItem) error {
@@ -38,7 +64,7 @@ func verifyFinalFeishuSnapshot(ctx context.Context, item *types.FetchedItem) err
 	if err != nil {
 		return err
 	}
-	return snapshotObservationError(repository.MatchLatestFetchedSnapshot(item, fresh), fresh)
+	return snapshotObservationError(repository.MatchLatestFetchedSnapshot(item, fresh), item, fresh)
 }
 
 // recoverFeishuSnapshot retries one document once, with a freshly observed,

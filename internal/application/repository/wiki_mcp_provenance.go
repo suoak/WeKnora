@@ -55,6 +55,16 @@ func WikiMCPGenerationTenant(ctx context.Context) (uint64, bool) {
 	return p.Tenant, true
 }
 
+// WikiModelCheckpointScope identifies the server-verified generation inputs.
+// It is a cache namespace, never a substitute for read or publication guards.
+func WikiModelCheckpointScope(ctx context.Context) (uint64, string, string, bool) {
+	p, ok := ctx.Value(wikiGenerationProofKey{}).(*wikiGenerationProof)
+	if !ok || p == nil || p.Tenant == 0 || p.KB == "" || len(p.DependencySHA256) != 64 || len(p.Sources) == 0 {
+		return 0, "", "", false
+	}
+	return p.Tenant, p.KB, p.DependencySHA256, true
+}
+
 func readWikiMCPEpoch(db *gorm.DB, kb string) (wikiMCPEpoch, error) {
 	var e wikiMCPEpoch
 	err := db.Table("wiki_mcp_kb_epochs").Where("knowledge_base_id=?", kb).Take(&e).Error

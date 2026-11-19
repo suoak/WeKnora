@@ -36,7 +36,7 @@ func (s *knowledgeService) beginLegacySourceIdentity(
 	}
 	proof, err := baseline.ProveCurrent(item, fresh)
 	if err != nil {
-		return nil, nil, snapshotObservationError(err, fresh)
+		return nil, nil, snapshotObservationError(err, item, fresh)
 	}
 	var identity *types.FeishuLegacySourceIdentity
 	if legacyDOCXExport(item) {
