@@ -132,4 +132,33 @@ class RecoveryClientTests(unittest.TestCase):
                 Path(self.args.recovery_status_file).write_text(json.dumps(changed))
                 self.assertRaises(ValueError,r.approve,self.envelope,self.args)
 
+    def test_dedicated_canary_requires_its_own_frozen_lane(self):
+        self.args.operation='canary'
+        self.args.recovery_status_file=str(self.root/'dedicated-status.json')
+        self.envelope['plan']['queue_name']='approved_sync'
+        self.envelope['plan_sha256']=r.digest(self.envelope['plan'])
+        fresh='bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb'
+        status=dict(trip_latched=False,sync_paused=False,approved_sync_paused=True,
+            recovery_queue='approved_sync',permit_ready=True,state=dict(phase='frozen',
+            plan_sha256=self.envelope['plan_sha256'],source_id=self.args.source,
+            runtime_sha=self.args.runtime_sha,worker_id='fixture:1',incarnation=fresh))
+        Path(self.args.recovery_status_file).write_text(json.dumps(status))
+        with patch.object(r,'restricted_read',return_value=self.private):
+            self.assertEqual(r.approve(self.envelope,self.args)['incarnation'],fresh)
+            for key,value in [('approved_sync_paused',False),('recovery_queue','sync'),('trip_latched',True)]:
+                changed=dict(status);changed[key]=value
+                Path(self.args.recovery_status_file).write_text(json.dumps(changed))
+                self.assertRaises(ValueError,r.approve,self.envelope,self.args)
+
+    def test_prepare_uses_explicit_incident_post_and_leaves_approval_separate(self):
+        output=self.root/'prepared-plan.json'
+        args=['prepare','--source',self.args.source,'--namespace',self.args.namespace,
+            '--trip',self.args.trip,'--incident',self.args.incident,'--runtime-sha',self.args.runtime_sha,
+            '--base-url',self.args.base_url,'--session-token-file',self.args.session_token_file,'--output',str(output)]
+        with patch.object(r,'request',return_value=self.envelope) as request, patch.object(r,'approve',side_effect=AssertionError('no implicit approval')):
+            r.main(args)
+        self.assertEqual(request.call_args.args[1:],("prepare",dict(incident_id=self.args.incident,
+            runtime_sha=self.args.runtime_sha,trip=self.args.trip)))
+        self.assertEqual(json.loads(output.read_text()),self.envelope)
+
 if __name__=='__main__':unittest.main()
