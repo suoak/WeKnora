@@ -48,6 +48,25 @@ func TestContentUsageOriginalCause(t *testing.T) {
 	}
 }
 
+func TestPersonalWikiRegexUsageInvalidArguments(t *testing.T) {
+	for _, tool := range []string{"wiki_search", "wiki_read_page", "wiki_index"} {
+		t.Run(tool, func(t *testing.T) {
+			sink := &captureUsage{}
+			s := &PersonalServer{}
+			req := mcp.CallToolRequest{}
+			req.Params.Name = tool
+			req.Params.Arguments = map[string]any{"regex": true}
+			result, err := observeTool(sink, "go_personal", s.call)(context.Background(), req)
+			require.NoError(t, err)
+			require.True(t, result.IsError)
+			require.Equal(t, "Personal wiki_search supports bounded literal text; regex is not available", result.Content[0].(mcp.TextContent).Text)
+			require.Len(t, sink.reports, 1)
+			require.False(t, sink.reports[0].Success)
+			require.Equal(t, "invalid_arguments", sink.reports[0].ErrorCode)
+		})
+	}
+}
+
 func TestPersonalLargeUsageBodyReplayAndLimit(t *testing.T) {
 	for _, size := range []int{1<<20 + 1, 8 << 20, 12 << 20, 12<<20 + 1} {
 		prefix := `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +

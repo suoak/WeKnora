@@ -414,7 +414,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		return personalJSON(ctx, map[string]any{"total": len(rows), "chunks": rows[offset:end]})
 	case "wiki_search", "wiki_read_page", "wiki_index":
 		if _, present := r.GetArguments()["regex"]; present && r.GetBool("regex", false) {
-			return mcp.NewToolResultError(
+			return usageFailure(ctx, "invalid_arguments",
 				"Personal wiki_search supports bounded literal text; regex is not available",
 			), nil
 		}
