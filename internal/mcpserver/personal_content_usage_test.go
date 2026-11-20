@@ -53,7 +53,7 @@ func TestPersonalLargeUsageBodyReplayAndLimit(t *testing.T) {
 		body := prefix + strings.Repeat("A", size-len(prefix)-len(suffix)) + suffix
 		sink := &captureUsage{}
 		called := false
-		h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
 			called = true
 			// The downstream parser must receive every byte exactly once.
 			var b strings.Builder
