@@ -25,7 +25,8 @@ func TestContentUsageOriginalCause(t *testing.T) {
 		{service.ErrPersonalUpload, "invalid_arguments"},
 		{service.ErrPersonalContentConflict, "invalid_arguments"},
 		{errors.New("database connection failed"), "execution_error"},
-		{context.DeadlineExceeded, "timeout"}, {context.Canceled, "canceled"},
+		{context.DeadlineExceeded, "timeout"},
+		{context.Canceled, "canceled"},
 	} {
 		t.Run(tc.code, func(t *testing.T) {
 			sink := &captureUsage{}

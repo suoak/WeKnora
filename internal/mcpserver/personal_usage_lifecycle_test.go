@@ -32,6 +32,7 @@ func (s *lifecycleUsage) Begin(_ context.Context, r types.MCPUsageReport) error 
 	}
 	return nil
 }
+
 func (s *lifecycleUsage) Record(ctx context.Context, r types.MCPUsageReport) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

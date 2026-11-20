@@ -22,15 +22,19 @@ type contentFixture struct {
 func (f contentFixture) ListWritable(context.Context) ([]service.WritableKnowledgeBase, error) {
 	return []service.WritableKnowledgeBase{{ID: "kb"}}, f.cause
 }
+
 func (f contentFixture) ResolveContentSelector(context.Context, string) (string, error) {
 	return "kb", nil
 }
+
 func (f contentFixture) row() (*types.Knowledge, error) {
 	return &types.Knowledge{ID: "doc", KnowledgeBaseID: "kb", ParseStatus: f.status}, f.cause
 }
+
 func (f contentFixture) Add(context.Context, service.PersonalContentRequest) (*types.Knowledge, error) {
 	return f.row()
 }
+
 func (f contentFixture) Upload(context.Context, service.PersonalUploadRequest) (*types.Knowledge, error) {
 	return f.row()
 }
@@ -43,10 +47,12 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 			cause error
 			code  string
 		}{
-			{"success", nil, ""}, {"permission", access.ErrForbidden, "permission_denied"},
+			{"success", nil, ""},
+			{"permission", access.ErrForbidden, "permission_denied"},
 			{"database", errors.New("database failed"), "execution_error"},
 			{"arguments", service.ErrPersonalContentArguments, "invalid_arguments"},
-			{"timeout", context.DeadlineExceeded, "timeout"}, {"cancel", context.Canceled, "canceled"},
+			{"timeout", context.DeadlineExceeded, "timeout"},
+			{"cancel", context.Canceled, "canceled"},
 		} {
 			t.Run(name+"/"+tc.label, func(t *testing.T) {
 				sink := &captureUsage{}

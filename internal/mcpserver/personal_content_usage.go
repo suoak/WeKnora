@@ -9,8 +9,10 @@ import (
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
-type contentUsageErrorKey struct{}
-type contentUsageError struct{ code string }
+type (
+	contentUsageErrorKey struct{}
+	contentUsageError    struct{ code string }
+)
 
 // Classify the original cause without retaining sensitive business error text.
 func contentFailure(ctx context.Context, cause error, message string) *mcp.CallToolResult {

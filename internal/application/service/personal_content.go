@@ -18,6 +18,7 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrPersonalContentArguments reports rejected content admission arguments.
 var ErrPersonalContentArguments = errors.New("invalid personal content arguments")
 
 // ErrPersonalContentConflict reports an idempotency key reused with another payload.
