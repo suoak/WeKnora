@@ -30,8 +30,11 @@ func syncAccessHoldP0(t *testing.T, dialect string) {
 		for _, access := range []string{"active", "unmanaged", "hold", "revoked"} {
 			ds := &types.DataSource{
 				ID: uuid.NewString(), TenantID: 1, Type: types.ConnectorTypeFeishuDrive,
-				KnowledgeBaseID: "kb",
-				Status:          status, LegacyAccessState: access, Config: types.JSON(`{}`), SyncSchedule: "0 0 0 * * *",
+				KnowledgeBaseID:   "kb",
+				Status:            status,
+				LegacyAccessState: access,
+				Config:            types.JSON(`{}`),
+				SyncSchedule:      "0 0 0 * * *",
 			}
 			require.NoError(t, sources.Create(ctx, ds))
 			if status != types.DataSourceStatusPaused && (access == "active" || access == "unmanaged") {
