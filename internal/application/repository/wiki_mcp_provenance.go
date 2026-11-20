@@ -8,6 +8,7 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
@@ -590,6 +591,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 	authorized []string,
 	read []*types.WikiPage,
 ) error {
+	defer perftrace.Measure(ctx, perftrace.WikiOutputProof)()
 	if len(read) > 200 {
 		return ErrWikiMCPUnverified
 	}
@@ -643,6 +645,18 @@ func (s *PersonalWikiStore) VerifiedPages(
 	kb string,
 	authorized []string,
 ) ([]*types.WikiPage, bool, error) {
+	return s.VerifiedPagesWindow(ctx, tenant, kb, authorized, "", 200)
+}
+
+// VerifiedPagesWindow limits verified output work, never the source closure.
+// Exact page reads select their slug before the bounded candidate scan.
+func (s *PersonalWikiStore) VerifiedPagesWindow(
+	ctx context.Context, tenant uint64, kb string, authorized []string, slug string, limit int,
+) ([]*types.WikiPage, bool, error) {
+	defer perftrace.Measure(ctx, perftrace.WikiCandidates)()
+	if limit < 1 || limit > 200 || len(slug) > 255 {
+		return nil, false, ErrWikiMCPUnverified
+	}
 	allowed := map[string]bool{}
 	for _, id := range authorized {
 		allowed[id] = true
@@ -652,8 +666,12 @@ func (s *PersonalWikiStore) VerifiedPages(
 	e := s.DB.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var e error
 		var total int64
-		if e = tx.Model(&types.WikiPage{}).Where("tenant_id=? AND knowledge_base_id=? AND status=?",
-			tenant, kb, types.WikiPageStatusPublished).Count(&total).Error; e != nil {
+		countQuery := tx.Model(&types.WikiPage{}).Where("tenant_id=? AND knowledge_base_id=? AND status=?",
+			tenant, kb, types.WikiPageStatusPublished)
+		if slug != "" {
+			countQuery = countQuery.Where("slug=?", slug)
+		}
+		if e = countQuery.Count(&total).Error; e != nil {
 			return e
 		}
 		var pages []*types.WikiPage
@@ -661,6 +679,9 @@ func (s *PersonalWikiStore) VerifiedPages(
 		if types.LocalSourceContentRead(ctx) || WikiDocumentSelectionForKB(kb) {
 			pageQuery = tx.Session(&gorm.Session{SkipHooks: true}).
 				Table("wiki_pages AS page_validation_inputs")
+		}
+		if slug != "" {
+			pageQuery = pageQuery.Where("slug=?", slug)
 		}
 		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
 			"length(content)<=262144 AND length(title)<=4096 AND "+
@@ -738,6 +759,9 @@ func (s *PersonalWikiStore) VerifiedPages(
 				return e
 			}
 			result = append(result, page)
+			if len(result) >= limit {
+				break
+			}
 		}
 		return nil
 	})

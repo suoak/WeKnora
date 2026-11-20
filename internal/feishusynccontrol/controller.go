@@ -342,7 +342,15 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 		paused = c.Client.SetNX(ctx, "asynq:{sync}:paused", "feishu_safety_stop", 0).Err()
 	}
 	failures = append(failures, paused)
-	approvedPaused := c.Client.SetNX(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
+	// Dedicated normal workers enforce the live outbound permit per request.
+	// A permanent queue pause adds an independent recovery barrier and blocks
+	// unrelated source jobs. Keep queue state owned by operators/deployments.
+	var approvedPaused error
+	if !c.Config.DedicatedSyncLane {
+		approvedPaused = c.Client.SetNX(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err()
+	} else {
+		approvedPaused = c.retireDedicatedAutomaticPause(ctx)
+	}
 	failures = append(failures, approvedPaused)
 	CancelLocal()
 	fenced := c.Stop(ctx)
@@ -350,7 +358,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	event := Event{
 		StepID: c.timings.ID, Incarnation: c.incarnation,
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
-		Fenced: fenced == nil, QueuePaused: paused == nil && approvedPaused == nil,
+		Fenced: fenced == nil, QueuePaused: !c.Config.DedicatedSyncLane && paused == nil && approvedPaused == nil,
 		ProbeStage: failedStage, ElapsedMS: elapsedMS,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
@@ -360,7 +368,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 			Approx: true, Values: map[string]any{
 				"event": event.Kind, "reason": event.Reason,
 				"worker_id": event.WorkerID, "fenced": event.Fenced, "queue_paused": event.QueuePaused,
-				"approved_queue_paused": approvedPaused == nil,
+				"approved_queue_paused": !c.Config.DedicatedSyncLane && approvedPaused == nil,
 				"shared_queue_targeted": !c.Config.DedicatedSyncLane,
 				"probe_stage":           event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 				"step_id": event.StepID, "incarnation": event.Incarnation,
@@ -374,6 +382,25 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 		}
 	}
 	return errors.Join(append(failures, ErrNotReady)...)
+}
+
+// Retire only controller-owned legacy queue barriers. The outbound permit,
+// emergency latch and source execution fences remain independent and closed.
+func (c *Controller) retireDedicatedAutomaticPause(ctx context.Context) error {
+	return c.Client.Eval(ctx, `
+local marker=redis.call('GET',KEYS[1])
+if marker~='feishu_safety_stop' and marker~='invalid_feishu_safety_configuration' then return 0 end
+local incident=redis.call('GET',KEYS[3])
+if incident then
+ local ok,state=pcall(cjson.decode,incident)
+ if not ok then return redis.error_reply('RECOVERY_STATE_UNAVAILABLE') end
+ if state.queue_name=='approved_sync' and state.queue_released~=true then return 0 end
+end
+redis.call('XADD',KEYS[2],'MAXLEN','~',1000,'*','event','dedicated_automatic_pause_retired',
+ 'reason',marker,'worker_id',ARGV[1])
+return redis.call('DEL',KEYS[1])`, []string{
+		"asynq:{approved_sync}:paused", c.prefix + "control_audit", c.prefix + "recovery",
+	}, c.Config.WorkerID).Err()
 }
 
 // EmergencyStop is independent of all model/provider code. It cannot resume or

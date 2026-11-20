@@ -23,7 +23,7 @@ func TestDedicatedFeishuStopDoesNotPauseSharedSync(t *testing.T) {
 			require.Error(t, c.EmergencyStop(ctx))
 			require.Equal(t, marker, f.client.Get(ctx, "asynq:{sync}:paused").Val())
 			require.Equal(t, []string{"gitlab-job"}, f.client.LRange(ctx, "asynq:{sync}:pending", 0, -1).Val())
-			require.Equal(t, "feishu_safety_stop", f.client.Get(ctx, "asynq:{approved_sync}:paused").Val())
+			require.Zero(t, f.client.Exists(ctx, "asynq:{approved_sync}:paused").Val())
 			require.EqualValues(t, 1, f.client.Exists(ctx, c.prefix+"trip").Val())
 			require.Equal(t, 1, f.stops)
 		})
@@ -119,4 +119,73 @@ func TestSharedPauseRecoveryRequiresDurableAuditBeforeOpening(t *testing.T) {
 	require.NoError(t, f.r.Set(ctx, f.c.prefix+"control_audit", "unavailable_stream", 0).Err())
 	require.Error(t, f.m.resumeNormalQueueAfterHealth(ctx))
 	require.Equal(t, "feishu_safety_stop", f.r.Get(ctx, "asynq:{sync}:paused").Val())
+}
+
+func TestDedicatedFeishuStopPreservesOperatorQueuePause(t *testing.T) {
+	f := newControlFixture(t)
+	f.config.DedicatedSyncLane = true
+	c := f.controller(t, "worker-a", f.config.Scope)
+	ctx := context.Background()
+	require.NoError(t, f.client.Set(ctx, "asynq:{approved_sync}:paused", "operator_maintenance", 0).Err())
+	require.Error(t, c.EmergencyStop(ctx))
+	require.Equal(t, "operator_maintenance", f.client.Get(ctx, "asynq:{approved_sync}:paused").Val())
+	require.Error(t, c.Guard.Check(ctx), "queue policy must not reopen an emergency outbound permit")
+}
+
+func TestDedicatedFeishuStopRetiresOnlyAutomaticPause(t *testing.T) {
+	for _, marker := range []string{
+		"feishu_safety_stop", "invalid_feishu_safety_configuration", "operator_maintenance", "1",
+	} {
+		t.Run(marker, func(t *testing.T) {
+			f := newControlFixture(t)
+			f.config.DedicatedSyncLane = true
+			c := f.controller(t, "worker-a", f.config.Scope)
+			ctx := context.Background()
+			require.NoError(t, f.client.Set(ctx, "asynq:{approved_sync}:paused", marker, 0).Err())
+			require.NoError(t, f.client.RPush(ctx, "asynq:{approved_sync}:pending", "existing-job").Err())
+			require.Error(t, c.EmergencyStop(ctx))
+			if marker == "feishu_safety_stop" || marker == "invalid_feishu_safety_configuration" {
+				require.Zero(t, f.client.Exists(ctx, "asynq:{approved_sync}:paused").Val())
+			} else {
+				require.Equal(t, marker, f.client.Get(ctx, "asynq:{approved_sync}:paused").Val())
+			}
+			require.Equal(
+				t,
+				[]string{"existing-job"},
+				f.client.LRange(ctx, "asynq:{approved_sync}:pending", 0, -1).Val(),
+			)
+			require.Error(t, c.Guard.Check(ctx))
+			require.NotEmpty(t, f.events)
+			require.False(t, f.events[len(f.events)-1].QueuePaused)
+		})
+	}
+}
+
+func TestDedicatedFeishuPauseRetirementRequiresAudit(t *testing.T) {
+	f := newControlFixture(t)
+	f.config.DedicatedSyncLane = true
+	c := f.controller(t, "worker-a", f.config.Scope)
+	ctx := context.Background()
+	require.NoError(t, f.client.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err())
+	require.NoError(t, f.client.Set(ctx, c.prefix+"control_audit", "audit-unavailable", 0).Err())
+	require.Error(t, c.EmergencyStop(ctx))
+	require.Equal(t, "feishu_safety_stop", f.client.Get(ctx, "asynq:{approved_sync}:paused").Val())
+	require.Error(t, c.Guard.Check(ctx))
+}
+
+func TestDedicatedFeishuPauseRetirementPreservesActiveRecovery(t *testing.T) {
+	for _, state := range []string{
+		`{"queue_name":"approved_sync","queue_released":false,"phase":"frozen"}`,
+		`invalid-recovery-state`,
+	} {
+		f := newControlFixture(t)
+		f.config.DedicatedSyncLane = true
+		c := f.controller(t, "worker-a", f.config.Scope)
+		ctx := context.Background()
+		require.NoError(t, f.client.Set(ctx, "asynq:{approved_sync}:paused", "feishu_safety_stop", 0).Err())
+		require.NoError(t, f.client.Set(ctx, c.prefix+"recovery", state, 0).Err())
+		require.Error(t, c.EmergencyStop(ctx))
+		require.Equal(t, "feishu_safety_stop", f.client.Get(ctx, "asynq:{approved_sync}:paused").Val())
+		require.Error(t, c.Guard.Check(ctx))
+	}
 }

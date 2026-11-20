@@ -7,6 +7,8 @@ import (
 	"os"
 	"strings"
 
+	"github.com/Tencent/WeKnora/internal/perftrace"
+
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
@@ -59,6 +61,7 @@ type wikiLocalPublishedReadKey struct{}
 // Read a page against the complete inputs recorded by its producer, rather
 // than against unrelated current documents. Citations cannot reduce this set.
 func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGenerationProof, error) {
+	defer perftrace.Measure(db.Statement.Context, perftrace.WikiSourceProof)()
 	local := types.LocalSourceContentRead(db.Statement.Context)
 	if !local && !WikiDocumentSelectionForKB(kb) {
 		return wikiReadDependencies(db, kb)

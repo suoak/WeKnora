@@ -427,6 +427,10 @@ FOR EACH ROW EXECUTE FUNCTION parent_fail();`,
 	guardDB := types.EnableLegacyReadGuards(db.Session(&gorm.Session{NewDB: true}))
 	require.ErrorIs(t, types.CheckLegacySourceRead(guardDB, r.KnowledgeID, kb.ID), types.ErrLegacySourceRestricted)
 	t.Run("historical-document-enrollment-cannot-release-source-quarantine", func(t *testing.T) {
+		// RestrictSource quarantines only the affected document, so explicitly
+		// establish the source-wide hold that this enrollment regression checks.
+		require.NoError(t, db.Model(ds).UpdateColumn("legacy_access_state", "hold").Error)
+		ds.LegacyAccessState = "hold"
 		metadata, err := json.Marshal(map[string]string{
 			"datasource_id": ds.ID, "external_id": "historical-without-manifest",
 		})
