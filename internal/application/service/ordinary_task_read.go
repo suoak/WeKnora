@@ -47,7 +47,8 @@ func (s *FeishuPersonalService) ordinaryTaskReadContext(
 		var row ordinaryTaskSource
 		err := db.Table("knowledges").Select(
 			`id,tenant_id,knowledge_base_id,channel,type,source,file_path,metadata,
-COALESCE((SELECT MAX(attempt) FROM knowledge_processing_spans s WHERE s.knowledge_id=knowledges.id),0) AS latest_attempt`,
+COALESCE((SELECT MAX(attempt) FROM knowledge_processing_spans s
+WHERE s.knowledge_id=knowledges.id),0) AS latest_attempt`,
 		).Where("id=? AND tenant_id=? AND knowledge_base_id=? AND deleted_at IS NULL",
 			binding.KnowledgeID, binding.TenantID, binding.KnowledgeBaseID).Scan(&row).Error
 		return row, err
