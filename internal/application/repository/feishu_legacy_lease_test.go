@@ -2,8 +2,12 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"path/filepath"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -51,6 +55,30 @@ func TestFeishuLegacyLeaseRenewPostgres(t *testing.T) {
 	}
 	resource, owner, err := store.Begin(ctx, ds, item, LegacySourceHash(item.Content, item.FileName, item.Title))
 	require.NoError(t, err)
+	// Large private checkpoints must stay intact on disk but must not be fetched
+	// into the application for a lease renewal, including concurrent renewals.
+	payload, err := json.Marshal(map[string]string{"private": strings.Repeat("x", 1<<20)})
+	require.NoError(t, err)
+	require.NoError(t, db.Model(owner).Updates(map[string]any{
+		"manifest": json.RawMessage(payload), "receipt": json.RawMessage(payload),
+	}).Error)
+	type leaseQueryKey struct{}
+	ctx = context.WithValue(ctx, leaseQueryKey{}, true)
+	var metadataReads atomic.Int32
+	callback := "test:lease_without_private_payload"
+	require.NoError(t, db.Callback().Query().After("gorm:query").Register(callback, func(query *gorm.DB) {
+		if query.Statement.Context.Value(leaseQueryKey{}) != true ||
+			query.Statement.Table != "feishu_legacy_attempts" {
+			return
+		}
+		a, ok := query.Statement.Dest.(*types.FeishuLegacyAttempt)
+		if !ok || len(a.Manifest) != 0 || len(a.Receipt) != 0 {
+			query.AddError(errors.New("lease query fetched private checkpoint payload"))
+			return
+		}
+		metadataReads.Add(1)
+	}))
+	t.Cleanup(func() { require.NoError(t, db.Callback().Query().Remove(callback)) })
 	load := func() types.FeishuLegacyAttempt {
 		var a types.FeishuLegacyAttempt
 		require.NoError(t, db.First(&a, "id=?", owner.ID).Error)
@@ -60,6 +88,7 @@ func TestFeishuLegacyLeaseRenewPostgres(t *testing.T) {
 	require.NoError(t, db.First(&resourceBefore, "id=?", resource.ID).Error)
 	before := load()
 	require.NoError(t, store.Renew(ctx, ds, owner))
+	require.EqualValues(t, 1, metadataReads.Load())
 	after := load()
 	require.False(t, after.LeaseUntil.Before(before.LeaseUntil))
 	after.LeaseUntil = before.LeaseUntil
@@ -79,17 +108,23 @@ func TestFeishuLegacyLeaseRenewPostgres(t *testing.T) {
 	for err := range results {
 		require.NoError(t, err)
 	}
+	require.EqualValues(t, 9, metadataReads.Load())
 	// Reproduce a long operation crossing a real PostgreSQL deadline without
 	// waiting twenty minutes. Cached client lease values cannot override DB time.
 	require.NoError(t, db.Model(owner).UpdateColumn("lease_until",
 		gorm.Expr("clock_timestamp()+interval '1 second'")).Error)
 	time.Sleep(1100 * time.Millisecond)
-	require.ErrorIs(t, store.CheckOwner(ctx, ds, owner), ErrLegacyVersionFence)
+	require.ErrorIs(
+		t,
+		store.CheckOwner(context.WithValue(ctx, leaseQueryKey{}, false), ds, owner),
+		ErrLegacyVersionFence,
+	)
 	require.NoError(t, db.Model(owner).UpdateColumn("lease_until",
 		gorm.Expr("clock_timestamp()+interval '1 second'")).Error)
 	require.NoError(t, store.Renew(ctx, ds, owner))
 	time.Sleep(1100 * time.Millisecond)
-	require.NoError(t, store.CheckOwner(ctx, ds, owner), "live fenced progress extends the deadline")
+	require.NoError(t, store.CheckOwner(context.WithValue(ctx, leaseQueryKey{}, false), ds, owner),
+		"live fenced progress extends the deadline")
 	for _, kind := range []string{"nonce", "generation", "claim", "paused", "revoked", "expired", "canceled"} {
 		t.Run(kind, func(t *testing.T) {
 			require.NoError(t, db.Model(ds).UpdateColumn("status", "active").Error)
