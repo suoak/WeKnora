@@ -149,14 +149,34 @@ func (r *taskPendingOpsRepository) SeedKnowledgeFinalizingWithPendingOp(
 
 	promoted := false
 	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		ordinary, err := types.CheckOrdinaryTaskKBConfiguration(tx, op.ScopeID)
+		if err != nil {
+			return err
+		}
 		query := tx.Model(&types.KnowledgeBase{}).
 			Select("id").
 			Where("id = ? AND tenant_id = ?", op.ScopeID, op.TenantID)
+		if ordinary {
+			if err := types.CheckLegacySourceRead(tx, knowledgeID, op.ScopeID); err != nil {
+				return err
+			}
+			// Lock parent existence only. A document-bound upload task has no
+			// permission to read the KB body or a protected sibling's content.
+			query = tx.Table("knowledge_bases").Select("id").
+				Where("id=? AND tenant_id=? AND deleted_at IS NULL", op.ScopeID, op.TenantID)
+		}
 		if tx.Dialector.Name() == "postgres" {
 			query = query.Clauses(clause.Locking{Strength: "SHARE"})
 		}
-		var kb types.KnowledgeBase
-		if err := query.Take(&kb).Error; err != nil {
+		var parentErr error
+		if ordinary {
+			var parent struct{ ID string }
+			parentErr = query.Take(&parent).Error
+		} else {
+			var parent types.KnowledgeBase
+			parentErr = query.Take(&parent).Error
+		}
+		if err := parentErr; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return nil
 			}

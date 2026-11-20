@@ -8,10 +8,59 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
+
+func TestOrdinaryTaskFinalizingHandoffDoesNotReadProtectedParentBody(t *testing.T) {
+	db, service, original := ordinaryTaskReadFixture(t)
+	require.NoError(t, db.Exec("UPDATE knowledges SET parse_status='processing' WHERE id='upload'").Error)
+	seeder := repository.NewTaskPendingOpsRepository(db).(interfaces.TaskPendingOpsFinalizingSeeder)
+	newOp := func() *types.TaskPendingOp {
+		return &types.TaskPendingOp{
+			TenantID: 99, TaskType: types.TypeWikiIngest,
+			Scope: types.TaskScopeKnowledgeBase, ScopeID: "public-kb", Op: "ingest", DedupKey: "upload",
+		}
+	}
+	base := types.WithLegacyReadScope(context.Background())
+	promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(base, "upload", 1, newOp())
+	require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+	require.False(t, promoted)
+	task := asynq.NewTask(types.TypeKnowledgePostProcess, original.Payload())
+	err = service.WrapPrivateTaskHandler(func(ctx context.Context, _ *asynq.Task) error {
+		promoted, err := seeder.SeedKnowledgeFinalizingWithPendingOp(ctx, "held-source", 1, newOp())
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted, "parent metadata scope cannot target a sibling")
+		require.False(t, promoted)
+		promoted, err = seeder.SeedKnowledgeFinalizingWithPendingOp(ctx, "upload", 1, newOp())
+		require.NoError(t, err)
+		require.True(t, promoted)
+		promoted, err = seeder.SeedKnowledgeFinalizingWithPendingOp(ctx, "upload", 1, newOp())
+		require.NoError(t, err)
+		require.False(t, promoted, "duplicate delivery cannot allocate another slot")
+		var parent types.KnowledgeBase
+		require.ErrorIs(t, db.WithContext(ctx).First(&parent, "id=?", "public-kb").Error,
+			types.ErrLegacySourceRestricted)
+		_, err = repository.NewKnowledgeRepository(db).GetKnowledgeByID(ctx, 99, "held-source")
+		require.ErrorIs(t, err, types.ErrLegacySourceRestricted)
+		return nil
+	})(base, task)
+	require.NoError(t, err)
+	var row struct {
+		ParseStatus          string
+		PendingSubtasksCount int
+	}
+	require.NoError(
+		t,
+		db.Raw("SELECT parse_status,pending_subtasks_count FROM knowledges WHERE id='upload'").Scan(&row).Error,
+	)
+	require.Equal(t, types.ParseStatusFinalizing, row.ParseStatus)
+	require.Equal(t, 1, row.PendingSubtasksCount)
+	var count int64
+	require.NoError(t, db.Table("task_pending_ops").Where("dedup_key='upload'").Count(&count).Error)
+	require.EqualValues(t, 1, count)
+}
 
 func ordinaryTaskReadFixture(t *testing.T) (*gorm.DB, *FeishuPersonalService, *asynq.Task) {
 	t.Helper()
