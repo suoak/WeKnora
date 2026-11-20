@@ -13,6 +13,7 @@ type RecoveryPrepareRequest struct {
 	Trip       string `json:"trip"`
 }
 
+// Prepare freezes the observed, drained dedicated lane without issuing authority.
 func (m *RecoveryManager) Prepare(
 	ctx context.Context, source, actor string, expected RecoveryPrepareRequest,
 ) (RecoveryPlan, error) {

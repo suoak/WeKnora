@@ -477,9 +477,9 @@ func (c *Client) doRequestBytesLoop(
 			if requestErr != nil {
 				logger.Warnf(ctx,
 					"[Feishu] API response read failed operation=%s status=%d "+
-						"received_bytes=%d content_length=%d elapsed_ms=%d",
+						"received_bytes=%d content_length=%d elapsed_ms=%d transport=%s",
 					operation, resp.StatusCode, counted.bytes, resp.ContentLength,
-					time.Since(readStarted).Milliseconds())
+					time.Since(readStarted).Milliseconds(), TransportErrorCategory(requestErr))
 				if ctxErr := ctx.Err(); ctxErr != nil {
 					return nil, ctxErr
 				}

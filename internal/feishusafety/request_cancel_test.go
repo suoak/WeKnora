@@ -314,7 +314,7 @@ func TestSafetyCallerCancellationRealHTTP(t *testing.T) {
 	}
 }
 
-func TestSafetyTruncatedRealHTTPStillTrips(t *testing.T) {
+func TestSafetyTruncatedRealHTTPRejectsOnlyFailedResponse(t *testing.T) {
 	g, client := fixture(t, Config{})
 	InstallDefault(g)
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -337,11 +337,78 @@ func TestSafetyTruncatedRealHTTPStillTrips(t *testing.T) {
 	if !errors.Is(err, io.ErrUnexpectedEOF) {
 		t.Fatalf("truncated body was accepted: %v", err)
 	}
-	if got := client.Get(context.Background(), g.key("trip")).Val(); got != "feishu_response_unexpected_eof" {
-		t.Fatalf("truncation did not preserve its closed diagnostic: %q", got)
+	if client.Exists(context.Background(), g.key("trip")).Val() != 0 || g.Check(context.Background()) != nil {
+		t.Fatal("failed source response disabled independent sources")
 	}
-	if g.Check(context.Background()) == nil {
-		t.Fatal("truncated response left outbound enabled")
+}
+
+type failedSourceBody struct {
+	before func()
+	cause  error
+}
+
+type sourceFailureRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f sourceFailureRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
+}
+
+func (b failedSourceBody) Read(p []byte) (int, error) {
+	if b.before != nil {
+		b.before()
+	}
+	return copy(p, "discard"), b.cause
+}
+
+func (failedSourceBody) Close() error { return nil }
+
+func TestSafetySourceBodyFailureRequiresHealthyFenceAndPreservesBudgets(t *testing.T) {
+	for _, fault := range []string{"healthy", "permit_lost", "redis_unavailable"} {
+		t.Run(fault, func(t *testing.T) {
+			g, client := fixture(t, Config{})
+			InstallDefault(g)
+			cause := errors.New("opaque upstream response read failure")
+			body := failedSourceBody{cause: cause, before: func() {
+				switch fault {
+				case "permit_lost":
+					if err := client.Del(context.Background(), g.PermitKey()).Err(); err != nil {
+						t.Fatal(err)
+					}
+				case "redis_unavailable":
+					_ = client.Close()
+				}
+			}}
+			transport := Transport{
+				BackgroundModel: true,
+				Base: sourceFailureRoundTripper(func(*http.Request) (*http.Response, error) {
+					return &http.Response{StatusCode: 200, Header: make(http.Header), Body: body}, nil
+				}),
+			}
+			req, err := http.NewRequestWithContext(WithScope(context.Background(), "source-a"),
+				http.MethodGet, "https://source.invalid/file", nil)
+			if err != nil {
+				t.Fatal(err)
+			}
+			resp, err := transport.RoundTrip(req)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = io.ReadAll(resp.Body)
+			_ = resp.Body.Close()
+			if !errors.Is(err, cause) {
+				t.Fatalf("source response failure was hidden: %v", err)
+			}
+			if fault == "healthy" {
+				if g.Check(WithScope(context.Background(), "source-b")) != nil ||
+					client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
+					client.HLen(context.Background(), g.key("inflight")).Val() != 0 ||
+					client.ZCard(context.Background(), g.key("window")).Val() != 1 {
+					t.Fatal("failed response stopped siblings, retained a slot or refunded its request budget")
+				}
+			} else if !g.localClosed.Load() {
+				t.Fatal("unconfirmed runtime remained open after the failed response")
+			}
+		})
 	}
 }
 

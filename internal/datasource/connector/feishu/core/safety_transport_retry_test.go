@@ -16,6 +16,28 @@ import (
 )
 
 func TestSourceHeaderDisconnectUsesExistingBoundedRetry(t *testing.T) {
+	sourceFailureUsesExistingBoundedRetry(t, nil)
+}
+
+func TestSourceBodyFailureUsesExistingBoundedRetry(t *testing.T) {
+	for _, cause := range []error{io.ErrUnexpectedEOF, errors.New("http2: stream error")} {
+		t.Run(TransportErrorCategory(cause), func(t *testing.T) {
+			sourceFailureUsesExistingBoundedRetry(t, cause)
+		})
+	}
+}
+
+type failedSourceResponse struct{ cause error }
+
+func (r failedSourceResponse) Read(p []byte) (int, error) {
+	// Even apparently valid JSON is not accepted if its transport did not finish.
+	return copy(p, `{"code":0}`), r.cause
+}
+
+func (failedSourceResponse) Close() error { return nil }
+
+func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error) {
+	t.Helper()
 	for _, recoverAfterFirst := range []bool{false, true} {
 		t.Run(map[bool]string{false: "exhausted", true: "recovered"}[recoverAfterFirst], func(t *testing.T) {
 			store := miniredis.RunT(t)
@@ -49,6 +71,12 @@ func TestSourceHeaderDisconnectUsesExistingBoundedRetry(t *testing.T) {
 				Base: roundTripFunc(func(*http.Request) (*http.Response, error) {
 					attempts++
 					if !recoverAfterFirst || attempts == 1 {
+						if bodyFailure != nil {
+							return &http.Response{
+								StatusCode: 200, Header: make(http.Header),
+								Body: failedSourceResponse{cause: bodyFailure},
+							}, nil
+						}
 						return nil, io.EOF
 					}
 					return &http.Response{

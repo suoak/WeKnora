@@ -385,6 +385,19 @@ func embeddingHeaderTimeoutIsLocal(caller context.Context, g *Guard, err error) 
 	return g.checkRuntime(check, true) == nil
 }
 
+// The source response has failed and its body/slot has already been drained.
+// No bytes are accepted here. A healthy exact runtime fence allows the original
+// read error to reach the connector's existing bounded retry policy without
+// stopping unrelated sources. Missing permits/accounting remain fail-closed.
+func sourceBodyFailureIsLocal(caller context.Context, g *Guard) bool {
+	if g == nil || g.localClosed.Load() {
+		return false
+	}
+	check, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
+	defer cancel()
+	return g.checkRuntime(check, true) == nil
+}
+
 type guardedBody struct {
 	io.ReadCloser
 	finish    func()
@@ -407,6 +420,9 @@ func (b *guardedBody) Read(p []byte) (int, error) {
 	if err != nil {
 		b.finish()
 		if err != io.EOF {
+			if !b.embedding && sourceBodyFailureIsLocal(b.caller, b.guard) {
+				return n, err
+			}
 			tripRequestFailure(b.caller, b.guard, err, b.embedding, "response")
 		}
 	}
