@@ -23,6 +23,7 @@ func TestPersonalFileValidation(t *testing.T) {
 		ok   bool
 	}{
 		{"note.txt", []byte("plain UTF-8 knowledge"), true},
+		{"maximum.txt", bytes.Repeat([]byte("a"), PersonalUploadMaxBytes), true},
 		{"note.md", []byte("# knowledge"), true},
 		{"note.pdf", []byte("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\n%%EOF"), true},
 		{"../note.txt", []byte("text"), false},

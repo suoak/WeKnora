@@ -1,8 +1,12 @@
 package mcpserver
 
 import (
+	"bytes"
 	"context"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -94,4 +98,45 @@ func TestPersonalProcessingFailureIsSuccessfulStatusRead(t *testing.T) {
 	require.NoError(t, err)
 	require.False(t, result.IsError)
 	require.Empty(t, usageError(context.Background(), result, nil))
+}
+
+func TestPersonalEightMiBUploadObserved(t *testing.T) {
+	sink := &captureUsage{}
+	s := ConfigurePersonalContentServer(
+		NewPersonalServer(true, &service.PortalMCPKnowledge{}), &service.PersonalContent{},
+	)
+	s.content = contentFixture{status: "processing"}
+	s.SetUsageRecorder(sink)
+	data := bytes.Repeat([]byte("a"), service.PersonalUploadMaxBytes)
+	body, err := json.Marshal(map[string]any{
+		"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+		"params": map[string]any{"name": "upload_document", "arguments": map[string]any{
+			"knowledge_base_id": "kb", "filename": "maximum.txt",
+			"content_base64": base64.StdEncoding.EncodeToString(data), "idempotency_key": "maximum-1",
+		}},
+	})
+	require.NoError(t, err)
+	require.Greater(t, len(body), 8<<20)
+	require.Less(t, len(body), 12<<20)
+	ctx := types.WithPrincipal(context.Background(), types.Principal{Type: types.PrincipalWebUser, ID: "owner"})
+	ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{Capabilities: types.StringArray{"add_content"}})
+	r := httptest.NewRequest("POST", personalPath, bytes.NewReader(body)).WithContext(ctx)
+	r.Header.Set("Content-Type", "application/json")
+	r.Header.Set("Accept", "application/json, text/event-stream")
+	w := httptest.NewRecorder()
+	s.Handler().ServeHTTP(w, r)
+	require.Equal(t, 200, w.Code)
+	var response struct {
+		Result struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"result"`
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
+	require.NotEmpty(t, response.Result.Content)
+	require.Contains(t, response.Result.Content[0].Text, `"status":"processing"`)
+	require.Len(t, sink.reports, 1)
+	require.True(t, sink.reports[0].Success)
+	require.Equal(t, "upload_document", sink.reports[0].ToolName)
 }
