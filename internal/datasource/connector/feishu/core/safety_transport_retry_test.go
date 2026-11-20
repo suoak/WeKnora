@@ -86,7 +86,7 @@ func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error, rang
 						headers.Set("Content-Range", "bytes 0-8/9")
 						headers.Set("ETag", `"stable-source"`)
 					}
-					var body io.ReadCloser = io.NopCloser(strings.NewReader(payload))
+					body := io.NopCloser(strings.NewReader(payload))
 					if !recoverAfterFirst || attempts == 1 {
 						if bodyFailure != nil {
 							body = failedSourceResponse{cause: bodyFailure, data: payload}
