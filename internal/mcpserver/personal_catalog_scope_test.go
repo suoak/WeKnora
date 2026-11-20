@@ -60,7 +60,7 @@ func catalogScopeFixture() (*PersonalServer, *catalogScopeStore, *catalogScopeDi
 	return s, store, directory, ctx
 }
 
-func catalogScopeRequest(handler http.Handler, ctx context.Context, path string) *httptest.ResponseRecorder {
+func catalogScopeRequest(ctx context.Context, handler http.Handler, path string) *httptest.ResponseRecorder {
 	body := `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +
 		`"params":{"name":"list_knowledge_bases","arguments":{}}}`
 	r := httptest.NewRequest("POST", path, bytes.NewBufferString(body)).WithContext(ctx)
@@ -86,12 +86,13 @@ func TestPersonalCatalogUsesOneResolutionWithLiveFences(t *testing.T) {
 				handler = s.IsolatedHandler()
 				path = isolatedPersonalPath
 			}
-			w := catalogScopeRequest(handler, ctx, path)
+			w := catalogScopeRequest(ctx, handler, path)
 			require.Equal(t, 200, w.Code)
 			require.Contains(t, w.Body.String(), "catalog-selected")
 			require.EqualValues(t, 1, directory.calls.Load(),
 				"one HTTP invocation must not enumerate the same scope three times")
-			require.EqualValues(t, 4, store.loads.Load(), "admission plus live pre-execution and final fences must remain")
+			require.EqualValues(t, 4, store.loads.Load(),
+				"admission plus live pre-execution and final fences must remain")
 			require.Len(t, sink.reports, 1)
 			require.True(t, sink.reports[0].Success)
 		})
@@ -118,10 +119,11 @@ func TestPersonalCatalogDiscardsRevokedOrChangedOutput(t *testing.T) {
 						store.held = true
 					}
 				}
-				w := catalogScopeRequest(s.Handler(), ctx, personalPath)
+				w := catalogScopeRequest(ctx, s.Handler(), personalPath)
 				if mutation == "version" && phase == 3 {
 					require.Contains(t, w.Body.String(), "catalog-selected", "fresh versions remain readable")
-					require.EqualValues(t, 2, directory.calls.Load(), "changed admission facts require fresh resolution")
+					require.EqualValues(t, 2, directory.calls.Load(),
+						"changed admission facts require fresh resolution")
 					return
 				}
 				require.NotContains(t, w.Body.String(), "catalog-selected")
@@ -148,7 +150,7 @@ func TestPersonalCatalogConcurrentScopesDoNotMixKeys(t *testing.T) {
 				KeyID: id, ScopeType: types.APIKeyScopeUserMCP, Capabilities: types.StringArray{"retrieve"},
 				KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{kb},
 			})
-			w := catalogScopeRequest(s.Handler(), requestCtx, personalPath)
+			w := catalogScopeRequest(requestCtx, s.Handler(), personalPath)
 			if w.Code != 200 || bytes.Contains(w.Body.Bytes(), []byte("catalog-selected")) != allowed {
 				failures.Add(1)
 			}
@@ -163,7 +165,7 @@ func BenchmarkPersonalCatalogHTTPResolution(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if w := catalogScopeRequest(s.Handler(), ctx, personalPath); w.Code != 200 {
+		if w := catalogScopeRequest(ctx, s.Handler(), personalPath); w.Code != 200 {
 			b.Fatal(w.Code)
 		}
 	}
