@@ -66,6 +66,7 @@ func TestSyncServicePostgres(t *testing.T) { syncServiceSuite(t, "postgres") }
 
 func syncServiceSuite(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
+	syncdb.LiveParent(t, db, 1, "kb")
 	dsRepo := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)
 	makeSvc := func() (*DataSourceService, *types.DataSource, *syncExecutionQueue, *syncExecutionConnector) {

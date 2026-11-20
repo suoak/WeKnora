@@ -74,3 +74,11 @@ func Open(t *testing.T, dialect string) *gorm.DB {
 	require.NoError(t, db.AutoMigrate(&types.DataSource{}, &types.SyncLog{}))
 	return db
 }
+
+// LiveParent supplies the tenant and KB required by real scheduler eligibility.
+func LiveParent(t *testing.T, db *gorm.DB, tenant uint64, kb string) {
+	t.Helper()
+	require.NoError(t, db.AutoMigrate(&types.Tenant{}, &types.KnowledgeBase{}))
+	require.NoError(t, db.Create(&types.Tenant{ID: tenant, Name: "scheduler fixture", Status: "active"}).Error)
+	require.NoError(t, db.Create(&types.KnowledgeBase{ID: kb, TenantID: tenant, Name: "scheduler fixture"}).Error)
+}

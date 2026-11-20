@@ -20,6 +20,7 @@ func syncAccessHoldP0(t *testing.T, dialect string) {
 	t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", "false")
 	t.Setenv("FEISHU_LEGACY_SYNC_ALLOWED_SOURCE_IDS", "all")
 	db := syncdb.Open(t, dialect)
+	syncdb.LiveParent(t, db, 1, "kb")
 	ctx := context.Background()
 	sources, logs := repository.NewDataSourceRepository(db), repository.NewSyncLogRepository(db)
 	var initiallyActive []*types.DataSource
@@ -29,7 +30,8 @@ func syncAccessHoldP0(t *testing.T, dialect string) {
 		for _, access := range []string{"active", "unmanaged", "hold", "revoked"} {
 			ds := &types.DataSource{
 				ID: uuid.NewString(), TenantID: 1, Type: types.ConnectorTypeFeishuDrive,
-				Status: status, LegacyAccessState: access, Config: types.JSON(`{}`), SyncSchedule: "0 0 0 * * *",
+				KnowledgeBaseID: "kb",
+				Status:          status, LegacyAccessState: access, Config: types.JSON(`{}`), SyncSchedule: "0 0 0 * * *",
 			}
 			require.NoError(t, sources.Create(ctx, ds))
 			if status != types.DataSourceStatusPaused && (access == "active" || access == "unmanaged") {
