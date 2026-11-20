@@ -33,6 +33,7 @@ func (s *FeishuPersonalService) WrapPrivateTaskHandler(
 }
 
 type privateTaskBinding struct {
+	Attempt           int    `json:"attempt,omitempty"`
 	TenantID          uint64 `json:"tenant_id"`
 	KnowledgeBaseID   string `json:"knowledge_base_id"`
 	KBID              string `json:"kb_id"`
@@ -98,8 +99,11 @@ func (s *FeishuPersonalService) privateTaskContext(ctx context.Context, task *as
 		binding.KnowledgeBaseID = row.KnowledgeBaseID
 	}
 	owner, err := types.PrivateKBOwner(s.db.WithContext(ctx), binding.KnowledgeBaseID)
-	if err != nil || owner == "" {
+	if err != nil {
 		return ctx, err
+	}
+	if owner == "" {
+		return s.ordinaryTaskReadContext(ctx, binding)
 	}
 	if user, ok := types.UserIDFromContext(ctx); ok && user != owner {
 		return ctx, errors.Join(access.ErrForbidden, asynq.SkipRetry)

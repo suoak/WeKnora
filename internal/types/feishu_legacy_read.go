@@ -144,6 +144,9 @@ func CheckLegacySourceRead(db *gorm.DB, knowledgeID, kbID string) error {
 	if scoped, err := CheckWikiVerifiedRead(db, knowledgeID, kbID, nil); scoped {
 		return err
 	}
+	if scoped, err := checkOrdinaryTaskDocumentRead(db, knowledgeID, kbID); scoped {
+		return err
+	}
 	if LocalSourceContentRead(db.Statement.Context) {
 		var alive bool
 		if err := db.Raw(`SELECT EXISTS(SELECT 1 FROM knowledge_bases k

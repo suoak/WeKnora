@@ -109,20 +109,22 @@ func TestFeishuLegacyLeaseRenewPostgres(t *testing.T) {
 		require.NoError(t, err)
 	}
 	require.EqualValues(t, 9, metadataReads.Load())
-	// Reproduce a long operation crossing a real PostgreSQL deadline without
-	// waiting twenty minutes. Cached client lease values cannot override DB time.
+	// Use database time without a one-second scheduling race: a slow fsync or
+	// a busy test worker must not expire the positive-renewal fixture itself.
+	// Cached client lease values still cannot override a deadline in the past.
 	require.NoError(t, db.Model(owner).UpdateColumn("lease_until",
-		gorm.Expr("clock_timestamp()+interval '1 second'")).Error)
-	time.Sleep(1100 * time.Millisecond)
+		gorm.Expr("clock_timestamp()-interval '1 second'")).Error)
 	require.ErrorIs(
 		t,
 		store.CheckOwner(context.WithValue(ctx, leaseQueryKey{}, false), ds, owner),
 		ErrLegacyVersionFence,
 	)
 	require.NoError(t, db.Model(owner).UpdateColumn("lease_until",
-		gorm.Expr("clock_timestamp()+interval '1 second'")).Error)
+		gorm.Expr("clock_timestamp()+interval '1 minute'")).Error)
+	beforeRenewal := load()
 	require.NoError(t, store.Renew(ctx, ds, owner))
-	time.Sleep(1100 * time.Millisecond)
+	require.True(t, load().LeaseUntil.After(beforeRenewal.LeaseUntil.Add(18*time.Minute)),
+		"renewal extends the database deadline rather than trusting a cached client lease")
 	require.NoError(t, store.CheckOwner(context.WithValue(ctx, leaseQueryKey{}, false), ds, owner),
 		"live fenced progress extends the deadline")
 	for _, kind := range []string{"nonce", "generation", "claim", "paused", "revoked", "expired", "canceled"} {
