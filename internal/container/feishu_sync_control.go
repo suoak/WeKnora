@@ -40,12 +40,9 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		}
 		stopCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
-		if rdb != nil {
-			queue := types.QueueSync
-			if types.ApprovedSyncLaneEnabled() {
-				queue = types.QueueApprovedSync
-			}
-			_ = rdb.SetNX(stopCtx, "asynq:{"+queue+"}:paused", "invalid_feishu_safety_configuration", 0).Err()
+		if rdb != nil && !types.ApprovedSyncLaneEnabled() {
+			_ = rdb.SetNX(stopCtx, "asynq:{"+types.QueueSync+"}:paused",
+				"invalid_feishu_safety_configuration", 0).Err()
 		}
 		feishusynccontrol.CancelLocal()
 		if _, err := repository.FenceLegacySyncExecutions(stopCtx, db); err != nil {
