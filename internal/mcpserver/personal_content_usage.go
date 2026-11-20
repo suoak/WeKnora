@@ -32,6 +32,11 @@ func contentFailure(ctx context.Context, cause error, message string) *mcp.CallT
 		errors.Is(cause, service.ErrPersonalContentArguments):
 		code = "invalid_arguments"
 	}
+	return usageFailure(ctx, code, message)
+}
+
+// Attach a controlled accounting category without changing the public result.
+func usageFailure(ctx context.Context, code, message string) *mcp.CallToolResult {
 	if state, ok := ctx.Value(contentUsageErrorKey{}).(*contentUsageError); ok {
 		state.code = code
 	}
