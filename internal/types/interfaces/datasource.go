@@ -7,6 +7,12 @@ import (
 	"github.com/hibiken/asynq"
 )
 
+// ScheduledSyncCandidateRepository pages only live, automatically enabled
+// sources. Rows contain scheduling metadata, never connector credentials.
+type ScheduledSyncCandidateRepository interface {
+	ScheduledSyncCandidates(context.Context, string, int) ([]*types.DataSource, error)
+}
+
 // DataSourceDocumentReparseService submits exact-document requests through controlled source publication.
 type DataSourceDocumentReparseService interface {
 	RequestDocumentReparse(context.Context, string, string, *types.KnowledgeProcessOverrides) (
