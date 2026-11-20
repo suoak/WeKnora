@@ -343,6 +343,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		} else {
 			resp.Body = &guardedBody{
 				ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding,
+				sourceHTTP: !t.Embedding && !t.BackgroundModel,
 			}
 		}
 		return resp, nil
@@ -360,6 +361,7 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 	}
 	resp.Body = &guardedBody{
 		ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding,
+		sourceHTTP: !t.Embedding && !t.BackgroundModel,
 	}
 	return resp, nil
 }
@@ -400,11 +402,12 @@ func sourceBodyFailureIsLocal(caller context.Context, g *Guard) bool {
 
 type guardedBody struct {
 	io.ReadCloser
-	finish    func()
-	guard     *Guard
-	caller    context.Context
-	execution context.Context
-	embedding bool
+	finish     func()
+	guard      *Guard
+	caller     context.Context
+	execution  context.Context
+	embedding  bool
+	sourceHTTP bool
 }
 
 func (b *guardedBody) Read(p []byte) (int, error) {
@@ -420,7 +423,7 @@ func (b *guardedBody) Read(p []byte) (int, error) {
 	if err != nil {
 		b.finish()
 		if err != io.EOF {
-			if !b.embedding && sourceBodyFailureIsLocal(b.caller, b.guard) {
+			if b.sourceHTTP && sourceBodyFailureIsLocal(b.caller, b.guard) {
 				return n, err
 			}
 			tripRequestFailure(b.caller, b.guard, err, b.embedding, "response")

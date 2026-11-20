@@ -16,27 +16,34 @@ import (
 )
 
 func TestSourceHeaderDisconnectUsesExistingBoundedRetry(t *testing.T) {
-	sourceFailureUsesExistingBoundedRetry(t, nil)
+	sourceFailureUsesExistingBoundedRetry(t, nil, false)
 }
 
 func TestSourceBodyFailureUsesExistingBoundedRetry(t *testing.T) {
 	for _, cause := range []error{io.ErrUnexpectedEOF, errors.New("http2: stream error")} {
 		t.Run(TransportErrorCategory(cause), func(t *testing.T) {
-			sourceFailureUsesExistingBoundedRetry(t, cause)
+			sourceFailureUsesExistingBoundedRetry(t, cause, false)
 		})
 	}
 }
 
-type failedSourceResponse struct{ cause error }
+type failedSourceResponse struct {
+	cause error
+	data  string
+}
 
 func (r failedSourceResponse) Read(p []byte) (int, error) {
 	// Even apparently valid JSON is not accepted if its transport did not finish.
-	return copy(p, `{"code":0}`), r.cause
+	return copy(p, r.data), r.cause
 }
 
 func (failedSourceResponse) Close() error { return nil }
 
-func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error) {
+func TestSourceRangeBodyFailureRetriesWholePartWithoutPartialSuccess(t *testing.T) {
+	sourceFailureUsesExistingBoundedRetry(t, errors.New("http2: stream error"), true)
+}
+
+func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error, rangeDownload bool) {
 	t.Helper()
 	for _, recoverAfterFirst := range []bool{false, true} {
 		t.Run(map[bool]string{false: "exhausted", true: "recovered"}[recoverAfterFirst], func(t *testing.T) {
@@ -68,21 +75,30 @@ func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error) {
 			client := fastRetryClient(cfg, 2)
 			attempts := 0
 			client.httpClient.Transport = feishusafety.Transport{
-				Base: roundTripFunc(func(*http.Request) (*http.Response, error) {
+				Base: roundTripFunc(func(req *http.Request) (*http.Response, error) {
 					attempts++
+					status, payload, headers := http.StatusOK, `{"code":0}`, make(http.Header)
+					if rangeDownload {
+						if req.Header.Get("Range") != "bytes=0-1023" {
+							t.Fatal("failed part advanced the verified download offset")
+						}
+						status, payload = http.StatusPartialContent, "full-file"
+						headers.Set("Content-Range", "bytes 0-8/9")
+						headers.Set("ETag", `"stable-source"`)
+					}
+					var body io.ReadCloser = io.NopCloser(strings.NewReader(payload))
 					if !recoverAfterFirst || attempts == 1 {
 						if bodyFailure != nil {
-							return &http.Response{
-								StatusCode: 200, Header: make(http.Header),
-								Body: failedSourceResponse{cause: bodyFailure},
-							}, nil
+							body = failedSourceResponse{cause: bodyFailure, data: payload}
+						} else {
+							return nil, io.EOF
 						}
-						return nil, io.EOF
 					}
 					return &http.Response{
-						StatusCode: 200,
-						Header:     make(http.Header),
-						Body:       io.NopCloser(strings.NewReader(`{"code":0}`)),
+						StatusCode:    status,
+						Header:        headers,
+						Body:          body,
+						ContentLength: int64(len(payload)),
 					}, nil
 				}),
 			}
@@ -90,7 +106,15 @@ func sourceFailureUsesExistingBoundedRetry(t *testing.T, bodyFailure error) {
 				feishusafety.WithScope(context.Background(), "synthetic-source"),
 				func(context.Context) (string, error) { return "synthetic-personal-token", nil },
 			)
-			err = client.DoRequest(ctx, http.MethodGet, "/metadata", nil, nil)
+			if rangeDownload {
+				var data []byte
+				data, err = client.downloadExportRanges(ctx, "/file", 1024)
+				if (recoverAfterFirst && string(data) != "full-file") || (!recoverAfterFirst && data != nil) {
+					t.Fatal("incomplete or duplicate bytes escaped the bounded download")
+				}
+			} else {
+				err = client.DoRequest(ctx, http.MethodGet, "/metadata", nil, nil)
+			}
 			if recoverAfterFirst {
 				if err != nil || attempts != 2 {
 					t.Fatalf("recover: attempts=%d error=%v", attempts, err)

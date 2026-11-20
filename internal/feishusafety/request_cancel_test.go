@@ -379,7 +379,6 @@ func TestSafetySourceBodyFailureRequiresHealthyFenceAndPreservesBudgets(t *testi
 				}
 			}}
 			transport := Transport{
-				BackgroundModel: true,
 				Base: sourceFailureRoundTripper(func(*http.Request) (*http.Response, error) {
 					return &http.Response{StatusCode: 200, Header: make(http.Header), Body: body}, nil
 				}),
@@ -402,13 +401,42 @@ func TestSafetySourceBodyFailureRequiresHealthyFenceAndPreservesBudgets(t *testi
 				if g.Check(WithScope(context.Background(), "source-b")) != nil ||
 					client.Exists(context.Background(), g.key("trip")).Val() != 0 ||
 					client.HLen(context.Background(), g.key("inflight")).Val() != 0 ||
-					client.ZCard(context.Background(), g.key("window")).Val() != 1 {
+					client.ZCard(context.Background(), g.key("window")).Val() != 0 {
 					t.Fatal("failed response stopped siblings, retained a slot or refunded its request budget")
 				}
 			} else if !g.localClosed.Load() {
 				t.Fatal("unconfirmed runtime remained open after the failed response")
 			}
 		})
+	}
+}
+
+func TestSafetyBackgroundModelBodyFailureKeepsIndependentClosedPolicy(t *testing.T) {
+	g, client := fixture(t, Config{})
+	InstallDefault(g)
+	cause := errors.New("opaque model response failure")
+	transport := Transport{
+		BackgroundModel: true,
+		Base: sourceFailureRoundTripper(func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: 200, Header: make(http.Header), Body: failedSourceBody{cause: cause}}, nil
+		}),
+	}
+	req, err := http.NewRequestWithContext(WithScope(context.Background(), "source"),
+		http.MethodPost, "https://gateway.invalid/chat", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp, err := transport.RoundTrip(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = io.ReadAll(resp.Body)
+	_ = resp.Body.Close()
+	if !errors.Is(err, cause) || !g.localClosed.Load() ||
+		client.Get(context.Background(), g.key("trip")).Val() != "feishu_response_io_failure" ||
+		client.ZCard(context.Background(), g.key("window")).Val() != 1 ||
+		client.HLen(context.Background(), g.key("inflight")).Val() != 0 {
+		t.Fatal("source retry changed model failure policy or refunded its charged request")
 	}
 }
 
