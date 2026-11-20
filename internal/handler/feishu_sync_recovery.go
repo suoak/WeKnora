@@ -30,6 +30,31 @@ func (h *DataSourceHandler) recoveryActor(c *gin.Context) (*feishusynccontrol.Re
 	return m, actor, true
 }
 
+// FeishuRecoveryPrepare freezes only the observed stopped lane for signed review.
+func (h *DataSourceHandler) FeishuRecoveryPrepare(c *gin.Context) {
+	m, actor, ok := h.recoveryActor(c)
+	if !ok {
+		return
+	}
+	var expected feishusynccontrol.RecoveryPrepareRequest
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 4096)
+	if c.ShouldBindJSON(&expected) != nil {
+		c.JSON(400, gin.H{"error": "invalid_recovery_preparation"})
+		return
+	}
+	p, err := m.Prepare(c.Request.Context(), c.Param("id"), actor, expected)
+	if err != nil {
+		c.JSON(http.StatusConflict, gin.H{"error": "recovery_precondition_rejected"})
+		return
+	}
+	hash, err := feishusynccontrol.RecoveryDigest(p)
+	if err != nil {
+		c.JSON(500, gin.H{"error": "recovery_plan_failed"})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"plan": p, "plan_sha256": hash})
+}
+
 // FeishuRecoveryPlan creates a read-only incident plan for an authorized operator.
 func (h *DataSourceHandler) FeishuRecoveryPlan(c *gin.Context) {
 	m, actor, ok := h.recoveryActor(c)

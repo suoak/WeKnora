@@ -248,7 +248,8 @@ func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) erro
 	}
 	c := m.controller
 	paused, err := c.Client.Get(ctx, "asynq:{approved_sync}:paused").Result()
-	if errors.Is(err, redis.Nil) || (err == nil && paused != "feishu_safety_stop") {
+	if errors.Is(err, redis.Nil) ||
+		(err == nil && paused != "feishu_safety_stop" && paused != dedicatedRecoveryPause) {
 		return nil
 	}
 	if err != nil {
@@ -268,7 +269,7 @@ func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) erro
 	return c.Client.Eval(ctx, `
 if redis.call('EXISTS',KEYS[1])~=0 or redis.call('GET',KEYS[2])~=ARGV[1] or
  redis.call('PTTL',KEYS[2])<=0 or redis.call('GET',KEYS[3])~=ARGV[2] or
- redis.call('GET',KEYS[4])~=ARGV[3] or redis.call('GET',KEYS[5])~='feishu_safety_stop'
+ redis.call('GET',KEYS[4])~=ARGV[3] or redis.call('GET',KEYS[5])~=ARGV[5]
  then return redis.error_reply('NORMAL_SERVICE_NOT_READY') end
 redis.call('DEL',KEYS[5])
 local incident=cjson.decode(ARGV[3])
@@ -282,7 +283,7 @@ return 1`, []string{
 		c.prefix + "trip", c.Guard.PermitKey(), c.prefix + "normal_service",
 		c.prefix + "recovery", "asynq:{approved_sync}:paused", c.prefix + "control_audit",
 	},
-		c.Guard.Fingerprint(), string(normal), raw, record.Authorization.ID).Err()
+		c.Guard.Fingerprint(), string(normal), raw, record.Authorization.ID, paused).Err()
 }
 
 // ActivateNormalService persists and publishes an independently signed service authorization.

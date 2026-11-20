@@ -340,6 +340,7 @@ func RegisterDataSourceRoutes(
 		ds.GET("/:id/documents/:knowledge_id/reparse", g.Viewer(),
 			handler.SourceWriteAccess, handler.SourceDocumentReparseStatus)
 		ds.GET("/:id/safety-recovery/plan", g.Admin(), handler.FeishuRecoveryPlan)
+		ds.POST("/:id/safety-recovery/prepare", g.Admin(), handler.FeishuRecoveryPrepare)
 		ds.GET("/:id/safety-recovery/status", g.Admin(), handler.FeishuRecoveryStatus)
 		ds.POST("/:id/safety-recovery/execute", g.Admin(), handler.FeishuRecoveryExecute)
 		ds.POST("/:id/safety-recovery/continuity/:operation", g.Admin(), handler.FeishuContinuity)

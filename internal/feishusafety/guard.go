@@ -223,6 +223,12 @@ func (g *Guard) tripUsingEvidence(
 	client redis.UniversalClient,
 	reason, evidence string,
 ) error {
+	return g.tripUsingDetails(ctx, client, reason, evidence, "")
+}
+
+func (g *Guard) tripUsingDetails(
+	ctx context.Context, client redis.UniversalClient, reason, evidence, admissionCode string,
+) error {
 	g.localClosed.Store(true)
 	if client == nil {
 		return ErrClosed
@@ -238,12 +244,13 @@ func (g *Guard) tripUsingEvidence(
 local first=redis.call('SET',KEYS[1],ARGV[1],'NX')
 redis.call('DEL',KEYS[2])
 if first then
- redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1],'http_evidence',ARGV[2])
+ redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1],
+  'http_evidence',ARGV[2],'admission_code',ARGV[3])
 end
 return 1`).
 		// Stop must not depend on an EVALSHA/NOSCRIPT round trip. A stalled
 		// cache probe could exhaust the deadline before the latch was written.
-		Eval(ctx, client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason, evidence).
+		Eval(ctx, client, []string{g.key("trip"), g.PermitKey(), g.key("audit")}, reason, evidence, admissionCode).
 		Err()
 }
 

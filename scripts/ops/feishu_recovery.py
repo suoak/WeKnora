@@ -1,6 +1,7 @@
 """Incident-bound Feishu operations client. Never connects to Redis directly.
 
-plan/status are read-only. approve is an OFFLINE approver operation, requiring
+plan/status are read-only. prepare freezes only an already stopped, drained
+dedicated queue for the specified incident. approve is an OFFLINE approver operation, requiring
 an explicit reviewed evidence manifest and an independent restricted key file.
 execute requires a separately issued approval; it never signs one implicitly.
 There is deliberately no global resume, namespace switch or automatic retry.
@@ -122,7 +123,10 @@ def approve(envelope, args):
             raise ValueError("canary needs the post-reset runtime status, not a pre-signed approval")
         status=json.loads(Path(args.recovery_status_file).read_text(encoding="utf-8"))
         state=status.get("state",{})
-        if (status.get("trip_latched") is not False or status.get("sync_paused") is not True or
+        queue = plan.get("queue_name") or "sync"
+        paused = (status.get("approved_sync_paused") if queue == "approved_sync" else status.get("sync_paused"))
+        if (status.get("trip_latched") is not False or paused is not True or
+            (queue == "approved_sync" and status.get("recovery_queue") != queue) or
             status.get("permit_ready") is not True or state.get("phase")!="frozen" or
             state.get("plan_sha256")!=digest(plan) or state.get("source_id")!=args.source or
             state.get("runtime_sha")!=args.runtime_sha or state.get("worker_id")!=plan["worker_id"]):
@@ -169,7 +173,7 @@ def request(args, operation, body=None):
 
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("action", choices=["plan", "status", "approve", "execute"])
+    parser.add_argument("action", choices=["prepare", "plan", "status", "approve", "execute"])
     parser.add_argument("--source", required=True)
     parser.add_argument("--namespace", required=True)
     parser.add_argument("--trip", required=True)
@@ -190,18 +194,19 @@ def main(argv=None):
     args = parser.parse_args(argv)
     if not re.fullmatch(r"[a-f0-9]{40}", args.runtime_sha):
         parser.error("exact runtime commit SHA required")
-    if args.action in ("plan", "status", "execute") and not all([args.base_url, args.session_token_file]):
+    if args.action in ("prepare", "plan", "status", "execute") and not all([args.base_url, args.session_token_file]):
         parser.error("API operations require base URL and restricted session file")
     if args.action in ("approve", "execute") and not args.plan_file:
         parser.error("a saved incident plan is required")
-    if args.action == "plan" and not args.output:
+    if args.action in ("prepare", "plan") and not args.output:
         parser.error("plan requires a new output file")
     if args.action == "execute" and not args.approval_file:
         parser.error("execute requires independent approval file")
-    if args.action == "plan":
-        result = request(args, "plan"); validate_plan(result, args)
+    if args.action in ("prepare", "plan"):
+        body = {"incident_id": args.incident, "runtime_sha": args.runtime_sha, "trip": args.trip} if args.action == "prepare" else None
+        result = request(args, args.action, body); validate_plan(result, args)
         write_new(args.output, result)
-        print(json.dumps({"plan_sha256": result["plan_sha256"], "production_writes": False}))
+        print(json.dumps({"plan_sha256": result["plan_sha256"], "production_writes": args.action == "prepare"}))
     elif args.action == "status":
         result=request(args,"status")
         if args.output:write_new(args.output,result)

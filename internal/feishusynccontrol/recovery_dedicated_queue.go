@@ -11,6 +11,11 @@ import (
 
 const dedicatedRecoveryMaxPending = 1024
 
+// This barrier belongs to an explicit reviewed reset/canary, not the automatic
+// controller stop path. Keep it stable while preparing the signed plan even
+// when a previous incident has already released its queue.
+const dedicatedRecoveryPause = "feishu_recovery_canary"
+
 // Normal service quarantines Feishu on its own lane. Its incident recovery
 // must neither require a shared-queue pause nor adopt an old shared checkpoint.
 // Historical continuity/reconciliation still uses queue() and its old proof.
@@ -29,7 +34,7 @@ func (m *RecoveryManager) incidentQueue(ctx context.Context) (recoveryQueueSnaps
 	q := recoveryQueueSnapshot{name: "approved_sync"}
 	const prefix = "asynq:{approved_sync}:"
 	q.pause, err = c.Get(ctx, prefix+"paused").Result()
-	if err != nil || q.pause != "feishu_safety_stop" {
+	if err != nil || (q.pause != "feishu_safety_stop" && q.pause != dedicatedRecoveryPause) {
 		return q, ErrRecoveryRejected
 	}
 	for _, suffix := range []string{"active", "retry", "scheduled"} {
