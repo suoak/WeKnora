@@ -87,7 +87,7 @@ func (s *PersonalContent) Upload(ctx context.Context, req PersonalUploadRequest)
 	}
 	if s.Scanner != nil {
 		if err = s.Scanner.Scan(ctx, data); err != nil {
-			return nil, ErrPersonalUpload
+			return nil, err
 		}
 	}
 	scope, _ := types.TenantAPIKeyScopeFromContext(ctx)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -25,6 +26,8 @@ func TestContentUsageOriginalCause(t *testing.T) {
 		{service.ErrPersonalUpload, "invalid_arguments"},
 		{service.ErrPersonalContentConflict, "invalid_arguments"},
 		{errors.New("database connection failed"), "execution_error"},
+		{service.ErrPersonalScanner, "execution_error"},
+		{&net.DNSError{IsTimeout: true}, "timeout"},
 		{context.DeadlineExceeded, "timeout"},
 		{context.Canceled, "canceled"},
 	} {
@@ -58,7 +61,7 @@ func TestPersonalLargeUsageBodyReplayAndLimit(t *testing.T) {
 			// The downstream parser must receive every byte exactly once.
 			var b strings.Builder
 			_, err := io.Copy(&b, r.Body)
-			_ = err
+			require.NoError(t, err)
 			require.Equal(t, body, b.String())
 			req := mcp.CallToolRequest{}
 			req.Params.Name = "upload_document"

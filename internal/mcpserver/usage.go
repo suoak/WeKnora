@@ -142,6 +142,10 @@ func usageError(ctx context.Context, result *mcp.CallToolResult, err error) stri
 	if errors.Is(ctx.Err(), context.Canceled) || errors.Is(err, context.Canceled) {
 		return "canceled"
 	}
+	var timeout interface{ Timeout() bool }
+	if errors.As(err, &timeout) && timeout.Timeout() {
+		return "timeout"
+	}
 	if err != nil {
 		return "execution_error"
 	}
@@ -217,7 +221,11 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 			return
 		}
 		original := r.Body
-		body, err := io.ReadAll(io.LimitReader(original, (12<<20)+1))
+		limit := int64(1 << 20)
+		if entry == "go_personal" {
+			limit = 12 << 20
+		}
+		body, err := io.ReadAll(io.LimitReader(original, limit+1))
 		r.Body = usageReplayBody{Reader: io.MultiReader(bytes.NewReader(body), original), Closer: original}
 		var envelope struct {
 			Method string `json:"method"`
@@ -225,7 +233,11 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 				Name string `json:"name"`
 			} `json:"params"`
 		}
-		oversized := len(body) > 12<<20
+		oversized := int64(len(body)) > limit
+		if oversized && entry != "go_personal" {
+			next.ServeHTTP(w, r)
+			return
+		}
 		parseErr := json.Unmarshal(body, &envelope)
 		if oversized {
 			// The bounded prefix can still identify a standard tools/call envelope.

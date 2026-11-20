@@ -17,11 +17,14 @@ type (
 // Classify the original cause without retaining sensitive business error text.
 func contentFailure(ctx context.Context, cause error, message string) *mcp.CallToolResult {
 	code := "execution_error"
+	var timeout interface{ Timeout() bool }
 	switch {
 	case errors.Is(cause, context.DeadlineExceeded):
 		code = "timeout"
 	case errors.Is(cause, context.Canceled):
 		code = "canceled"
+	case errors.As(cause, &timeout) && timeout.Timeout():
+		code = "timeout"
 	case errors.Is(cause, access.ErrForbidden):
 		code = "permission_denied"
 	case errors.Is(cause, service.ErrPersonalUpload),
