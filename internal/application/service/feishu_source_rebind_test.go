@@ -23,6 +23,8 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 		"changed_epoch", "changed_index", "changed_account", "permission_denied",
 		"concurrent_one_winner", "rollback_after_index_change", "revoked_operator",
 		"renew_terminal_reconciliation",
+		"queued_reconciliation", "queued_unsigned", "queued_foreign_run", "queued_claimed_run",
+		"queued_generation", "queued_revoked_approval",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			t.Setenv("FEISHU_SOURCE_REBIND_OPERATIONS_ENABLED", "1")
@@ -265,6 +267,11 @@ func TestFeishuV2PostgresControlledSourceRebind(t *testing.T) {
 				require.EqualValues(t, 1, winners.Load())
 			} else {
 				receipt, err = apply()
+			}
+			if strings.HasPrefix(scenario, "queued_") {
+				require.NoError(t, err)
+				testQueuedSourceReconciliation(t, f.s, admin, ids[0], scenario)
+				return
 			}
 			if scenario == "renew_terminal_reconciliation" {
 				require.NoError(t, err)

@@ -29,16 +29,30 @@ func ActivateSteadyReconciliation(t *testing.T, ids, reconciliation []string,
 	return activateSteadyPurpose(t, ids, reconciliation, facts, authority)
 }
 
+// ActivateSteadyReconciliationAs keeps the real signed admission while matching
+// the account in a synthetic OAuth/SQL identity fixture.
+func ActivateSteadyReconciliationAs(t *testing.T, actor string, ids, reconciliation []string,
+	facts func(context.Context, string) (feishusynccontrol.RecoveryFacts, error),
+	authority func(context.Context, string, string) (feishusynccontrol.SourceManagementAuthority, error),
+) feishusynccontrol.SteadyPlan {
+	return activateSteadyPurpose(t, ids, reconciliation, facts, authority, actor)
+}
+
 func activateSteadyPurpose(t *testing.T, ids, reconciliation []string,
 	facts func(context.Context, string) (feishusynccontrol.RecoveryFacts, error),
 	authority func(context.Context, string, string) (feishusynccontrol.SourceManagementAuthority, error),
+	actors ...string,
 ) feishusynccontrol.SteadyPlan {
 	t.Helper()
 	require.NotEmpty(t, ids)
 	Activate(t, ids[0], facts)
 	m := feishusynccontrol.Recovery()
 	m.ConfigureSteadyAuthority(authority)
-	plan, err := m.PlanSteadyWithReconciliation(context.Background(), "fixture-operator", ids, reconciliation, 7)
+	actor := "fixture-operator"
+	if len(actors) == 1 {
+		actor = actors[0]
+	}
+	plan, err := m.PlanSteadyWithReconciliation(context.Background(), actor, ids, reconciliation, 7)
 	require.NoError(t, err)
 	hash, err := feishusynccontrol.RecoveryDigest(plan)
 	require.NoError(t, err)
