@@ -59,7 +59,9 @@ func TestPersonalWikiRegexUsageInvalidArguments(t *testing.T) {
 			result, err := observeTool(sink, "go_personal", s.call)(context.Background(), req)
 			require.NoError(t, err)
 			require.True(t, result.IsError)
-			require.Equal(t, "Personal wiki_search supports bounded literal text; regex is not available", result.Content[0].(mcp.TextContent).Text)
+			require.Equal(t,
+				"Personal wiki_search supports bounded literal text; regex is not available",
+				result.Content[0].(mcp.TextContent).Text)
 			require.Len(t, sink.reports, 1)
 			require.False(t, sink.reports[0].Success)
 			require.Equal(t, "invalid_arguments", sink.reports[0].ErrorCode)
