@@ -161,6 +161,13 @@ func (s *FeishuLegacyStore) QueueSourceDocumentReparse(
 		if count >= 200 {
 			return ErrLegacyVersionBusy
 		}
+		// A new authenticated request keeps its own finite budgets and audit row.
+		// Only the server can select a matching exhausted request as a private
+		// cache source; callers cannot supply this relationship.
+		request.ReuseCheckpointID, err = sourceReparseCheckpointParent(tx, ds, request)
+		if err != nil {
+			return err
+		}
 		request.ID, request.RequestedAt = uuid.NewString(), time.Now().UTC()
 		payload, err := json.Marshal(request)
 		if err != nil {
@@ -190,6 +197,47 @@ type (
 		request types.FeishuDocumentReparse
 	}
 )
+
+func sourceReparseCheckpointParent(
+	tx *gorm.DB,
+	ds *types.DataSource,
+	request *types.FeishuDocumentReparse,
+) (string, error) {
+	if request.FileType != "xlsx" {
+		return "", nil
+	}
+	var prior types.TaskPendingOp
+	err := tx.Where("task_type=? AND scope=? AND scope_id=? AND tenant_id=? AND dedup_key=? AND op='failed'",
+		sourceDocumentReparseTask, sourceDocumentReparseScope, ds.ID, ds.TenantID, request.KnowledgeID).
+		Order("id DESC").First(&prior).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	var previous types.FeishuDocumentReparse
+	if json.Unmarshal(prior.Payload, &previous) == nil && reusableReparseRequest(previous, request) {
+		return previous.ID, nil
+	}
+	return "", nil
+}
+
+func reusableReparseRequest(previous types.FeishuDocumentReparse, current *types.FeishuDocumentReparse) bool {
+	if current == nil || previous.ID == "" || previous.ErrorCode != "retry_exhausted" ||
+		previous.FileType != "xlsx" || current.FileType != "xlsx" ||
+		previous.DataSourceID != current.DataSourceID || previous.TenantID != current.TenantID ||
+		previous.KnowledgeID != current.KnowledgeID || previous.KnowledgeBaseID != current.KnowledgeBaseID ||
+		previous.RootID != current.RootID || previous.ExternalID != current.ExternalID ||
+		previous.ConfigHash != current.ConfigHash || previous.KBConfigHash != current.KBConfigHash ||
+		previous.PreviousProcessHash != current.PreviousProcessHash ||
+		previous.Initiator.UserID != current.Initiator.UserID {
+		return false
+	}
+	a, aErr := json.Marshal(previous.ProcessConfig)
+	b, bErr := json.Marshal(current.ProcessConfig)
+	return aErr == nil && bErr == nil && bytes.Equal(a, b)
+}
 
 // ClaimSourceDocumentReparse requires the normal datasource execution fence.
 // Old processing requests can only be reclaimed by a newly valid source execution.
