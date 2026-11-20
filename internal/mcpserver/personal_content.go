@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -16,6 +17,14 @@ import (
 )
 
 const writableKBTool = "list_writable_knowledge_bases"
+
+type personalContentService interface {
+	ListWritable(context.Context) ([]service.WritableKnowledgeBase, error)
+	ResolveContentSelector(context.Context, string) (string, error)
+	Add(context.Context, service.PersonalContentRequest) (*types.Knowledge, error)
+	Upload(context.Context, service.PersonalUploadRequest) (*types.Knowledge, error)
+	Status(context.Context, string) (*types.Knowledge, error)
+}
 
 // ConfigurePersonalContentServer creates a separate external registry. The
 // original registry and isolated TLS handler always retain exactly eight reads.
@@ -53,7 +62,7 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 			),
 			mcp.WithReadOnlyHintAnnotation(true),
 		),
-		s.callContent,
+		s.observeContent(),
 	)
 	m.AddTool(
 		mcp.NewTool(
@@ -73,7 +82,7 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 			mcp.WithBoolean("publish"),
 			mcp.WithReadOnlyHintAnnotation(false),
 		),
-		s.callContent,
+		s.observeContent(),
 	)
 	m.AddTool(
 		mcp.NewTool(
@@ -89,7 +98,7 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 			mcp.WithString("idempotency_key", mcp.Required()),
 			mcp.WithReadOnlyHintAnnotation(false),
 		),
-		s.callContent,
+		s.observeContent(),
 	)
 	m.AddTool(
 		mcp.NewTool(
@@ -101,34 +110,43 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 			mcp.WithString("document_id", mcp.Required()),
 			mcp.WithReadOnlyHintAnnotation(true),
 		),
-		s.callContent,
+		s.observeContent(),
 	)
 	s.externalHandler = server.NewStreamableHTTPServer(m, server.WithStateLess(true))
 	return s
 }
 
+// Resolve the recorder at invocation time, like the read registry. HTTP calls
+// share the outer invocation; direct calls own their own final event.
+func (s *PersonalServer) observeContent() server.ToolHandlerFunc {
+	return func(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+		return observeTool(s.usage, "go_personal", s.callContent)(ctx, r)
+	}
+}
+
 func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
 	if s == nil || s.content == nil || logger.IsolatedPersonalPayload(ctx) {
-		return mcp.NewToolResultError("tool not allowed"), nil
+		return contentFailure(ctx, access.ErrForbidden, "tool not allowed"), nil
 	}
 	scope, ok := types.TenantAPIKeyScopeFromContext(ctx)
 	if !ok || !scope.HasCapability(types.APIKeyCapabilityAddContent) {
-		return mcp.NewToolResultError("add_content capability required"), nil
+		return contentFailure(ctx, access.ErrForbidden, "add_content capability required"), nil
 	}
 	switch r.Params.Name {
 	case "upload_document":
 		args := r.GetArguments()
 		if !onlyPersonalFields(args, "knowledge_base_id filename content_base64 idempotency_key") {
-			return mcp.NewToolResultError("unexpected upload arguments; send file bytes, not paths or URLs"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments,
+				"unexpected upload arguments; send file bytes, not paths or URLs"), nil
 		}
 		for _, name := range []string{"knowledge_base_id", "filename", "content_base64", "idempotency_key"} {
 			if _, ok := args[name].(string); !ok {
-				return mcp.NewToolResultError("missing string argument: " + name), nil
+				return contentFailure(ctx, service.ErrPersonalContentArguments, "missing string argument: "+name), nil
 			}
 		}
 		kb, err := s.content.ResolveContentSelector(ctx, r.GetString("knowledge_base_id", ""))
 		if err != nil {
-			return mcp.NewToolResultError(
+			return contentFailure(ctx, err,
 				"choose a current writable knowledge base using list_writable_knowledge_bases",
 			), nil
 		}
@@ -142,48 +160,49 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 			},
 		)
 		if err != nil {
-			return mcp.NewToolResultError(
-				"upload denied or rejected; verify format, size and scanner availability, t" +
+			return contentFailure(ctx, err,
+				"upload denied or rejected; verify format, size and scanner availability, t"+
 					"hen retry with the same idempotency_key",
 			), nil
 		}
 		return personalProcessingResult(ctx, row)
 	case "get_document_processing_status":
 		if !onlyPersonalFields(r.GetArguments(), "document_id") {
-			return mcp.NewToolResultError("unexpected arguments"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments, "unexpected arguments"), nil
 		}
 		row, err := s.content.Status(ctx, r.GetString("document_id", ""))
 		if err != nil {
-			return mcp.NewToolResultError("status unavailable or authorization revoked"), nil
+			return contentFailure(ctx, err, "status unavailable or authorization revoked"), nil
 		}
 		return personalProcessingResult(ctx, row)
 	case writableKBTool:
 		if len(r.GetArguments()) != 0 {
-			return mcp.NewToolResultError("unexpected arguments"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments, "unexpected arguments"), nil
 		}
 		rows, err := s.content.ListWritable(ctx)
 		if err != nil {
-			return mcp.NewToolResultError("authorization denied"), nil
+			return contentFailure(ctx, err, "authorization denied"), nil
 		}
 		return personalJSON(ctx, rows)
 	case "add_document":
 		args := r.GetArguments()
 		if !onlyPersonalFields(args, "knowledge_base_id title content idempotency_key publish") {
-			return mcp.NewToolResultError("unexpected arguments; URLs and paths are not supported"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments,
+				"unexpected arguments; URLs and paths are not supported"), nil
 		}
 		for _, name := range []string{"knowledge_base_id", "title", "content", "idempotency_key"} {
 			if _, ok := args[name].(string); !ok {
-				return mcp.NewToolResultError("invalid string argument"), nil
+				return contentFailure(ctx, service.ErrPersonalContentArguments, "invalid string argument"), nil
 			}
 		}
 		if value, present := args["publish"]; present {
 			if _, ok := value.(bool); !ok {
-				return mcp.NewToolResultError("invalid publish argument"), nil
+				return contentFailure(ctx, service.ErrPersonalContentArguments, "invalid publish argument"), nil
 			}
 		}
 		kb, err := s.content.ResolveContentSelector(ctx, r.GetString("knowledge_base_id", ""))
 		if err != nil {
-			return mcp.NewToolResultError(
+			return contentFailure(ctx, err,
 				"choose a current writable knowledge base using list_writable_knowledge_bases",
 			), nil
 		}
@@ -198,11 +217,11 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 			},
 		)
 		if err != nil {
-			return mcp.NewToolResultError("creation denied or failed; retry only with the same idempotency_key"), nil
+			return contentFailure(ctx, err, "creation denied or failed; retry only with the same idempotency_key"), nil
 		}
 		return personalProcessingResult(ctx, row)
 	}
-	return mcp.NewToolResultError("tool not allowed"), nil
+	return contentFailure(ctx, access.ErrForbidden, "tool not allowed"), nil
 }
 
 // routeContent runs before read admission and consumes separate bounded slots.

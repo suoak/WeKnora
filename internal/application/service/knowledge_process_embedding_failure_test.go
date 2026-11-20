@@ -239,12 +239,15 @@ func TestProcessChunksSkipsEmbeddingModelWhenIndexingDisabled(t *testing.T) {
 	tenant := &types.Tenant{ID: 1}
 	ctx := context.WithValue(context.Background(), types.TenantInfoContextKey, tenant)
 	svc := &knowledgeService{
-		repo:         &embedFailureKnowledgeRepo{knowledge: knowledge},
-		chunkRepo:    chunkRepo,
-		modelService: embedFailureModelService{err: errors.New("must not be called")},
-		graphEngine:  parentChildGraphRepo{},
-		tenantRepo:   parentChildTenantRepo{},
-		task:         parentChildTaskEnqueuer{},
+		repo:      &embedFailureKnowledgeRepo{knowledge: knowledge},
+		chunkRepo: chunkRepo,
+		// Production always supplies the registry, even when no embedder is
+		// needed. Keep that dependency present so this test reaches chunk writes.
+		retrieveEngine: parentChildRetrieveRegistry{engine: &parentChildRetrieveEngine{}},
+		modelService:   embedFailureModelService{err: errors.New("must not be called")},
+		graphEngine:    parentChildGraphRepo{},
+		tenantRepo:     parentChildTenantRepo{},
+		task:           parentChildTaskEnqueuer{},
 	}
 	kb := &types.KnowledgeBase{ID: "kb-1", TenantID: 1}
 	require.False(t, kb.NeedsEmbeddingModel())

@@ -1032,7 +1032,9 @@ func TestUpdateRefusesIdentityChangeWhileSkillIsInstalling(t *testing.T) {
 func TestQueryTemplatesEnsureAndReplaceDoNotShareSingleflight(t *testing.T) {
 	release := make(chan struct{})
 	defer close(release)
-	stored := e2bCfg("key-a", "https://api.e2b.app", "e2b.app", "t1", 300)
+	// The provider is stubbed. A public literal still passes the real URL
+	// policy, without putting external DNS inside the one-second entry check.
+	stored := e2bCfg("key-a", "https://1.1.1.1", "e2b.app", "t1", 300)
 	repo := &fakeConfigRepo{entity: &types.TenantSandboxConfigEntity{
 		ID: "cfg-a", TenantID: 7, SandboxType: "e2b", Config: stored,
 	}}

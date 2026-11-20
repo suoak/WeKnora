@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -16,6 +17,24 @@ type personalTestScanner func(context.Context, []byte) error
 
 func (f personalTestScanner) Scan(c context.Context, b []byte) error { return f(c, b) }
 
+func TestClamdScannerPreservesExecutionCause(t *testing.T) {
+	for _, deadline := range []bool{false, true} {
+		ctx, cancel := context.WithCancel(context.Background())
+		expected := context.Canceled
+		if deadline {
+			cancel()
+			ctx, cancel = context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+			expected = context.DeadlineExceeded
+		} else {
+			cancel()
+		}
+		err := (ClamdScanner{Address: "127.0.0.1:0"}).Scan(ctx, []byte("text"))
+		cancel()
+		require.ErrorIs(t, err, expected)
+	}
+	require.ErrorIs(t, (ClamdScanner{}).Scan(context.Background(), []byte("text")), ErrPersonalScanner)
+}
+
 func TestPersonalFileValidation(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -23,6 +42,7 @@ func TestPersonalFileValidation(t *testing.T) {
 		ok   bool
 	}{
 		{"note.txt", []byte("plain UTF-8 knowledge"), true},
+		{"maximum.txt", bytes.Repeat([]byte("a"), PersonalUploadMaxBytes), true},
 		{"note.md", []byte("# knowledge"), true},
 		{"note.pdf", []byte("%PDF-1.7\n1 0 obj<</Type/Catalog>>endobj\n%%EOF"), true},
 		{"../note.txt", []byte("text"), false},

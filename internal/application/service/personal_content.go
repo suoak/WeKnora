@@ -18,6 +18,9 @@ import (
 	"gorm.io/gorm"
 )
 
+// ErrPersonalContentArguments reports rejected content admission arguments.
+var ErrPersonalContentArguments = errors.New("invalid personal content arguments")
+
 // ErrPersonalContentConflict reports an idempotency key reused with another payload.
 var ErrPersonalContentConflict = errors.New("idempotency_key already used with different content")
 
@@ -266,7 +269,7 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 		len(req.Title) > 512 ||
 		strings.TrimSpace(req.Content) == "" ||
 		len(req.Content) > 512<<10 {
-		return nil, errors.New("invalid title, content or idempotency_key (8..128 characters)")
+		return nil, ErrPersonalContentArguments
 	}
 	// Embedded file references can cause parser fetches or claim existing stored
 	// resources. Text admission does not establish authorization to those files.
@@ -275,7 +278,7 @@ func (s *PersonalContent) Add(ctx context.Context, req PersonalContentRequest) (
 		strings.Contains(lower, "file://") ||
 		strings.Contains(lower, "resource://") ||
 		strings.Contains(lower, "/files/") {
-		return nil, errors.New("embedded resources require the controlled upload workflow")
+		return nil, ErrPersonalContentArguments
 	}
 	scoped, kb, err := s.authorize(ctx, req.KBID)
 	if err != nil {

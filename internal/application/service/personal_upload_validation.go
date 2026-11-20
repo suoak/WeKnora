@@ -8,6 +8,7 @@ import (
 	"encoding/binary"
 	"encoding/xml"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"path"
@@ -22,6 +23,9 @@ const PersonalUploadMaxBytes = 8 << 20
 // ErrPersonalUpload reports content rejected during upload admission.
 var ErrPersonalUpload = errors.New("file rejected: unsupported, unsafe, oversized or unscannable content")
 
+// ErrPersonalScanner identifies scanner execution failures, not invalid file bytes.
+var ErrPersonalScanner = errors.New("file scanner execution failed")
+
 // FileScanner must scan the complete bounded byte stream; failures deny upload.
 type FileScanner interface {
 	Scan(context.Context, []byte) error
@@ -34,11 +38,20 @@ type ClamdScanner struct{ Address string }
 
 // Scan streams bounded file bytes to the configured optional scanner.
 func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
-	if s.Address == "" || len(data) == 0 || len(data) > PersonalUploadMaxBytes {
+	if s.Address == "" {
+		return ErrPersonalScanner
+	}
+	if len(data) == 0 || len(data) > PersonalUploadMaxBytes {
 		return ErrPersonalUpload
 	}
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
+	failure := func(err error) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		return fmt.Errorf("%w: %w", ErrPersonalScanner, err)
+	}
 	network, address := "tcp", s.Address
 	if strings.HasPrefix(address, "unix:") {
 		network = "unix"
@@ -46,7 +59,7 @@ func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 	}
 	conn, err := (&net.Dialer{}).DialContext(ctx, network, address)
 	if err != nil {
-		return ErrPersonalUpload
+		return failure(err)
 	}
 	defer func() { _ = conn.Close() }()
 	deadline, _ := ctx.Deadline()
@@ -54,7 +67,7 @@ func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 	stop := context.AfterFunc(ctx, func() { _ = conn.Close() })
 	defer stop()
 	if _, err = io.Copy(conn, strings.NewReader("zINSTREAM\x00")); err != nil {
-		return ErrPersonalUpload
+		return failure(err)
 	}
 	for offset := 0; offset < len(data); {
 		n := len(data) - offset
@@ -64,18 +77,21 @@ func (s ClamdScanner) Scan(ctx context.Context, data []byte) error {
 		var header [4]byte
 		binary.BigEndian.PutUint32(header[:], uint32(n))
 		if _, err = io.Copy(conn, bytes.NewReader(header[:])); err != nil {
-			return ErrPersonalUpload
+			return failure(err)
 		}
 		if _, err = io.Copy(conn, bytes.NewReader(data[offset:offset+n])); err != nil {
-			return ErrPersonalUpload
+			return failure(err)
 		}
 		offset += n
 	}
 	if _, err = conn.Write([]byte{0, 0, 0, 0}); err != nil {
-		return ErrPersonalUpload
+		return failure(err)
 	}
 	result, err := bufio.NewReader(io.LimitReader(conn, 512)).ReadString(0)
-	if err != nil || result != "stream: OK\x00" {
+	if err != nil {
+		return failure(err)
+	}
+	if result != "stream: OK\x00" {
 		return ErrPersonalUpload
 	}
 	return nil

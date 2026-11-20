@@ -19,6 +19,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -34,6 +36,7 @@ import (
 	secutils "github.com/Tencent/WeKnora/internal/utils"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/net/dns/dnsmessage"
 )
 
 // TestMain whitelists the loopback host: several vendors ship a placeholder
@@ -41,9 +44,58 @@ import (
 // SSRF guard rejects before any request is built. Those cases are re-pointed
 // at 127.0.0.1 by reachableBaseURL.
 func TestMain(m *testing.M) {
+	packet, err := net.ListenPacket("udp", "127.0.0.1:0")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
+	// These tests build request bodies without contacting vendor APIs. Keep
+	// real vendor URLs for provider/protocol selection, but resolve them
+	// deterministically so constructor SSRF checks do not depend on public DNS.
+	// The production guard still validates the returned public address.
+	previous := net.DefaultResolver
+	net.DefaultResolver = &net.Resolver{PreferGo: true, Dial: func(ctx context.Context, _, _ string) (net.Conn, error) {
+		return (&net.Dialer{}).DialContext(ctx, "udp", packet.LocalAddr().String())
+	}}
+	go serveParityDNS(packet)
 	secutils.SetSSRFWhitelistFromRaw("127.0.0.1")
-	defer secutils.ResetSSRFWhitelistForTest()
-	os.Exit(m.Run())
+	code := m.Run()
+	secutils.ResetSSRFWhitelistForTest()
+	net.DefaultResolver = previous
+	_ = packet.Close()
+	os.Exit(code)
+}
+
+func serveParityDNS(packet net.PacketConn) {
+	buffer := make([]byte, 4096)
+	for {
+		n, address, err := packet.ReadFrom(buffer)
+		if err != nil {
+			return
+		}
+		var query dnsmessage.Message
+		if query.Unpack(buffer[:n]) != nil {
+			continue
+		}
+		response := dnsmessage.Message{
+			Header:    dnsmessage.Header{ID: query.ID, Response: true, RecursionAvailable: true},
+			Questions: query.Questions,
+		}
+		for _, question := range query.Questions {
+			if question.Type == dnsmessage.TypeA {
+				response.Answers = append(response.Answers, dnsmessage.Resource{
+					Header: dnsmessage.ResourceHeader{
+						Name: question.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET,
+					},
+					Body: &dnsmessage.AResource{A: [4]byte{1, 1, 1, 1}},
+				})
+			}
+		}
+		payload, err := response.Pack()
+		if err == nil {
+			_, _ = packet.WriteTo(payload, address)
+		}
+	}
 }
 
 // reachableBaseURL replaces a placeholder or templated vendor URL with a
