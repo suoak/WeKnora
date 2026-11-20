@@ -97,6 +97,7 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var targets []string
+		var toolName string
 		var requestID json.RawMessage
 		protocolOnly := r.Method == http.MethodGet || r.Method == http.MethodDelete
 		pool, class := s.protocol, "protocol"
@@ -118,10 +119,14 @@ func (s *PersonalServer) Handler() http.Handler {
 			var envelope struct {
 				Method string          `json:"method"`
 				ID     json.RawMessage `json:"id"`
+				Params struct {
+					Name string `json:"name"`
+				} `json:"params"`
 			}
 			_ = json.Unmarshal(body, &envelope) // Already validated by personalHTTPRequestTargets.
 			protocolOnly = personalMetadataMethod(envelope.Method)
 			if envelope.Method == "tools/call" {
+				toolName = envelope.Params.Name
 				pool, class = s.admission, "tool"
 				requestID = envelope.ID
 			}
@@ -162,7 +167,10 @@ func (s *PersonalServer) Handler() http.Handler {
 			if protocolOnly {
 				return s.knowledge.Resolver.AuthorizeProtocol(r.Context())
 			}
-			_, err := s.knowledge.Resolve(r.Context(), targets)
+			resolved, err := s.knowledge.Resolve(r.Context(), targets)
+			if err == nil && toolName == "list_knowledge_bases" {
+				r = r.WithContext(context.WithValue(r.Context(), personalCatalogAdmissionKey{}, resolved))
+			}
 			return err
 		}
 		// Connected SSE listeners are idle most of the time. Their initial live
@@ -272,11 +280,24 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		// during execution discards the entire first response, then resolves a
 		// fresh scope once. Identity/DB/unknown errors never enter this retry.
 		for attempt := 0; attempt < 2; attempt++ {
-			targets, err := s.knowledge.Resolve(ctx, ids)
+			var targets []*access.PortalKBTarget
+			var reused bool
+			if r.Params.Name == "list_knowledge_bases" && attempt == 0 {
+				targets, reused = revalidatedCatalogTargets(ctx)
+			}
+			if !reused {
+				targets, err = s.knowledge.Resolve(ctx, ids)
+			}
 			if err != nil {
 				return mcp.NewToolResultError("authorization denied"), nil
 			}
-			result, err := next(ctx, r)
+			callCtx := ctx
+			if r.Params.Name == "list_knowledge_bases" {
+				// The handler serializes precisely the scope this guard will
+				// revalidate after execution, rather than resolving a third scope.
+				callCtx = context.WithValue(ctx, personalCatalogResultKey{}, targets)
+			}
+			result, err := next(callCtx, r)
 			if err != nil {
 				return nil, err
 			}
@@ -325,9 +346,13 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 	}
 	switch r.Params.Name {
 	case "list_knowledge_bases":
-		ts, e := s.knowledge.Resolve(ctx, nil)
-		if e != nil {
-			return fail()
+		ts, present := ctx.Value(personalCatalogResultKey{}).([]*access.PortalKBTarget)
+		if !present {
+			var err error
+			ts, err = s.knowledge.Resolve(ctx, nil)
+			if err != nil {
+				return fail()
+			}
 		}
 		rows := []map[string]any{}
 		for _, t := range ts {
