@@ -168,3 +168,65 @@ func TestDedicatedRecoveryRejectsNormalGrantRevocationAndOperatorPause(t *testin
 		})
 	}
 }
+
+func TestDedicatedReviewedFreezeSurvivesAutomaticRetirementAndReleasesAfterCanary(t *testing.T) {
+	f := dedicatedNormalRecoveryFixture(t)
+	ctx := context.Background()
+	shared := snapshotSharedSync(t, f.r)
+	normal := *f.saved
+	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", dedicatedRecoveryPause, 0).Err())
+	// Reproduce production: the previous incident completed on an older worker,
+	// then an independent current incident tripped. Stop retirement must not
+	// remove the review's barrier before Plan can bind its exact queue bytes.
+	require.NoError(t, f.r.Set(ctx, f.c.prefix+"recovery",
+		`{"queue_name":"approved_sync","queue_released":true,"phase":"awaiting_review"}`, 0).Err())
+	require.NoError(t, f.c.retireDedicatedAutomaticPause(ctx))
+	require.Equal(t, dedicatedRecoveryPause, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())
+	var err error
+	f.p, err = f.m.Plan(ctx, f.ids[0], "operator")
+	require.NoError(t, err)
+	before, err := f.m.incidentQueue(ctx)
+	require.NoError(t, err)
+	require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
+	require.NoError(t, f.c.Step(ctx))
+	require.Equal(t, dedicatedRecoveryPause, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())
+	require.NoError(t, f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator",
+		func(work context.Context, bind func(string, int64) error) error {
+			require.NoError(t, f.c.Step(work))
+			require.Equal(t, dedicatedRecoveryPause, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())
+			require.NoError(t, bind(uuid.NewString(), 1))
+			return nil
+		}))
+	require.Zero(t, f.r.Exists(ctx, "asynq:{approved_sync}:paused").Val())
+	require.Equal(t, before.ids, f.r.LRange(ctx, "asynq:{approved_sync}:pending", 0, -1).Val())
+	for i, id := range before.ids {
+		require.Equal(t, before.fields[i], f.r.HGetAll(ctx, "asynq:{approved_sync}:t:"+id).Val())
+	}
+	require.Equal(t, normal, *f.saved)
+	require.Equal(t, shared, snapshotSharedSync(t, f.r))
+}
+
+func TestDedicatedReviewedFreezeCannotBeReleasedByHealthOrAfterFailedCanary(t *testing.T) {
+	for _, failCanary := range []bool{false, true} {
+		t.Run(fmt.Sprintf("failed_%v", failCanary), func(t *testing.T) {
+			f := dedicatedNormalRecoveryFixture(t)
+			ctx := context.Background()
+			require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", dedicatedRecoveryPause, 0).Err())
+			var err error
+			f.p, err = f.m.Plan(ctx, f.ids[0], "operator")
+			require.NoError(t, err)
+			require.NoError(t, f.m.Reset(ctx, f.p, f.approve(t, "reset"), "operator"))
+			require.NoError(t, f.c.Step(ctx))
+			require.NoError(t, f.m.resumeNormalQueueAfterHealth(ctx))
+			require.Equal(t, dedicatedRecoveryPause, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())
+			if failCanary {
+				require.Error(t, f.m.Canary(ctx, f.p, f.approve(t, "canary"), "operator",
+					func(context.Context, func(string, int64) error) error { return fmt.Errorf("canary failed") }))
+				require.EqualValues(t, 1, f.r.Exists(ctx, f.c.prefix+"trip").Val())
+			} else {
+				require.ErrorIs(t, f.m.resumeNormalQueueAfterCanary(ctx), ErrRecoveryRejected)
+			}
+			require.Equal(t, dedicatedRecoveryPause, f.r.Get(ctx, "asynq:{approved_sync}:paused").Val())
+		})
+	}
+}

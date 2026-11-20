@@ -110,6 +110,7 @@ func ReserveEmbedding(ctx context.Context, inputs []string) (context.Context, fu
 // admission passed. A later source probe failure must deny this request, but
 // can remain local if the exact distributed runtime fence is still healthy.
 func embeddingAdmissionFailure(ctx context.Context, g *Guard, err error, reason string) error {
+	diagnostic := err
 	if errors.Is(err, errSourceProbeFailed) && ctx.Err() == nil {
 		check, cancel := context.WithTimeout(ctx, 200*time.Millisecond)
 		controlErr := g.checkRuntime(check, true)
@@ -117,9 +118,12 @@ func embeddingAdmissionFailure(ctx context.Context, g *Guard, err error, reason 
 		if controlErr == nil {
 			return fmt.Errorf("%w: %w", ErrSourceValidationUnavailable, err)
 		}
+		diagnostic = controlErr
 	}
 	if ctx.Err() == nil && !errors.Is(err, ErrBudgetBusy) && !errors.Is(err, ErrSourceAdmissionChanged) {
-		trip(g, reason)
+		stop, finish := context.WithTimeout(context.Background(), time.Second)
+		defer finish()
+		_ = g.tripUsingDetails(stop, g.client, reason, "", embeddingAdmissionCode(diagnostic))
 	}
 	return err
 }
