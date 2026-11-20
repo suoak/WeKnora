@@ -46,11 +46,16 @@ func (s *lifecycleUsage) Record(ctx context.Context, r types.MCPUsageReport) err
 
 func TestPersonalUsageConcurrentInvocationLifecycle(t *testing.T) {
 	for _, failedRecorder := range []bool{false, true} {
-		sink := &lifecycleUsage{begins: map[string]int{}, reports: map[string]types.MCPUsageReport{}, keys: map[string]uint64{}, fail: failedRecorder}
+		sink := &lifecycleUsage{
+			begins: map[string]int{}, reports: map[string]types.MCPUsageReport{},
+			keys: map[string]uint64{}, fail: failedRecorder,
+		}
 		h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			req := mcp.CallToolRequest{}
 			req.Params.Name = "add_document"
-			result, err := observeTool(sink, "go_personal", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			result, err := observeTool(sink, "go_personal", func(
+				context.Context, mcp.CallToolRequest,
+			) (*mcp.CallToolResult, error) {
 				return mcp.NewToolResultText("processing"), nil
 			})(r.Context(), req)
 			if err != nil || result.IsError {
@@ -63,7 +68,8 @@ func TestPersonalUsageConcurrentInvocationLifecycle(t *testing.T) {
 			go func(i int) {
 				defer wg.Done()
 				ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{KeyID: uint64(i)})
-				r := httptest.NewRequest("POST", "/", strings.NewReader(`{"method":"tools/call","params":{"name":"add_document"}}`)).WithContext(ctx)
+				r := httptest.NewRequest("POST", "/",
+					strings.NewReader(`{"method":"tools/call","params":{"name":"add_document"}}`)).WithContext(ctx)
 				r.Header.Set("User-Agent", fmt.Sprintf("codex/%d", i))
 				h.ServeHTTP(httptest.NewRecorder(), r)
 			}(i)
@@ -87,7 +93,9 @@ func TestPersonalUsageConcurrentInvocationLifecycle(t *testing.T) {
 func TestPersonalUnknownToolRetainsName(t *testing.T) {
 	sink := &captureUsage{}
 	h := observeHTTP(sink, "go_personal", http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
-	h.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest("POST", "/", strings.NewReader(`{"method":"tools/call","params":{"name":"unregistered_personal_tool"}}`)))
+	r := httptest.NewRequest("POST", "/",
+		strings.NewReader(`{"method":"tools/call","params":{"name":"unregistered_personal_tool"}}`))
+	h.ServeHTTP(httptest.NewRecorder(), r)
 	require.Len(t, sink.reports, 1)
 	require.False(t, sink.reports[0].Success)
 	require.Equal(t, "unknown_tool", sink.reports[0].ErrorCode)

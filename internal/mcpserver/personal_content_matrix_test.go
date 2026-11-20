@@ -56,14 +56,21 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 				args := map[string]any{}
 				switch name {
 				case "add_document":
-					args = map[string]any{"knowledge_base_id": "kb", "title": "title", "content": "body", "idempotency_key": "repeat-1"}
+					args = map[string]any{
+						"knowledge_base_id": "kb", "title": "title", "content": "body", "idempotency_key": "repeat-1",
+					}
 				case "upload_document":
-					args = map[string]any{"knowledge_base_id": "kb", "filename": "x.txt", "content_base64": "Ym9keQ==", "idempotency_key": "repeat-1"}
+					args = map[string]any{
+						"knowledge_base_id": "kb", "filename": "x.txt",
+						"content_base64": "Ym9keQ==", "idempotency_key": "repeat-1",
+					}
 				case "get_document_processing_status":
 					args = map[string]any{"document_id": "doc"}
 				}
 				req.Params.Arguments = args
-				ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{Capabilities: types.StringArray{"add_content"}})
+				ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{
+					Capabilities: types.StringArray{"add_content"},
+				})
 				result, err := s.observeContent()(ctx, req)
 				require.NoError(t, err)
 				require.NotNil(t, result)

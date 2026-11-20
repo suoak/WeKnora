@@ -22,7 +22,9 @@ func contentFailure(ctx context.Context, cause error, message string) *mcp.CallT
 		code = "canceled"
 	case errors.Is(cause, access.ErrForbidden):
 		code = "permission_denied"
-	case errors.Is(cause, service.ErrPersonalUpload), errors.Is(cause, service.ErrPersonalContentConflict), errors.Is(cause, service.ErrPersonalContentArguments):
+	case errors.Is(cause, service.ErrPersonalUpload),
+		errors.Is(cause, service.ErrPersonalContentConflict),
+		errors.Is(cause, service.ErrPersonalContentArguments):
 		code = "invalid_arguments"
 	}
 	if state, ok := ctx.Value(contentUsageErrorKey{}).(*contentUsageError); ok {

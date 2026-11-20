@@ -136,7 +136,8 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 	case "upload_document":
 		args := r.GetArguments()
 		if !onlyPersonalFields(args, "knowledge_base_id filename content_base64 idempotency_key") {
-			return contentFailure(ctx, service.ErrPersonalContentArguments, "unexpected upload arguments; send file bytes, not paths or URLs"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments,
+				"unexpected upload arguments; send file bytes, not paths or URLs"), nil
 		}
 		for _, name := range []string{"knowledge_base_id", "filename", "content_base64", "idempotency_key"} {
 			if _, ok := args[name].(string); !ok {
@@ -186,7 +187,8 @@ func (s *PersonalServer) callContent(ctx context.Context, r mcp.CallToolRequest)
 	case "add_document":
 		args := r.GetArguments()
 		if !onlyPersonalFields(args, "knowledge_base_id title content idempotency_key publish") {
-			return contentFailure(ctx, service.ErrPersonalContentArguments, "unexpected arguments; URLs and paths are not supported"), nil
+			return contentFailure(ctx, service.ErrPersonalContentArguments,
+				"unexpected arguments; URLs and paths are not supported"), nil
 		}
 		for _, name := range []string{"knowledge_base_id", "title", "content", "idempotency_key"} {
 			if _, ok := args[name].(string); !ok {

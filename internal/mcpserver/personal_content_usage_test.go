@@ -31,7 +31,9 @@ func TestContentUsageOriginalCause(t *testing.T) {
 			sink := &captureUsage{}
 			req := mcp.CallToolRequest{}
 			req.Params.Name = "add_document"
-			_, err := observeTool(sink, "go_personal", func(ctx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_, err := observeTool(sink, "go_personal", func(
+				ctx context.Context, _ mcp.CallToolRequest,
+			) (*mcp.CallToolResult, error) {
 				return contentFailure(ctx, tc.cause, "creation denied or failed"), nil
 			})(context.Background(), req)
 			require.NoError(t, err)
@@ -44,7 +46,8 @@ func TestContentUsageOriginalCause(t *testing.T) {
 
 func TestPersonalLargeUsageBodyReplayAndLimit(t *testing.T) {
 	for _, size := range []int{1<<20 + 1, 8 << 20, 12 << 20, 12<<20 + 1} {
-		prefix := `{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"upload_document","arguments":{"content_base64":"`
+		prefix := `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +
+			`"params":{"name":"upload_document","arguments":{"content_base64":"`
 		suffix := `"}}}`
 		body := prefix + strings.Repeat("A", size-len(prefix)-len(suffix)) + suffix
 		sink := &captureUsage{}
@@ -58,7 +61,9 @@ func TestPersonalLargeUsageBodyReplayAndLimit(t *testing.T) {
 			require.Equal(t, body, b.String())
 			req := mcp.CallToolRequest{}
 			req.Params.Name = "upload_document"
-			_, _ = observeTool(sink, "go_personal", func(context.Context, mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			_, _ = observeTool(sink, "go_personal", func(
+				context.Context, mcp.CallToolRequest,
+			) (*mcp.CallToolResult, error) {
 				return mcp.NewToolResultText("processing"), nil
 			})(r.Context(), req)
 		}))
