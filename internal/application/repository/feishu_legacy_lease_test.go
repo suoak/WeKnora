@@ -73,7 +73,7 @@ func TestFeishuLegacyLeaseRenewPostgres(t *testing.T) {
 		}
 		a, ok := query.Statement.Dest.(*types.FeishuLegacyAttempt)
 		if !ok || len(a.Manifest) != 0 || len(a.Receipt) != 0 {
-			query.AddError(errors.New("lease query fetched private checkpoint payload"))
+			_ = query.AddError(errors.New("lease query fetched private checkpoint payload"))
 			return
 		}
 		metadataReads.Add(1)
