@@ -224,7 +224,22 @@ func (r *EnterpriseAccessRepository) LoadDocumentReadSnapshot(ctx context.Contex
 	return r.loadReadSnapshot(ctx, userID, keyID, kbID, false)
 }
 
+// LoadPublishedDocumentReadSnapshot uses live trigger epochs as change fences.
+// Published-default access does not consume historical canonical approval hashes.
+// All credentials, policies and source restrictions are still read afresh.
+func (r *EnterpriseAccessRepository) LoadPublishedDocumentReadSnapshot(
+	ctx context.Context, userID string, keyID uint64, kbID string,
+) (*types.EnterpriseReadSnapshot, error) {
+	return r.loadReadSnapshotMode(ctx, userID, keyID, kbID, false, true)
+}
+
 func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userID string, keyID uint64, kbID string, publicOnly bool) (*types.EnterpriseReadSnapshot, error) {
+	return r.loadReadSnapshotMode(ctx, userID, keyID, kbID, publicOnly, false)
+}
+
+func (r *EnterpriseAccessRepository) loadReadSnapshotMode(
+	ctx context.Context, userID string, keyID uint64, kbID string, publicOnly, published bool,
+) (*types.EnterpriseReadSnapshot, error) {
 	if r == nil || r.db == nil {
 		return nil, errors.New("enterprise policy store unavailable")
 	}
@@ -298,7 +313,7 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 		if err := tx.Table("knowledges").Select("id,tenant_id,knowledge_base_id,type,parse_status,enable_status,channel").Where("knowledge_base_id=? AND deleted_at IS NULL", kbID).Order("id").Find(&s.Documents).Error; err != nil {
 			return err
 		}
-		if err := populateDocumentVersionsCached(tx, s.Documents, r.versions); err != nil {
+		if err := populateDocumentSnapshotVersions(tx, s.Documents, r.versions, true, 0, published); err != nil {
 			return err
 		}
 

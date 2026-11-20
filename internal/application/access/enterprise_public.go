@@ -111,7 +111,7 @@ func (r *EnterprisePublicReader) Authorize(ctx context.Context, kbID string) (*E
 		if !ok {
 			return nil, ErrForbidden
 		}
-		s, err = store.LoadDocumentReadSnapshot(ctx, principal.ID, scope.KeyID, kbID)
+		s, err = loadPortalDocumentSnapshot(ctx, store, true, principal.ID, scope.KeyID, kbID)
 	} else {
 		s, err = r.store.LoadEnterpriseReadSnapshot(ctx, principal.ID, scope.KeyID, kbID)
 	}

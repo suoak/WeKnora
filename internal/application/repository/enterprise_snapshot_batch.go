@@ -36,6 +36,13 @@ func populateCanonicalDocumentVersions(
 	includePolicies bool,
 	chunkLimit int,
 ) error {
+	return populateDocumentSnapshotVersions(tx, docs, cache, includePolicies, chunkLimit, false)
+}
+
+func populateDocumentSnapshotVersions(
+	tx *gorm.DB, docs []types.EnterpriseDocumentState, cache *documentVersionCache,
+	includePolicies bool, chunkLimit int, published bool,
+) error {
 	if err := checkDocumentEpochCoverage(tx); err != nil {
 		return err
 	}
@@ -114,6 +121,18 @@ func populateCanonicalDocumentVersions(
 		}
 		stamps[d.ID] = stamp
 		d.EnterprisePolicy = pm[d.ID]
+		if published {
+			// This namespace cannot satisfy a canonical approval hash. Trigger
+			// coverage and every epoch are verified in this same transaction;
+			// raw/bulk writes and delete/recreate change this live fence too.
+			encoded, err := json.Marshal(stamp)
+			if err != nil {
+				return err
+			}
+			sum := sha256.Sum256(encoded)
+			d.CurrentVersion = "published-epoch-v1:" + hex.EncodeToString(sum[:])
+			continue
+		}
 		if version, hit := cache.get(stamp); hit {
 			d.CurrentVersion = version
 			resolved[d.ID] = true

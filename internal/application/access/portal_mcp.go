@@ -131,7 +131,7 @@ candidateLoop:
 		if err != nil {
 			return nil, err
 		}
-		snapshot, err := r.Store.LoadDocumentReadSnapshot(ctx, p.ID, key.KeyID, kb.ID)
+		snapshot, err := loadPortalDocumentSnapshot(ctx, r.Store, r.PublishedDefaults, p.ID, key.KeyID, kb.ID)
 		if err != nil {
 			if errors.Is(err, types.ErrLegacySourceRestricted) {
 				recordPortalRestriction(ctx, kb.ID)
@@ -290,7 +290,9 @@ func (t *PortalKBTarget) Revalidate(ctx context.Context) error {
 		return nil
 	}
 	if t.privateSnapshot != nil {
-		fresh, e := t.resolver.Store.LoadDocumentReadSnapshot(ctx, p.ID, t.credential.KeyID, t.descriptor.ID)
+		fresh, e := loadPortalDocumentSnapshot(
+			ctx, t.resolver.Store, t.resolver.PublishedDefaults, p.ID, t.credential.KeyID, t.descriptor.ID,
+		)
 		if e != nil {
 			return e
 		}
