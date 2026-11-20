@@ -13,9 +13,11 @@ import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
 import { clearPortalIntent } from '@/utils/portalIntent'
+import { resetPortalSession } from './portalEvents'
 
 /** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
 function clearSessionResourceCaches() {
+  resetPortalSession()
   useChatResourcesStore().invalidate()
   useEditorResourcesStore().invalidate()
   useOrganizationStore().clearState()
@@ -194,11 +196,13 @@ export const useAuthStore = defineStore('auth', () => {
     // 保存到localStorage
     localStorage.setItem('weknora_user', JSON.stringify(userData))
     if (previousId !== userData.id) {
+      resetPortalSession()
       reloadUserPreferences()
     }
   }
 
   const setTenant = (tenantData: TenantInfo | null) => {
+    if (String(tenant.value?.id ?? '') !== String(tenantData?.id ?? '')) resetPortalSession()
     tenant.value = tenantData
     if (tenantData) {
       localStorage.setItem('weknora_tenant', JSON.stringify(tenantData))
@@ -209,6 +213,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const setToken = (tokenValue: string) => {
+    if (token.value !== tokenValue) resetPortalSession()
     token.value = tokenValue
     localStorage.setItem('weknora_token', tokenValue)
   }
@@ -284,6 +289,7 @@ export const useAuthStore = defineStore('auth', () => {
       localStorage.removeItem('weknora_selected_tenant_name')
     }
     if (tenantChanged) {
+      resetPortalSession()
       clearTenantScopedClientState()
     }
   }

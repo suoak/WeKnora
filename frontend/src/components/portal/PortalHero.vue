@@ -14,7 +14,7 @@
             </template>
             <PortalSectionState v-else-if="error" compact @retry="$emit('retry')" />
             <template v-else>
-              <div v-for="item in statItems" :key="item.label"><strong>{{ numberFormatter.format(item.value) }}</strong><span>{{ item.label }}</span></div>
+              <div v-for="item in statItems" :key="item.label"><strong>{{ typeof item.value === 'number' ? numberFormatter.format(item.value) : item.value }}</strong><span>{{ item.label }}</span></div>
               <t-tooltip :content="t('portalExperience.scaleTooltip')" placement="bottom"><t-icon class="stats-info" name="info-circle" /></t-tooltip>
             </template>
           </div>
@@ -61,7 +61,7 @@ const numberFormatter = new Intl.NumberFormat()
 const statItems = computed(() => [
   { value: props.stats.spaces, label: t('portalExperience.spaces') },
   { value: props.stats.knowledgeBases, label: t('portalExperience.knowledgeBases') },
-  { value: props.stats.files, label: t('portalExperience.files') },
+  { value: props.stats.documents ?? '—', label: t('portalExperience.files') },
 ])
 </script>
 

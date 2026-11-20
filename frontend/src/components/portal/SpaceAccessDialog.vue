@@ -6,7 +6,7 @@
         <div><span>{{ t('portalMap.accessDialog.spaceLabel') }}</span><strong>{{ space.display_name }}</strong></div>
         <div v-if="stageLabel"><span>{{ t('portalMap.accessDialog.stageLabel') }}</span><strong>{{ stageLabel }}</strong></div>
       </div>
-      <div class="inventory"><span>{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span><span>{{ t('portal.fileCount', { count: space.file_count }) }}</span></div>
+      <div class="inventory"><span>{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span><span>{{ t('portal.fileCount', { count: space.document_entry_count ?? '—' }) }}</span></div>
       <div class="access-benefits"><span>{{ t('portalMap.accessDialog.afterAccess') }}</span><ul><li><t-icon name="check" />{{ t('portalMap.accessDialog.browse') }}</li><li><t-icon name="check" />{{ t('portalMap.accessDialog.search') }}</li><li><t-icon name="check" />{{ t('portalMap.accessDialog.ask') }}</li></ul></div>
       <dl v-if="space.responsible_team || space.contact">
         <div v-if="space.responsible_team"><dt>{{ t('portal.responsibleTeam') }}</dt><dd>{{ space.responsible_team }}</dd></div>

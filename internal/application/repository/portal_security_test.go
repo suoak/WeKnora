@@ -26,7 +26,7 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
-		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME, type TEXT DEFAULT 'document')`,
 		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, title TEXT, deleted_at DATETIME)`,
 		`CREATE TABLE chunks (id TEXT, knowledge_id TEXT)`,
 		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (4, 'hidden', 'active'), (99, 'active-context', 'active')`,
@@ -46,7 +46,7 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 			(1, 'testing', 70, CURRENT_TIMESTAMP),
 			(1, 'lmt', 80, CURRENT_TIMESTAMP),
 			(1, 'retired_legacy', 90, CURRENT_TIMESTAMP)`,
-		`INSERT INTO knowledge_bases VALUES
+		`INSERT INTO knowledge_bases(id,tenant_id,name,is_temporary,deleted_at) VALUES
 			('kb-secret', 1, 'classified quantum roadmap', 0, NULL),
 			('kb-deleted', 1, 'deleted knowledge base', 0, CURRENT_TIMESTAMP),
 			('kb-temporary', 1, 'temporary knowledge base', 1, NULL)`,
@@ -128,7 +128,7 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
-		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME, type TEXT DEFAULT 'document')`,
 		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, deleted_at DATETIME)`,
 		`INSERT INTO tenants(id, status) VALUES (1, 'active'), (2, 'active'), (3, 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES

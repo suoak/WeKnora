@@ -15,7 +15,7 @@
         <PortalSpaceOwner v-if="!suppressResponsible" :space="space" />
       </div>
       <p :title="displayDescription">{{ displayDescription }}</p>
-      <small>{{ formatSpaceAssets({ knowledgeBases: normalizedCount(space.knowledge_base_count), files: normalizedCount(space.file_count) }, t, numberFormatter) }}</small>
+      <small :title="space.document_entry_count == null ? t('portalMap.countsHidden') : undefined">{{ formatSpaceAssets({ knowledgeBases: normalizedCount(space.knowledge_base_count), documents: typeof space.document_entry_count === 'number' ? normalizedCount(space.document_entry_count) : null }, t, numberFormatter) }}</small>
     </div>
     <div v-if="space.access_state === 'accessible'" class="accessible-actions" @click.stop @keydown.stop>
       <div class="icon-actions">

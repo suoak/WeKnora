@@ -1,5 +1,6 @@
 // src/utils/request.js
 import axios from "axios";
+import { invalidatePortalAssets, isAssetMutation } from '@/stores/portalEvents';
 import { generateRandomString, MAX_FILE_SIZE_MB, MAX_SKILL_BUNDLE_SIZE_MB } from "./index";
 import i18n from '@/i18n'
 import { getApiBaseUrl } from './api-base';
@@ -128,6 +129,7 @@ instance.interceptors.response.use(
     // 根据业务状态码处理逻辑
     const { status, data } = response;
     if (status >= 200 && status < 300) {
+      if (data?.success !== false && isAssetMutation(response.config.method, response.config.url)) invalidatePortalAssets();
       return withHttpStatus(data, status);
     } else {
       return Promise.reject(withHttpStatus(data, status));

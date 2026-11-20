@@ -175,7 +175,7 @@ func applyKnowledgeListFilter(query *gorm.DB, filter types.KnowledgeListFilter) 
 		// pipeline marks the row `deleting` before tearing down its resources; a
 		// row whose delete task exhausts its retries is flipped to `failed` by the
 		// dead-letter callback and stays visible so the failure remains actionable.
-		query = query.Where("parse_status <> ?", types.ParseStatusDeleting)
+		query = liveKnowledgeEntries(query, "")
 	}
 	if !filter.UpdatedFrom.IsZero() {
 		query = query.Where("updated_at >= ?", filter.UpdatedFrom)
@@ -858,9 +858,8 @@ func (r *knowledgeRepository) CountKnowledgeByKnowledgeBaseID(
 	// Mirror the document list's view (applyKnowledgeListFilter): rows
 	// mid-deletion are hidden there, so counting them here is what produced
 	// the "4 documents, 3 listed" ghost on the KB card (issues #3338/#3345).
-	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).
-		Where("tenant_id = ? AND knowledge_base_id = ? AND parse_status <> ?",
-			tenantID, kbID, types.ParseStatusDeleting).
+	err := liveKnowledgeEntries(r.db.WithContext(ctx).Model(&types.Knowledge{}), "").
+		Where("tenant_id = ? AND knowledge_base_id = ?", tenantID, kbID).
 		Count(&count).Error
 	return count, err
 }

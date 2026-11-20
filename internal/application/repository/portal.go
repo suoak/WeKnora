@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
@@ -86,6 +87,39 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	if err != nil {
 		return nil, err
 	}
+	// Publication authorizes the legacy discovery projection, not additional
+	// totals for private/manual entries. Workspace totals require the existing
+	// system-admin or workspace-admin authority, not merely discovery/membership.
+	countTenants := make([]uint64, 0, len(rows))
+	for _, row := range rows {
+		member := memberships[row.TenantID]
+		if _, protected, scopeErr := access.GuardDocumentReadQuery(ctx, row.TenantID, ""); protected || scopeErr != nil {
+			continue
+		}
+		if scope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok && scope.IsKnowledgeBaseRestricted() {
+			continue
+		}
+		if types.IsSystemAdminFromContext(ctx) || (member != nil && member.Status == types.TenantMemberStatusActive && (member.Role == types.TenantRoleOwner || member.Role == types.TenantRoleAdmin)) {
+			countTenants = append(countTenants, row.TenantID)
+		}
+	}
+	// A subject participating in document-level grants must not receive an
+	// unfiltered workspace aggregate. Visible counts require the exact same
+	// authorization scope as the list; until one is supplied, omit these fields.
+	if !types.IsSystemAdminFromContext(ctx) && len(countTenants) > 0 {
+		var grants int64
+		if !r.db.Migrator().HasTable("document_subject_grants") {
+			countTenants = nil
+		} else if err := r.db.WithContext(ctx).Table("document_subject_grants").Where("user_id = ?", userID).Count(&grants).Error; err != nil {
+			return nil, err
+		} else if grants > 0 {
+			countTenants = nil
+		}
+	}
+	assetCounts, err := r.documentAssetCountMap(ctx, countTenants)
+	if err != nil {
+		return nil, err
+	}
 
 	interaction := map[string]bool{}
 	if activeTenantID != 0 {
@@ -148,7 +182,7 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 		if state == types.PortalAccessAccessible && row.InteractionOrgID != nil && interaction[*row.InteractionOrgID] {
 			action = types.PortalInteractionEnter
 		}
-		out = append(out, &types.PortalSpaceResponse{
+		item := &types.PortalSpaceResponse{
 			TenantID: row.TenantID, DisplayName: row.DisplayName, Description: row.Description,
 			Category: row.Category, ResponsibleTeam: row.ResponsibleTeam, Contact: row.Contact,
 			Stages: stages[row.TenantID], Featured: row.Featured,
@@ -159,7 +193,70 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 			MembershipSuspended:  membershipSuspended,
 			CanRequestAccess:     row.AllowAccessRequest && state == types.PortalAccessDiscoverable && !pending[row.TenantID] && !membershipSuspended,
 			InteractionAction:    action,
-		})
+			AssetCountScope:      "hidden",
+		}
+		if counts, ok := assetCounts[row.TenantID]; ok {
+			item.DocumentEntryCount = &counts.Documents
+			item.UploadedFileCount = &counts.Files
+			item.FAQKnowledgeBaseCount = &counts.FAQKnowledgeBases
+			item.WikiKnowledgeBaseCount = &counts.WikiKnowledgeBases
+			item.AssetCountScope = "space_total"
+		}
+		out = append(out, item)
+	}
+	return out, nil
+}
+
+type documentAssetCounts struct {
+	Documents          int64
+	Files              int64
+	FAQKnowledgeBases  int64
+	WikiKnowledgeBases int64
+}
+
+func (r *portalRepository) documentAssetCountMap(ctx context.Context, tenantIDs []uint64) (map[uint64]*documentAssetCounts, error) {
+	out := make(map[uint64]*documentAssetCounts, len(tenantIDs))
+	if len(tenantIDs) == 0 {
+		return out, nil
+	}
+	for _, id := range tenantIDs {
+		out[id] = &documentAssetCounts{}
+	}
+	var rows []struct {
+		TenantID  uint64
+		Documents int64
+		Files     int64
+	}
+	query := r.db.WithContext(ctx).Table("knowledges AS k").
+		Joins("JOIN knowledge_bases AS kb ON kb.id = k.knowledge_base_id AND kb.tenant_id = k.tenant_id").
+		Where("kb.deleted_at IS NULL AND kb.is_temporary = ? AND kb.type = ?", false, "document").
+		Where("k.tenant_id IN ? AND k.type IN ?", tenantIDs, documentEntryTypes)
+	if err := liveKnowledgeEntries(query, "k.").
+		Select("k.tenant_id, COUNT(DISTINCT k.id) AS documents, COUNT(DISTINCT CASE WHEN k.type IN ('file','file_url') THEN k.id END) AS files").
+		Group("k.tenant_id").Scan(&rows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		out[row.TenantID].Documents = row.Documents
+		out[row.TenantID].Files = row.Files
+	}
+	var kbRows []struct {
+		TenantID uint64
+		Type     string
+		Count    int64
+	}
+	if err := r.db.WithContext(ctx).Table("knowledge_bases").
+		Select("tenant_id, type, COUNT(DISTINCT id) AS count").
+		Where("tenant_id IN ? AND deleted_at IS NULL AND is_temporary = ? AND type IN ?", tenantIDs, false, []string{"faq", "wiki"}).
+		Group("tenant_id, type").Scan(&kbRows).Error; err != nil {
+		return nil, err
+	}
+	for _, row := range kbRows {
+		if row.Type == "faq" {
+			out[row.TenantID].FAQKnowledgeBases = row.Count
+		} else {
+			out[row.TenantID].WikiKnowledgeBases = row.Count
+		}
 	}
 	return out, nil
 }

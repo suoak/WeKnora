@@ -55,6 +55,7 @@ import DocumentBatchBar from './components/DocumentBatchBar.vue';
 import KnowledgeProcessingSummary from './components/KnowledgeProcessingSummary.vue';
 import KbUploadSourceDropdown from './components/KbUploadSourceDropdown.vue';
 import KbFolderTree from './components/KbFolderTree.vue';
+import DocumentScopeSummary from './components/DocumentScopeSummary.vue';
 import BatchTagDialog from './components/BatchTagDialog.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import { useUploadConfirmStore, type UploadConfirmResult } from '@/stores/uploadConfirm';
@@ -2472,7 +2473,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                     <span v-if="index === folderBreadcrumbs.length - 1" class="doc-folder-path__crumb is-current" :title="crumb.name" aria-current="page">{{ crumb.name }}</span>
                     <button v-else type="button" class="doc-folder-path__crumb" :title="crumb.name" @click="handleFolderSelect(crumb.path)">{{ crumb.name }}</button>
                   </template>
-                  <span v-if="!docListLoading && !knowledgeListError" class="doc-folder-path__count">{{ $t(isFiltering ? 'knowledgeBase.folderTree.filteredCount' : 'knowledgeBase.documentCount', { count: total }) }}</span>
+                  <DocumentScopeSummary v-if="!docListLoading && !knowledgeListError" class="doc-folder-path__count" :count="total" :whole-count="folderTree?.total_document_count" :filtered="isFiltering" />
                   <t-tooltip v-if="showFolderTree && isFiltering" :content="$t('knowledgeBase.folderTree.searchingSubtree')">
                     <t-icon name="info-circle" class="doc-folder-path__sep" />
                   </t-tooltip>

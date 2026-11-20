@@ -77,7 +77,7 @@ const messages = {
   portalCard: { ask: 'Q&A', search: 'ナレッジ検索', responsible: '担当：{name}', unconfigured: '未設定', noSpaceDescription: 'スペースの説明はありません' },
   portalExperience: enUS.portalExperience,
   portalHome: { brandZh: 'Knowledge Hub', title: 'Unified knowledge, intelligent answers', description: 'Find trusted team knowledge, ask a question, or enter a knowledge space.', askPlaceholder: 'What would you like to know?', askAction: 'Ask now', useTitle: 'Use KnowHub your way', useDescription: 'Start with a task and keep your work moving.', knowledgeTitle: 'Knowledge at hand', knowledgeDescription: 'Available knowledge bases in the current space.', agentTitle: 'Available Agents', agentDescription: 'Start a conversation with a specialist Agent.', viewAll: 'View all', noDescription: 'No description', noKnowledge: 'No knowledge bases are available yet.', browseKnowledge: 'Browse knowledge', noAgents: 'No Agents are available yet.', exploreAgents: 'Explore Agents', useAgent: 'Use', tasks: { ask: { title: 'Ask a technical question', description: 'Start an intelligent knowledge conversation.' }, knowledge: { title: 'Browse team knowledge', description: 'Explore spaces and shared knowledge.' }, agent: { title: 'Use an Agent', description: 'Work with a purpose-built assistant.' }, mcp: { title: 'Connect an AI tool', description: 'Use KnowHub from Codex, WorkMate or Claude Code.' } } },
-  portalMap: { ...enUS.portalMap ,
+  portalMap: { ...enUS.portalMap, countsHidden: '文書数は非公開です',
   stageNavigationLabel: 'ナレッジのライフサイクル段階',
 },
   menu: {
@@ -481,6 +481,9 @@ const messages = {
     folderTree: {
       totalDocuments: '全 {count} 件',
       countHint: 'このフォルダ内 {direct} 件、サブフォルダを含めて {total} 件',
+      currentFolderCount: '現在のフォルダー: {count} 件',
+      filteredScopeCount: '検索結果: {count} 件',
+      wholeKnowledgeBaseCount: 'ナレッジベース全体: {count} 件',
       filteredCount: '{count} 件一致',
       title: 'フォルダ',
       rootRow: 'ルート',

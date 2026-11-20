@@ -3,7 +3,7 @@ import type { PortalSpace } from '@/api/portal'
 export interface KnowledgeScale {
   spaces: number
   knowledgeBases: number
-  files: number
+  documents: number | null
 }
 
 export interface KnowledgeHierarchySummary {
@@ -29,8 +29,9 @@ export function summarizeKnowledgeSpaces(spaces: readonly PortalSpace[]): Knowle
   return uniquePortalSpaces(spaces).reduce<KnowledgeScale>((summary, space) => ({
     spaces: summary.spaces + 1,
     knowledgeBases: summary.knowledgeBases + safeCount(space.knowledge_base_count),
-    files: summary.files + safeCount(space.file_count),
-  }), { spaces: 0, knowledgeBases: 0, files: 0 })
+    documents: summary.documents === null || typeof space.document_entry_count !== 'number'
+      ? null : summary.documents + safeCount(space.document_entry_count),
+  }), { spaces: 0, knowledgeBases: 0, documents: 0 })
 }
 
 export function buildKnowledgeHierarchySummary(

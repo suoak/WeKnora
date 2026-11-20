@@ -23,7 +23,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, ref } from 'vue'
+import { portalAssetRevision } from '@/stores/portalEvents'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -101,7 +102,26 @@ async function retryIpd(){
   await Promise.allSettled(tasks)
 }
 
-onMounted(()=>{void portal.initialize()})
+let active = true
+let refreshTimer: ReturnType<typeof setInterval> | undefined
+function refreshVisiblePortal() {
+  if (active && authStore.isLoggedIn && document.visibilityState !== 'hidden') void portal.initialize()
+}
+onMounted(() => {
+  refreshVisiblePortal()
+  window.addEventListener('focus', refreshVisiblePortal)
+  document.addEventListener('visibilitychange', refreshVisiblePortal)
+  refreshTimer = setInterval(refreshVisiblePortal, 60_000)
+})
+onActivated(() => { active = true; refreshVisiblePortal() })
+onDeactivated(() => { active = false })
+onUnmounted(() => {
+  active = false
+  clearInterval(refreshTimer)
+  window.removeEventListener('focus', refreshVisiblePortal)
+  document.removeEventListener('visibilitychange', refreshVisiblePortal)
+})
+watch(portalAssetRevision, refreshVisiblePortal)
 </script>
 
 <style scoped lang="less">
