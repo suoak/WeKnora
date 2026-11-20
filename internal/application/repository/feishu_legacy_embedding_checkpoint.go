@@ -129,7 +129,23 @@ func (s *FeishuLegacyStore) SaveEmbeddingCheckpoint(
 	ctx context.Context, ds *types.DataSource, owner *types.FeishuLegacyAttempt,
 	inputs []string, vectors [][]float32,
 ) error {
-	if len(inputs) == 0 || len(inputs) > 20 || len(inputs) != len(vectors) {
+	return s.saveEmbeddingCheckpoint(ctx, ds, owner, inputs, vectors, 20)
+}
+
+// SaveReusedEmbeddingCheckpoint imports already verified private cache results.
+// Physical model responses keep their separate twenty-input persistence limit.
+func (s *FeishuLegacyStore) SaveReusedEmbeddingCheckpoint(
+	ctx context.Context, ds *types.DataSource, owner *types.FeishuLegacyAttempt,
+	inputs []string, vectors [][]float32,
+) error {
+	return s.saveEmbeddingCheckpoint(ctx, ds, owner, inputs, vectors, 256)
+}
+
+func (s *FeishuLegacyStore) saveEmbeddingCheckpoint(
+	ctx context.Context, ds *types.DataSource, owner *types.FeishuLegacyAttempt,
+	inputs []string, vectors [][]float32, batchLimit int,
+) error {
+	if len(inputs) == 0 || len(inputs) > batchLimit || len(inputs) != len(vectors) {
 		return legacyFence("embedding_checkpoint_batch_shape")
 	}
 	if err := types.CheckFeishuSourceRead(ctx); err != nil {
@@ -149,6 +165,9 @@ func (s *FeishuLegacyStore) SaveEmbeddingCheckpoint(
 		}
 		if err = checkLargeCheckpointClaim(ctx, tx, ds, r, c); err != nil {
 			return err
+		}
+		if len(inputs) > 20 && !largeCheckpointShape(c) {
+			return legacyFence("embedding_checkpoint_batch_shape")
 		}
 		byHash := map[string][]string{}
 		for _, input := range c.Inputs {
@@ -212,6 +231,21 @@ func (s *FeishuLegacyStore) ReusableEmbeddingCheckpoint(
 		}
 		// One most-complete private checkpoint plus the latest publication cover
 		// a resumed new revision and its unchanged, previously published inputs.
+		requestIDs := []string{current.RequestID}
+		reuseRequest := ""
+		if current.Version == 2 {
+			claim, err := checkSourceReparseClaim(ctx, tx, ds, r)
+			if err != nil || claim == nil {
+				if err != nil {
+					return err
+				}
+				return legacyFence("large_checkpoint_request_missing")
+			}
+			reuseRequest = claim.request.ReuseCheckpointID
+			if reuseRequest != "" {
+				requestIDs = append(requestIDs, reuseRequest)
+			}
+		}
 		var candidates []types.FeishuLegacyAttempt
 		if err = tx.Raw(`(SELECT old.* FROM feishu_legacy_attempts old
 WHERE old.resource_id=? AND old.status='published' ORDER BY old.generation DESC LIMIT 1)
@@ -221,10 +255,10 @@ WHERE old.resource_id=? AND old.status IN ('staging','ready','obsolete')
 AND old.receipt->'embedding_checkpoint_v1'->>'model_stamp'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'model_id'=?
 AND old.receipt->'embedding_checkpoint_v1'->>'kb_config_sha256'=?
-AND (?='' OR (old.receipt->'embedding_checkpoint_v1'->>'request_id'=? AND old.source_hash=?))
+AND (?='' OR (old.receipt->'embedding_checkpoint_v1'->>'request_id' IN ? AND old.source_hash=?))
 ORDER BY (SELECT count(*) FROM feishu_legacy_index_candidates i WHERE i.attempt_id=old.id) DESC,
 old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
-			current.KBConfigSHA256, current.RequestID, current.RequestID, current.SourceHash).
+			current.KBConfigSHA256, current.RequestID, requestIDs, current.SourceHash).
 			Scan(&candidates).Error; err != nil {
 			return err
 		}
@@ -278,7 +312,7 @@ old.generation DESC LIMIT 1)`, r.ID, r.ID, current.ModelStamp, current.ModelID,
 					c.KBConfigSHA256 != current.KBConfigSHA256 || c.Dimension != current.Dimension {
 					continue
 				}
-				if current.Version == 2 && (c.RequestID != current.RequestID ||
+				if current.Version == 2 && ((c.RequestID != current.RequestID && c.RequestID != reuseRequest) ||
 					c.SourceConfig != current.SourceConfig || c.SourceHash != current.SourceHash) {
 					continue
 				}

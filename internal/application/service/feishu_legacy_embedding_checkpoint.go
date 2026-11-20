@@ -81,13 +81,15 @@ func embedLegacyCheckpointed(
 		reused,
 		len(multiplicity),
 	)
-	save := func(check context.Context, inputs []string, vectors [][]float32) error {
+	persist := func(check context.Context, inputs []string, vectors [][]float32,
+		write func(context.Context, *types.DataSource, *types.FeishuLegacyAttempt, []string, [][]float32) error,
+	) error {
 		if feishusafety.Scoped(check) {
 			if err := feishusafety.Default().Check(check); err != nil {
 				return err
 			}
 		}
-		if err := store.SaveEmbeddingCheckpoint(check, ds, owner, inputs, vectors); err != nil {
+		if err := write(check, ds, owner, inputs, vectors); err != nil {
 			return err
 		}
 		for i, text := range inputs {
@@ -109,6 +111,47 @@ func embedLegacyCheckpointed(
 		)
 		return nil
 	}
+	save := func(check context.Context, inputs []string, vectors [][]float32) error {
+		return persist(check, inputs, vectors, store.SaveEmbeddingCheckpoint)
+	}
+	// Replay private cache entries in bounded groups before model work. Repeated
+	// response-sized replay otherwise reloads the entire large manifest thousands
+	// of times. Every group still renews authority and passes the original fences.
+	if importer, ok := store.(interface {
+		SaveReusedEmbeddingCheckpoint(context.Context, *types.DataSource, *types.FeishuLegacyAttempt,
+			[]string, [][]float32) error
+	}); ok && checkpoint.Version == 2 {
+		inputs, values := []string{}, [][]float32{}
+		seen := map[string]bool{}
+		flush := func() error {
+			if len(inputs) == 0 {
+				return nil
+			}
+			if err := check(); err != nil {
+				return err
+			}
+			if err := persist(ctx, inputs, values, importer.SaveReusedEmbeddingCheckpoint); err != nil {
+				return err
+			}
+			inputs, values = nil, nil
+			return nil
+		}
+		for _, text := range texts {
+			digest := repository.LegacyEmbeddingInputHash(text)
+			if vector, found := cache[digest]; found && !seen[digest] {
+				seen[digest] = true
+				inputs, values = append(inputs, text), append(values, vector)
+				if len(inputs) == 256 {
+					if err := flush(); err != nil {
+						return nil, err
+					}
+				}
+			}
+		}
+		if err := flush(); err != nil {
+			return nil, err
+		}
+	}
 	ctx = embedding.WithBatchCheckpoint(ctx, save)
 	newInputs := 0
 	for start := 0; start < len(texts); start += 20 {
@@ -123,6 +166,19 @@ func embedLegacyCheckpointed(
 				batch = append(batch, text)
 				seen[digest] = true
 			}
+		}
+		alreadySaved := true
+		for _, text := range batch {
+			if !saved[repository.LegacyEmbeddingInputHash(text)] {
+				alreadySaved = false
+				break
+			}
+		}
+		if alreadySaved {
+			if err := ctx.Err(); err != nil {
+				return nil, err
+			}
+			continue
 		}
 		for retry := 0; ; retry++ {
 			if err = check(); err != nil {
@@ -212,6 +268,9 @@ func embedLegacyCheckpointed(
 				}
 			}
 		}
+	}
+	if err := check(); err != nil {
+		return nil, err
 	}
 	out := make([][]float32, len(texts))
 	for i, text := range texts {

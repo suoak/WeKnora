@@ -6,6 +6,7 @@ import "time"
 // Its connector binding and process configuration never come from task headers.
 type FeishuDocumentReparse struct {
 	ID                  string                     `json:"id"`
+	ReuseCheckpointID   string                     `json:"reuse_checkpoint_request_id,omitempty"`
 	KnowledgeID         string                     `json:"knowledge_id"`
 	DataSourceID        string                     `json:"data_source_id"`
 	KnowledgeBaseID     string                     `json:"knowledge_base_id"`

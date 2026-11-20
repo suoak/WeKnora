@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -231,4 +232,148 @@ func TestFeishuLegacyEmbeddingCheckpointPostgres(t *testing.T) {
 		"changed inputs still require a model call",
 	)
 	require.Len(t, cache, 1, "unrequested historical inputs are never returned")
+	t.Run("bounded-large-cache-replay-keeps-original-fences", func(t *testing.T) {
+		largeItem := *item
+		largeItem.ExternalID, largeItem.FileName = "large-replay", "large.xlsx"
+		resource, attempt, e := store.Begin(
+			ctx,
+			ds,
+			&largeItem,
+			LegacySourceHash(largeItem.Content, largeItem.FileName, largeItem.Title),
+		)
+		require.NoError(t, e)
+		request := types.FeishuDocumentReparse{
+			ID: uuid.NewString(), KnowledgeID: resource.KnowledgeID,
+			DataSourceID: ds.ID, KnowledgeBaseID: kb.ID, TenantID: tenant.ID,
+			RootID: "large-replay", ExternalID: largeItem.ExternalID,
+			FileType: "xlsx", ConfigHash: LegacySourceReparseConfigHash(ds),
+			ExecutionID: log.ID, Generation: 1, Attempts: 1,
+		}
+		payload, e := json.Marshal(request)
+		require.NoError(t, e)
+		operation := types.TaskPendingOp{
+			TenantID: tenant.ID, TaskType: sourceDocumentReparseTask,
+			Scope: sourceDocumentReparseScope, ScopeID: ds.ID, Op: "processing", DedupKey: resource.KnowledgeID,
+			Payload: payload, EnqueuedAt: time.Now(),
+		}
+		require.NoError(t, db.Create(&operation).Error)
+		claimed := context.WithValue(
+			ctx,
+			sourceDocumentReparseKey{},
+			&sourceDocumentReparseClaim{op: operation, request: request},
+		)
+		large := types.FeishuLegacyEmbeddingCheckpoint{
+			Version:        2,
+			RequestID:      request.ID,
+			SourceConfig:   request.ConfigHash,
+			ModelID:        model.ID,
+			ModelStamp:     stamp,
+			KBConfigSHA256: LegacyKBConfigHash(kb),
+			Dimension:      3,
+		}
+		texts, values := []string{}, [][]float32{}
+		for i := 0; i < 10001; i++ {
+			text := fmt.Sprintf("bounded-replay-%d", i)
+			large.Inputs = append(
+				large.Inputs,
+				types.FeishuLegacyEmbeddingInput{ChunkID: uuid.NewString(), SHA256: LegacyEmbeddingInputHash(text)},
+			)
+			if i < 257 {
+				texts = append(texts, text)
+				values = append(values, []float32{1, 0, 0})
+			}
+		}
+		require.NoError(t, store.StartEmbeddingCheckpoint(claimed, ds, attempt, large))
+		require.ErrorIs(
+			t,
+			store.SaveEmbeddingCheckpoint(claimed, ds, attempt, texts[:21], values[:21]),
+			ErrLegacyVersionFence,
+		)
+		require.ErrorIs(
+			t,
+			store.SaveReusedEmbeddingCheckpoint(claimed, ds, attempt, texts, values),
+			ErrLegacyVersionFence,
+		)
+		require.NoError(t, store.SaveReusedEmbeddingCheckpoint(claimed, ds, attempt, texts[:256], values[:256]))
+		require.EqualValues(t, 256, count(attempt.ID))
+		denied := types.WithFeishuSourceReadGuard(
+			claimed,
+			func(context.Context) error { return types.ErrLegacySourceRestricted },
+		)
+		require.ErrorIs(
+			t,
+			store.SaveReusedEmbeddingCheckpoint(denied, ds, attempt, texts[:1], values[:1]),
+			types.ErrLegacySourceRestricted,
+		)
+		request.Generation++
+		stale := context.WithValue(
+			ctx,
+			sourceDocumentReparseKey{},
+			&sourceDocumentReparseClaim{op: operation, request: request},
+		)
+		require.ErrorIs(
+			t,
+			store.SaveReusedEmbeddingCheckpoint(stale, ds, attempt, texts[:1], values[:1]),
+			ErrLegacyVersionFence,
+		)
+		require.EqualValues(t, 256, count(attempt.ID))
+		require.NoError(t, store.Abandon(ctx, attempt))
+		request.Generation = 1
+		request.ErrorCode = "retry_exhausted"
+		failedPayload, e := json.Marshal(request)
+		require.NoError(t, e)
+		require.NoError(
+			t,
+			db.Model(&operation).
+				Updates(map[string]any{"op": "failed", "payload": json.RawMessage(failedPayload)}).
+				Error,
+		)
+		_, resumed, e := store.Begin(
+			ctx,
+			ds,
+			&largeItem,
+			LegacySourceHash(largeItem.Content, largeItem.FileName, largeItem.Title),
+		)
+		require.NoError(t, e)
+		priorID := request.ID
+		request.ID, request.ReuseCheckpointID, request.ErrorCode = uuid.NewString(), priorID, ""
+		request.Attempts = 0
+		newPayload, e := json.Marshal(request)
+		require.NoError(t, e)
+		newOperation := operation
+		newOperation.ID = 0
+		newOperation.Op, newOperation.Payload = "processing", newPayload
+		require.NoError(t, db.Create(&newOperation).Error)
+		resumedContext := context.WithValue(
+			ctx,
+			sourceDocumentReparseKey{},
+			&sourceDocumentReparseClaim{op: newOperation, request: request},
+		)
+		large.RequestID = request.ID
+		for i := range large.Inputs {
+			large.Inputs[i].ChunkID = uuid.NewString()
+		}
+		require.NoError(t, store.StartEmbeddingCheckpoint(resumedContext, ds, resumed, large))
+		reused, e := store.ReusableEmbeddingCheckpoint(resumedContext, ds, resumed)
+		require.NoError(t, e)
+		require.Len(
+			t,
+			reused,
+			256,
+			"a newly authorized intent may reuse only its server-linked parent's verified inputs",
+		)
+		require.Equal(t, []float32{1, 0, 0}, reused[LegacyEmbeddingInputHash(texts[0])])
+		changed := request
+		changed.ReuseCheckpointID = uuid.NewString()
+		forged := context.WithValue(
+			ctx,
+			sourceDocumentReparseKey{},
+			&sourceDocumentReparseClaim{op: newOperation, request: changed},
+		)
+		_, e = store.ReusableEmbeddingCheckpoint(forged, ds, resumed)
+		require.ErrorIs(t, e, ErrLegacyVersionFence, "a caller cannot inject a different checkpoint parent")
+		var oldOperation types.TaskPendingOp
+		require.NoError(t, db.First(&oldOperation, "id=?", operation.ID).Error)
+		require.Equal(t, "failed", oldOperation.Op, "new requests preserve exhausted request history")
+	})
 }
