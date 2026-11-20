@@ -262,6 +262,7 @@ func RunAsynqServer(params AsynqTaskParams) *asynq.ServeMux {
 	// "processing" until housekeeping cron caught it minutes later — the
 	// UI signal users actually see.
 	knowledgeFailer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker)
+	knowledgeFailer = withDocumentTaskFailureContext(knowledgeFailer, params.FeishuPersonalService)
 	mux.Use(asynqdl.MiddlewareWithCallback(params.DeadLetterRepo, knowledgeFailer))
 	mux.Use(asynqdl.RecoverMiddleware())
 
@@ -430,6 +431,32 @@ var taskTypesAffectingKnowledgeStatus = map[string]struct{}{
 	types.TypeFeishuApplicationProcess: {},
 	types.TypeKnowledgePostProcess:     {},
 	types.TypeManualProcess:            {},
+}
+
+// The final-failure callback runs outside the worker's reconstructed context.
+// Restore the same bounded document authority before its status CAS, otherwise
+// a sibling source hold can leave an archived ordinary upload pending forever.
+func withDocumentTaskFailureContext(
+	callback asynqdl.OnDeadLetter, personal *service.FeishuPersonalService,
+) asynqdl.OnDeadLetter {
+	if callback == nil || personal == nil {
+		return callback
+	}
+	return func(ctx context.Context, task *asynq.Task, taskErr error) {
+		if task == nil {
+			callback(ctx, task, taskErr)
+			return
+		}
+		wrapped := personal.WrapPrivateTaskHandler(func(fresh context.Context, t *asynq.Task) error {
+			callback(fresh, t, taskErr)
+			return nil
+		})
+		if err := wrapped(ctx, task); err != nil {
+			// Preserve the original best-effort behavior for rejected or missing
+			// task bindings. Failure handling cannot release their source holds.
+			callback(ctx, task, taskErr)
+		}
+	}
 }
 
 // newDeadLetterKnowledgeFailer returns the callback wired into the asynq

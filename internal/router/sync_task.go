@@ -249,7 +249,7 @@ func RegisterSyncHandlers(params SyncTaskParams) {
 	}
 	// Same callback the asynq dead-letter middleware runs in standard mode.
 	if failer := newDeadLetterKnowledgeFailer(params.KnowledgeService, params.SpanTracker); failer != nil {
-		params.Executor.SetFinalFailureHook(failer)
+		params.Executor.SetFinalFailureHook(withDocumentTaskFailureContext(failer, params.FeishuPersonalService))
 	}
 	register(types.TypeChunkExtract, params.ChunkExtractor.Handle)
 	register(types.TypeDataTableSummary, params.DataTableSummary.Handle)

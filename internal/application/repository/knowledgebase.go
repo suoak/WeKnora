@@ -46,6 +46,16 @@ func (r *knowledgeBaseRepository) GetKnowledgeBaseByID(
 ) (*types.KnowledgeBase, error) {
 	var kb types.KnowledgeBase
 	query := r.db.WithContext(ctx)
+	if scoped, err := types.CheckOrdinaryTaskKBConfiguration(query, id); scoped {
+		if err != nil {
+			return nil, err
+		}
+		query = r.db.WithContext(types.WithLegacyKBAdminMetadata(ctx, id)).Select(`
+id,tenant_id,creator_id,name,type,chunking_config,image_processing_config,
+embedding_model_id,summary_model_id,vlm_config,asr_config,storage_provider_config,
+storage_backend_id,cos_config,vector_store_id,extract_config,faq_config,
+question_generation_config,auto_tag_config,profile_config,indexing_strategy`)
+	}
 	if types.IsKBDeletionMetadata(ctx, id) {
 		// Private-owner checks still run in AfterFind. Never select generated
 		// profile, summary or source content for administrative deletion.
