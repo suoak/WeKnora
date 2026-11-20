@@ -17,7 +17,7 @@ func (s *FeishuLegacyStore) Renew(ctx context.Context, ds *types.DataSource, own
 		return legacyFence("attempt_owner_unconfirmed")
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		_, attempt, err := s.owned(ctx, tx, ds, owner)
+		_, attempt, err := s.ownedWithAttemptPayload(ctx, tx, ds, owner, false)
 		if err != nil {
 			return err
 		}

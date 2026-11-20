@@ -571,6 +571,18 @@ func (s *FeishuLegacyStore) owned(
 	ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt,
 ) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
+	return s.ownedWithAttemptPayload(ctx, tx, ds, owner, true)
+}
+
+// Lease-only checks need the same live locks and ownership predicates, without
+// transferring the potentially large private manifest and embedding checkpoint.
+func (s *FeishuLegacyStore) ownedWithAttemptPayload(
+	ctx context.Context,
+	tx *gorm.DB,
+	ds *types.DataSource,
+	owner *types.FeishuLegacyAttempt,
+	includePayload bool,
+) (*types.FeishuLegacyResource, *types.FeishuLegacyAttempt, error) {
 	if err := s.execution(ctx, tx, ds); err != nil {
 		return nil, nil, err
 	}
@@ -602,7 +614,11 @@ func (s *FeishuLegacyStore) owned(
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&r, "id=?", owner.ResourceID).Error; err != nil {
 		return nil, nil, err
 	}
-	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&a, "id=?", owner.ID).Error; err != nil {
+	attemptQuery := tx.Clauses(clause.Locking{Strength: "UPDATE"})
+	if !includePayload {
+		attemptQuery = attemptQuery.Omit("manifest", "receipt")
+	}
+	if err := attemptQuery.First(&a, "id=?", owner.ID).Error; err != nil {
 		return nil, nil, err
 	}
 	var valid bool
