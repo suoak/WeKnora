@@ -53,6 +53,7 @@ func legacyFeishuScopeSchedulerP0(t *testing.T, dialect string) {
 	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", "false")
 	db := syncdb.Open(t, dialect)
+	syncdb.LiveParent(t, db, 1, "kb")
 	ctx := context.Background()
 	sources, logs := repository.NewDataSourceRepository(db), repository.NewSyncLogRepository(db)
 	allowed := uuid.NewString()
@@ -62,12 +63,13 @@ func legacyFeishuScopeSchedulerP0(t *testing.T, dialect string) {
 		types.DataSourceStatusError, types.DataSourceStatusError, types.DataSourceStatusPaused,
 	} {
 		ds := &types.DataSource{
-			ID:           uuid.NewString(),
-			TenantID:     1,
-			Type:         types.ConnectorTypeFeishuDrive,
-			Status:       status,
-			SyncSchedule: "0 0 0 * * *",
-			Config:       types.JSON(`{}`),
+			ID:              uuid.NewString(),
+			TenantID:        1,
+			KnowledgeBaseID: "kb",
+			Type:            types.ConnectorTypeFeishuDrive,
+			Status:          status,
+			SyncSchedule:    "0 0 0 * * *",
+			Config:          types.JSON(`{}`),
 		}
 		if i == 0 {
 			ds.ID = allowed

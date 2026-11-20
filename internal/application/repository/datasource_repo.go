@@ -243,16 +243,38 @@ func (r *DataSourceRepository) Delete(ctx context.Context, id string) error {
 // FindActive retrieves all active data sources (used for scheduling)
 func (r *DataSourceRepository) FindActive(ctx context.Context) ([]*types.DataSource, error) {
 	var dataSources []*types.DataSource
-	if err := r.db.WithContext(ctx).
-		Where("status IN ?", []string{types.DataSourceStatusActive, types.DataSourceStatusError}).
-		Where("legacy_access_state IS NULL OR legacy_access_state NOT IN ?", []string{"hold", "revoked"}).
-		Where("deleted_at IS NULL").
-		Where("sync_schedule != ''").
+	if err := r.scheduledSources(ctx).
 		Order("created_at DESC").
 		Find(&dataSources).Error; err != nil {
 		return nil, err
 	}
 	return dataSources, nil
+}
+
+func (r *DataSourceRepository) scheduledSources(ctx context.Context) *gorm.DB {
+	return r.db.WithContext(ctx).Model(&types.DataSource{}).
+		Where("status IN ?", []string{types.DataSourceStatusActive, types.DataSourceStatusError}).
+		Where("legacy_access_state IS NULL OR legacy_access_state NOT IN ?", []string{"hold", "revoked"}).
+		Where("deleted_at IS NULL").
+		Where("sync_schedule != ''").
+		Where(`EXISTS(SELECT 1 FROM knowledge_bases k JOIN tenants t ON t.id=k.tenant_id
+WHERE k.id=data_sources.knowledge_base_id AND k.tenant_id=data_sources.tenant_id
+AND k.deleted_at IS NULL AND t.status='active' AND t.deleted_at IS NULL)`)
+}
+
+// ScheduledSyncCandidates never loads encrypted connector configuration. The
+// ordinary admission path reloads and checks the current source before enqueue.
+func (r *DataSourceRepository) ScheduledSyncCandidates(
+	ctx context.Context, after string, limit int,
+) ([]*types.DataSource, error) {
+	if limit < 1 || limit > 64 {
+		limit = 32
+	}
+	var rows []*types.DataSource
+	err := r.scheduledSources(ctx).Select(
+		"id,tenant_id,knowledge_base_id,type,status,sync_schedule,legacy_access_state,created_at",
+	).Where("id>?", after).Order("id").Limit(limit).Find(&rows).Error
+	return rows, err
 }
 
 // SyncLogRepository provides data access for sync logs

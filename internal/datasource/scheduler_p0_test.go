@@ -16,6 +16,7 @@ func TestSyncScheduleSQLiteP0(t *testing.T)   { syncScheduleP0(t, "sqlite") }
 func TestSyncSchedulePostgresP0(t *testing.T) { syncScheduleP0(t, "postgres") }
 func syncScheduleP0(t *testing.T, dialect string) {
 	db := syncdb.Open(t, dialect)
+	syncdb.LiveParent(t, db, 1, "kb")
 	ctx := context.Background()
 	sources := repository.NewDataSourceRepository(db)
 	logs := repository.NewSyncLogRepository(db)
@@ -25,11 +26,12 @@ func syncScheduleP0(t *testing.T, dialect string) {
 		types.DataSourceStatusPaused, types.DataSourceStatusDeleted,
 	} {
 		ds := &types.DataSource{
-			ID:           uuid.NewString(),
-			TenantID:     1,
-			Status:       status,
-			SyncSchedule: "0 0 0 * * *",
-			Config:       types.JSON(`{}`),
+			ID:              uuid.NewString(),
+			TenantID:        1,
+			KnowledgeBaseID: "kb",
+			Status:          status,
+			SyncSchedule:    "0 0 0 * * *",
+			Config:          types.JSON(`{}`),
 		}
 		require.NoError(t, sources.Create(ctx, ds))
 		if status == types.DataSourceStatusError {

@@ -49,6 +49,10 @@ type Scheduler struct {
 	syncLogRepo  interfaces.SyncLogRepository
 	taskEnqueuer interfaces.TaskEnqueuer
 
+	catchUpMu    sync.Mutex
+	catchUpAfter string
+	catchUpEntry cron.EntryID
+
 	mu      sync.Mutex
 	entries map[string]cron.EntryID // dataSourceID → cron entry ID
 }
@@ -88,6 +92,16 @@ func (s *Scheduler) Start(ctx context.Context) error {
 		}
 	}
 
+	s.mu.Lock()
+	if s.catchUpEntry == 0 {
+		entry, registerErr := s.cron.AddFunc("@every 1m", s.catchUpScheduled)
+		if registerErr != nil {
+			s.mu.Unlock()
+			return fmt.Errorf("register sync schedule catch-up: %w", registerErr)
+		}
+		s.catchUpEntry = entry
+	}
+	s.mu.Unlock()
 	s.cron.Start()
 	logger.Infof(ctx, "[Scheduler] started with %d cron entries", len(s.entries))
 	return nil
@@ -181,7 +195,13 @@ func (s *Scheduler) addEntryLocked(ds *types.DataSource) error {
 // Since robfig/cron fires at absolute wall-clock times, all instances trigger
 // at the same minute. The first Enqueue wins; others get ErrTaskIDConflict.
 func (s *Scheduler) triggerSync(dataSourceID string, tenantID uint64) {
-	ctx := context.Background()
+	s.triggerSyncContext(context.Background(), dataSourceID, tenantID)
+}
+
+func (s *Scheduler) triggerSyncContext(ctx context.Context, dataSourceID string, tenantID uint64) {
+	if ctx.Err() != nil {
+		return
+	}
 
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
 	if err != nil || !ds.AutoSyncEnabled() {
