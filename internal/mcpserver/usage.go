@@ -38,6 +38,11 @@ func (s *PersonalServer) SetUsageRecorder(r usageRecorder) { s.usage = r }
 func (s *Server) SetUsageRecorder(r usageRecorder) { s.usage = r }
 
 func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
+	defer func() {
+		if recover() != nil {
+			logger.Errorf(ctx, "[mcp-usage] admission recorder panic; coverage=degraded")
+		}
+	}()
 	defer perftrace.Measure(ctx, perftrace.UsageAnalytics)()
 	if recorder, ok := sink.(interface {
 		Begin(context.Context, types.MCPUsageReport) error
@@ -49,6 +54,11 @@ func beginUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageRe
 }
 
 func emitUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageReport) {
+	defer func() {
+		if recover() != nil {
+			logger.Errorf(ctx, "[mcp-usage] final recorder panic; coverage=degraded")
+		}
+	}()
 	defer perftrace.Measure(ctx, perftrace.UsageAnalytics)()
 	if sink == nil {
 		return
@@ -63,6 +73,7 @@ func emitUsage(ctx context.Context, sink usageRecorder, report types.MCPUsageRep
 func observeTool(sink usageRecorder, entry string, next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	return func(ctx context.Context, req mcp.CallToolRequest) (result *mcp.CallToolResult, err error) {
 		started := time.Now()
+		ctx = context.WithValue(ctx, contentUsageErrorKey{}, &contentUsageError{})
 		v, outer := ctx.Value(invocationKey{}).(*invocation)
 		if !outer {
 			var scope *types.MCPUsageScope
@@ -111,7 +122,7 @@ func observeTool(sink usageRecorder, entry string, next server.ToolHandlerFunc) 
 }
 
 func newUsageReport(entry, tool string) types.MCPUsageReport {
-	if _, known := types.LookupMCPEndpointTool(tool); !known {
+	if !knownUsageTool(entry, tool) && (entry != "go_personal" || tool == "" || !safeUsageString(tool, 128)) {
 		tool = "unknown"
 	}
 	return types.MCPUsageReport{
@@ -139,6 +150,9 @@ func usageError(ctx context.Context, result *mcp.CallToolResult, err error) stri
 	}
 	if !result.IsError {
 		return ""
+	}
+	if state, ok := ctx.Value(contentUsageErrorKey{}).(*contentUsageError); ok && state.code != "" {
+		return state.code
 	}
 	// Match only fixed server error categories; never retain error text.
 	for _, content := range result.Content {
@@ -203,7 +217,7 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 			return
 		}
 		original := r.Body
-		body, err := io.ReadAll(io.LimitReader(original, (1<<20)+1))
+		body, err := io.ReadAll(io.LimitReader(original, (12<<20)+1))
 		r.Body = usageReplayBody{Reader: io.MultiReader(bytes.NewReader(body), original), Closer: original}
 		var envelope struct {
 			Method string `json:"method"`
@@ -211,7 +225,20 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 				Name string `json:"name"`
 			} `json:"params"`
 		}
-		if err != nil || len(body) > 1<<20 || json.Unmarshal(body, &envelope) != nil ||
+		oversized := len(body) > 12<<20
+		parseErr := json.Unmarshal(body, &envelope)
+		if oversized {
+			// The bounded prefix can still identify a standard tools/call envelope.
+			// Never parse or retain the unbounded remainder of an upload.
+			envelope.Method, envelope.Params.Name = usageEnvelopePrefix(body)
+			if entry == "go_personal" && envelope.Params.Name == "" {
+				// Truncation cannot establish tool identity. Keep the failed
+				// request without inventing an original tool name.
+				envelope.Method, envelope.Params.Name = "tools/call", "unknown"
+			}
+			parseErr = nil
+		}
+		if err != nil || parseErr != nil ||
 			envelope.Method != "tools/call" ||
 			envelope.Params.Name == "" {
 			next.ServeHTTP(w, r)
@@ -219,6 +246,16 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 		}
 		ctx, scope := types.WithMCPUsageScope(r.Context())
 		v := &invocation{report: newUsageReport(entry, envelope.Params.Name), scope: scope}
+		// Stateless transports cannot retain initialize clientInfo. Attribute the
+		// actual HTTP client hint explicitly; never label it negotiated.
+		if entry == "go_personal" && !logger.IsolatedPersonalPayload(ctx) {
+			if fields := strings.Fields(r.UserAgent()); len(fields) > 0 {
+				name, version, _ := strings.Cut(fields[0], "/")
+				if name != "" && safeUsageString(name, 128) && safeUsageString(version, 64) {
+					v.report.ClientName, v.report.ClientVersion, v.report.ClientSource = name, version, "user_agent"
+				}
+			}
+		}
 		if entry == "go_personal" {
 			v.report.TraceID = perftrace.IDFromContext(ctx)
 		}
@@ -235,14 +272,14 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 				v.report.ErrorCode == "panic"
 			if !v.called && !terminal {
 				v.report.ErrorCode = "protocol_error"
-				if v.report.ToolName == "unknown" {
+				if !knownUsageTool(entry, envelope.Params.Name) {
 					v.report.ErrorCode = "unknown_tool"
 				}
 			}
 			if writer.status >= 400 && !terminal {
 				v.report.Success = false
 				switch writer.status {
-				case 400, 422:
+				case 400, 413, 422:
 					v.report.ErrorCode = "invalid_arguments"
 				case 403:
 					v.report.ErrorCode = "permission_denied"
@@ -260,8 +297,62 @@ func observeHTTP(sink usageRecorder, entry string, next http.Handler) http.Handl
 			v.report.LatencyMs = time.Since(started).Milliseconds()
 			emitUsage(ctx, sink, v.report)
 		}()
+		if oversized && entry == "go_personal" {
+			http.Error(writer, "request too large", http.StatusRequestEntityTooLarge)
+			return
+		}
 		next.ServeHTTP(writer, r.WithContext(ctx))
 	})
+}
+
+// Read only routing fields that precede an oversized argument value. The
+// decoder stops on the bounded prefix; it never attempts to repair JSON.
+func usageEnvelopePrefix(body []byte) (method, name string) {
+	d := json.NewDecoder(bytes.NewReader(body))
+	if t, _ := d.Token(); t != json.Delim('{') {
+		return
+	}
+	for d.More() {
+		key, err := d.Token()
+		if err != nil {
+			return
+		}
+		switch key {
+		case "method":
+			if d.Decode(&method) != nil {
+				return
+			}
+		case "params":
+			if t, _ := d.Token(); t != json.Delim('{') {
+				return
+			}
+			for d.More() {
+				k, err := d.Token()
+				if err != nil {
+					return
+				}
+				if k == "name" {
+					if d.Decode(&name) != nil {
+						return
+					}
+				} else {
+					var discard json.RawMessage
+					if d.Decode(&discard) != nil {
+						return
+					}
+				}
+			}
+			if _, err := d.Token(); err != nil {
+				return
+			}
+		default:
+			var discard json.RawMessage
+			if d.Decode(&discard) != nil {
+				return
+			}
+		}
+	}
+	return
 }
 
 func resultResources(report *types.MCPUsageReport, req mcp.CallToolRequest, result *mcp.CallToolResult) {
@@ -328,4 +419,12 @@ func resultResources(report *types.MCPUsageReport, req mcp.CallToolRequest, resu
 			report.KnowledgeIDs = []string{id}
 		}
 	}
+}
+
+func knownUsageTool(entry, tool string) bool {
+	if entry == "go_personal" {
+		return knownPersonalTool(tool)
+	}
+	_, known := types.LookupMCPEndpointTool(tool)
+	return known
 }

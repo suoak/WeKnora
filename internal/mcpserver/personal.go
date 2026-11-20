@@ -31,7 +31,7 @@ type PersonalServer struct {
 	admission       *personalAdmission
 	protocol        *personalAdmission
 	streams         *personalAdmission
-	content         *service.PersonalContent
+	content         personalContentService
 	writeSlots      chan struct{}
 	externalHandler http.Handler
 }
