@@ -76,7 +76,7 @@ func portalVectorSQL(dimension int, tenantPlaceholder, chunkScope, whereClause s
  AND %s AND embeddings.source_type=%s OFFSET 0
  ) canonical ON true WHERE embeddings.id=ranked.id OFFSET 0
  ) proof ON true ORDER BY ranked.distance,ranked.id LIMIT $%d`,
-		dimension, dimension, dimension, whereClause, sourcePlaceholder, dimension, dimension, poolParam, thresholdParam,
-		portalCanonicalChunkRelation(tenantPlaceholder, public, defaults), chunkScope,
+		dimension, dimension, dimension, whereClause, sourcePlaceholder, dimension, dimension, poolParam,
+		thresholdParam, portalCanonicalChunkRelation(tenantPlaceholder, public, defaults), chunkScope,
 		portalCanonicalIndexText(), sourcePlaceholder, limitParam)
 }
