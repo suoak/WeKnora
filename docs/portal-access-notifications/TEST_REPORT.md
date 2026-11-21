@@ -1,6 +1,6 @@
 # 门户申请与消息通知交付报告
 
-日期：2026-11-21。分支：`feature/portal-access-notifications`。基线：GitHub main `11dce08198b928fa5caf6648fe0304fc3440d5e7`。草稿 PR：[suoak/WeKnora #233](https://github.com/suoak/WeKnora/pull/233)。main 合并 SHA：无，尚未合并。
+日期：2026-11-21。分支：`feature/portal-access-notifications`。基线：GitHub main `11dce08198b928fa5caf6648fe0304fc3440d5e7`。PR：[suoak/WeKnora #233](https://github.com/suoak/WeKnora/pull/233)。报告在合并前形成，main 合并 SHA 以该 PR 的 mergeCommit 及最终交付记录为准。
 
 ## 实现
 
@@ -43,7 +43,7 @@
 
 本机默认 MinGW 8.1 不能链接现有依赖。使用已有 MinGW 16.1 后，服务包仍受一份无关 DuckDB 测试静态库 ABI 问题影响，因此本地定向验证使用 Go 临时 overlay 排除了 `extract_data_table_summary_test.go`，生产源码及所有 Portal 测试保持原样。正常 Linux CI 不使用 overlay。本地结果不是完整仓库测试全通过的声明。
 
-完整 repository 包的 Windows 限制涉及 `TestFeishuLegacyFormalMigrationChain/sqlite`、`TestKBDeletionMetadataScope/sqlite` 的临时数据库文件清理，以及 `TestRetiredFileMissingBasenameKeepsSymlinkDirectoryProtection` 的链接创建权限。没有为使这些旧用例通过而修改相关业务实现。更广的 Linux App/lint/兼容性检查仍通过 PR checks 持续运行，最终状态以 PR 为准。
+完整 repository 包的 Windows 限制涉及 `TestFeishuLegacyFormalMigrationChain/sqlite`、`TestKBDeletionMetadataScope/sqlite` 的临时数据库文件清理，以及 `TestRetiredFileMissingBasenameKeepsSymlinkDirectoryProtection` 的链接创建权限。没有为使这些旧用例通过而修改相关业务实现。应用提交 `e21fd835d9f6252ea9a23a342a9e3badb9958476` 的 Linux App、lint、前端、升级治理、Portal gate、RBAC 与兼容性检查全部通过，3 项条件检查跳过，没有失败项。完整后端测试、构建、Docker 镜像和启动检查由 [App CI](https://github.com/suoak/WeKnora/actions/runs/44890420736) 通过，不使用本机临时 overlay。
 
 前端命令包含 `notificationTarget.test.ts`、`portalState.test.ts`、`portalContracts.test.ts`、`PortalIntentFlow.test.ts`、`PortalHardening.test.ts`、`IpdKnowledgeMap.test.ts` 和 `localeKeyAudit.test.ts`。浏览器测试使用明确标注的合成 API，不计作真实双账号验收。
 
@@ -53,10 +53,22 @@
 
 | 交付项 | 当前状态 |
 | --- | --- |
-| 生产已发布空间申请开关清单 | 未取得；已提供只读核查 SQL，未连接生产数据库 |
-| 指定测试环境部署版本 | 未部署；环境目标/访问方式待明确。本地静态预览不等于测试部署 |
-| Owner / 普通用户两个真实账号通过与拒绝验收 | 未执行，待指定测试环境及账号获取方式 |
-| main 合并 | 未执行，须先完成验收 |
+| 生产已发布空间申请开关清单 | 已只读取得：17 个已发布空间，1 开、16 关；“概念2”关闭申请，4 个有效 Owner |
+| 测试环境部署版本 | 已部署至测试主机的独立实例，源码 `e21fd835d9f6252ea9a23a342a9e3badb9958476`，schema 3050、dirty=false |
+| Owner / 普通用户两个真实账号通过与拒绝验收 | PASS：16 项实际浏览器/HTTP 检查；新建持久化密码账号，不使用 API mock |
+| main 合并 | 已完成验收，按需求推进 PR 合并；实际合并状态和 SHA 以 PR 记录为准 |
 | 生产发布 | **未部署**；未修改生产数据，未批量开启旧空间 |
 
-需提供测试部署说明或配置路径、两个测试账号的安全获取方式及生产只读核查连接方式，才能继续完成环境验收。无需在聊天或仓库保存密码。生产操作仍遵守需求中的批准条件。
+## 实际部署与双账号验收
+
+独立项目为 `knowhub-portal-e21fd835d9f6`，位于测试主机的新建目录，只将前端发布至主机 loopback `33531`，通过 SSH 转发访问。PostgreSQL、Redis、文件目录及网络均独立，未覆盖现有测试服务。新配置默认开放、显式关闭返回 409、审批前内容访问受拒、匿名消息访问返回 401，均已实测。
+
+两名账号通过正常密码登录页登录；A 是目标空间 Owner，并有测试发布配置所需的系统管理员资格，B 是普通用户。实际验证了：B 在门户申请；重复 pending 被拒；非 Owner 审批被拒；A 从消息进入审批页拒绝并填写意见；B 收到拒绝通知并看到历史；B 再次申请；A 从消息批准；B 收到通过通知并进入空间；B 获得 Viewer、可读取测试文档并在文档列表按名称搜索；已授权重复申请被拒；他人消息标记返回 404；重复审批不重复通知；全部已读及刷新后状态持久化。
+
+最终数据库只读复核：该申请人 1 条 rejected、1 条 approved、有效 Viewer 1 条；两类结果通知各 1 条，均已读；重复事件 0；审计包含申请 2、通过 1、拒绝 1、成员新增 1。浏览器截图已复核。
+
+最终运行 `playwright.real.config.ts`：1 passed，16 项检查全部 true，证据在本机私有目录 `E:/AIData/CodexTemp/portal-access-notifications/real-browser-r2`。首次尝试将无分块的标题测试数据用于全局分块检索，失败记录保留在 `real-browser`；改为正确的文档名称搜索后，使用新申请账号重跑整个流程，未删除首次授权或修改产品代码。
+
+账号是真实持久化测试身份，未测试企业员工 SSO。知识内容为明确准备的合成手工文档，本次检索验收范围是标题关键词，不声明解析、向量生成或外部模型检索通过。测试二进制使用与标准 App CI 一致的无原生 AnyDoc 编译配置。
+
+应用二进制 SHA256：`f52ab193974c34324311c794b42b234b7cff93cd69210c1153e551a41cfe8eff`。应用镜像 `sha256:e03b00f2f3556df9d23ef1dd9d19b368731c35996ecaf4c1ac61eb739b2b5653`；前端镜像 `sha256:cee1f485e443bf2bf27725268ae9ec31b14bedda0e1ce87a19f74d10f331d01c`。部署及数据库复核证据保存在本机私有目录，账号密码不提交仓库。

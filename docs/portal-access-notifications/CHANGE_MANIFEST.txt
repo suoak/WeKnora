@@ -4,6 +4,10 @@ docs/portal-access-notifications/CHANGE_MANIFEST.txt
 docs/portal-access-notifications/MIGRATION.md
 docs/portal-access-notifications/TEST_REPORT.md
 docs/portal-access-notifications/published-space-audit.sql
+docs/portal-access-notifications/tools/README.md
+docs/portal-access-notifications/tools/forward_site.py
+docs/portal-access-notifications/tools/isolated_site.py
+docs/portal-access-notifications/tools/remote_readonly.py
 frontend/src/App.vue
 frontend/src/api/notifications.ts
 frontend/src/api/portal.ts
@@ -30,6 +34,8 @@ frontend/src/views/platform/index.vue
 frontend/src/views/settings/TenantMembers.vue
 frontend/tests/portal-notifications/inbox.spec.ts
 frontend/tests/portal-notifications/playwright.config.ts
+frontend/tests/portal-notifications/playwright.real.config.ts
+frontend/tests/portal-notifications/real.spec.ts
 internal/application/repository/document_postgres_migration_test.go
 internal/application/repository/feishu_legacy_migration_test.go
 internal/application/repository/notification.go
