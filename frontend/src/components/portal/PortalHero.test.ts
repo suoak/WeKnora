@@ -8,7 +8,7 @@ test('hero presents published Portal scale with a permission tooltip', () => {
   const hero = source('./PortalHero.vue')
   assert.match(hero, /props\.stats\.spaces/)
   assert.match(hero, /props\.stats\.knowledgeBases/)
-  assert.match(hero, /props\.stats\.files/)
+  assert.match(hero, /props\.stats\.documents/)
   assert.match(hero, /portalExperience\.scaleTooltip/)
   assert.doesNotMatch(hero, /my spaces|accessible count|global search all/i)
 })

@@ -2,7 +2,7 @@
   <div class="knowledge-scale" :class="`knowledge-scale--${tone}`">
     <span><strong>{{ format(stats.spaces) }}</strong>{{ t('portal.flowOverview.spacesMetric') }}</span>
     <span><strong>{{ format(stats.knowledgeBases) }}</strong>{{ t('portal.flowOverview.knowledgeBasesMetric') }}</span>
-    <span><strong>{{ format(stats.files) }}</strong>{{ t('portal.flowOverview.filesMetric') }}</span>
+    <span><strong>{{ format(stats.documents) }}</strong>{{ t('portal.flowOverview.filesMetric') }}</span>
   </div>
 </template>
 
@@ -12,7 +12,7 @@ import type { KnowledgeScale } from '@/config/portalKnowledgeSummary'
 
 withDefaults(defineProps<{ stats: KnowledgeScale; tone?: 'default' | 'compact' }>(), { tone: 'default' })
 const { locale, t } = useI18n()
-const format = (value: number) => new Intl.NumberFormat(locale.value).format(value)
+const format = (value: number | null) => value === null ? '—' : new Intl.NumberFormat(locale.value).format(value)
 </script>
 
 <style scoped lang="less">

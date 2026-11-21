@@ -108,22 +108,29 @@ const (
 // TenantPortalConfig. Keep this allow-list projection small. FileCount means
 // active file/file_url Knowledge records, never chunks or non-file sources.
 type PortalSpaceResponse struct {
-	TenantID             uint64                  `json:"tenant_id"`
-	DisplayName          string                  `json:"display_name"`
-	Description          string                  `json:"description"`
-	Category             string                  `json:"category"`
-	ResponsibleTeam      string                  `json:"responsible_team"`
-	Contact              string                  `json:"contact"`
-	Stages               []string                `json:"stages"`
-	Featured             bool                    `json:"featured"`
-	KnowledgeBaseCount   int64                   `json:"knowledge_base_count"`
-	FileCount            int64                   `json:"file_count"`
-	AccessState          PortalAccessState       `json:"access_state"`
-	CurrentRole          *TenantRole             `json:"current_role"`
-	AccessRequestPending bool                    `json:"access_request_pending"`
-	MembershipSuspended  bool                    `json:"membership_suspended"`
-	CanRequestAccess     bool                    `json:"can_request_access"`
-	InteractionAction    PortalInteractionAction `json:"interaction_action"`
+	TenantID           uint64   `json:"tenant_id"`
+	DisplayName        string   `json:"display_name"`
+	Description        string   `json:"description"`
+	Category           string   `json:"category"`
+	ResponsibleTeam    string   `json:"responsible_team"`
+	Contact            string   `json:"contact"`
+	Stages             []string `json:"stages"`
+	Featured           bool     `json:"featured"`
+	KnowledgeBaseCount int64    `json:"knowledge_base_count"`
+	FileCount          int64    `json:"file_count"`
+	// New counts are absent when the caller cannot receive workspace totals.
+	// FileCount retains the original published discovery metadata contract.
+	DocumentEntryCount     *int64                  `json:"document_entry_count,omitempty"`
+	UploadedFileCount      *int64                  `json:"uploaded_file_count,omitempty"`
+	FAQKnowledgeBaseCount  *int64                  `json:"faq_knowledge_base_count,omitempty"`
+	WikiKnowledgeBaseCount *int64                  `json:"wiki_knowledge_base_count,omitempty"`
+	AssetCountScope        string                  `json:"asset_count_scope"`
+	AccessState            PortalAccessState       `json:"access_state"`
+	CurrentRole            *TenantRole             `json:"current_role"`
+	AccessRequestPending   bool                    `json:"access_request_pending"`
+	MembershipSuspended    bool                    `json:"membership_suspended"`
+	CanRequestAccess       bool                    `json:"can_request_access"`
+	InteractionAction      PortalInteractionAction `json:"interaction_action"`
 }
 
 type PortalMySpaceResponse struct {

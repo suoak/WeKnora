@@ -26,8 +26,9 @@ const REFERENCE_LOCALE: LocaleName = 'en-US'
 test('KnowledgeBase page static translation keys exist in zh-CN, including conditional calls', () => {
   const page = fileURLToPath(new URL('../views/knowledge/KnowledgeBase.vue', import.meta.url))
   const documentList = fileURLToPath(new URL('../views/knowledge/components/DocumentListView.vue', import.meta.url))
-  const { staticKeys } = collectI18nUsageFromSourceFiles([page, documentList])
-  for (const key of ['documentCount', 'filters', 'clearFilters']) {
+  const scopeSummary = fileURLToPath(new URL('../views/knowledge/components/DocumentScopeSummary.vue', import.meta.url))
+  const { staticKeys } = collectI18nUsageFromSourceFiles([page, documentList, scopeSummary])
+  for (const key of ['folderTree.currentFolderCount', 'folderTree.filteredScopeCount', 'folderTree.wholeKnowledgeBaseCount', 'filters', 'clearFilters']) {
     assert.ok(staticKeys.has(`knowledgeBase.${key}`), `scanner missed knowledgeBase.${key}`)
   }
   const zhKeys = collectLocaleKeys(LOCALE_BUNDLES['zh-CN'])

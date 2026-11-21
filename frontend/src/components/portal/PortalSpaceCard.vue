@@ -4,7 +4,7 @@
     <h3>{{ space.display_name }}</h3>
     <p class="description">{{ space.description || t('portal.noDescription') }}</p>
     <div class="tags"><t-tag v-if="space.category" theme="success" variant="light">{{ t('portal.categoryTag', { category: space.category }) }}</t-tag><t-tag v-for="stage in space.stages" :key="stage" variant="light">{{ stageName(stage) }}</t-tag></div>
-    <div class="resource-counts"><span><t-icon name="folder" />{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span><span><t-icon name="file" />{{ t('portal.fileCount', { count: space.file_count }) }}</span></div>
+    <div class="resource-counts"><span><t-icon name="folder" />{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span><span><t-icon name="file" />{{ t('portal.fileCount', { count: space.document_entry_count ?? '—' }) }}</span></div>
     <dl v-if="space.responsible_team || space.contact"><div v-if="space.responsible_team"><dt>{{ t('portal.responsibleTeam') }}</dt><dd>{{ space.responsible_team }}</dd></div><div v-if="space.contact"><dt>{{ t('portal.contact') }}</dt><dd>{{ space.contact }}</dd></div></dl>
     <div class="footer">
       <span v-if="space.access_state==='accessible'" class="state ok">✓ {{ t('portal.joined', { role: roleName(space.current_role) }) }}</span>

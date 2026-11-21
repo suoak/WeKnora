@@ -7,7 +7,7 @@
     <p>{{ space.description || t('portal.noDescription') }}</p>
     <div class="counts">
       <span><t-icon name="folder" />{{ t('portal.knowledgeBaseCount', { count: space.knowledge_base_count }) }}</span>
-      <span><t-icon name="file" />{{ t('portal.fileCount', { count: space.file_count }) }}</span>
+      <span><t-icon name="file" />{{ t('portal.fileCount', { count: space.document_entry_count ?? '—' }) }}</span>
     </div>
     <div class="footer">
       <span class="state">{{ stateLabel }}</span>

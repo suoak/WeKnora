@@ -78,10 +78,21 @@ jobs:
             src/config/branding.test.ts \
             src/views/portal/portalContracts.test.ts \
             src/stores/portalState.test.ts \
+            src/stores/portalEvents.test.ts \
+            src/config/portalAssetSummary.test.ts \
+            src/config/portalKnowledgeSummary.test.ts \
             src/i18n/localeKeyAudit.test.ts \
             src/utils/authLandingContracts.test.ts \
             src/utils/authRedirect.test.ts \
             src/utils/authRefresh.test.ts
+
+      - name: Install browser for Portal asset lifecycle regressions
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Portal asset lifecycle browser regressions
+        working-directory: frontend
+        run: npx playwright test --config tests/portal-assets/playwright.config.ts
 
       - name: Reject conflict markers and committed build artifacts
         shell: bash

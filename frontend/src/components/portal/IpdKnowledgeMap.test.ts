@@ -69,7 +69,7 @@ test('space summary separates accessible entry from discoverable dialog behavior
   assert.match(summary, /if\(props\.space\.access_state === 'accessible'\)emit\('enter',props\.space\)/)
   assert.match(summary, /else emit\('restricted',props\.space\)/)
   assert.match(summary, /space\.knowledge_base_count/)
-  assert.match(summary, /space\.file_count/)
+  assert.match(summary, /space\.document_entry_count/)
   assert.match(home, /if\(space\.access_state!=='accessible'\)\{openAccessDialog\(space\);return\}/)
   assert.match(home, /switchWorkspaceAndNavigate/)
 })

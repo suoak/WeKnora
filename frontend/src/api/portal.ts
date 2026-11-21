@@ -24,6 +24,12 @@ export interface PortalSpace {
   knowledge_base_count: number
   /** Active file/file_url Knowledge records; excludes chunks and non-file sources. */
   file_count: number
+  /** Optional workspace totals; absent for discoverable or document-restricted callers. */
+  document_entry_count?: number
+  uploaded_file_count?: number
+  faq_knowledge_base_count?: number
+  wiki_knowledge_base_count?: number
+  asset_count_scope?: 'space_total' | 'hidden'
   access_state: PortalAccessState
   current_role: 'owner' | 'admin' | 'contributor' | 'viewer' | null
   can_request_access: boolean

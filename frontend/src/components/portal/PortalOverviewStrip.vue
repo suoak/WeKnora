@@ -5,7 +5,7 @@
       <strong>{{ t('portalExperience.eyebrow') }}</strong>
     </div>
     <t-skeleton v-if="loading" class="overview-loading" animation="gradient" :row-col="[{ width: '360px', height: '28px' }]" />
-    <p v-else class="asset-summary">{{ formatAssetSummary(metrics, t, numberFormatter) }}</p>
+    <p v-else class="asset-summary" :title="metrics.documents == null ? t('portalMap.countsHidden') : undefined">{{ formatAssetSummary(metrics, t, numberFormatter) }}</p>
   </section>
 </template>
 

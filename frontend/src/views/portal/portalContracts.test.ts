@@ -21,7 +21,7 @@ test('portal homepage uses only Portal summary data and tenant switch invalidate
 
 test('stage and overview loading are isolated and access requests refresh overview state', () => {
   const store = source('../../stores/portal.ts')
-  assert.match(store, /Promise\.allSettled\(\[loadStages\(\), loadOverviewSpaces\(\)\]\)/)
+  assert.match(store, /Promise\.allSettled\(\[[\s\S]*?loadStages\(\)[\s\S]*?loadOverviewSpaces\(\)/)
   assert.match(store, /overviewSpaces\.value = uniquePortalSpaces/)
   assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*access_request_pending = true[\s\S]*Promise\.allSettled\(\[loadOverviewSpaces\(\), loadSpaces\(\)\]\)/)
 })
@@ -39,7 +39,8 @@ test('portal renders the IPD and public surfaces without the legacy hero', () =>
   assert.doesNotMatch(home, /IpdStageDetail|IpdFlowOverview|PortalSpaceGrid|MySpacesSection|PortalFilters|PublicKnowledgeSpaceCard|viewMode|visibleLimit/)
   assert.match(map, /space\.stages\.includes\(stage\)/)
   assert.match(summary, /space\.knowledge_base_count/)
-  assert.match(summary, /space\.file_count/)
+  assert.match(summary, /space\.document_entry_count/)
+  assert.doesNotMatch(summary, /space\.file_count/)
   assert.match(publicSection, /!space\.stages\.some\(stage=>lifecycleStages\.has\(stage\)\)/)
   assert.match(publicSection, /variant="normal"/)
 })
