@@ -51,8 +51,9 @@ func TestPortalGlobalSearchWorkHintsStayWithinAuthorizedDocuments(t *testing.T) 
 func TestPortalGlobalSearchStartsHeavyLateTargetInFirstWorkerBatch(t *testing.T) {
 	f, s, base, count := globalPortalSearchFixture(t, 10)
 	require.NoError(t, f.DB.Exec(`INSERT INTO knowledges
- (id,tenant_id,knowledge_base_id,type,title,parse_status,enable_status,channel,storage_size)
- SELECT 'large-late',tenant_id,'parallel-09',type,'synthetic large late',parse_status,enable_status,channel,?
+ (id,tenant_id,knowledge_base_id,type,title,source,file_name,parse_status,enable_status,channel,storage_size)
+ SELECT 'large-late',tenant_id,'parallel-09',type,'synthetic large late',source,file_name,
+ parse_status,enable_status,channel,?
  FROM knowledges WHERE id='public-doc'`, int64(1)<<40).Error)
 	targets, err := s.Resolve(base, nil)
 	require.NoError(t, err)
