@@ -453,12 +453,23 @@ func TestPortalM6RealPostgresPersonal(t *testing.T) {
 			t.Logf("real personal Go MCP tools/call %s PASS", call.name)
 		}
 		for _, call := range []struct {
-			name string
-			args map[string]any
-		}{{"read_document", map[string]any{"knowledge_id": "sensitive"}}, {"search_knowledge", map[string]any{"query": "PUBLIC", "knowledge_base_ids": []string{"private-kb"}}}, {"ask", map[string]any{}}, {"delete_document", map[string]any{"knowledge_id": "public-doc"}}, {"wiki_read_page", map[string]any{"knowledge_base_id": "public-kb"}}} {
+			name   string
+			args   map[string]any
+			status int
+		}{
+			{"read_document", map[string]any{"knowledge_id": "sensitive"}, http.StatusOK},
+			{"search_knowledge", map[string]any{"query": "PUBLIC", "knowledge_base_ids": []string{"private-kb"}}, http.StatusForbidden},
+			{"ask", map[string]any{}, http.StatusOK},
+			{"delete_document", map[string]any{"knowledge_id": "public-doc"}, http.StatusOK},
+			{"wiki_read_page", map[string]any{"knowledge_base_id": "public-kb"}, http.StatusOK},
+		} {
 			status, body = rpc(1, "tools/call", map[string]any{"name": call.name, "arguments": call.args})
-			require.Equal(t, 200, status, body)
-			require.True(t, strings.Contains(body, `"isError":true`) || strings.Contains(body, `"error"`), body)
+			require.Equal(t, call.status, status, "%s: %s", call.name, body)
+			if call.status == http.StatusForbidden {
+				require.Equal(t, "personal MCP denied\n", body)
+			} else {
+				require.True(t, strings.Contains(body, `"isError":true`) || strings.Contains(body, `"error"`), body)
+			}
 		}
 		status, body = rpc(3, "tools/call", map[string]any{"name": "read_document", "arguments": map[string]any{"knowledge_id": "public-doc"}})
 		require.Equal(t, 200, status, body)
