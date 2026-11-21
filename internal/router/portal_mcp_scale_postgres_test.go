@@ -80,7 +80,7 @@ func TestPortalM7RealPostgresScale(t *testing.T) {
 	defer func() { sql, _ := db.DB(); sql.Close() }()
 	f := fixture.Seed(t, db)
 	f.PreparePublished(t)
-	a := fixture.Key("A", 1, 1, true)
+	a := types.WithLocalSourceContentRead(fixture.Key("A", 1, 1, true))
 	trace := &portalSQLTraceM7{Interface: logger.Default.LogMode(logger.Silent)}
 	driver := pgdriver.NewPostgresRetrieveEngineRepository(db.Session(&gorm.Session{Logger: trace}))
 	s := &service.PortalMCPKnowledge{Knowledge: repository.NewKnowledgeRepository(db), Chunks: repository.NewChunkRepository(db), Engine: func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) { return driver, nil }}
@@ -171,6 +171,9 @@ func TestPortalM7RealPostgresScale(t *testing.T) {
 				query := trace.last
 				trace.mu.Unlock()
 				require.NotEmpty(t, query)
+				if mode == "semantic" || mode == "hybrid" {
+					require.Contains(t, query, "WITH portal_vector_candidates AS MATERIALIZED")
+				}
 				var plan string
 				require.NoError(t, db.Raw("EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON) "+query).Row().Scan(&plan))
 				var parsed any
