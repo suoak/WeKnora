@@ -1,6 +1,10 @@
 package postgres
 
-import "gorm.io/gorm"
+import (
+	"database/sql"
+
+	"gorm.io/gorm"
+)
 
 // Dimension EXISTS probes can spend more time compiling their canonical policy
 // expressions than scanning the index. Keep the option inside this transaction;
@@ -11,5 +15,5 @@ func portalDimensionQuerySession(db *gorm.DB, query func(*gorm.DB) error) error 
 			return err
 		}
 		return query(tx)
-	})
+	}, &sql.TxOptions{ReadOnly: true})
 }

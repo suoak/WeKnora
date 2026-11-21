@@ -106,6 +106,9 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 			err := portalDimensionQuerySession(db, func(tx *gorm.DB) error {
 				called = true
 				require.Equal(t, "off", setting(tx))
+				var readOnly string
+				require.NoError(t, tx.Raw("SHOW transaction_read_only").Row().Scan(&readOnly))
+				require.Equal(t, "on", readOnly)
 				for _, public := range []bool{false, true} {
 					assertPortalVectorEquivalent(t, tx, public, 2, 3, "transaction-local query configuration")
 				}
