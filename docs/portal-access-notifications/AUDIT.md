@@ -1,6 +1,6 @@
 # 门户申请与消息通知审计
 
-审计日期：2026-11-21。开发基线为本地 main `f5d022d9692e2beb179f03decb2458e6173dc1cc`，与需求中的 `2a29e08e2f727e8ee6d93b1bddfd0d757c50405f` 不同。原工作区位于 `feature/knowhub-sourceid-oidc`，有 37 个已修改文件及其他未跟踪文件，未覆盖它们。开发使用独立 worktree `E:/code/WeKnora-portal-notifications`，分支 `feature/portal-access-notifications`。
+审计日期：2026-11-21。初始本地 main 为 `f5d022d9692e2beb179f03decb2458e6173dc1cc`，与需求中的 `2a29e08e2f727e8ee6d93b1bddfd0d757c50405f` 不同。核实远端后，功能分支已 rebase 到 GitHub main `11dce08198b928fa5caf6648fe0304fc3440d5e7`。原工作区位于 `feature/knowhub-sourceid-oidc`，有 37 个已修改文件及其他未跟踪文件，未覆盖它们。开发使用独立 worktree `E:/code/WeKnora-portal-notifications`，分支 `feature/portal-access-notifications`。
 
 ## 现状和原因
 
@@ -17,7 +17,7 @@
 
 ## 迁移编号与开关策略
 
-当前 main 的 PostgreSQL 门户基础迁移是 `000093`，SQLite 已重排为 `000015`。本次两套迁移均使用 `003038_user_notifications`，包含 up/down。
+当前 main 的 PostgreSQL 门户基础迁移是 `000093`，SQLite 已重排为 `000015`。远端已使用 `003038` 至 `003049`，本次两套迁移均使用 `003050_user_notifications`，包含 up/down。
 
 新配置默认允许申请；显式 false 保留。更新请求省略开关时保留已有配置，新配置省略时取 true。未保存过配置的管理页也返回 true。迁移改变未来插入记录的列默认值，**不批量修改任何既有空间的开关**。SQLite 重建配置表时保留配置、阶段及申请数据，回滚恢复默认 false。
 
@@ -26,7 +26,7 @@
 1. 复用 Portal service/repository/router 中关于权限、暂停、重复申请、并发审批、Viewer 授权和审计的测试。
 2. 增加所有有效 Owner 的通知、无效 Owner 过滤、审批结果幂等、通知失败后业务和审计回滚测试。
 3. 增加收件箱认证、API Key 拒绝、分页、未读过滤、单条及全部已读、跨空间本人收件与跨用户隔离测试。
-4. 使用项目真实 SQLite 迁移器执行 3037 → 3038 → 3037 → 3038，核对历史数据摘要、默认值、唯一事件约束与外键完整性。
+4. 使用项目真实 SQLite 迁移器执行 3049 → 3050 → 3049 → 3050，核对历史数据摘要、默认值、唯一事件约束与外键完整性。
 5. 前端运行申请状态、门户回归、安全路由测试、类型检查和生产构建。
 6. 测试环境部署后，再用指定 Owner/普通用户真实账号验收通过和拒绝两条闭环；本地自动化测试不能替代该验收。
 

@@ -63,3 +63,23 @@ test('mobile dark portal shows a single bell with zero unread messages', async (
   await expect(page.getByText('我的申请', { exact: true })).toBeVisible()
   await page.screenshot({ path: 'test-results/portal-notifications/mobile-dark.png' })
 })
+
+test('reading the last unread item on page two returns to the remaining first page', async ({ page }) => {
+  await fixtureApi(page)
+  let removed = false
+  await page.route('**/api/v1/me/notifications**', async route => {
+    const url = new URL(route.request().url())
+    if (url.pathname.endsWith('/unread-count')) return route.fulfill({ json: { success: true, data: { unread_count: removed ? 20 : 21 } } })
+    if (url.pathname.endsWith('/n21/read')) { removed = true; return route.fulfill({ json: { success: true } }) }
+    const second = url.searchParams.get('page') === '2'
+    const data = removed && second ? [] : [{ id: second ? 'n21' : 'n1', notification_type: 'access_request_rejected', reference_type: 'tenant_access_request', reference_id: 'r1', tenant_id: 7, title: second ? '最后一条未读消息' : '第一页消息', content: '分页测试', is_read: false, created_at: '2026-11-21T00:00:00Z' }]
+    return route.fulfill({ json: { success: true, data, total: removed ? 20 : 21 } })
+  })
+  await page.goto('/portal')
+  await page.getByRole('button', { name: '消息中心', exact: true }).click()
+  await page.getByText('仅未读', { exact: true }).click()
+  await page.locator('.t-pagination__btn-next').click()
+  await expect(page.getByText('最后一条未读消息', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '标为已读', exact: true }).click()
+  await expect(page.getByText('第一页消息', { exact: true })).toBeVisible()
+})

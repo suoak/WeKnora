@@ -72,7 +72,12 @@ async function load() {
   try {
     if (tab.value === 'notifications') {
       const response = await listNotifications(page.value, unreadOnly.value)
-      if (version === loadVersion && userID === auth.user?.id) { rows.value = response.data; total.value = response.total }
+      if (version === loadVersion && userID === auth.user?.id) {
+        total.value = response.total
+        const lastPage = Math.max(1, Math.ceil(response.total / 20))
+        if (page.value > lastPage) { page.value = lastPage; void load(); return }
+        rows.value = response.data
+      }
     } else {
       const response = await listMyPortalAccessRequests()
       if (version === loadVersion && userID === auth.user?.id) requests.value = response.data || []
