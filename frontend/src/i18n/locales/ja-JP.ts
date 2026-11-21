@@ -1,6 +1,7 @@
 import enUS from './en-US'
 
 const messages = {
+  notifications: enUS.notifications,
   workspaceDefaults: {"title":"ワークスペースの既定モデル","description":"未設定の場合は企業の既定値を継承します。既存の明示的な選択は維持されます。","inherit":"企業の既定値を継承","loadFailed":"読み込みに失敗しました。再試行してください。"},
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: 'ペアリング済みのローカルブラウザーを使用',

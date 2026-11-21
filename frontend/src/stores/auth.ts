@@ -12,6 +12,7 @@ import { useChatResourcesStore } from '@/stores/chatResources'
 import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
+import { useNotificationsStore } from '@/stores/notifications'
 import { clearPortalIntent } from '@/utils/portalIntent'
 import { resetPortalSession } from './portalEvents'
 
@@ -451,6 +452,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   const logout = () => {
+    useNotificationsStore().reset()
     // 清空状态
     user.value = null
     tenant.value = null

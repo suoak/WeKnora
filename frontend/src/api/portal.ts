@@ -47,6 +47,8 @@ export interface PortalMySpace {
 export interface TenantAccessRequest {
   id: string
   tenant_id: number
+  tenant_name?: string
+  reviewer_name?: string
   applicant_user_id: string
   source: 'portal'
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
@@ -120,3 +122,6 @@ export const transitionAdminPortalStatus = (tenantId: number, action: 'publish' 
   post<{ success: boolean; data: PortalAdminSpace }>(`/api/v1/system/admin/portal/spaces/${tenantId}/${action}`)
 export const listPortalOrganizationOptions = () =>
   get<ListResponse<PortalOrganizationOption>>('/api/v1/system/admin/portal/organization-options')
+
+export const listMyPortalAccessRequests = () => get<ListResponse<TenantAccessRequest>>('/api/v1/me/tenant-access-requests')
+export const cancelMyPortalAccessRequest = (id: string) => post<{ success: boolean }>(`/api/v1/me/tenant-access-requests/${encodeURIComponent(id)}/cancel`)

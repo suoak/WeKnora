@@ -47,7 +47,7 @@ export function defaultPortalStageKey(stages: PortalStage[], spaces: PortalSpace
 
 export function validAccessReason(reason: string): boolean {
   const length = [...reason.trim()].length
-  return length > 0 && length <= 1000
+  return length > 0 && length <= 1000 && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\p{Cf}]/u.test(reason)
 }
 
 export function canReviewPortalRequests(role: string | null | undefined): boolean {

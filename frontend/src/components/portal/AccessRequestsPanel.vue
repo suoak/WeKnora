@@ -4,11 +4,12 @@
     <div v-if="loading&&!requests.length" class="state"><t-loading :text="t('portal.requests.loading')" /></div>
     <div v-else-if="!pending.length" class="state">{{ t('portal.requests.empty') }}</div>
     <div v-else class="request-list">
-      <article v-for="request in pending" :key="request.id"><div class="request-main"><strong>{{ t('portal.requests.applicant', { id: request.applicant_user_id }) }}</strong><span>{{ formatDate(request.created_at) }} · {{ t('portal.viewerOnly') }}</span><p>{{ request.reason }}</p></div><div class="actions"><t-button size="small" theme="success" :loading="acting===request.id" @click="review(request,'approve')">{{ t('portal.requests.approve') }}</t-button><t-button size="small" theme="danger" variant="outline" :loading="acting===request.id" @click="review(request,'reject')">{{ t('portal.requests.reject') }}</t-button></div></article>
+      <article v-for="request in pending" :key="request.id"><div class="request-main"><strong>{{ t('portal.requests.applicant', { id: request.applicant_user_id }) }}</strong><span>{{ formatDate(request.created_at) }} · {{ t('portal.viewerOnly') }}</span><p>{{ request.reason }}</p><t-textarea v-model="notes[request.id]" :maxlength="1000" :placeholder="t('notifications.reviewPlaceholder')" /></div><div class="actions"><t-button size="small" theme="success" :loading="acting===request.id" @click="review(request,'approve')">{{ t('portal.requests.approve') }}</t-button><t-button size="small" theme="danger" variant="outline" :loading="acting===request.id" @click="review(request,'reject')">{{ t('portal.requests.reject') }}</t-button></div></article>
     </div>
   </section>
 </template>
 <script setup lang="ts">
+import { useNotificationsStore } from '@/stores/notifications'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -16,9 +17,10 @@ import { approveTenantPortalAccessRequest,listTenantPortalAccessRequests,rejectT
 const props=defineProps<{tenantId:number}>()
 const { t, locale }=useI18n()
 const requests=ref<TenantAccessRequest[]>([]),loading=ref(false),acting=ref('')
+const notes=ref<Record<string,string>>({})
 const pending=computed(()=>requests.value.filter(item=>item.status==='pending'))
 async function load(){if(!props.tenantId)return;loading.value=true;try{const response=await listTenantPortalAccessRequests(props.tenantId);requests.value=response.data||[]}catch(error:any){MessagePlugin.error(error?.message||t('portal.requests.loadFailed'))}finally{loading.value=false}}
-async function review(request:TenantAccessRequest,action:'approve'|'reject'){acting.value=request.id;try{if(action==='approve')await approveTenantPortalAccessRequest(props.tenantId,request.id);else await rejectTenantPortalAccessRequest(props.tenantId,request.id);MessagePlugin.success(t(action==='approve'?'portal.requests.approveSuccess':'portal.requests.rejectSuccess'));await load()}catch(error:any){const status=Number(error?.$httpStatus||error?.status||0);const message=String(error?.message||'');if(action==='approve'&&status===409&&(message.includes('applicant')||message.includes('active user')))MessagePlugin.error(t('portal.requests.applicantUnavailable'));else MessagePlugin.error(message||t('portal.requests.reviewFailed'))}finally{acting.value=''}}
+async function review(request:TenantAccessRequest,action:'approve'|'reject'){acting.value=request.id;try{if(action==='approve')await approveTenantPortalAccessRequest(props.tenantId,request.id,notes.value[request.id] || '');else await rejectTenantPortalAccessRequest(props.tenantId,request.id,notes.value[request.id] || '');MessagePlugin.success(t(action==='approve'?'portal.requests.approveSuccess':'portal.requests.rejectSuccess'));useNotificationsStore().changed();await load()}catch(error:any){const status=Number(error?.$httpStatus||error?.status||0);const message=String(error?.message||'');if(action==='approve'&&status===409&&(message.includes('applicant')||message.includes('active user')))MessagePlugin.error(t('portal.requests.applicantUnavailable'));else MessagePlugin.error(message||t('portal.requests.reviewFailed'))}finally{acting.value=''}}
 const formatDate=(value:string)=>new Intl.DateTimeFormat(locale.value,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value))
 watch(()=>props.tenantId,()=>void load())
 onMounted(load)

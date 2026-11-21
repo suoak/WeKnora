@@ -14,6 +14,10 @@ func TestPortalIdentityRoutesAllowTenantlessJWTContext(t *testing.T) {
 		{http.MethodPost, "/api/v1/portal/spaces/7/access-requests"},
 		{http.MethodPost, "/api/v1/portal/spaces/7/interaction/resolve"},
 		{http.MethodGet, "/api/v1/me/tenant-access-requests"},
+		{http.MethodGet, "/api/v1/me/notifications"},
+		{http.MethodGet, "/api/v1/me/notifications/unread-count"},
+		{http.MethodPost, "/api/v1/me/notifications/read-all"},
+		{http.MethodPost, "/api/v1/me/notifications/notification-1/read"},
 		{http.MethodPost, "/api/v1/me/tenant-access-requests/request-1/cancel"},
 		{http.MethodGet, "/api/v1/system/admin/portal/spaces"},
 	} {

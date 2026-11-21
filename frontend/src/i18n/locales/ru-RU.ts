@@ -2,6 +2,7 @@ import { branding } from '../../config/branding'
 import enUS from './en-US'
 
 const messages = {
+  notifications: enUS.notifications,
   workspaceDefaults: {"title":"Модели пространства по умолчанию","description":"Пустые поля наследуют настройки организации. Явный выбор существующих ресурсов сохраняется.","inherit":"Наследовать настройки организации","loadFailed":"Ошибка загрузки. Повторите попытку."},
   localBrowser: { ...enUS.localBrowser ,
   sourceHint: 'Использовать сопряжённый локальный браузер',

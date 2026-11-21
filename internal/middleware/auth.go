@@ -105,6 +105,8 @@ func isTenantOptionalAPI(path, method string) bool {
 		return true
 	case strings.HasPrefix(path, "/api/v1/me/tenant-access-requests"):
 		return true
+	case path == "/api/v1/me/notifications" || strings.HasPrefix(path, "/api/v1/me/notifications/"):
+		return true
 	case path == "/api/v1/system/admin/portal" || strings.HasPrefix(path, "/api/v1/system/admin/portal/"):
 		return true
 	default:

@@ -1,6 +1,8 @@
+import { notificationsEn } from '../notificationMessages'
 import { branding } from '../../config/branding'
 
 export default {
+  notifications: notificationsEn,
   workspaceDefaults: {"title":"Workspace default models","description":"Unset slots inherit enterprise defaults. Explicit choices on existing knowledge bases and agents are preserved.","inherit":"Inherit enterprise default","loadFailed":"Loading failed. Retry before editing."},
 
   localBrowser: {

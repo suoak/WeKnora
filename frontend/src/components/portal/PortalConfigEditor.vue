@@ -45,7 +45,7 @@ import type { PortalAdminSpace, PortalConfigPayload, PortalOrganizationOption, P
 const props=defineProps<{config:PortalAdminSpace|null;stages:PortalStage[];organizations:PortalOrganizationOption[];saving:boolean;transitioning:boolean}>()
 const emit=defineEmits<{save:[payload:PortalConfigPayload];status:[action:'publish'|'unpublish'|'archive']}>()
 const { t }=useI18n()
-const form=reactive<PortalConfigPayload>({display_name:'',description:'',category:'',responsible_team:'',contact:'',stages:[],featured:false,display_order:0,allow_access_request:false,interaction_organization_id:null})
+const form=reactive<PortalConfigPayload>({display_name:'',description:'',category:'',responsible_team:'',contact:'',stages:[],featured:false,display_order:0,allow_access_request:true,interaction_organization_id:null})
 watch(()=>props.config,(config)=>{if(!config)return;Object.assign(form,{display_name:config.display_name||config.tenant_name,description:config.description||'',category:config.category||'',responsible_team:config.responsible_team||'',contact:config.contact||'',stages:[...(config.stages||[])],featured:Boolean(config.featured),display_order:Number(config.display_order||0),allow_access_request:Boolean(config.allow_access_request),interaction_organization_id:config.interaction_organization_id||null})},{immediate:true})
 const stageOptions=computed(()=>props.stages.map(stage=>({label:t(`portal.stages.${stage.key}.name`),value:stage.key})))
 const categoryOptions=computed(()=>['insight_domain','market_customer','requirements_management','architecture_design','development_assets','test_quality','operations_lifecycle','process_governance','public_knowledge'].map(value=>({value,label:t(`portal.categories.${value}`)})))

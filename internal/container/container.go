@@ -560,6 +560,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(handler.NewTenantMemberHandler))
 	must(container.Provide(handler.NewTenantInvitationHandler))
 	must(container.Provide(handler.NewPortalHandler))
+	must(container.Provide(handler.NewNotificationHandler))
 	must(container.Provide(handler.NewAuditLogHandler))
 	must(container.Invoke(service.InitializeUsageAnalytics))
 	must(

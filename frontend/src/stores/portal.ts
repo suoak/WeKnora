@@ -1,3 +1,4 @@
+import { useNotificationsStore } from '@/stores/notifications'
 import { computed, ref, watch } from 'vue'
 import { defineStore } from 'pinia'
 import {
@@ -116,6 +117,7 @@ export const usePortalStore = defineStore('portal', () => {
     requestState.value[tenantId] = 'submitting'
     try {
       await createPortalAccessRequest(tenantId, reason.trim())
+      useNotificationsStore().changed()
       if (!current()) return
       for (const collection of [overviewSpaces.value, spaces.value]) {
         const target = collection.find(s => s.tenant_id === tenantId)

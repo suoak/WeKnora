@@ -12,12 +12,13 @@
         <div v-if="space.responsible_team"><dt>{{ t('portal.responsibleTeam') }}</dt><dd>{{ space.responsible_team }}</dd></div>
         <div v-if="space.contact"><dt>{{ t('portal.contact') }}</dt><dd>{{ space.contact }}</dd></div>
       </dl>
-      <template v-if="space.access_request_pending"><div class="pending"><t-icon name="time" />{{ t('portalMap.accessDialog.pending') }}</div></template>
+      <p v-if="space.membership_suspended" class="contact-admin">{{ t('notifications.suspended') }}</p>
+      <template v-else-if="space.access_request_pending"><div class="pending"><t-icon name="time" />{{ t('portalMap.accessDialog.pending') }}</div></template>
       <template v-else-if="space.can_request_access">
         <t-textarea v-model="reason" :aria-label="t('portal.reasonPlaceholder')" :placeholder="t('portal.reasonPlaceholder')" :maxlength="1000" :autosize="{ minRows: 3, maxRows: 6 }" />
         <div class="dialog-actions"><t-button type="button" variant="text" @click="$emit('close')">{{ t('common.cancel') }}</t-button><t-button type="button" :loading="submitting" :disabled="submitting || !valid" @click="submit">{{ t('portal.requestAccess') }}</t-button></div>
       </template>
-      <p v-else class="contact-admin">{{ t('portalMap.accessDialog.contactAdmin') }}</p>
+      <p v-else class="contact-admin">{{ t('notifications.closed') }} <span v-if="!space.contact && !space.responsible_team">{{ t('notifications.noContact') }}</span></p>
     </div>
   </t-dialog>
 </template>

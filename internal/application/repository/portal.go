@@ -409,7 +409,10 @@ func (r *portalRepository) GetAdminSpace(ctx context.Context, tenantID uint64) (
 	if err != nil {
 		return nil, err
 	}
-	item := &types.PortalAdminSpaceResponse{TenantID: tenant.ID, TenantName: tenant.Name, Status: types.PortalStatusDraft, Stages: stages}
+	item := &types.PortalAdminSpaceResponse{
+		TenantID: tenant.ID, TenantName: tenant.Name, Status: types.PortalStatusDraft,
+		Stages: stages, AllowAccessRequest: true,
+	}
 	if config != nil {
 		item.Status = config.Status
 		item.DisplayName = config.DisplayName
@@ -526,7 +529,12 @@ func (r *portalRepository) GetAccessRequest(ctx context.Context, requestID strin
 
 func (r *portalRepository) ListAccessRequestsByUser(ctx context.Context, userID string) ([]*types.TenantAccessRequest, error) {
 	var rows []*types.TenantAccessRequest
-	err := r.db.WithContext(ctx).Where("applicant_user_id = ?", userID).Order("created_at DESC").Find(&rows).Error
+	err := r.db.WithContext(ctx).Table("tenant_access_requests AS ar").
+		Select("ar.*, COALESCE(pc.display_name, '') AS tenant_name, COALESCE(u.username, '') AS reviewer_name").
+		Joins("LEFT JOIN tenant_portal_configs AS pc ON pc.tenant_id = ar.tenant_id").
+		Joins("LEFT JOIN users AS u ON u.id = ar.reviewed_by AND u.deleted_at IS NULL").
+		Where("ar.applicant_user_id = ?", userID).
+		Order("ar.created_at DESC").Scan(&rows).Error
 	return rows, err
 }
 

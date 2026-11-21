@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -33,6 +34,16 @@ var (
 	ErrPortalReviewForbidden      = errors.New("active workspace owner membership required")
 	ErrPortalInteractionForbidden = errors.New("interaction space is not available to the active workspace")
 )
+
+// Preserve ordinary multiline text, but reject NUL and invisible controls.
+func validPortalText(value string) bool {
+	for _, r := range value {
+		if (unicode.IsControl(r) && r != '\n' && r != '\r' && r != '\t') || unicode.In(r, unicode.Cf) {
+			return false
+		}
+	}
+	return true
+}
 
 type portalService struct {
 	db                         *gorm.DB
@@ -112,7 +123,7 @@ func tenantIsActive(tenant *types.Tenant) bool {
 
 func (s *portalService) CreateAccessRequest(ctx context.Context, userID string, tenantID uint64, reason string) (*types.TenantAccessRequest, error) {
 	reason = strings.TrimSpace(reason)
-	if len([]rune(reason)) < 1 || len([]rune(reason)) > 1000 {
+	if len([]rune(reason)) < 1 || len([]rune(reason)) > 1000 || !validPortalText(reason) {
 		return nil, ErrPortalInvalidReason
 	}
 	tenant, err := s.tenantSvc.GetTenantByID(ctx, tenantID)
@@ -155,6 +166,11 @@ func (s *portalService) CreateAccessRequest(ctx context.Context, userID string, 
 			if isDuplicateMembership(err) {
 				return ErrPortalPendingExists
 			}
+			return err
+		}
+		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(
+			ctx, request, "access_request_submitted", "",
+		); err != nil {
 			return err
 		}
 		return NewAuditLogService(repository.NewAuditLogRepository(tx)).Log(ctx, &types.AuditLog{
@@ -233,7 +249,7 @@ func (s *portalService) RejectAccessRequest(ctx context.Context, reviewerID stri
 }
 
 func (s *portalService) reviewAccessRequest(ctx context.Context, reviewerID string, tenantID uint64, requestID, note string, approve bool) error {
-	if len([]rune(strings.TrimSpace(note))) > 1000 {
+	if len([]rune(strings.TrimSpace(note))) > 1000 || !validPortalText(note) {
 		return ErrPortalInvalidConfig
 	}
 	return s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -305,6 +321,15 @@ func (s *portalService) reviewAccessRequest(ctx context.Context, reviewerID stri
 				return nil
 			}
 			return ErrPortalRequestNotPending
+		}
+		event := "access_request_rejected"
+		if approve {
+			event = "access_request_approved"
+		}
+		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(
+			ctx, request, event, strings.TrimSpace(note),
+		); err != nil {
+			return err
 		}
 		return txAudit.Log(ctx, &types.AuditLog{
 			TenantID: tenantID, ActorUserID: reviewerID, ActorRole: string(types.TenantRoleOwner),
@@ -406,6 +431,13 @@ func (s *portalService) UpdateConfig(ctx context.Context, actorID string, tenant
 	if err != nil {
 		return nil, err
 	}
+	allowAccessRequest := true
+	if old != nil {
+		allowAccessRequest = old.AllowAccessRequest
+	}
+	if req.AllowAccessRequest != nil {
+		allowAccessRequest = *req.AllowAccessRequest
+	}
 	now := time.Now().UTC()
 	publishedAt := (*time.Time)(nil)
 	createdBy := actorID
@@ -421,7 +453,7 @@ func (s *portalService) UpdateConfig(ctx context.Context, actorID string, tenant
 		TenantID: tenantID, Status: status, DisplayName: displayName,
 		Description: strings.TrimSpace(req.Description), Category: category,
 		ResponsibleTeam: strings.TrimSpace(req.ResponsibleTeam), Contact: strings.TrimSpace(req.Contact),
-		Featured: req.Featured, DisplayOrder: req.DisplayOrder, AllowAccessRequest: req.AllowAccessRequest,
+		Featured: req.Featured, DisplayOrder: req.DisplayOrder, AllowAccessRequest: allowAccessRequest,
 		InteractionOrganizationID: req.InteractionOrganizationID, CreatedBy: createdBy, UpdatedBy: actorID,
 		PublishedAt: publishedAt, CreatedAt: now, UpdatedAt: now,
 	}

@@ -520,6 +520,7 @@
 </template>
 
 <script setup lang="ts">
+import { useRoute } from 'vue-router'
 import { computed, nextTick, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -554,7 +555,9 @@ import {
 
 const { t, tm, locale } = useI18n()
 const authStore = useAuthStore()
-const activeView = ref<'members' | 'access-requests'>('members')
+const route = useRoute()
+const activeView = ref<'members' | 'access-requests'>(route.query.access_requests === '1' ? 'access-requests' : 'members')
+watch(() => route.query.access_requests, (value) => { if (value === '1') activeView.value = 'access-requests' })
 
 /** 悬停层限制在视口内，内容由内部滚动 */
 const permissionsPopupInnerStyle = {
