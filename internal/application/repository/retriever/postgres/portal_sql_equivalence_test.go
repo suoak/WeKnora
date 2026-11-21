@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -88,6 +89,72 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
  (14,'chunk3',?,'chunk3','doc','kb','third current text',1024,true,'[0.8,0.2,0]')`,
 		types.ChunkSourceType, types.ChunkSourceType).Error)
 	require.NoError(t, db.Exec(`ALTER TABLE embeddings ADD COLUMN tag_id text`).Error)
+	t.Run("query_sessions_restore_pooled_configuration", func(t *testing.T) {
+		conn.SetMaxOpenConns(1)
+		setting := func(current *gorm.DB, name string) string {
+			var value string
+			require.NoError(t, current.Raw("SHOW "+name).Row().Scan(&value))
+			return value
+		}
+		settings := []string{"jit", "jit_inline_above_cost", "jit_optimize_above_cost"}
+		original := make(map[string]string)
+		for _, name := range settings {
+			original[name] = setting(db, name)
+		}
+		defer func() {
+			for _, name := range settings {
+				require.NoError(t, db.Exec("SET "+name+" = "+original[name]).Error)
+			}
+		}()
+		require.NoError(t, db.Exec("SET jit = on").Error)
+		require.NoError(t, db.Exec("SET jit_inline_above_cost = 500000").Error)
+		require.NoError(t, db.Exec("SET jit_optimize_above_cost = 500000").Error)
+		aborted := errors.New("synthetic query transaction rollback")
+		for _, vector := range []bool{false, true} {
+			for _, rollback := range []bool{false, true} {
+				session := portalDimensionQuerySession
+				if vector {
+					session = portalVectorQuerySession
+				}
+				called := false
+				err := session(db, func(tx *gorm.DB) error {
+					called = true
+					if vector {
+						require.Equal(t, "on", setting(tx, "jit"))
+						require.Equal(t, "-1", setting(tx, "jit_inline_above_cost"))
+						require.Equal(t, "-1", setting(tx, "jit_optimize_above_cost"))
+					} else {
+						require.Equal(t, "off", setting(tx, "jit"))
+					}
+					var readOnly string
+					require.NoError(t, tx.Raw("SHOW transaction_read_only").Row().Scan(&readOnly))
+					require.Equal(t, "on", readOnly)
+					for _, public := range []bool{false, true} {
+						assertPortalVectorEquivalent(t, tx, public, 2, 3, "transaction-local query configuration")
+					}
+					if rollback {
+						return aborted
+					}
+					return nil
+				})
+				if rollback {
+					require.ErrorIs(t, err, aborted)
+				} else {
+					require.NoError(t, err)
+				}
+				require.True(t, called)
+				require.Equal(t, "on", setting(db, "jit"), "restore the same pooled connection")
+				require.Equal(t, "500000", setting(db, "jit_inline_above_cost"))
+				require.Equal(t, "500000", setting(db, "jit_optimize_above_cost"))
+			}
+		}
+		require.NoError(t, db.Exec("SET jit = off").Error)
+		require.NoError(t, portalVectorQuerySession(db, func(tx *gorm.DB) error {
+			require.Equal(t, "off", setting(tx, "jit"), "respect caller disabling expression JIT")
+			return nil
+		}))
+		require.Equal(t, "off", setting(db, "jit"))
+	})
 	t.Run("unbounded_candidates_and_malformed_untrusted_vectors", func(t *testing.T) {
 		// More stale nearest neighbours than the old expanded candidate budget
 		// must not hide a farther canonical result. No pre-proof LIMIT is safe.
