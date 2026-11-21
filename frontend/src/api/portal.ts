@@ -29,7 +29,7 @@ export interface PortalSpace {
   uploaded_file_count?: number
   faq_knowledge_base_count?: number
   wiki_knowledge_base_count?: number
-  asset_count_scope?: 'space_total' | 'hidden'
+  asset_count_scope?: 'space_total' | 'published_summary' | 'hidden'
   access_state: PortalAccessState
   current_role: 'owner' | 'admin' | 'contributor' | 'viewer' | null
   can_request_access: boolean

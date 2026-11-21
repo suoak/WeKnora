@@ -7,6 +7,7 @@ export const notificationsEn = {
   closed: 'This workspace has disabled self-service access requests. Contact the team or person listed below.',
   noContact: 'No contact information is published. Ask your system administrator for the workspace owner.',
   reviewPlaceholder: 'Review note (up to 1000 characters)',
+  processedRequest: 'Workspace access request resolved', processedBy: 'Handled by {name}', alreadyProcessed: 'This request has already been processed. The list has been refreshed.',
   status: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected', cancelled: 'Cancelled' },
 }
 
@@ -19,5 +20,6 @@ export const notificationsZh = {
   closed: '该空间已关闭自主访问申请，请联系下方团队或负责人获取授权。',
   noContact: '该空间尚未公布联系方式，请联系系统管理员查询空间负责人。',
   reviewPlaceholder: '审批意见（最多 1000 字）',
+  processedRequest: '知识空间访问申请已处理', processedBy: '处理人：{name}', alreadyProcessed: '该申请已处理，列表已刷新。',
   status: { pending: '待审批', approved: '已通过', rejected: '已拒绝', cancelled: '已取消' },
 }

@@ -16,6 +16,11 @@ type UserNotification struct {
 	IsRead           bool       `json:"is_read"`
 	ReadAt           *time.Time `json:"read_at"`
 	CreatedAt        time.Time  `json:"created_at"`
+
+	RequestStatus TenantAccessRequestStatus `json:"request_status,omitempty" gorm:"-"`
+	ReviewedBy    *string                   `json:"reviewed_by,omitempty" gorm:"-"`
+	ReviewerName  string                    `json:"reviewer_name,omitempty" gorm:"-"`
+	ReviewedAt    *time.Time                `json:"reviewed_at,omitempty" gorm:"-"`
 }
 
 // TableName returns the persistent user inbox table.
