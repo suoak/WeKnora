@@ -14,6 +14,7 @@ import (
 type portalDocumentMetadataSearch interface {
 	SearchPortalDocumentMetadata(context.Context, uint64, string, []string, string, int) ([]*types.Knowledge, error)
 }
+
 // PortalMCPDocument exposes only verified document metadata and its read reference.
 type PortalMCPDocument struct {
 	PortalMCPHit
@@ -22,6 +23,7 @@ type PortalMCPDocument struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	MatchRank   int       `json:"match_rank"`
 }
+
 // PortalMCPDocumentSearchResult reports a bounded, deterministically ranked search.
 type PortalMCPDocumentSearchResult struct {
 	Status    string              `json:"status"`
@@ -57,6 +59,7 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 	if err := access.ValidatePortalQuery(query); err != nil {
 		return nil, err
 	}
+	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
 	targets, err := s.Resolve(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -131,6 +134,9 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 	}
 	if err = s.validatePublishedPortalHits(ctx, hits); err != nil {
 		return nil, err
+	}
+	if diagnostics.Partial() {
+		out.Status = "partial"
 	}
 	return out, nil
 }

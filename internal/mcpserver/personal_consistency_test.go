@@ -96,4 +96,13 @@ func TestPersonalConsistencyJSONRPC(t *testing.T) {
 		require.Equal(t, text, structured)
 		require.Contains(t, structured, "documents")
 	}
+	// A live source exclusion must be explicit in the object itself, including
+	// when no document remains. Clients may consume only structuredContent.
+	restricted, store, ctx := selectedMCPFixture()
+	restricted.knowledge.Knowledge = repository.NewKnowledgeRepository(f.DB)
+	store.held = true
+	partial, err := restricted.knowledge.SearchDocuments(ctx, []string{"selected"}, "PUBLIC", 20)
+	require.NoError(t, err)
+	require.Equal(t, "partial", partial.Status)
+	require.Empty(t, partial.Documents)
 }
