@@ -29,13 +29,13 @@ func TestFeishuV2PrivatePortalAndMCPDirectory(t *testing.T) {
 			for _, ddl := range []string{
 				"CREATE TABLE tenants(id bigint PRIMARY KEY,name TEXT,status TEXT,deleted_at TIMESTAMP)",
 				"CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id bigint,name TEXT,type TEXT," +
-					"embedding_model_id TEXT,is_temporary BOOLEAN,deleted_at TIMESTAMP)",
+					"embedding_model_id TEXT,is_temporary BOOLEAN,deleted_at TIMESTAMP,indexing_strategy JSON)",
 				"CREATE TABLE knowledges(id TEXT PRIMARY KEY,tenant_id bigint,knowledge_base_id TEXT," +
 					"type TEXT,parse_status TEXT,deleted_at TIMESTAMP)",
 				"CREATE TABLE feishu_private_kbs(kb_id TEXT PRIMARY KEY,owner_id TEXT)",
 				"INSERT INTO tenants VALUES(1,'Controlled workspace','active',NULL)",
-				"INSERT INTO knowledge_bases VALUES('private',1,'PRIVATE_NAME','document','model',false,NULL)," +
-					"('ordinary',1,'Ordinary','document','model',false,NULL)",
+				"INSERT INTO knowledge_bases VALUES('private',1,'PRIVATE_NAME','document','model',false,NULL,NULL)," +
+					"('ordinary',1,'Ordinary','document','model',false,NULL,NULL)",
 				"INSERT INTO knowledges VALUES('private-doc',1,'private','file','completed',NULL)," +
 					"('ordinary-doc',1,'ordinary','file','completed',NULL)",
 				"INSERT INTO feishu_private_kbs VALUES('private','A')",
