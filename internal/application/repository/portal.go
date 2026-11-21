@@ -122,8 +122,9 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	// metadata only; document listing, search and content authorization stay intact.
 	// Restricted API keys retain their existing aggregate visibility rules.
 	_, apiKey := types.TenantAPIKeyScopeFromContext(ctx)
+	principal, hasPrincipal := types.PrincipalFromContext(ctx)
 	assetTenants := countTenants
-	if !apiKey {
+	if !apiKey && (!hasPrincipal || principal.Type == types.PrincipalWebUser) {
 		assetTenants = tenantIDs
 	}
 	assetCounts, err := r.documentAssetCountMap(ctx, assetTenants)

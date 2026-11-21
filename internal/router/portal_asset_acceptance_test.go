@@ -120,8 +120,8 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 				require.EqualValues(t, 7, *row.DocumentEntryCount)
 				require.EqualValues(t, 6, *row.UploadedFileCount)
 			} else {
-				require.Equal(t, "hidden", row.AssetCountScope)
-				require.Nil(t, row.DocumentEntryCount)
+				require.Equal(t, "published_summary", row.AssetCountScope)
+				require.EqualValues(t, 7, *row.DocumentEntryCount)
 				require.Nil(t, row.UploadedFileCount)
 			}
 			require.NotContains(t, string(raw), fixture.Canary)
