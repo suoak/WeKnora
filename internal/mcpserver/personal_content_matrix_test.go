@@ -45,7 +45,7 @@ func (f contentFixture) Upload(context.Context, service.PersonalUploadRequest) (
 func (f contentFixture) Status(context.Context, string) (*types.Knowledge, error) { return f.row() }
 
 func TestPersonalContentResultUsageMatrix(t *testing.T) {
-	for _, name := range personalToolCatalog[8:] {
+	for _, name := range personalToolCatalog[9:] {
 		for _, tc := range []struct {
 			label string
 			cause error

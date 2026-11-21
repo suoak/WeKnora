@@ -2,7 +2,13 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"math"
+	"sync"
+
+	"golang.org/x/sync/singleflight"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
@@ -10,6 +16,47 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
+
+type portalQueryEmbeddingKey struct{}
+type portalQueryEmbeddings struct {
+	ctx     context.Context
+	group   singleflight.Group
+	mu      sync.Mutex
+	vectors map[string][]float32
+}
+
+func withPortalQueryEmbeddings(ctx context.Context) context.Context {
+	return context.WithValue(ctx, portalQueryEmbeddingKey{}, &portalQueryEmbeddings{ctx: ctx, vectors: map[string][]float32{}})
+}
+
+func (c *portalQueryEmbeddings) embed(ctx context.Context, key string, embed func(context.Context) ([]float32, error)) ([]float32, error) {
+	call := c.group.DoChan(key, func() (any, error) {
+		c.mu.Lock()
+		v, ok := c.vectors[key]
+		c.mu.Unlock()
+		if ok {
+			return v, nil
+		}
+		bounded, cancel := context.WithTimeout(c.ctx, portalSearchModeTimeout)
+		defer cancel()
+		v, err := embed(bounded)
+		if err == nil {
+			c.mu.Lock()
+			c.vectors[key] = append([]float32(nil), v...)
+			c.mu.Unlock()
+		}
+		return v, err
+	})
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-call:
+		if r.Err != nil {
+			return nil, r.Err
+		}
+		return append([]float32(nil), r.Val.([]float32)...), nil
+	}
+}
 
 // BindPortalMCPAdapters uses the application's actual model and store registries.
 // It does not enable a server or approve any KB. There is no fallback to an
@@ -24,6 +71,25 @@ func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRe
 			return nil, access.ErrForbidden
 		}
 		return kb, nil
+	}
+	s.SearchCapabilities = func(ctx context.Context, d access.PortalKBDescriptor) ([]string, error) {
+		kb, err := load(ctx, d)
+		if err != nil {
+			return nil, err
+		}
+		caps := []string{}
+		keyword := kb.IsKeywordEnabled() && kb.Type != types.KnowledgeBaseTypeFAQ
+		vector := kb.IsVectorEnabled()
+		if keyword {
+			caps = append(caps, "keyword")
+		}
+		if vector {
+			caps = append(caps, "semantic")
+		}
+		if keyword && vector {
+			caps = append(caps, "hybrid")
+		}
+		return caps, nil
 	}
 	s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
 		kb, err := load(ctx, d)
@@ -80,20 +146,33 @@ func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRe
 		if err != nil {
 			return nil, err
 		}
-		done := perftrace.Measure(ctx, perftrace.Embedding)
-		vector, err := embedder.Embed(types.WithEmbedQuery(owner), query)
-		done()
-		if err != nil {
-			return nil, err
-		}
-		if len(vector) != dimension {
-			return nil, access.ErrForbidden
-		}
-		for _, x := range vector {
-			if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+		embed := func(callCtx context.Context) ([]float32, error) {
+			done := perftrace.Measure(callCtx, perftrace.Embedding)
+			vector, err := embedder.Embed(types.WithEmbedQuery(types.WithExecutionTenant(callCtx, d.TenantID)), query)
+			done()
+			if err != nil {
+				return nil, err
+			}
+			if len(vector) != dimension {
 				return nil, access.ErrForbidden
 			}
+			for _, x := range vector {
+				if math.IsNaN(float64(x)) || math.IsInf(float64(x), 0) {
+					return nil, access.ErrForbidden
+				}
+			}
+			return vector, nil
 		}
-		return vector, nil
+		if cache, ok := ctx.Value(portalQueryEmbeddingKey{}).(*portalQueryEmbeddings); ok {
+			// Full persisted model identity includes endpoint, provider, credentials,
+			// dimensions and version. Never share by display/model name alone.
+			identity, err := json.Marshal(model)
+			if err != nil {
+				return nil, err
+			}
+			key := fmt.Sprintf("%x:%d:%s", sha256.Sum256(identity), dimension, query)
+			return cache.embed(ctx, key, embed)
+		}
+		return embed(ctx)
 	}
 }

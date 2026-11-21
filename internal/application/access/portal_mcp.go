@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -101,11 +102,11 @@ func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]
 				matched = []string{kb.ID}
 				break
 			}
-			if kb.Name == selector {
+			if strings.EqualFold(strings.TrimSpace(kb.Name), strings.TrimSpace(selector)) {
 				matched = append(matched, kb.ID)
 			}
 		}
-		if len(matched) == 0 {
+		if len(matched) != 1 {
 			return nil, ErrForbidden
 		}
 		for _, id := range matched {

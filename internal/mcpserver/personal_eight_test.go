@@ -41,7 +41,7 @@ func TestV1NextEightToolProtocolRegistration(t *testing.T) {
 		require.True(t, tool.Annotations.ReadOnlyHint, tool.Name)
 	}
 	sort.Strings(names)
-	require.Equal(t, []string{"grep_chunks", "list_documents", "list_knowledge_bases", "read_document", "search_knowledge", "wiki_index", "wiki_read_page", "wiki_search"}, names)
+	require.Equal(t, []string{"grep_chunks", "list_documents", "list_knowledge_bases", "read_document", "search_documents", "search_knowledge", "wiki_index", "wiki_read_page", "wiki_search"}, names)
 	// The public disabled handler still fails even though tools are registered.
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, request)

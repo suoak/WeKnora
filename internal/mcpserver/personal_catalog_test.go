@@ -46,7 +46,7 @@ func TestPersonalUsageCatalogMatchesExternalRegistry(t *testing.T) {
 }
 
 func TestPersonalContentHTTPUsageSingleFinalEvent(t *testing.T) {
-	for _, name := range personalToolCatalog[8:] {
+	for _, name := range personalToolCatalog[9:] {
 		t.Run(name, func(t *testing.T) {
 			sink := &captureUsage{}
 			s := ConfigurePersonalContentServer(
