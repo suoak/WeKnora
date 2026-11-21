@@ -78,7 +78,8 @@ func TestPortalM6RealPostgresPersonal(t *testing.T) {
 	f := fixture.Seed(t, db)
 	resolver := f.Portal(t)
 	s := &service.PortalMCPKnowledge{Resolver: resolver, Knowledge: repository.NewKnowledgeRepository(db), Chunks: repository.NewChunkRepository(db)}
-	driver := pgdriver.NewPostgresRetrieveEngineRepository(db)
+	trace := &portalSQLTraceM7{Interface: logger.Default.LogMode(logger.Silent)}
+	driver := pgdriver.NewPostgresRetrieveEngineRepository(db.Session(&gorm.Session{Logger: trace}))
 	s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) { return driver, nil }
 	// Index all canaries too, plus a deliberately wrong-owner row and stale body.
 	var chunks []*types.Chunk
@@ -400,6 +401,7 @@ func TestPortalM6RealPostgresPersonal(t *testing.T) {
 		on := true
 		cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &on}}
 		engine := gin.New()
+		engine.Use(legacyReadScopeMiddleware(nil))
 		RegisterPersonalMCPRoutes(engine, mcpserver.NewPersonalServer(true, s), documentTestTenants{repo: repository.NewTenantRepository(db)}, documentTestUsers{repo: repository.NewUserRepository(db)}, documentTestMembers{repo: repository.NewTenantMemberRepository(db)}, service.NewTenantAPIKeyService(repository.NewTenantAPIKeyRepository(db)), cfg)
 		endpoint := httptest.NewServer(engine)
 		defer endpoint.Close()
@@ -441,6 +443,13 @@ func TestPortalM6RealPostgresPersonal(t *testing.T) {
 			status, body = rpc(1, "tools/call", map[string]any{"name": call.name, "arguments": call.args})
 			require.Equal(t, 200, status, body)
 			require.NotContains(t, body, `"isError":true`)
+			if call.name == "search_knowledge" {
+				trace.mu.Lock()
+				vectorSQL := trace.last
+				trace.mu.Unlock()
+				require.Contains(t, vectorSQL, "WITH portal_vector_candidates AS MATERIALIZED",
+					"the real HTTP serving marker must retain the optimized, authorized vector path")
+			}
 			t.Logf("real personal Go MCP tools/call %s PASS", call.name)
 		}
 		for _, call := range []struct {
