@@ -11,6 +11,10 @@ export interface UserNotification {
   is_read: boolean
   read_at: string | null
   created_at: string
+  request_status?: 'pending' | 'approved' | 'rejected' | 'cancelled'
+  reviewed_by?: string
+  reviewer_name?: string
+  reviewed_at?: string
 }
 
 export const listNotifications = (page = 1, unread = false) =>

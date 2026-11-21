@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"testing"
 	"time"
@@ -102,7 +103,7 @@ func TestPortalAssetCountsTypeStatusAndKnowledgeBaseMatrix(t *testing.T) {
 	require.EqualValues(t, card, total)
 }
 
-func TestPortalAssetCountsDoNotPublishNewPrivateAggregates(t *testing.T) {
+func TestPortalPublishesDocumentScaleWithoutContentOrDetailedPrivateAggregates(t *testing.T) {
 	db, repo := portalAssetFixture(t)
 	require.NoError(t, db.Create(&types.Knowledge{
 		ID:              "private",
@@ -119,13 +120,27 @@ func TestPortalAssetCountsDoNotPublishNewPrivateAggregates(t *testing.T) {
 				require.Equal(t, "space_total", rows[0].AssetCountScope)
 				require.EqualValues(t, 1, *rows[0].DocumentEntryCount)
 			} else {
-				require.Equal(t, "hidden", rows[0].AssetCountScope)
-				require.Nil(t, rows[0].DocumentEntryCount)
+				require.Equal(t, "published_summary", rows[0].AssetCountScope)
+				require.EqualValues(t, 1, *rows[0].DocumentEntryCount)
 				require.Nil(t, rows[0].UploadedFileCount)
+				require.Nil(t, rows[0].FAQKnowledgeBaseCount)
+				require.Nil(t, rows[0].WikiKnowledgeBaseCount)
 			}
+			if user == "discoverer" {
+				require.Equal(t, types.PortalAccessDiscoverable, rows[0].AccessState)
+				require.Empty(t, rows[0].CurrentRole, "published counts must not grant membership")
+			}
+			payload, err := json.Marshal(rows)
+			require.NoError(t, err)
+			require.NotContains(t, string(payload), `"private"`, "document IDs and content must not appear in discovery metadata")
 			require.EqualValues(t, 0, rows[0].FileCount, "legacy field is not repurposed for manual entries")
 		})
 	}
+	ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{"doc"}})
+	rows, err := repo.ListPublished(ctx, "owner", 0, interfaces.PortalListQuery{})
+	require.NoError(t, err)
+	require.Equal(t, "hidden", rows[0].AssetCountScope)
+	require.Nil(t, rows[0].DocumentEntryCount, "restricted API keys retain their existing aggregate boundary")
 }
 
 func TestPortalAssetCountsFollowCreateDeleteAndFolderScopes(t *testing.T) {

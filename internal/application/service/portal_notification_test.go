@@ -4,6 +4,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -61,6 +62,124 @@ func portalNotificationRequestFixture(t *testing.T) (*gorm.DB, interfaces.Portal
 		nil,
 		audit,
 	)
+}
+
+func TestPortalResolutionClosesAllOwnerRemindersAndKeepsHistory(t *testing.T) {
+	for _, outcome := range []string{"approved", "rejected", "cancelled"} {
+		t.Run(outcome, func(t *testing.T) {
+			db, svc := portalNotificationRequestFixture(t)
+			ctx := context.Background()
+			request, err := svc.CreateAccessRequest(ctx, "applicant", 7, "multi-owner regression")
+			require.NoError(t, err)
+			repo := repository.NewNotificationRepository(db)
+			rows, _, err := repo.List(ctx, "owner2", 1, 20, false)
+			require.NoError(t, err)
+			require.Len(t, rows, 1)
+			require.Equal(t, types.TenantAccessRequestPending, rows[0].RequestStatus)
+
+			// Reading one inbox must not affect the other recipient. Resolution
+			// must preserve that first read time and unrelated unread messages.
+			readAt := time.Now().UTC().Add(-time.Hour)
+			require.NoError(t, db.Model(&types.UserNotification{}).Where("user_id = ?", "owner").Updates(map[string]any{"is_read": true, "read_at": readAt}).Error)
+			require.NoError(t, db.Create(&types.UserNotification{ID: "unrelated", UserID: "owner2", NotificationType: "other", ReferenceID: "other", TenantID: 8}).Error)
+			switch outcome {
+			case "approved":
+				require.NoError(t, svc.ApproveAccessRequest(ctx, "owner", 7, request.ID, "approved"))
+				// A second Owner's retry is idempotent; it cannot replace the
+				// original reviewer or send another applicant notification.
+				require.NoError(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "retry"))
+				require.ErrorIs(t, svc.RejectAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+			case "rejected":
+				require.NoError(t, svc.RejectAccessRequest(ctx, "owner", 7, request.ID, "rejected"))
+				require.ErrorIs(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+			case "cancelled":
+				require.NoError(t, svc.CancelAccessRequest(ctx, "applicant", request.ID))
+				require.ErrorIs(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+			}
+			for _, owner := range []string{"owner", "owner2"} {
+				rows, _, err := repo.List(ctx, owner, 1, 20, false)
+				require.NoError(t, err)
+				var found bool
+				for _, row := range rows {
+					if row.ReferenceID != request.ID {
+						continue
+					}
+					found = true
+					require.True(t, row.IsRead)
+					require.NotNil(t, row.ReadAt)
+					require.Equal(t, types.TenantAccessRequestStatus(outcome), row.RequestStatus)
+					if owner == "owner" {
+						require.WithinDuration(t, readAt, *row.ReadAt, time.Millisecond)
+					}
+					if outcome != "cancelled" {
+						require.Equal(t, "owner", *row.ReviewedBy)
+						require.Equal(t, "Owner", row.ReviewerName)
+						require.NotNil(t, row.ReviewedAt)
+					}
+				}
+				require.True(t, found, "resolved reminders remain in history")
+			}
+			n, err := repo.UnreadCount(ctx, "owner2")
+			require.NoError(t, err)
+			require.EqualValues(t, 1, n, "unrelated unread notification must remain")
+			unread, _, err := repo.List(ctx, "owner2", 1, 20, true)
+			require.NoError(t, err)
+			require.Len(t, unread, 1)
+			require.Equal(t, "unrelated", unread[0].ID)
+			if outcome != "cancelled" {
+				n, err := repo.UnreadCount(ctx, "applicant")
+				require.NoError(t, err)
+				require.EqualValues(t, 1, n, "the applicant result remains unread")
+			}
+		})
+	}
+}
+
+func TestPortalOwnerReminderResolutionRollsBackWithResultDelivery(t *testing.T) {
+	db, svc := portalNotificationRequestFixture(t)
+	ctx := context.Background()
+	request, err := svc.CreateAccessRequest(ctx, "applicant", 7, "atomic resolution")
+	require.NoError(t, err)
+	require.NoError(t, db.Exec(`CREATE TRIGGER fail_result_notification BEFORE INSERT ON user_notifications
+		WHEN NEW.user_id='applicant' BEGIN SELECT RAISE(ABORT,'synthetic delivery failure'); END`).Error)
+	require.Error(t, svc.ApproveAccessRequest(ctx, "owner", 7, request.ID, "approve"))
+	var saved types.TenantAccessRequest
+	require.NoError(t, db.First(&saved, "id = ?", request.ID).Error)
+	require.Equal(t, types.TenantAccessRequestPending, saved.Status)
+	repo := repository.NewNotificationRepository(db)
+	for _, owner := range []string{"owner", "owner2"} {
+		n, err := repo.UnreadCount(ctx, owner)
+		require.NoError(t, err)
+		require.EqualValues(t, 1, n, "rolled-back approval must leave both reminders actionable")
+	}
+	var count int64
+	require.NoError(t, db.Table("tenant_members").Where("user_id = ?", "applicant").Count(&count).Error)
+	require.Zero(t, count)
+	// Cancellation uses the same atomic reminder resolution contract.
+	require.NoError(t, db.Exec(`CREATE TRIGGER fail_reminder_resolution BEFORE UPDATE ON user_notifications
+		BEGIN SELECT RAISE(ABORT,'synthetic reminder failure'); END`).Error)
+	require.Error(t, svc.CancelAccessRequest(ctx, "applicant", request.ID))
+	require.NoError(t, db.First(&saved, "id = ?", request.ID).Error)
+	require.Equal(t, types.TenantAccessRequestPending, saved.Status)
+}
+
+func TestNotificationRequestMetadataRespectsTenantBinding(t *testing.T) {
+	db, svc := portalNotificationRequestFixture(t)
+	ctx := context.Background()
+	request, err := svc.CreateAccessRequest(ctx, "applicant", 7, "tenant-bound state")
+	require.NoError(t, err)
+	require.NoError(t, svc.ApproveAccessRequest(ctx, "owner", 7, request.ID, "approve"))
+	require.NoError(t, db.Create(&types.UserNotification{ID: "foreign-reference", UserID: "owner2", TenantID: 8,
+		NotificationType: "other", ReferenceType: "tenant_access_request", ReferenceID: request.ID}).Error)
+	rows, _, err := repository.NewNotificationRepository(db).List(ctx, "owner2", 1, 20, false)
+	require.NoError(t, err)
+	for _, row := range rows {
+		if row.ID == "foreign-reference" {
+			require.Empty(t, row.RequestStatus)
+			require.Nil(t, row.ReviewedBy)
+			require.Empty(t, row.ReviewerName)
+		}
+	}
 }
 
 func TestPortalRequestNotificationCreationAndRollback(t *testing.T) {

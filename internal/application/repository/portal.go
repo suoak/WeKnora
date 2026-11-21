@@ -87,9 +87,8 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	if err != nil {
 		return nil, err
 	}
-	// Publication authorizes the legacy discovery projection, not additional
-	// totals for private/manual entries. Workspace totals require the existing
-	// system-admin or workspace-admin authority, not merely discovery/membership.
+	// Detailed file/FAQ/Wiki totals retain their existing workspace authority.
+	// The scalar document total is published discovery metadata separately below.
 	countTenants := make([]uint64, 0, len(rows))
 	for _, row := range rows {
 		member := memberships[row.TenantID]
@@ -106,9 +105,7 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 			countTenants = append(countTenants, row.TenantID)
 		}
 	}
-	// A subject participating in document-level grants must not receive an
-	// unfiltered workspace aggregate. Visible counts require the exact same
-	// authorization scope as the list; until one is supplied, omit these fields.
+	// Document-level grants do not authorize additional detailed aggregates.
 	if !types.IsSystemAdminFromContext(ctx) && len(countTenants) > 0 {
 		var grants int64
 		if !r.db.Migrator().HasTable("document_subject_grants") {
@@ -120,9 +117,22 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 			countTenants = nil
 		}
 	}
-	assetCounts, err := r.documentAssetCountMap(ctx, countTenants)
+	// Published Portal cards intentionally expose their document scale to web
+	// users, like the existing knowledge-base total. This is aggregate discovery
+	// metadata only; document listing, search and content authorization stay intact.
+	// Restricted API keys retain their existing aggregate visibility rules.
+	_, apiKey := types.TenantAPIKeyScopeFromContext(ctx)
+	assetTenants := countTenants
+	if !apiKey {
+		assetTenants = tenantIDs
+	}
+	assetCounts, err := r.documentAssetCountMap(ctx, assetTenants)
 	if err != nil {
 		return nil, err
+	}
+	detailedCounts := make(map[uint64]bool, len(countTenants))
+	for _, id := range countTenants {
+		detailedCounts[id] = true
 	}
 
 	interaction := map[string]bool{}
@@ -201,10 +211,13 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 		}
 		if counts, ok := assetCounts[row.TenantID]; ok {
 			item.DocumentEntryCount = &counts.Documents
-			item.UploadedFileCount = &counts.Files
-			item.FAQKnowledgeBaseCount = &counts.FAQKnowledgeBases
-			item.WikiKnowledgeBaseCount = &counts.WikiKnowledgeBases
-			item.AssetCountScope = "space_total"
+			item.AssetCountScope = "published_summary"
+			if detailedCounts[row.TenantID] {
+				item.UploadedFileCount = &counts.Files
+				item.FAQKnowledgeBaseCount = &counts.FAQKnowledgeBases
+				item.WikiKnowledgeBaseCount = &counts.WikiKnowledgeBases
+				item.AssetCountScope = "space_total"
+			}
 		}
 		out = append(out, item)
 	}
@@ -540,7 +553,10 @@ func (r *portalRepository) ListAccessRequestsByUser(ctx context.Context, userID 
 
 func (r *portalRepository) ListAccessRequestsByTenant(ctx context.Context, tenantID uint64) ([]*types.TenantAccessRequest, error) {
 	var rows []*types.TenantAccessRequest
-	err := r.db.WithContext(ctx).Where("tenant_id = ?", tenantID).Order("created_at DESC").Find(&rows).Error
+	err := r.db.WithContext(ctx).Table("tenant_access_requests AS ar").
+		Select("ar.*, COALESCE(u.username, '') AS reviewer_name").
+		Joins("LEFT JOIN users AS u ON u.id = ar.reviewed_by AND u.deleted_at IS NULL").
+		Where("ar.tenant_id = ?", tenantID).Order("ar.created_at DESC").Scan(&rows).Error
 	return rows, err
 }
 

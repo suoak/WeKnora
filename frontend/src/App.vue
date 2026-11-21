@@ -222,6 +222,10 @@ const stopInvitationPolling = () => {
   }
 }
 
+const refreshVisibleInbox = () => {
+  if (authStore.isLoggedIn && document.visibilityState !== 'hidden') void notificationsStore.refresh()
+}
+
 // React to login/logout via the store's isLoggedIn computed. Watching
 // here (rather than only on first mount) handles the OIDC callback
 // flow where the user logs in well after App.vue has already mounted.
@@ -263,6 +267,8 @@ const showPendingTenantSwitchToast = () => {
 }
 
 onMounted(() => {
+  window.addEventListener('focus', refreshVisibleInbox)
+  document.addEventListener('visibilitychange', refreshVisibleInbox)
   handleGlobalOIDCCallback()
   showPendingTenantSwitchToast()
 
@@ -290,6 +296,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('focus', refreshVisibleInbox)
+  document.removeEventListener('visibilitychange', refreshVisibleInbox)
   if (updateCheckTimer) {
     clearInterval(updateCheckTimer)
   }

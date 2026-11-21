@@ -3,7 +3,7 @@
     <Menu />
     <div class="portal-page">
       <main>
-        <PortalOverviewStrip v-if="!portal.overviewError" :metrics="knowledgeSummary.overall" :loading="portal.overviewLoading" />
+        <PortalOverviewStrip :metrics="knowledgeSummary.overall" :loading="portal.overviewLoading" :error="portal.overviewError" />
         <IpdKnowledgeMap :stages="portal.stages" :spaces="ipdSpaces"
           :loading="portal.stagesLoading || portal.overviewLoading" :error="portal.stagesError || portal.overviewError"
           :active-tenant-id="activeTenantId" @enter="enterPortalSpace" @restricted="openAccessDialog"
