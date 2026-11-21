@@ -258,7 +258,7 @@ func TestPortalConsistencyDeadlinePreservesOtherKBHits(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(base, 3*time.Second)
 	defer cancel()
-	result, err := s.Search(ctx, nil, "PUBLIC", "keyword", 10)
+	result, err := s.Search(ctx, nil, "PUBLIC", "hybrid", 10)
 	require.NoError(t, err)
 	require.Equal(t, "partial", result.Status)
 	require.Equal(t, 1, result.Failed)

@@ -263,13 +263,14 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 	if e != nil {
 		return outcome, e
 	}
+	searchExecution := execution
 	if deadline, ok := budget.Deadline(); ok {
 		var cancel context.CancelFunc
-		execution, cancel = context.WithDeadline(execution, deadline)
+		searchExecution, cancel = context.WithDeadline(execution, deadline)
 		defer cancel()
 	}
 	descriptor := t.Descriptor()
-	caps, e := s.Capabilities(execution, descriptor)
+	caps, e := s.Capabilities(searchExecution, descriptor)
 	if e != nil {
 		outcome.failed = true
 		outcome.failures = append(
@@ -288,7 +289,7 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 		return outcome, nil
 	}
 	types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
-	engine, e := s.Engine(execution, descriptor)
+	engine, e := s.Engine(searchExecution, descriptor)
 	if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
 		outcome.failed = true
 		outcome.failures = append(outcome.failures, PortalMCPModeDetail{descriptor.ID, mode, "retriever_unavailable"})
@@ -321,7 +322,7 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 		if e = t.Revalidate(ctx); e != nil {
 			return outcome, e
 		}
-		modeCtx, cancelMode := context.WithTimeout(execution, portalSearchModeTimeout)
+		modeCtx, cancelMode := context.WithTimeout(searchExecution, portalSearchModeTimeout)
 		params := types.RetrieveParams{Query: query, RetrieverType: kind, TopK: 100, Threshold: -1}
 		if kind == types.VectorRetrieverType {
 			if s.Embed == nil {
