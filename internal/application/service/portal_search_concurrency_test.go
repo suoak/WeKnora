@@ -122,7 +122,8 @@ func TestPortalGlobalSearchConcurrentInvalidationDiscardsEveryResult(t *testing.
 	for _, tc := range []struct{ name, sql string }{
 		{"key_revoked", "UPDATE tenant_api_keys SET revoked_at=CURRENT_TIMESTAMP WHERE id=1"},
 		{"portal_withdrawn", "UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=99"},
-		{"raw_chunk_mutation", "UPDATE chunks SET content='synthetic changed body' WHERE knowledge_base_id='public-kb'"},
+		{"raw_chunk_mutation", "UPDATE chunks SET content='synthetic changed body' " +
+			"WHERE knowledge_base_id='public-kb'"},
 		{"caller_cancelled", ""},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -135,7 +136,9 @@ func TestPortalGlobalSearchConcurrentInvalidationDiscardsEveryResult(t *testing.
 			unblock := func() { once.Do(func() { close(release) }) }
 			defer unblock()
 			s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
-				return portalV1Driver{f: func(ctx context.Context, _ types.RetrieveParams) ([]*types.RetrieveResult, error) {
+				return portalV1Driver{f: func(
+					ctx context.Context, _ types.RetrieveParams,
+				) ([]*types.RetrieveResult, error) {
 					started <- struct{}{}
 					select {
 					case <-release:
