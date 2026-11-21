@@ -27,13 +27,20 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 	f := fixture.New(t)
 	f.Portal(t)
 	require.NoError(t, f.DB.Exec("UPDATE users SET is_system_admin=true WHERE id='reviewer'").Error)
-	require.NoError(t, f.DB.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('owner',99,'owner','active')").Error)
-	require.NoError(t, f.DB.Exec("INSERT INTO knowledges(id,tenant_id,knowledge_base_id,type,title,source,file_name,parse_status,enable_status,channel) VALUES('manual-asset',99,'unknown-kb','manual','synthetic manual','synthetic-local','manual.md','failed','enabled','web')").Error)
+	require.NoError(t, f.DB.Exec(`INSERT INTO tenant_members(user_id,tenant_id,role,status)
+		VALUES('owner',99,'owner','active')`).Error)
+	require.NoError(t, f.DB.Exec(`INSERT INTO knowledges(
+		id,tenant_id,knowledge_base_id,type,title,source,file_name,parse_status,enable_status,channel)
+		VALUES('manual-asset',99,'unknown-kb','manual','synthetic manual','synthetic-local',
+		'manual.md','failed','enabled','web')`).Error)
 	kr := repository.NewKnowledgeRepository(f.DB)
 	cr := repository.NewChunkRepository(f.DB)
 	kbr := repository.NewKnowledgeBaseRepository(f.DB)
 	cs := service.NewChunkService(cr, kr, kbr, nil, nil, nil, nil, nil)
-	ks, err := service.NewKnowledgeService(nil, kr, nil, nil, nil, nil, cs, cr, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	ks, err := service.NewKnowledgeService(
+		nil, kr, nil, nil, nil, nil, cs, cr, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
 	require.NoError(t, err)
 	policy := service.NewDocumentReadPolicy(true, f.Reader)
 	ks, err = service.ConfigureKnowledgeDocumentReads(ks, policy)
@@ -44,8 +51,12 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &on}}
 	tenants := documentTestTenants{repo: repository.NewTenantRepository(f.DB)}
 	members := portalM7Members{documentTestMembers{repo: repository.NewTenantMemberRepository(f.DB)}}
-	users := service.NewUserService(cfg, repository.NewUserRepository(f.DB), repository.NewAuthTokenRepository(f.DB), tenants, members, nil)
-	portal := service.NewConfiguredPortalService(cfg, f.DB, repository.NewPortalRepository(f.DB), tenants, members, nil, nil)
+	users := service.NewUserService(
+		cfg, repository.NewUserRepository(f.DB), repository.NewAuthTokenRepository(f.DB), tenants, members, nil,
+	)
+	portal := service.NewConfiguredPortalService(
+		cfg, f.DB, repository.NewPortalRepository(f.DB), tenants, members, nil, nil,
+	)
 	kh := handler.NewKnowledgeHandler(cfg, ks, nil, nil, nil, cs, nil, nil, nil, nil, nil)
 	ch := handler.NewChunkHandler(cs, ks)
 	guards := newRBACGuards(cfg, nil, nil, kh, ch, nil, nil, ks, cs, nil, nil)
@@ -74,7 +85,7 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 		req.Header.Set("X-Tenant-ID", tenant)
 		resp, e := server.Client().Do(req)
 		require.NoError(t, e)
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 		raw, e := io.ReadAll(resp.Body)
 		require.NoError(t, e)
 		return resp.StatusCode, raw
@@ -83,8 +94,11 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 		user, tenant string
 		totals       bool
 	}{
-		{"reviewer", "1", true}, {"owner", "99", true},
-		{"B", "99", false}, {"D", "99", false}, {"A", "1", false},
+		{"reviewer", "1", true},
+		{"owner", "99", true},
+		{"B", "99", false},
+		{"D", "99", false},
+		{"A", "1", false},
 	} {
 		t.Run(tc.user, func(t *testing.T) {
 			code, raw := get(tc.user, tc.tenant, "/api/v1/portal/spaces")
@@ -96,8 +110,8 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 			var row *types.PortalSpaceResponse
 			for _, item := range response.Data {
 				if item.TenantID == 99 {
-					copy := item
-					row = &copy
+					itemCopy := item
+					row = &itemCopy
 				}
 			}
 			require.NotNil(t, row)
@@ -136,7 +150,8 @@ func TestPortalAssetCountsAuthenticatedHTTPPermissionAcceptance(t *testing.T) {
 		Data  []types.Knowledge `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(raw, &visible))
-	require.EqualValues(t, 2, visible.Total, "visible total uses the actual grants, independently of workspace asset totals")
+	require.EqualValues(t, 2, visible.Total,
+		"visible total uses the actual grants, independently of workspace asset totals")
 	for _, row := range visible.Data {
 		require.NotEqual(t, "other-sensitive", row.ID)
 	}

@@ -22,14 +22,18 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 			description TEXT, category TEXT, responsible_team TEXT, contact TEXT, featured BOOLEAN,
 			display_order INTEGER, allow_access_request BOOLEAN, interaction_organization_id TEXT)`,
 		`CREATE TABLE tenant_portal_stages (tenant_id INTEGER, stage_key TEXT, display_order INTEGER, created_at DATETIME)`,
-		`CREATE TABLE tenant_members (id TEXT, tenant_id INTEGER, user_id TEXT, role TEXT, status TEXT, deleted_at DATETIME, joined_at DATETIME)`,
+		`CREATE TABLE tenant_members (id TEXT, tenant_id INTEGER, user_id TEXT, role TEXT, status TEXT,
+			 deleted_at DATETIME, joined_at DATETIME)`,
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
-		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN, deleted_at DATETIME, type TEXT DEFAULT 'document')`,
-		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, title TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, name TEXT, is_temporary BOOLEAN,
+			 deleted_at DATETIME, type TEXT DEFAULT 'document')`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT,
+			 title TEXT, deleted_at DATETIME)`,
 		`CREATE TABLE chunks (id TEXT, knowledge_id TEXT)`,
-		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'), (3, 'inactive', 'inactive'), (4, 'hidden', 'active'), (99, 'active-context', 'active')`,
+		`INSERT INTO tenants(id, name, status) VALUES (1, 'private-tenant-name', 'active'), (2, 'deleted', 'active'),
+			 (3, 'inactive', 'inactive'), (4, 'hidden', 'active'), (99, 'active-context', 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'Hardware Hub', 'Reusable platform knowledge', 'hardware', 'Platform', 'team@example.com', 1, 10, 1, 'org-1'),
 			(2, 'published', 'Deleted Hub', '', 'hardware', '', '', 0, 0, 1, NULL),
@@ -65,7 +69,8 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 			INSERT INTO chunks SELECT printf('chunk-%d', value), 'file-secret' FROM sequence`,
 		`INSERT INTO organizations VALUES ('org-1', NULL)`,
 		`INSERT INTO organization_tenant_members VALUES ('org-1', 99)`,
-		`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('99', 99, 'tenantless-user', 'viewer', 'active')`,
+		`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('99', 99, 'tenantless-user',
+			 'viewer', 'active')`,
 	} {
 		require.NoError(t, db.Exec(statement).Error, statement)
 	}
@@ -85,7 +90,8 @@ func TestPortalRepositorySearchesMetadataOnlyAndReturnsSafeProjection(t *testing
 	require.Equal(t, int64(2), rows[0].FileCount, "discoverable spaces expose aggregate asset scale")
 	require.Equal(t, types.BuiltinPortalStages, rows[0].Stages, "all stable stage associations must be preserved and unknown associations excluded")
 
-	require.NoError(t, db.Exec(`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('1', 1, 'tenantless-user', 'viewer', 'active')`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO tenant_members(id, tenant_id, user_id, role, status) VALUES ('1', 1,
+			 'tenantless-user', 'viewer', 'active')`).Error)
 	rows, err = repo.ListPublished(ctx, "tenantless-user", 0, interfaces.PortalListQuery{})
 	require.NoError(t, err)
 	require.Len(t, rows, 1, "draft spaces must remain hidden")
@@ -128,8 +134,10 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 		`CREATE TABLE tenant_access_requests (id TEXT, tenant_id INTEGER, applicant_user_id TEXT, status TEXT)`,
 		`CREATE TABLE organizations (id TEXT PRIMARY KEY, deleted_at DATETIME)`,
 		`CREATE TABLE organization_tenant_members (organization_id TEXT, tenant_id INTEGER)`,
-		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME, type TEXT DEFAULT 'document')`,
-		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT, deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases (id TEXT, tenant_id INTEGER, is_temporary BOOLEAN, deleted_at DATETIME,
+			 type TEXT DEFAULT 'document')`,
+		`CREATE TABLE knowledges (id TEXT, tenant_id INTEGER, knowledge_base_id TEXT, type TEXT, parse_status TEXT,
+			 deleted_at DATETIME)`,
 		`INSERT INTO tenants(id, status) VALUES (1, 'active'), (2, 'active'), (3, 'active')`,
 		`INSERT INTO tenant_portal_configs VALUES
 			(1, 'published', 'one', '', '', '', '', 0, 0, 1, NULL),
@@ -139,7 +147,8 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 			('1', 1, 'u', 'viewer', 'active', NULL),
 			('2', 2, 'u', 'viewer', 'suspended', NULL),
 			('3', 3, 'u', 'viewer', 'invited', NULL)`,
-		`INSERT INTO tenant_access_requests VALUES ('r1', 1, 'u', 'pending'), ('r2', 2, 'u', 'pending'), ('r3', 3, 'u', 'pending')`,
+		`INSERT INTO tenant_access_requests VALUES ('r1', 1, 'u', 'pending'), ('r2', 2, 'u', 'pending'), ('r3', 3,
+			 'u', 'pending')`,
 	} {
 		require.NoError(t, db.Exec(statement).Error, statement)
 	}
@@ -164,8 +173,10 @@ func TestPortalAccessStatePrecedence(t *testing.T) {
 func TestPortalOrganizationOptionsExcludeSoftDeletedAndExposeOnlyIDName(t *testing.T) {
 	db, err := gorm.Open(sqlite.Open("file:portal-org-options?mode=memory&cache=shared"), &gorm.Config{})
 	require.NoError(t, err)
-	require.NoError(t, db.Exec(`CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT, description TEXT, owner_id TEXT, deleted_at DATETIME)`).Error)
-	require.NoError(t, db.Exec(`INSERT INTO organizations VALUES ('active', 'Active Org', 'private description', 'owner', NULL), ('deleted', 'Deleted Org', '', 'owner', CURRENT_TIMESTAMP)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE organizations (id TEXT PRIMARY KEY, name TEXT, description TEXT,
+			 owner_id TEXT, deleted_at DATETIME)`).Error)
+	require.NoError(t, db.Exec(`INSERT INTO organizations VALUES ('active', 'Active Org', 'private description',
+			 'owner', NULL), ('deleted', 'Deleted Org', '', 'owner', CURRENT_TIMESTAMP)`).Error)
 	rows, err := NewPortalRepository(db).ListOrganizationOptions(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, []*types.PortalOrganizationOption{{ID: "active", Name: "Active Org"}}, rows)

@@ -23,17 +23,23 @@ func portalAssetFixture(t *testing.T) (*gorm.DB, *portalRepository) {
 	require.NoError(t, db.AutoMigrate(&types.Knowledge{}))
 	for _, statement := range []string{
 		`CREATE TABLE tenants(id INTEGER PRIMARY KEY,status TEXT,deleted_at DATETIME)`,
-		`CREATE TABLE tenant_portal_configs(tenant_id INTEGER PRIMARY KEY,status TEXT,display_name TEXT,description TEXT,category TEXT,responsible_team TEXT,contact TEXT,featured BOOLEAN,display_order INTEGER,allow_access_request BOOLEAN,interaction_organization_id TEXT)`,
+		`CREATE TABLE tenant_portal_configs(tenant_id INTEGER PRIMARY KEY,status TEXT,display_name TEXT,
+			description TEXT,category TEXT,responsible_team TEXT,contact TEXT,featured BOOLEAN,display_order INTEGER,
+			allow_access_request BOOLEAN,interaction_organization_id TEXT)`,
 		`CREATE TABLE tenant_portal_stages(tenant_id INTEGER,stage_key TEXT,display_order INTEGER)`,
 		`CREATE TABLE tenant_members(id TEXT,tenant_id INTEGER,user_id TEXT,role TEXT,status TEXT,deleted_at DATETIME)`,
 		`CREATE TABLE tenant_access_requests(tenant_id INTEGER,applicant_user_id TEXT,status TEXT)`,
-		`CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id INTEGER,type TEXT,is_temporary BOOLEAN,deleted_at DATETIME)`,
+		`CREATE TABLE knowledge_bases(id TEXT PRIMARY KEY,tenant_id INTEGER,type TEXT,is_temporary BOOLEAN,
+			deleted_at DATETIME)`,
 		`CREATE TABLE document_subject_grants(knowledge_id TEXT,user_id TEXT,operation TEXT,state TEXT)`,
 		`INSERT INTO tenants VALUES(1,'active',NULL),(2,'active',NULL)`,
-		`INSERT INTO tenant_portal_configs VALUES(1,'published','one','','','','',0,0,1,NULL),(2,'published','empty','','','','',0,0,1,NULL)`,
-		`INSERT INTO tenant_members VALUES('1',1,'member','viewer','active',NULL),('2',1,'owner','owner','active',NULL),('3',1,'restricted','viewer','active',NULL)`,
+		`INSERT INTO tenant_portal_configs VALUES(1,'published','one','','','','',0,0,1,NULL),(2,'published','empty',
+			'','','','',0,0,1,NULL)`,
+		`INSERT INTO tenant_members VALUES('1',1,'member','viewer','active',NULL),('2',1,'owner','owner','active',
+			NULL),('3',1,'restricted','viewer','active',NULL)`,
 		`INSERT INTO document_subject_grants VALUES('private','restricted','read','revoked')`,
-		`INSERT INTO knowledge_bases VALUES('doc',1,'document',0,NULL),('temp',1,'document',1,NULL),('deleted',1,'document',0,CURRENT_TIMESTAMP),('faq',1,'faq',0,NULL),('wiki',1,'wiki',0,NULL)`,
+		`INSERT INTO knowledge_bases VALUES('doc',1,'document',0,NULL),('temp',1,'document',1,NULL),('deleted',1,
+			'document',0,CURRENT_TIMESTAMP),('faq',1,'faq',0,NULL),('wiki',1,'wiki',0,NULL)`,
 	} {
 		require.NoError(t, db.Exec(statement).Error, statement)
 	}
@@ -44,15 +50,36 @@ func TestPortalAssetCountsTypeStatusAndKnowledgeBaseMatrix(t *testing.T) {
 	db, repo := portalAssetFixture(t)
 	for _, kb := range []string{"doc", "temp", "deleted"} {
 		for _, typ := range documentEntryTypes {
-			for _, status := range []string{"pending", "processing", "finalizing", "completed", "failed", "cancelled", "deleting"} {
-				k := &types.Knowledge{ID: kb + typ + status, TenantID: 1, KnowledgeBaseID: kb, Type: typ, ParseStatus: status}
+			for _, status := range []string{
+				"pending", "processing", "finalizing", "completed", "failed", "cancelled", "deleting",
+			} {
+				k := &types.Knowledge{
+					ID:              kb + typ + status,
+					TenantID:        1,
+					KnowledgeBaseID: kb,
+					Type:            typ,
+					ParseStatus:     status,
+				}
 				require.NoError(t, db.Create(k).Error)
 			}
 		}
 	}
-	require.NoError(t, db.Create(&types.Knowledge{ID: "soft", TenantID: 1, KnowledgeBaseID: "doc", Type: "file", ParseStatus: "completed", DeletedAt: gorm.DeletedAt{Time: time.Now(), Valid: true}}).Error)
+	require.NoError(t, db.Create(&types.Knowledge{
+		ID:              "soft",
+		TenantID:        1,
+		KnowledgeBaseID: "doc",
+		Type:            "file",
+		ParseStatus:     "completed",
+		DeletedAt:       gorm.DeletedAt{Time: time.Now(), Valid: true},
+	}).Error)
 	for _, kb := range []string{"faq", "wiki"} {
-		require.NoError(t, db.Create(&types.Knowledge{ID: kb, TenantID: 1, KnowledgeBaseID: kb, Type: "file", ParseStatus: "completed"}).Error)
+		require.NoError(t, db.Create(&types.Knowledge{
+			ID:              kb,
+			TenantID:        1,
+			KnowledgeBaseID: kb,
+			Type:            "file",
+			ParseStatus:     "completed",
+		}).Error)
 	}
 	ctx := context.WithValue(context.Background(), types.SystemAdminContextKey, true)
 	rows, err := repo.ListPublished(ctx, "admin", 0, interfaces.PortalListQuery{})
@@ -60,21 +87,30 @@ func TestPortalAssetCountsTypeStatusAndKnowledgeBaseMatrix(t *testing.T) {
 	require.Len(t, rows, 2)
 	require.EqualValues(t, 24, *rows[0].DocumentEntryCount)
 	require.EqualValues(t, 12, *rows[0].UploadedFileCount)
-	require.EqualValues(t, 10, rows[0].FileCount, "legacy includes file-backed rows in FAQ/Wiki and retains its status whitelist")
+	require.EqualValues(t, 10, rows[0].FileCount,
+		"legacy includes file-backed rows in FAQ/Wiki and retains its status whitelist")
 	require.EqualValues(t, 1, *rows[0].FAQKnowledgeBaseCount)
 	require.EqualValues(t, 1, *rows[0].WikiKnowledgeBaseCount)
 	require.EqualValues(t, 0, *rows[1].DocumentEntryCount)
 	card, err := NewKnowledgeRepository(db).CountKnowledgeByKnowledgeBaseID(ctx, 1, "doc")
 	require.NoError(t, err)
 	require.EqualValues(t, *rows[0].DocumentEntryCount, card)
-	_, total, err := NewKnowledgeRepository(db).ListPagedKnowledgeByKnowledgeBaseID(ctx, 1, "doc", &types.Pagination{Page: 1, PageSize: 100}, types.KnowledgeListFilter{})
+	_, total, err := NewKnowledgeRepository(db).ListPagedKnowledgeByKnowledgeBaseID(
+		ctx, 1, "doc", &types.Pagination{Page: 1, PageSize: 100}, types.KnowledgeListFilter{},
+	)
 	require.NoError(t, err)
 	require.EqualValues(t, card, total)
 }
 
 func TestPortalAssetCountsDoNotPublishNewPrivateAggregates(t *testing.T) {
 	db, repo := portalAssetFixture(t)
-	require.NoError(t, db.Create(&types.Knowledge{ID: "private", TenantID: 1, KnowledgeBaseID: "doc", Type: "manual", ParseStatus: "failed"}).Error)
+	require.NoError(t, db.Create(&types.Knowledge{
+		ID:              "private",
+		TenantID:        1,
+		KnowledgeBaseID: "doc",
+		Type:            "manual",
+		ParseStatus:     "failed",
+	}).Error)
 	for _, user := range []string{"member", "owner", "restricted", "discoverer"} {
 		t.Run(user, func(t *testing.T) {
 			rows, err := repo.ListPublished(context.Background(), user, 0, interfaces.PortalListQuery{})
@@ -97,7 +133,14 @@ func TestPortalAssetCountsFollowCreateDeleteAndFolderScopes(t *testing.T) {
 	ctx := context.Background()
 	k := NewKnowledgeRepository(db)
 	for i, typ := range []string{"file", "manual", "file_url", "url"} {
-		require.NoError(t, k.CreateKnowledge(ctx, &types.Knowledge{ID: fmt.Sprint(i), TenantID: 1, KnowledgeBaseID: "doc", Type: typ, ParseStatus: "completed", FolderPath: []string{"", "", "sub", "sub/deep"}[i]}))
+		require.NoError(t, k.CreateKnowledge(ctx, &types.Knowledge{
+			ID:              fmt.Sprint(i),
+			TenantID:        1,
+			KnowledgeBaseID: "doc",
+			Type:            typ,
+			ParseStatus:     "completed",
+			FolderPath:      []string{"", "", "sub", "sub/deep"}[i],
+		}))
 		counts, err := repo.documentAssetCountMap(ctx, []uint64{1})
 		require.NoError(t, err)
 		require.EqualValues(t, i+1, counts[1].Documents)
@@ -114,7 +157,10 @@ func TestPortalAssetCountsFollowCreateDeleteAndFolderScopes(t *testing.T) {
 		{types.FolderScopeSubtree, "sub", "", 2},
 		{types.FolderScopeSubtree, "", "failed", 0},
 	} {
-		_, total, err := k.ListPagedKnowledgeByKnowledgeBaseID(ctx, 1, "doc", &types.Pagination{Page: 1, PageSize: 10}, types.KnowledgeListFilter{FolderScope: tc.scope, FolderPath: tc.path, ParseStatus: tc.status})
+		_, total, err := k.ListPagedKnowledgeByKnowledgeBaseID(
+			ctx, 1, "doc", &types.Pagination{Page: 1, PageSize: 10},
+			types.KnowledgeListFilter{FolderScope: tc.scope, FolderPath: tc.path, ParseStatus: tc.status},
+		)
 		require.NoError(t, err)
 		require.Equal(t, tc.want, total)
 	}

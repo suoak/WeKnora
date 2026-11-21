@@ -93,13 +93,16 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 	countTenants := make([]uint64, 0, len(rows))
 	for _, row := range rows {
 		member := memberships[row.TenantID]
-		if _, protected, scopeErr := access.GuardDocumentReadQuery(ctx, row.TenantID, ""); protected || scopeErr != nil {
+		_, protected, scopeErr := access.GuardDocumentReadQuery(ctx, row.TenantID, "")
+		if protected || scopeErr != nil {
 			continue
 		}
 		if scope, ok := types.TenantAPIKeyScopeFromContext(ctx); ok && scope.IsKnowledgeBaseRestricted() {
 			continue
 		}
-		if types.IsSystemAdminFromContext(ctx) || (member != nil && member.Status == types.TenantMemberStatusActive && (member.Role == types.TenantRoleOwner || member.Role == types.TenantRoleAdmin)) {
+		workspaceAdmin := member != nil && member.Status == types.TenantMemberStatusActive &&
+			(member.Role == types.TenantRoleOwner || member.Role == types.TenantRoleAdmin)
+		if types.IsSystemAdminFromContext(ctx) || workspaceAdmin {
 			countTenants = append(countTenants, row.TenantID)
 		}
 	}
@@ -110,7 +113,8 @@ func (r *portalRepository) ListPublished(ctx context.Context, userID string, act
 		var grants int64
 		if !r.db.Migrator().HasTable("document_subject_grants") {
 			countTenants = nil
-		} else if err := r.db.WithContext(ctx).Table("document_subject_grants").Where("user_id = ?", userID).Count(&grants).Error; err != nil {
+		} else if err := r.db.WithContext(ctx).Table("document_subject_grants").
+			Where("user_id = ?", userID).Count(&grants).Error; err != nil {
 			return nil, err
 		} else if grants > 0 {
 			countTenants = nil
@@ -214,7 +218,9 @@ type documentAssetCounts struct {
 	WikiKnowledgeBases int64
 }
 
-func (r *portalRepository) documentAssetCountMap(ctx context.Context, tenantIDs []uint64) (map[uint64]*documentAssetCounts, error) {
+func (r *portalRepository) documentAssetCountMap(
+	ctx context.Context, tenantIDs []uint64,
+) (map[uint64]*documentAssetCounts, error) {
 	out := make(map[uint64]*documentAssetCounts, len(tenantIDs))
 	if len(tenantIDs) == 0 {
 		return out, nil
@@ -232,7 +238,8 @@ func (r *portalRepository) documentAssetCountMap(ctx context.Context, tenantIDs 
 		Where("kb.deleted_at IS NULL AND kb.is_temporary = ? AND kb.type = ?", false, "document").
 		Where("k.tenant_id IN ? AND k.type IN ?", tenantIDs, documentEntryTypes)
 	if err := liveKnowledgeEntries(query, "k.").
-		Select("k.tenant_id, COUNT(DISTINCT k.id) AS documents, COUNT(DISTINCT CASE WHEN k.type IN ('file','file_url') THEN k.id END) AS files").
+		Select(`k.tenant_id, COUNT(DISTINCT k.id) AS documents,
+			COUNT(DISTINCT CASE WHEN k.type IN ('file','file_url') THEN k.id END) AS files`).
 		Group("k.tenant_id").Scan(&rows).Error; err != nil {
 		return nil, err
 	}
@@ -247,7 +254,8 @@ func (r *portalRepository) documentAssetCountMap(ctx context.Context, tenantIDs 
 	}
 	if err := r.db.WithContext(ctx).Table("knowledge_bases").
 		Select("tenant_id, type, COUNT(DISTINCT id) AS count").
-		Where("tenant_id IN ? AND deleted_at IS NULL AND is_temporary = ? AND type IN ?", tenantIDs, false, []string{"faq", "wiki"}).
+		Where("tenant_id IN ? AND deleted_at IS NULL AND is_temporary = ?", tenantIDs, false).
+		Where("type IN ?", []string{"faq", "wiki"}).
 		Group("tenant_id, type").Scan(&kbRows).Error; err != nil {
 		return nil, err
 	}
