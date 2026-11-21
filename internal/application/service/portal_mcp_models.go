@@ -91,26 +91,13 @@ func BindPortalMCPAdapters(
 		if err != nil {
 			return nil, err
 		}
-		caps := []string{}
+		strategy := kb.IndexingStrategy
 		if kb.IndexingStrategy.IsZero() && d.IndexingStrategy == nil {
 			// GORM does not invoke Scanner for SQL NULL. Preserve the documented
 			// legacy default, while retaining explicit all-disabled configurations.
-			copy := *kb
-			copy.IndexingStrategy = types.DefaultIndexingStrategy()
-			kb = &copy
+			strategy = types.DefaultIndexingStrategy()
 		}
-		keyword := kb.IsKeywordEnabled() && kb.Type != types.KnowledgeBaseTypeFAQ
-		vector := kb.IsVectorEnabled()
-		if keyword {
-			caps = append(caps, "keyword")
-		}
-		if vector {
-			caps = append(caps, "semantic")
-		}
-		if keyword && vector {
-			caps = append(caps, "hybrid")
-		}
-		return caps, nil
+		return (access.PortalKBDescriptor{Type: kb.Type, IndexingStrategy: &strategy}).SearchCapabilities(), nil
 	}
 	s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
 		kb, err := load(ctx, d)

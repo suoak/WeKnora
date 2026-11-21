@@ -126,6 +126,7 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	}
 	status, body := rpc(a.Token, "tools/list", map[string]any{})
 	require.Equal(t, 200, status, body)
+	catalogBody := body
 	require.Contains(t, body, `"name":"search_documents"`)
 	for _, selection := range []any{nil, []string{}} {
 		status, body = call(a.Token, "search_documents", map[string]any{
@@ -142,7 +143,7 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	_, body = call(a.Token, "search_documents", map[string]any{"query": "%"})
 	require.Contains(t, body, `documents\":[]`)
 	for _, name := range []string{"wiki_search", "wiki_read_page", "wiki_index", "search_knowledge", "read_document", "list_documents", "grep_chunks", "list_knowledge_bases"} {
-		require.Contains(t, body, `"name":"`+name+`"`)
+		require.Contains(t, catalogBody, `"name":"`+name+`"`)
 	}
 	// Actual PG/ParadeDB BM25, vectors, hybrid and grep serve uploaded content
 	// under platform permissions even when the upstream source is held.

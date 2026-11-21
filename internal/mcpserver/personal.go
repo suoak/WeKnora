@@ -375,10 +375,7 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		rows := []map[string]any{}
 		for _, t := range ts {
 			d := t.Descriptor()
-			caps, err := s.knowledge.Capabilities(ctx, d)
-			if err != nil {
-				return fail()
-			}
+			caps := d.SearchCapabilities()
 			rows = append(
 				rows,
 				map[string]any{
@@ -535,7 +532,7 @@ func (s *PersonalServer) readTools() []mcp.Tool {
 	for i := range tools {
 		tool := &tools[i]
 		if tool.Name == "search_knowledge" {
-			tool.Description = "Search authorized document passages. Hybrid is the default; keyword finds exact terms. " +
+			tool.Description = "Search authorized passages. Hybrid is the default; keyword finds exact terms. " +
 				"Semantic answers natural-language questions. Use search_documents first for titles or existence. " +
 				"Inspect status, mode_fallbacks and partial_failures: " +
 				"partial/failed/no_scope/no_searchable_index never prove a document is absent."

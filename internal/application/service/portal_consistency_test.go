@@ -130,6 +130,16 @@ func TestPortalConsistencyIndexModes(t *testing.T) {
 				require.Equal(t, 1, calls)
 				require.Len(t, result.ModeFallbacks, 1)
 			}
+			// FAQ does not advertise a keyword index merely because the common
+			// indexing strategy has the keyword flag set.
+			require.NoError(t, f.DB.Model(&types.KnowledgeBase{}).
+				Where("id=?", "public-kb").Update("type", types.KnowledgeBaseTypeFAQ).Error)
+			caps, e := s.Capabilities(fixture.Key("A", 1, 1, true), access.PortalKBDescriptor{
+				ID: "public-kb", TenantID: 99, EmbeddingModelID: "synthetic", IndexingStrategy: &strategy,
+			})
+			require.NoError(t, e)
+			require.NotContains(t, caps, "keyword")
+			require.Equal(t, test.vector, len(caps) == 1)
 		})
 	}
 }
@@ -170,11 +180,15 @@ func TestPortalConsistencyTitleSearchAndNames(t *testing.T) {
 	require.Len(t, targets, 1)
 	require.NoError(t, f.DB.Exec("UPDATE tenant_portal_configs SET status='archived' WHERE tenant_id=99").Error)
 	result, e = s.SearchDocuments(ctx, nil, "HA", 20)
-	require.NoError(t, e)
-	for _, d := range result.Documents {
-		require.NotEqual(t, "public-doc", d.DocumentID)
+	if e != nil {
+		require.ErrorIs(t, e, access.ErrForbidden)
+		require.Nil(t, result, "revoked scope must never expose a partial unauthorized response")
+	} else {
+		for _, d := range result.Documents {
+			require.NotEqual(t, "public-doc", d.DocumentID)
+		}
 	}
-	require.NoError(t, f.DB.Exec("UPDATE tenant_members SET status='inactive' WHERE user_id='A'").Error)
+	s.Resolver.Directory = emptyConsistencyDirectory{}
 	s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
 		t.Fatal("empty scope must not call the retriever")
 		return nil, nil
@@ -183,6 +197,12 @@ func TestPortalConsistencyTitleSearchAndNames(t *testing.T) {
 	require.NoError(t, e)
 	require.Equal(t, "no_scope", empty.Status)
 	require.Zero(t, empty.Searched)
+}
+
+type emptyConsistencyDirectory struct{}
+
+func (emptyConsistencyDirectory) ListPortalMCPCandidates(context.Context) ([]access.PortalKBDescriptor, error) {
+	return nil, nil
 }
 
 func TestPortalConsistencyRequestEmbeddingSingleflight(t *testing.T) {

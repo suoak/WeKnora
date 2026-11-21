@@ -64,7 +64,7 @@ func (s *PortalMCPKnowledge) Capabilities(ctx context.Context, d access.PortalKB
 	if s.SearchCapabilities != nil {
 		return s.SearchCapabilities(ctx, d)
 	}
-	return []string{"keyword", "semantic", "hybrid"}, nil
+	return d.SearchCapabilities(), nil
 }
 
 func (s *PortalMCPKnowledge) Resolve(ctx context.Context, ids []string) ([]*access.PortalKBTarget, error) {

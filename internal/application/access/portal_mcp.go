@@ -17,7 +17,31 @@ type PortalKBDescriptor struct {
 	// Nil represents a legacy SQL NULL, whose established default enables
 	// keyword and vector indexing. An explicit all-false strategy stays false.
 	IndexingStrategy *types.IndexingStrategy
+	Type             string
 }
+
+// SearchCapabilities describes the server-loaded chunk index configuration.
+// Legacy SQL NULL uses the same defaults as IndexingStrategy.Scan.
+func (d PortalKBDescriptor) SearchCapabilities() []string {
+	strategy := types.DefaultIndexingStrategy()
+	if d.IndexingStrategy != nil {
+		strategy = *d.IndexingStrategy
+	}
+	keyword := strategy.KeywordEnabled && d.Type != types.KnowledgeBaseTypeFAQ
+	vector := strategy.VectorEnabled
+	caps := []string{}
+	if keyword {
+		caps = append(caps, "keyword")
+	}
+	if vector {
+		caps = append(caps, "semantic")
+	}
+	if keyword && vector {
+		caps = append(caps, "hybrid")
+	}
+	return caps
+}
+
 type PortalKBDirectory interface {
 	ListPortalMCPCandidates(context.Context) ([]PortalKBDescriptor, error)
 }
