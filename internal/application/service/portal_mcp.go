@@ -212,7 +212,7 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 // Keep the existing per-target credential, publication, canonical-body and source
 // checks inside each task. Only independent KB tasks overlap; no authorization
 // result is cached or shared between targets or requests.
-const portalSearchTargetConcurrency = 4
+const portalSearchTargetConcurrency = 8
 
 type portalTargetSearchOutcome struct {
 	hits    map[string]*PortalMCPHit

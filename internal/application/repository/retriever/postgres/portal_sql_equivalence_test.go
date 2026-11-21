@@ -88,6 +88,38 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
  (14,'chunk3',?,'chunk3','doc','kb','third current text',1024,true,'[0.8,0.2,0]')`,
 		types.ChunkSourceType, types.ChunkSourceType).Error)
 	require.NoError(t, db.Exec(`ALTER TABLE embeddings ADD COLUMN tag_id text`).Error)
+	t.Run("unbounded_candidates_and_malformed_untrusted_vectors", func(t *testing.T) {
+		// More stale nearest neighbours than the old expanded candidate budget
+		// must not hide a farther canonical result. No pre-proof LIMIT is safe.
+		require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (id,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ SELECT n,'chunk2',?,'chunk2','doc','kb','STALE NEAREST CANARY',1024,true,'[1,0,0]'
+ FROM generate_series(1000,1220) n`, types.ChunkSourceType).Error)
+		require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (id,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ VALUES(9998,'chunk',?,'chunk','doc','kb','ordinary text',1024,true,NULL),
+ (9999,'chunk',?,'chunk','doc','kb','MALFORMED STALE CANARY',1024,true,'[1,0]')`,
+			types.ChunkSourceType, types.ChunkSourceType).Error)
+		defer func() { require.NoError(t, db.Exec("DELETE FROM embeddings WHERE id>=1000").Error) }()
+		for _, public := range []bool{false, true} {
+			assertPortalVectorEquivalent(t, db, public, 2, 3, "stale rows exceed candidate budget")
+		}
+	})
+	t.Run("malformed_canonical_vector_fails_closed", func(t *testing.T) {
+		require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (id,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ VALUES(9999,'chunk',?,'chunk','doc','kb','ordinary text',1024,true,'[1,0]')`,
+			types.ChunkSourceType).Error)
+		defer func() { require.NoError(t, db.Exec("DELETE FROM embeddings WHERE id=9999").Error) }()
+		for _, public := range []bool{false, true} {
+			for _, sql := range portalVectorEquivalenceQueries(public) {
+				var rows []pgVectorWithScore
+				err := db.Raw(sql, "[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, 2, 1).
+					Scan(&rows).Error
+				require.Error(t, err, "authorized malformed vectors must not become a successful omission")
+			}
+		}
+	})
 	for _, mutation := range []string{
 		"SELECT 1",
 		`INSERT INTO feishu_legacy_resources VALUES(NULL,'hold'),('foreign','revoked')`,
@@ -162,6 +194,19 @@ func assertPortalVectorEquivalent(t *testing.T, db *gorm.DB,
 	public bool, threshold float64, limit int, mutation string,
 ) {
 	t.Helper()
+	queries := portalVectorEquivalenceQueries(public)
+	args := []any{"[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, threshold, limit}
+	var before, after []pgVectorWithScore
+	for _, query := range []struct {
+		sql string
+		out *[]pgVectorWithScore
+	}{{queries[0], &before}, {queries[1], &after}} {
+		require.NoError(t, db.Raw(query.sql, args...).Scan(query.out).Error)
+	}
+	require.Equal(t, before, after, "public=%v limit=%d threshold=%v mutation=%s", public, limit, threshold, mutation)
+}
+
+func portalVectorEquivalenceQueries(public bool) [2]string {
 	const base = `WHERE embeddings.dimension=$2 AND embeddings.knowledge_base_id IN ($5)
  AND (embeddings.is_enabled IS NULL OR embeddings.is_enabled=true)`
 	privateOld := privateSourceCandidatePredicate("$6")
@@ -178,13 +223,5 @@ func assertPortalVectorEquivalent(t *testing.T, db *gorm.DB,
  FROM authorized WHERE $7::int>0 AND (embedding::halfvec(3) <=> $1::halfvec(3)) <= $8
  ORDER BY (embedding::halfvec(3) <=> $1::halfvec(3)),id LIMIT $9`, portalCanonicalTextProjection(), oldWhere)
 	afterSQL := portalVectorSQL(3, "$3", "acl_c.knowledge_base_id IN ($5)", newWhere, public, true, 7, 8, 9)
-	args := []any{"[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, threshold, limit}
-	var before, after []pgVectorWithScore
-	for _, query := range []struct {
-		sql string
-		out *[]pgVectorWithScore
-	}{{beforeSQL, &before}, {afterSQL, &after}} {
-		require.NoError(t, db.Raw(query.sql, args...).Scan(query.out).Error)
-	}
-	require.Equal(t, before, after, "public=%v limit=%d threshold=%v mutation=%s", public, limit, threshold, mutation)
+	return [2]string{beforeSQL, afterSQL}
 }
