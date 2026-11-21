@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"sort"
 
+	"golang.org/x/sync/errgroup"
+
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -207,6 +209,151 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 	return nil, access.ErrForbidden
 }
 
+// Keep the existing per-target credential, publication, canonical-body and source
+// checks inside each task. Only independent KB tasks overlap; no authorization
+// result is cached or shared between targets or requests.
+const portalSearchTargetConcurrency = 4
+
+type portalTargetSearchOutcome struct {
+	hits    map[string]*PortalMCPHit
+	failed  bool
+	partial bool
+}
+
+func (s *PortalMCPKnowledge) searchPortalTarget(
+	ctx context.Context, t *access.PortalKBTarget, query, mode string, pattern *regexp.Regexp,
+) (portalTargetSearchOutcome, error) {
+	var outcome portalTargetSearchOutcome
+	execution, e := t.SearchContext(ctx)
+	if e != nil {
+		return outcome, e
+	}
+	descriptor := t.Descriptor()
+	types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
+	engine, e := s.Engine(execution, descriptor)
+	if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
+		outcome.failed = true
+		return outcome, nil
+	}
+	kinds := []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
+	if mode == "keyword" || mode == "grep" {
+		kinds = kinds[:1]
+	}
+	if mode == "semantic" {
+		kinds = kinds[1:]
+	}
+	local := map[string]*PortalMCPHit{}
+	failed := false
+	for _, kind := range kinds {
+		if e = t.Revalidate(ctx); e != nil {
+			return outcome, e
+		}
+		params := types.RetrieveParams{Query: query, RetrieverType: kind, TopK: 100, Threshold: -1}
+		if kind == types.VectorRetrieverType {
+			if s.Embed == nil {
+				failed = true
+				break
+			}
+			params.Embedding, e = s.Embed(execution, descriptor, query)
+			if e != nil {
+				failed = true
+				break
+			}
+		}
+		params, e = access.GuardPortalRetrieval(execution, engine.EngineType(), params)
+		if e != nil {
+			return outcome, e
+		}
+		groups, partial, e := s.retrievePublishedPortalDocuments(execution, t, engine, params)
+		if partial {
+			outcome.partial = true
+		}
+		if e != nil {
+			failed = true
+			break
+		}
+		if e = t.Revalidate(ctx); e != nil {
+			return outcome, e
+		}
+		rank := 0
+		for _, g := range groups {
+			if g == nil || g.Error != nil {
+				failed = true
+				break
+			}
+			for _, candidate := range g.Results {
+				rank++
+				if candidate == nil || !portalContains(t, candidate.KnowledgeID) ||
+					candidate.KnowledgeBaseID != descriptor.ID ||
+					candidate.SourceType != types.ChunkSourceType {
+					return outcome, access.ErrForbidden
+				}
+				if mode != "grep" {
+					// Rank the complete authorized index candidate set first.
+					// Only final hits need canonical body/title reads; source and
+					// credential revalidation still precede every output boundary.
+					hit := portalHit(t, &types.Knowledge{ID: candidate.KnowledgeID},
+						&types.Chunk{ID: candidate.ChunkID, Content: candidate.Content})
+					key := hit.Reference + ":" + candidate.ChunkID
+					if local[key] == nil {
+						local[key] = &hit
+					} else if local[key].Text != hit.Text {
+						return outcome, access.ErrForbidden
+					}
+					local[key].RankScore += 1 / float64(60+rank)
+					continue
+				}
+				// Completeness/canonical equality is enforced in SQL before candidates.
+				// Re-read canonical title/content after obtaining the live target lease.
+				row, e := s.document(ctx, t, candidate.KnowledgeID)
+				if e != nil {
+					return outcome, e
+				}
+				read, e := s.publishedDocumentContext(ctx, candidate.KnowledgeID)
+				if e != nil {
+					return outcome, e
+				}
+				chunk, e := s.Chunks.GetChunkByID(read, descriptor.TenantID, candidate.ChunkID)
+				if e != nil {
+					return outcome, e
+				}
+				if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != descriptor.ID ||
+					chunk.TenantID != descriptor.TenantID ||
+					chunk.DeletedAt.Valid ||
+					!chunk.IsEnabled ||
+					chunk.ChunkType != types.ChunkTypeText ||
+					chunk.Content != candidate.Content {
+					return outcome, access.ErrForbidden
+				}
+				text, e := access.SanitizePortalText(chunk.Content)
+				if e != nil {
+					return outcome, e
+				}
+				if mode == "grep" && !pattern.MatchString(text) {
+					continue
+				}
+				copy := *chunk
+				copy.Content = text
+				hit := portalHit(t, row, &copy)
+				key := hit.Reference + ":" + chunk.ID
+				if local[key] == nil {
+					local[key] = &hit
+				}
+				local[key].RankScore += 1 / float64(60+rank)
+			}
+		}
+		if failed {
+			break
+		}
+	}
+	if failed {
+		outcome.failed = true
+		return outcome, nil
+	}
+	outcome.hits = local
+	return outcome, nil
+}
+
 // Search uses per-target/per-mode ranks (RRF), never compares raw cosine/BM25
 // scores across different indexes or embeddings. Failed targets are explicit.
 func (s *PortalMCPKnowledge) Search(
@@ -268,136 +415,39 @@ func (s *PortalMCPKnowledge) search(
 	result := &PortalMCPSearchResult{Results: []PortalMCPHit{}, Status: "complete"}
 	aggregate := map[string]*PortalMCPHit{}
 	byKB := map[string]*access.PortalKBTarget{}
-	for _, t := range targets {
-		execution, e := t.SearchContext(ctx)
-		if e != nil {
-			return nil, e
+	// Bound fan-out within the existing request admission limits and deadline.
+	// Each worker owns one target and result slot. Merge only after every worker
+	// exits, so authorization failures discard all in-flight results.
+	outcomes := make([]portalTargetSearchOutcome, len(targets))
+	group, execution := errgroup.WithContext(ctx)
+	group.SetLimit(portalSearchTargetConcurrency)
+	for i, target := range targets {
+		if execution.Err() != nil {
+			break
 		}
-		descriptor := t.Descriptor()
-		byKB[descriptor.ID] = t
-		types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
-		engine, e := s.Engine(execution, descriptor)
-		if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
-			result.Failed++
-			continue
+		group.Go(func() error {
+			var targetErr error
+			outcomes[i], targetErr = s.searchPortalTarget(execution, target, query, mode, pattern)
+			return targetErr
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	for i, outcome := range outcomes {
+		byKB[targets[i].Descriptor().ID] = targets[i]
+		if outcome.partial {
+			result.Status = "partial"
 		}
-		kinds := []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
-		if mode == "keyword" || mode == "grep" {
-			kinds = kinds[:1]
-		}
-		if mode == "semantic" {
-			kinds = kinds[1:]
-		}
-		local := map[string]*PortalMCPHit{}
-		failed := false
-		for _, kind := range kinds {
-			if e = t.Revalidate(ctx); e != nil {
-				return nil, e
-			}
-			params := types.RetrieveParams{Query: query, RetrieverType: kind, TopK: 100, Threshold: -1}
-			if kind == types.VectorRetrieverType {
-				if s.Embed == nil {
-					failed = true
-					break
-				}
-				params.Embedding, e = s.Embed(execution, descriptor, query)
-				if e != nil {
-					failed = true
-					break
-				}
-			}
-			params, e = access.GuardPortalRetrieval(execution, engine.EngineType(), params)
-			if e != nil {
-				return nil, e
-			}
-			groups, partial, e := s.retrievePublishedPortalDocuments(execution, t, engine, params)
-			if partial {
-				result.Status = "partial"
-			}
-			if e != nil {
-				failed = true
-				break
-			}
-			if e = t.Revalidate(ctx); e != nil {
-				return nil, e
-			}
-			rank := 0
-			for _, g := range groups {
-				if g == nil || g.Error != nil {
-					failed = true
-					break
-				}
-				for _, candidate := range g.Results {
-					rank++
-					if candidate == nil || !portalContains(t, candidate.KnowledgeID) ||
-						candidate.KnowledgeBaseID != descriptor.ID ||
-						candidate.SourceType != types.ChunkSourceType {
-						return nil, access.ErrForbidden
-					}
-					if mode != "grep" {
-						// Rank the complete authorized index candidate set first.
-						// Only final hits need canonical body/title reads; source and
-						// credential revalidation still precede every output boundary.
-						hit := portalHit(t, &types.Knowledge{ID: candidate.KnowledgeID},
-							&types.Chunk{ID: candidate.ChunkID, Content: candidate.Content})
-						key := hit.Reference + ":" + candidate.ChunkID
-						if local[key] == nil {
-							local[key] = &hit
-						} else if local[key].Text != hit.Text {
-							return nil, access.ErrForbidden
-						}
-						local[key].RankScore += 1 / float64(60+rank)
-						continue
-					}
-					// Completeness/canonical equality is enforced in SQL before candidates.
-					// Re-read canonical title/content after obtaining the live target lease.
-					row, e := s.document(ctx, t, candidate.KnowledgeID)
-					if e != nil {
-						return nil, e
-					}
-					read, e := s.publishedDocumentContext(ctx, candidate.KnowledgeID)
-					if e != nil {
-						return nil, e
-					}
-					chunk, e := s.Chunks.GetChunkByID(read, descriptor.TenantID, candidate.ChunkID)
-					if e != nil {
-						return nil, e
-					}
-					if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != descriptor.ID ||
-						chunk.TenantID != descriptor.TenantID ||
-						chunk.DeletedAt.Valid ||
-						!chunk.IsEnabled ||
-						chunk.ChunkType != types.ChunkTypeText ||
-						chunk.Content != candidate.Content {
-						return nil, access.ErrForbidden
-					}
-					text, e := access.SanitizePortalText(chunk.Content)
-					if e != nil {
-						return nil, e
-					}
-					if mode == "grep" && !pattern.MatchString(text) {
-						continue
-					}
-					copy := *chunk
-					copy.Content = text
-					hit := portalHit(t, row, &copy)
-					key := hit.Reference + ":" + chunk.ID
-					if local[key] == nil {
-						local[key] = &hit
-					}
-					local[key].RankScore += 1 / float64(60+rank)
-				}
-			}
-			if failed {
-				break
-			}
-		}
-		if failed {
+		if outcome.failed {
 			result.Failed++
 			continue
 		}
 		result.Searched++
-		for key, hit := range local {
+		for key, hit := range outcome.hits {
 			aggregate[key] = hit
 		}
 	}
