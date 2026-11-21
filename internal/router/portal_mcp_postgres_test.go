@@ -458,7 +458,11 @@ func TestPortalM6RealPostgresPersonal(t *testing.T) {
 			status int
 		}{
 			{"read_document", map[string]any{"knowledge_id": "sensitive"}, http.StatusOK},
-			{"search_knowledge", map[string]any{"query": "PUBLIC", "knowledge_base_ids": []string{"private-kb"}}, http.StatusForbidden},
+			{
+				"search_knowledge",
+				map[string]any{"query": "PUBLIC", "knowledge_base_ids": []string{"private-kb"}},
+				http.StatusForbidden,
+			},
 			{"ask", map[string]any{}, http.StatusOK},
 			{"delete_document", map[string]any{"knowledge_id": "public-doc"}, http.StatusOK},
 			{"wiki_read_page", map[string]any{"knowledge_base_id": "public-kb"}, http.StatusOK},
