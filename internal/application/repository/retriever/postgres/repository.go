@@ -678,7 +678,7 @@ func (g *pgRepository) vectorRetrieve(
 
 	var embeddingDBList []pgVectorWithScore
 
-	err := g.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+	vectorQuery := func(tx *gorm.DB) error {
 		if err := tx.Exec(fmt.Sprintf("SET LOCAL hnsw.ef_search = %d", efSearch)).Error; err != nil {
 			// Treat as non-fatal: pgvector should always expose this GUC, but if
 			// for any reason it does not we still want the query to run (just
@@ -699,7 +699,13 @@ func (g *pgRepository) vectorRetrieve(
 			return err
 		}
 		return tx.Raw(querySQL, allVars...).Scan(&embeddingDBList).Error
-	})
+	}
+	var err error
+	if _, protected := access.PortalRetrievalTenant(ctx); protected {
+		err = portalVectorQuerySession(g.db.WithContext(ctx), vectorQuery)
+	} else {
+		err = g.db.WithContext(ctx).Transaction(vectorQuery)
+	}
 
 	// Fallback: if the transaction failed because of an unsupported GUC (e.g.
 	// older pgvector that doesn't have hnsw.ef_search or hnsw.iterative_scan),
@@ -708,7 +714,13 @@ func (g *pgRepository) vectorRetrieve(
 		(strings.Contains(err.Error(), "hnsw.ef_search") ||
 			strings.Contains(err.Error(), "hnsw.iterative_scan")) {
 		logger.GetLogger(ctx).Warnf("[Postgres] Retrying vector query without HNSW GUC overrides: %v", err)
-		err = g.db.WithContext(ctx).Raw(querySQL, allVars...).Scan(&embeddingDBList).Error
+		if _, protected := access.PortalRetrievalTenant(ctx); protected {
+			err = portalVectorQuerySession(g.db.WithContext(ctx), func(tx *gorm.DB) error {
+				return tx.Raw(querySQL, allVars...).Scan(&embeddingDBList).Error
+			})
+		} else {
+			err = g.db.WithContext(ctx).Raw(querySQL, allVars...).Scan(&embeddingDBList).Error
+		}
 	}
 
 	if err == gorm.ErrRecordNotFound {
