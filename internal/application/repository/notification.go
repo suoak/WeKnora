@@ -36,7 +36,51 @@ func (r *NotificationRepository) List(
 		return nil, 0, err
 	}
 	err := q.Order("created_at DESC, id DESC").Limit(size).Offset((page - 1) * size).Find(&rows).Error
-	return rows, total, err
+	if err != nil {
+		return nil, 0, err
+	}
+	// Hydrate only references already addressed to this recipient, in one query.
+	// Match both ID and tenant again before exposing the current request state.
+	ids := []string{}
+	for _, row := range rows {
+		if row.ReferenceType == "tenant_access_request" {
+			ids = append(ids, row.ReferenceID)
+		}
+	}
+	if len(ids) == 0 {
+		return rows, total, nil
+	}
+	var requests []types.TenantAccessRequest
+	if err := r.db.WithContext(ctx).Table("tenant_access_requests AS ar").
+		Select(`ar.id, ar.tenant_id, ar.status, ar.reviewed_by, ar.reviewed_at,
+			COALESCE(u.username, '') AS reviewer_name`).
+		Joins("LEFT JOIN users AS u ON u.id = ar.reviewed_by AND u.deleted_at IS NULL").
+		Where("ar.id IN ?", ids).Scan(&requests).Error; err != nil {
+		return nil, 0, err
+	}
+	byID := make(map[string]types.TenantAccessRequest, len(requests))
+	for _, request := range requests {
+		byID[request.ID] = request
+	}
+	for i := range rows {
+		request, ok := byID[rows[i].ReferenceID]
+		if ok && rows[i].ReferenceType == "tenant_access_request" && rows[i].TenantID == request.TenantID {
+			rows[i].RequestStatus = request.Status
+			rows[i].ReviewedBy = request.ReviewedBy
+			rows[i].ReviewerName = request.ReviewerName
+			rows[i].ReviewedAt = request.ReviewedAt
+		}
+	}
+	return rows, total, nil
+}
+
+// ResolveAccessRequest closes every recipient's pending-action reminder in the
+// same transaction as approval, rejection or cancellation. Read history is kept.
+func (r *NotificationRepository) ResolveAccessRequest(ctx context.Context, tenantID uint64, requestID string) error {
+	return r.db.WithContext(ctx).Model(&types.UserNotification{}).
+		Where("tenant_id = ? AND reference_type = ? AND reference_id = ? AND notification_type = ? AND is_read = ?",
+			tenantID, "tenant_access_request", requestID, "access_request_submitted", false).
+		Updates(map[string]any{"is_read": true, "read_at": time.Now().UTC()}).Error
 }
 
 // UnreadCount counts the recipient's unread notifications across workspaces.
@@ -73,6 +117,11 @@ func (r *NotificationRepository) AccessRequestEvent(
 	request *types.TenantAccessRequest,
 	event, note string,
 ) error {
+	if event == "access_request_approved" || event == "access_request_rejected" {
+		if err := r.ResolveAccessRequest(ctx, request.TenantID, request.ID); err != nil {
+			return err
+		}
+	}
 	userIDs := []string{request.ApplicantUserID}
 	if event == "access_request_submitted" {
 		userIDs = []string{}

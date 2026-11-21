@@ -10,19 +10,57 @@
 </template>
 <script setup lang="ts">
 import { useNotificationsStore } from '@/stores/notifications'
+import { useAuthStore } from '@/stores/auth'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { approveTenantPortalAccessRequest,listTenantPortalAccessRequests,rejectTenantPortalAccessRequest,type TenantAccessRequest } from '@/api/portal'
 const props=defineProps<{tenantId:number}>()
 const { t, locale }=useI18n()
+const notifications=useNotificationsStore(),auth=useAuthStore()
 const requests=ref<TenantAccessRequest[]>([]),loading=ref(false),acting=ref('')
 const notes=ref<Record<string,string>>({})
 const pending=computed(()=>requests.value.filter(item=>item.status==='pending'))
-async function load(){if(!props.tenantId)return;loading.value=true;try{const response=await listTenantPortalAccessRequests(props.tenantId);requests.value=response.data||[]}catch(error:any){MessagePlugin.error(error?.message||t('portal.requests.loadFailed'))}finally{loading.value=false}}
-async function review(request:TenantAccessRequest,action:'approve'|'reject'){acting.value=request.id;try{if(action==='approve')await approveTenantPortalAccessRequest(props.tenantId,request.id,notes.value[request.id] || '');else await rejectTenantPortalAccessRequest(props.tenantId,request.id,notes.value[request.id] || '');MessagePlugin.success(t(action==='approve'?'portal.requests.approveSuccess':'portal.requests.rejectSuccess'));useNotificationsStore().changed();await load()}catch(error:any){const status=Number(error?.$httpStatus||error?.status||0);const message=String(error?.message||'');if(action==='approve'&&status===409&&(message.includes('applicant')||message.includes('active user')))MessagePlugin.error(t('portal.requests.applicantUnavailable'));else MessagePlugin.error(message||t('portal.requests.reviewFailed'))}finally{acting.value=''}}
+let loadVersion=0
+async function load(){
+  const tenantId=props.tenantId,version=++loadVersion
+  if(!tenantId)return
+  loading.value=true
+  try{
+    const response=await listTenantPortalAccessRequests(tenantId)
+    const rows=response.data||[]
+    if(version===loadVersion&&tenantId===props.tenantId)requests.value=rows
+    return rows
+  }catch(error:any){
+    if(version===loadVersion)MessagePlugin.error(error?.message||t('portal.requests.loadFailed'))
+  }finally{if(version===loadVersion)loading.value=false}
+}
+async function review(request:TenantAccessRequest,action:'approve'|'reject'){
+  const tenantId=props.tenantId,userId=auth.user?.id
+  acting.value=request.id
+  try{
+    if(action==='approve')await approveTenantPortalAccessRequest(tenantId,request.id,notes.value[request.id]||'')
+    else await rejectTenantPortalAccessRequest(tenantId,request.id,notes.value[request.id]||'')
+    if(tenantId!==props.tenantId||userId!==auth.user?.id)return
+    const latest=await load()
+    notifications.changed()
+    const processed=latest?.find(row=>row.id===request.id)
+    if(processed?.reviewed_by&&userId&&processed.reviewed_by!==userId){
+      MessagePlugin.info(t('notifications.processedBy',{name:processed.reviewer_name||processed.reviewed_by}))
+    }else MessagePlugin.success(t(action==='approve'?'portal.requests.approveSuccess':'portal.requests.rejectSuccess'))
+  }catch(error:any){
+    if(tenantId!==props.tenantId||userId!==auth.user?.id)return
+    const status=Number(error?.$httpStatus||error?.status||0),message=String(error?.message||'')
+    if(status===409&&message.includes('not pending')){
+      await load();notifications.changed();MessagePlugin.info(t('notifications.alreadyProcessed'))
+    }else if(action==='approve'&&status===409&&(message.includes('applicant')||message.includes('active user'))){
+      MessagePlugin.error(t('portal.requests.applicantUnavailable'))
+    }else MessagePlugin.error(message||t('portal.requests.reviewFailed'))
+  }finally{acting.value=''}
+}
 const formatDate=(value:string)=>new Intl.DateTimeFormat(locale.value,{dateStyle:'medium',timeStyle:'short'}).format(new Date(value))
-watch(()=>props.tenantId,()=>void load())
+watch(()=>props.tenantId,()=>{requests.value=[];notes.value={};void load()})
+watch(()=>notifications.revision,()=>{if(auth.isLoggedIn)void load()})
 onMounted(load)
 </script>
 <style scoped lang="less">

@@ -210,6 +210,10 @@ func (s *portalService) CancelAccessRequest(ctx context.Context, userID, request
 		if !changed {
 			return ErrPortalRequestNotPending
 		}
+		notifications := repository.NewNotificationRepository(tx)
+		if err := notifications.ResolveAccessRequest(ctx, request.TenantID, request.ID); err != nil {
+			return err
+		}
 		return NewAuditLogService(repository.NewAuditLogRepository(tx)).Log(ctx, &types.AuditLog{
 			TenantID: request.TenantID, ActorUserID: userID, ActorRole: "applicant",
 			Action: types.AuditActionTenantAccessRequestCancelled, TargetType: "tenant_access_request",

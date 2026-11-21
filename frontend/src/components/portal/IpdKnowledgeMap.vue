@@ -6,7 +6,6 @@
         <span class="asset-metric">{{ formatAssetSummary(summary.ipd, t, numberFormatter) }}</span>
       </div>
       <t-skeleton v-else-if="loading" class="summary-loading" animation="gradient" :row-col="[{ width: '220px', height: '18px' }]" />
-      <NotificationBell />
     </header>
 
     <PortalSectionState v-if="error" @retry="$emit('retry')" />
@@ -67,7 +66,6 @@
 </template>
 
 <script setup lang="ts">
-import NotificationBell from '@/components/NotificationBell.vue'
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { PortalSpace, PortalStage } from '@/api/portal'

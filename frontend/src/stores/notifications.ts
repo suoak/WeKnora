@@ -8,18 +8,21 @@ export const useNotificationsStore = defineStore('notifications', () => {
   let session = 0
   let fetchVersion = 0
 
-  async function refresh() {
+  async function refresh(invalidateList = true) {
     const version = ++fetchVersion
     const currentSession = session
     try {
       const response = await notificationUnreadCount()
       if (session === currentSession && fetchVersion === version && response.success) {
         unreadCount.value = response.data.unread_count
+        // A request may be resolved after its reminder was already read. Count
+        // equality must not prevent open inboxes and approval panels refreshing.
+        if (invalidateList) revision.value++
       }
     } catch { /* Keep the last successful count when a background poll fails. */ }
   }
 
-  function changed() { revision.value++; void refresh() }
+  function changed() { revision.value++; void refresh(false) }
   function reset() { session++; fetchVersion++; unreadCount.value = 0; revision.value++ }
   return { unreadCount, revision, refresh, changed, reset }
 })
