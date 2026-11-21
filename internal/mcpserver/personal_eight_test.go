@@ -18,7 +18,11 @@ import (
 // tested separately through the authenticated APP, never bypassed by this test.
 func TestV1NextEightToolProtocolRegistration(t *testing.T) {
 	s := NewPersonalServer(false, nil)
-	request := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`))
+	request := httptest.NewRequest(
+		"POST",
+		"/api/v1/mcp/personal",
+		bytes.NewBufferString(`{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}`),
+	)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Accept", "application/json, text/event-stream")
 	w := httptest.NewRecorder()
@@ -41,7 +45,21 @@ func TestV1NextEightToolProtocolRegistration(t *testing.T) {
 		require.True(t, tool.Annotations.ReadOnlyHint, tool.Name)
 	}
 	sort.Strings(names)
-	require.Equal(t, []string{"grep_chunks", "list_documents", "list_knowledge_bases", "read_document", "search_documents", "search_knowledge", "wiki_index", "wiki_read_page", "wiki_search"}, names)
+	require.Equal(
+		t,
+		[]string{
+			"grep_chunks",
+			"list_documents",
+			"list_knowledge_bases",
+			"read_document",
+			"search_documents",
+			"search_knowledge",
+			"wiki_index",
+			"wiki_read_page",
+			"wiki_search",
+		},
+		names,
+	)
 	// The public disabled handler still fails even though tools are registered.
 	w = httptest.NewRecorder()
 	s.Handler().ServeHTTP(w, request)

@@ -3,11 +3,12 @@ package service
 import (
 	"context"
 	"errors"
-	"github.com/Tencent/WeKnora/internal/application/access"
-	"github.com/Tencent/WeKnora/internal/types"
 	"sort"
 	"strings"
 	"time"
+
+	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/types"
 )
 
 type portalDocumentMetadataSearch interface {
@@ -40,7 +41,12 @@ func documentMatchRank(query, title, file string) int {
 	return 2
 }
 
-func (s *PortalMCPKnowledge) SearchDocuments(ctx context.Context, ids []string, query string, limit int) (*PortalMCPDocumentSearchResult, error) {
+func (s *PortalMCPKnowledge) SearchDocuments(
+	ctx context.Context,
+	ids []string,
+	query string,
+	limit int,
+) (*PortalMCPDocumentSearchResult, error) {
 	query = strings.TrimSpace(query)
 	if query == "" || len(query) > 4096 || limit < 1 || limit > 100 {
 		return nil, access.ErrForbidden
@@ -83,10 +89,20 @@ func (s *PortalMCPKnowledge) SearchDocuments(ctx context.Context, ids []string, 
 			if e != nil {
 				return nil, e
 			}
-			if !strings.Contains(strings.ToLower(canonical.Title), strings.ToLower(query)) && !strings.Contains(strings.ToLower(file), strings.ToLower(query)) {
+			if !strings.Contains(strings.ToLower(canonical.Title), strings.ToLower(query)) &&
+				!strings.Contains(strings.ToLower(file), strings.ToLower(query)) {
 				return nil, access.ErrForbidden
 			}
-			out.Documents = append(out.Documents, PortalMCPDocument{PortalMCPHit: portalHit(target, canonical, nil), FileName: file, ParseStatus: canonical.ParseStatus, UpdatedAt: canonical.UpdatedAt, MatchRank: documentMatchRank(query, canonical.Title, file)})
+			out.Documents = append(
+				out.Documents,
+				PortalMCPDocument{
+					PortalMCPHit: portalHit(target, canonical, nil),
+					FileName:     file,
+					ParseStatus:  canonical.ParseStatus,
+					UpdatedAt:    canonical.UpdatedAt,
+					MatchRank:    documentMatchRank(query, canonical.Title, file),
+				},
+			)
 		}
 	}
 	sort.Slice(out.Documents, func(i, j int) bool {

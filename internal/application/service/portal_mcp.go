@@ -232,8 +232,10 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 // Keep the existing per-target credential, publication, canonical-body and source
 // checks inside each task. Only independent KB tasks overlap; no authorization
 // result is cached or shared between targets or requests.
-const portalSearchTargetConcurrency = 8
-const portalSearchModeTimeout = 10 * time.Second
+const (
+	portalSearchTargetConcurrency = 8
+	portalSearchModeTimeout       = 10 * time.Second
+)
 
 type portalTargetSearchOutcome struct {
 	hits      map[string]*PortalMCPHit
@@ -256,7 +258,10 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 	caps, e := s.Capabilities(execution, descriptor)
 	if e != nil {
 		outcome.failed = true
-		outcome.failures = append(outcome.failures, PortalMCPModeDetail{descriptor.ID, mode, "index_configuration_unavailable"})
+		outcome.failures = append(
+			outcome.failures,
+			PortalMCPModeDetail{descriptor.ID, mode, "index_configuration_unavailable"},
+		)
 		return outcome, nil
 	}
 	hasKeyword, hasVector := false, false
@@ -497,7 +502,13 @@ func (s *PortalMCPKnowledge) search(
 		return nil, err
 	}
 	ctx = withPortalQueryEmbeddings(ctx)
-	result := &PortalMCPSearchResult{Results: []PortalMCPHit{}, Status: "complete", RequestedMode: mode, ModeFallbacks: []PortalMCPModeDetail{}, PartialFailures: []PortalMCPModeDetail{}}
+	result := &PortalMCPSearchResult{
+		Results:         []PortalMCPHit{},
+		Status:          "complete",
+		RequestedMode:   mode,
+		ModeFallbacks:   []PortalMCPModeDetail{},
+		PartialFailures: []PortalMCPModeDetail{},
+	}
 	if len(targets) == 0 {
 		result.Status = "no_scope"
 	}

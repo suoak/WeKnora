@@ -14,6 +14,9 @@ import (
 type PortalKBDescriptor struct {
 	TenantID                              uint64
 	ID, Name, SpaceName, EmbeddingModelID string
+	// Nil represents a legacy SQL NULL, whose established default enables
+	// keyword and vector indexing. An explicit all-false strategy stays false.
+	IndexingStrategy *types.IndexingStrategy
 }
 type PortalKBDirectory interface {
 	ListPortalMCPCandidates(context.Context) ([]PortalKBDescriptor, error)
@@ -62,7 +65,8 @@ func (t *PortalKBTarget) DocumentIDs() []string {
 func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]*PortalKBTarget, error) {
 	defer perftrace.Measure(ctx, perftrace.Resolve)()
 	ctx, diagnostics := WithPortalDiagnostics(ctx)
-	if r == nil || !r.Enabled || r.Directory == nil || r.Store == nil || r.Public == nil || r.Documents == nil || r.Employees == nil {
+	if r == nil || !r.Enabled || r.Directory == nil || r.Store == nil || r.Public == nil || r.Documents == nil ||
+		r.Employees == nil {
 		return nil, ErrForbidden
 	}
 	if !r.Documents.enabled || r.Documents.base == nil || r.Documents.store == nil {
@@ -71,7 +75,10 @@ func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]
 	p, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
 	caller := types.CallerFromContext(ctx)
 	key, keyed := types.TenantAPIKeyScopeFromContext(ctx)
-	if !ok || p.Type != types.PrincipalWebUser || caller.UserID != p.ID || p.ID == "" || !keyed || key.ScopeType != types.APIKeyScopeUserMCP || key.FullAccess || !key.HasCapability(types.APIKeyCapabilityRetrieve) {
+	if !ok || p.Type != types.PrincipalWebUser || caller.UserID != p.ID || p.ID == "" || !keyed ||
+		key.ScopeType != types.APIKeyScopeUserMCP ||
+		key.FullAccess ||
+		!key.HasCapability(types.APIKeyCapabilityRetrieve) {
 		return nil, ErrUnauthorized
 	}
 	employee, err := r.Employees.IsEnterpriseEmployee(ctx, p.ID)
@@ -266,7 +273,8 @@ func (t *PortalKBTarget) Revalidate(ctx context.Context) error {
 		return ErrForbidden
 	}
 	p, ok := ctx.Value(types.PrincipalContextKey).(types.Principal)
-	if !ok || p != t.principal || !reflect.DeepEqual(types.CallerFromContext(ctx), t.caller) || !reflect.DeepEqual(normalizedReadCredential(ctx), t.credential) {
+	if !ok || p != t.principal || !reflect.DeepEqual(types.CallerFromContext(ctx), t.caller) ||
+		!reflect.DeepEqual(normalizedReadCredential(ctx), t.credential) {
 		return ErrUnauthorized
 	}
 	employee, err := t.resolver.Employees.IsEnterpriseEmployee(ctx, p.ID)
@@ -389,17 +397,29 @@ func (t *PortalKBTarget) SearchContext(ctx context.Context) (context.Context, er
 	if err := t.Revalidate(ctx); err != nil {
 		return nil, err
 	}
-	return context.WithValue(types.WithExecutionTenant(ctx, t.descriptor.TenantID), portalRetrievalKey{}, portalRetrievalScope{target: t}), nil
+	return context.WithValue(
+		types.WithExecutionTenant(ctx, t.descriptor.TenantID),
+		portalRetrievalKey{},
+		portalRetrievalScope{target: t},
+	), nil
 }
 
 // GuardPortalRetrieval is consumed by the real PostgreSQL entrypoints before
 // SQL. Unknown drivers cannot consume this opaque scope. IDs only intersect.
-func GuardPortalRetrieval(ctx context.Context, engine types.RetrieverEngineType, params types.RetrieveParams) (types.RetrieveParams, error) {
+func GuardPortalRetrieval(
+	ctx context.Context,
+	engine types.RetrieverEngineType,
+	params types.RetrieveParams,
+) (types.RetrieveParams, error) {
 	s, present := ctx.Value(portalRetrievalKey{}).(portalRetrievalScope)
 	if !present {
 		return params, nil
 	}
-	if s.target == nil || engine != types.PostgresRetrieverEngineType || params.TopK < 1 || params.TopK > 100 || len(params.Query) > 4096 || len(params.KnowledgeIDs) > MaxDocumentAllowSet || len(params.TagIDs) > 0 || params.AdditionalParams != nil {
+	if s.target == nil || engine != types.PostgresRetrieverEngineType || params.TopK < 1 || params.TopK > 100 ||
+		len(params.Query) > 4096 ||
+		len(params.KnowledgeIDs) > MaxDocumentAllowSet ||
+		len(params.TagIDs) > 0 ||
+		params.AdditionalParams != nil {
 		return types.RetrieveParams{}, ErrDocumentFilterDenied
 	}
 	tenant, ok := types.TenantIDFromContext(ctx)

@@ -27,7 +27,7 @@ type personalContentService interface {
 }
 
 // ConfigurePersonalContentServer creates a separate external registry. The
-// original registry and isolated TLS handler always retain exactly eight reads.
+// original registry and isolated TLS handler retain only read tools.
 func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalContent) *PersonalServer {
 	if !s.Enabled() || writer == nil {
 		return s

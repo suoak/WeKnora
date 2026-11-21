@@ -278,7 +278,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		if err != nil {
 			return mcp.NewToolResultError("invalid knowledge base selection"), nil
 		}
-		// Only these eight read-only operations may be retried. A source revoked
+		// Only these read-only operations may be retried. A source revoked
 		// during execution discards the entire first response, then resolves a
 		// fresh scope once. Identity/DB/unknown errors never enter this retry.
 		for attempt := 0; attempt < 2; attempt++ {
@@ -530,10 +530,15 @@ func (s *PersonalServer) readTools() []mcp.Tool {
 	for i := range tools {
 		tool := &tools[i]
 		if tool.Name == "search_knowledge" {
-			tool.Description = "Search authorized document passages. Hybrid is the default; keyword finds exact terms; semantic answers natural-language questions. For document existence or titles use search_documents first. Inspect status, mode_fallbacks and partial_failures: partial/failed/no_scope/no_searchable_index never prove a document is absent."
+			tool.Description = "Search authorized document passages. Hybrid is the default; keyword finds exact terms; " +
+				"semantic answers natural-language questions. For document existence or titles use search_documents first. " +
+				"Inspect status, mode_fallbacks and partial_failures: " +
+				"partial/failed/no_scope/no_searchable_index never prove a document is absent."
 		}
 		if tool.Name == "grep_chunks" {
-			tool.Description = "Find exact terms, commands or identifiers in authorized keyword-indexed chunks using a case-insensitive pattern. Every hit matches the pattern. Inspect status; unavailable keyword indexes are explicitly skipped."
+			tool.Description = "Find exact terms, commands or identifiers in authorized keyword-indexed chunks " +
+				"using a case-insensitive pattern. Every hit matches the pattern. " +
+				"Inspect status; unavailable keyword indexes are explicitly skipped."
 		}
 		if tool.Name == "wiki_search" {
 			tool.InputSchema.Properties["knowledge_base_ids"] = map[string]any{

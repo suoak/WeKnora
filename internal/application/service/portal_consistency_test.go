@@ -3,13 +3,14 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
+	"sync/atomic"
+	"testing"
+
 	"github.com/Tencent/WeKnora/internal/application/access"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
-	"sync"
-	"sync/atomic"
-	"testing"
 )
 
 func TestPortalConsistencyModeFailureMatrix(t *testing.T) {
@@ -30,7 +31,10 @@ func TestPortalConsistencyModeFailureMatrix(t *testing.T) {
 			f.PreparePublished(t)
 			s := publishedServiceM7(t, f)
 			var c types.Chunk
-			require.NoError(t, f.DB.Where("knowledge_base_id=? AND chunk_type=?", "public-kb", types.ChunkTypeText).First(&c).Error)
+			require.NoError(
+				t,
+				f.DB.Where("knowledge_base_id=? AND chunk_type=?", "public-kb", types.ChunkTypeText).First(&c).Error,
+			)
 			s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {
 				if scenario.embedding {
 					return nil, errors.New("secret provider error")
@@ -38,12 +42,27 @@ func TestPortalConsistencyModeFailureMatrix(t *testing.T) {
 				return []float32{1}, nil
 			}
 			s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
-				return portalV1Driver{f: func(_ context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
-					if p.RetrieverType == types.KeywordsRetrieverType && scenario.keyword || p.RetrieverType == types.VectorRetrieverType && scenario.vector {
-						return nil, errors.New("secret database error")
-					}
-					return []*types.RetrieveResult{{Results: []*types.IndexWithScore{{KnowledgeID: c.KnowledgeID, KnowledgeBaseID: c.KnowledgeBaseID, ChunkID: c.ID, Content: c.Content, SourceType: types.ChunkSourceType}}}}, nil
-				}}, nil
+				return portalV1Driver{
+					f: func(_ context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
+						if p.RetrieverType == types.KeywordsRetrieverType && scenario.keyword ||
+							p.RetrieverType == types.VectorRetrieverType && scenario.vector {
+							return nil, errors.New("secret database error")
+						}
+						return []*types.RetrieveResult{
+							{
+								Results: []*types.IndexWithScore{
+									{
+										KnowledgeID:     c.KnowledgeID,
+										KnowledgeBaseID: c.KnowledgeBaseID,
+										ChunkID:         c.ID,
+										Content:         c.Content,
+										SourceType:      types.ChunkSourceType,
+									},
+								},
+							},
+						}, nil
+					},
+				}, nil
 			}
 			result, e := s.Search(fixture.Key("A", 1, 1, true), []string{"public-kb"}, "query", "hybrid", 10)
 			require.NoError(t, e)
@@ -68,22 +87,38 @@ func TestPortalConsistencyIndexModes(t *testing.T) {
 		keyword, vector bool
 		kind            types.RetrieverType
 	}{
-		{"keyword", true, false, types.KeywordsRetrieverType}, {"vector", false, true, types.VectorRetrieverType}, {"wiki", false, false, ""},
+		{"keyword", true, false, types.KeywordsRetrieverType},
+		{"vector", false, true, types.VectorRetrieverType},
+		{"wiki", false, false, ""},
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			f := fixture.New(t)
 			f.PreparePublished(t)
 			s := publishedServiceM7(t, f)
-			strategy := types.IndexingStrategy{KeywordEnabled: test.keyword, VectorEnabled: test.vector, WikiEnabled: true}
-			require.NoError(t, f.DB.Model(&types.KnowledgeBase{}).Where("id=?", "public-kb").Update("indexing_strategy", strategy).Error)
-			s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) { return []float32{1}, nil }
+			strategy := types.IndexingStrategy{
+				KeywordEnabled: test.keyword,
+				VectorEnabled:  test.vector,
+				WikiEnabled:    true,
+			}
+			require.NoError(
+				t,
+				f.DB.Model(&types.KnowledgeBase{}).
+					Where("id=?", "public-kb").
+					Update("indexing_strategy", strategy).
+					Error,
+			)
+			s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {
+				return []float32{1}, nil
+			}
 			calls := 0
 			s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
-				return portalV1Driver{f: func(_ context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
-					calls++
-					require.Equal(t, test.kind, p.RetrieverType)
-					return nil, nil
-				}}, nil
+				return portalV1Driver{
+					f: func(_ context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
+						calls++
+						require.Equal(t, test.kind, p.RetrieverType)
+						return nil, nil
+					},
+				}, nil
 			}
 			result, e := s.Search(fixture.Key("A", 1, 1, true), []string{"public-kb"}, "query", "hybrid", 10)
 			require.NoError(t, e)
@@ -104,7 +139,13 @@ func TestPortalConsistencyTitleSearchAndNames(t *testing.T) {
 	f.PreparePublished(t)
 	s := publishedServiceM7(t, f)
 	ctx := fixture.Key("A", 1, 1, true)
-	require.NoError(t, f.DB.Model(&types.Knowledge{}).Where("id=?", "public-doc").Updates(map[string]any{"title": "HA commands", "file_name": "HA.docx"}).Error)
+	require.NoError(
+		t,
+		f.DB.Model(&types.Knowledge{}).
+			Where("id=?", "public-doc").
+			Updates(map[string]any{"title": "HA commands", "file_name": "HA.docx"}).
+			Error,
+	)
 	result, e := s.SearchDocuments(ctx, nil, "HA", 20)
 	require.NoError(t, e)
 	require.NotEmpty(t, result.Documents)
@@ -142,7 +183,11 @@ func TestPortalConsistencyRequestEmbeddingSingleflight(t *testing.T) {
 	var group sync.WaitGroup
 	for i := 0; i < 16; i++ {
 		group.Go(func() {
-			v, e := cache.embed(ctx, "identity+endpoint+dimension", func(context.Context) ([]float32, error) { calls.Add(1); return []float32{1}, nil })
+			v, e := cache.embed(
+				ctx,
+				"identity+endpoint+dimension",
+				func(context.Context) ([]float32, error) { calls.Add(1); return []float32{1}, nil },
+			)
 			require.NoError(t, e)
 			v[0] = 42
 		})
@@ -152,7 +197,11 @@ func TestPortalConsistencyRequestEmbeddingSingleflight(t *testing.T) {
 	v, e := cache.embed(ctx, "identity+endpoint+dimension", nil)
 	require.NoError(t, e)
 	require.Equal(t, float32(1), v[0])
-	_, e = cache.embed(ctx, "different endpoint", func(context.Context) ([]float32, error) { calls.Add(1); return []float32{2}, nil })
+	_, e = cache.embed(
+		ctx,
+		"different endpoint",
+		func(context.Context) ([]float32, error) { calls.Add(1); return []float32{2}, nil },
+	)
 	require.NoError(t, e)
 	require.EqualValues(t, 2, calls.Load())
 }

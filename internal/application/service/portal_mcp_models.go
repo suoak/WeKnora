@@ -17,19 +17,24 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
-type portalQueryEmbeddingKey struct{}
-type portalQueryEmbeddings struct {
-	ctx     context.Context
-	group   singleflight.Group
-	mu      sync.Mutex
-	vectors map[string][]float32
-}
+type (
+	portalQueryEmbeddingKey struct{}
+	portalQueryEmbeddings   struct {
+		group   singleflight.Group
+		mu      sync.Mutex
+		vectors map[string][]float32
+	}
+)
 
 func withPortalQueryEmbeddings(ctx context.Context) context.Context {
-	return context.WithValue(ctx, portalQueryEmbeddingKey{}, &portalQueryEmbeddings{ctx: ctx, vectors: map[string][]float32{}})
+	return context.WithValue(ctx, portalQueryEmbeddingKey{}, &portalQueryEmbeddings{vectors: map[string][]float32{}})
 }
 
-func (c *portalQueryEmbeddings) embed(ctx context.Context, key string, embed func(context.Context) ([]float32, error)) ([]float32, error) {
+func (c *portalQueryEmbeddings) embed(
+	ctx context.Context,
+	key string,
+	embed func(context.Context) ([]float32, error),
+) ([]float32, error) {
 	call := c.group.DoChan(key, func() (any, error) {
 		c.mu.Lock()
 		v, ok := c.vectors[key]
@@ -37,7 +42,7 @@ func (c *portalQueryEmbeddings) embed(ctx context.Context, key string, embed fun
 		if ok {
 			return v, nil
 		}
-		bounded, cancel := context.WithTimeout(c.ctx, portalSearchModeTimeout)
+		bounded, cancel := context.WithTimeout(ctx, portalSearchModeTimeout)
 		defer cancel()
 		v, err := embed(bounded)
 		if err == nil {
@@ -61,13 +66,22 @@ func (c *portalQueryEmbeddings) embed(ctx context.Context, key string, embed fun
 // BindPortalMCPAdapters uses the application's actual model and store registries.
 // It does not enable a server or approve any KB. There is no fallback to an
 // arbitrary model/store when the target's owner, binding or dimension changes.
-func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRepository, tenants interfaces.TenantRepository, models interfaces.ModelService, registry interfaces.RetrieveEngineRegistry, ownership retriever.TenantStoreOwnership) {
+func BindPortalMCPAdapters(
+	s *PortalMCPKnowledge,
+	kbs interfaces.KnowledgeBaseRepository,
+	tenants interfaces.TenantRepository,
+	models interfaces.ModelService,
+	registry interfaces.RetrieveEngineRegistry,
+	ownership retriever.TenantStoreOwnership,
+) {
 	load := func(ctx context.Context, d access.PortalKBDescriptor) (*types.KnowledgeBase, error) {
 		if kbs == nil {
 			return nil, access.ErrForbidden
 		}
 		kb, err := kbs.GetKnowledgeBaseByID(ctx, d.ID)
-		if err != nil || kb == nil || kb.TenantID != d.TenantID || kb.EmbeddingModelID != d.EmbeddingModelID || kb.DeletedAt.Valid || kb.IsTemporary {
+		if err != nil || kb == nil || kb.TenantID != d.TenantID || kb.EmbeddingModelID != d.EmbeddingModelID ||
+			kb.DeletedAt.Valid ||
+			kb.IsTemporary {
 			return nil, access.ErrForbidden
 		}
 		return kb, nil
@@ -78,6 +92,13 @@ func BindPortalMCPAdapters(s *PortalMCPKnowledge, kbs interfaces.KnowledgeBaseRe
 			return nil, err
 		}
 		caps := []string{}
+		if kb.IndexingStrategy.IsZero() && d.IndexingStrategy == nil {
+			// GORM does not invoke Scanner for SQL NULL. Preserve the documented
+			// legacy default, while retaining explicit all-disabled configurations.
+			copy := *kb
+			copy.IndexingStrategy = types.DefaultIndexingStrategy()
+			kb = &copy
+		}
 		keyword := kb.IsKeywordEnabled() && kb.Type != types.KnowledgeBaseTypeFAQ
 		vector := kb.IsVectorEnabled()
 		if keyword {
