@@ -468,9 +468,10 @@ func (g *pgRepository) vectorRetrieve(
 		incompatible := relation().Where("dimension IS DISTINCT FROM ?", dimension)
 		matching := relation().Where("dimension = ?", dimension)
 		dimensionDone := perftrace.Measure(ctx, perftrace.DimensionSQL)
-		err := g.db.WithContext(ctx).Raw(
-			"SELECT EXISTS (?) AS incompatible, EXISTS (?) AS matching", incompatible, matching,
-		).Scan(&shape).Error
+		err := portalDimensionQuerySession(g.db.WithContext(ctx), func(tx *gorm.DB) error {
+			return tx.Raw("SELECT EXISTS (?) AS incompatible, EXISTS (?) AS matching",
+				incompatible, matching).Scan(&shape).Error
+		})
 		dimensionDone()
 		if err != nil {
 			return nil, err

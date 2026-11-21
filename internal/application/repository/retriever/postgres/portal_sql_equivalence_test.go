@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -88,6 +89,40 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
  (14,'chunk3',?,'chunk3','doc','kb','third current text',1024,true,'[0.8,0.2,0]')`,
 		types.ChunkSourceType, types.ChunkSourceType).Error)
 	require.NoError(t, db.Exec(`ALTER TABLE embeddings ADD COLUMN tag_id text`).Error)
+	t.Run("dimension_session_restores_pooled_configuration", func(t *testing.T) {
+		conn.SetMaxOpenConns(1)
+		setting := func(current *gorm.DB) string {
+			var value string
+			require.NoError(t, current.Raw("SHOW jit").Row().Scan(&value))
+			return value
+		}
+		original := setting(db)
+		require.Contains(t, []string{"on", "off"}, original)
+		defer func() { require.NoError(t, db.Exec("SET jit = "+original).Error) }()
+		require.NoError(t, db.Exec("SET jit = on").Error)
+		aborted := errors.New("synthetic dimension transaction rollback")
+		for _, rollback := range []bool{false, true} {
+			called := false
+			err := portalDimensionQuerySession(db, func(tx *gorm.DB) error {
+				called = true
+				require.Equal(t, "off", setting(tx))
+				for _, public := range []bool{false, true} {
+					assertPortalVectorEquivalent(t, tx, public, 2, 3, "transaction-local query configuration")
+				}
+				if rollback {
+					return aborted
+				}
+				return nil
+			})
+			if rollback {
+				require.ErrorIs(t, err, aborted)
+			} else {
+				require.NoError(t, err)
+			}
+			require.True(t, called)
+			require.Equal(t, "on", setting(db), "commit and rollback must restore the same pooled connection")
+		}
+	})
 	t.Run("unbounded_candidates_and_malformed_untrusted_vectors", func(t *testing.T) {
 		// More stale nearest neighbours than the old expanded candidate budget
 		// must not hide a farther canonical result. No pre-proof LIMIT is safe.
