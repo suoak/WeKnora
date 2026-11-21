@@ -2,6 +2,7 @@ package mcpserver
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http/httptest"
 	"testing"
@@ -9,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
+	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
 
@@ -100,9 +102,30 @@ func TestPersonalConsistencyJSONRPC(t *testing.T) {
 	// when no document remains. Clients may consume only structuredContent.
 	restricted, store, ctx := selectedMCPFixture()
 	restricted.knowledge.Knowledge = repository.NewKnowledgeRepository(f.DB)
-	store.held = true
-	partial, err := restricted.knowledge.SearchDocuments(ctx, []string{"selected"}, "PUBLIC", 20)
+	restricted.knowledge.Resolver.Store = partialTitleStore{store}
+	scope, _ := types.TenantAPIKeyScopeFromContext(ctx)
+	scope.KnowledgeBaseRestricted = false
+	scope.KnowledgeBaseIDs = nil
+	ctx = types.WithTenantAPIKeyScope(ctx, scope)
+	partial, err := restricted.knowledge.SearchDocuments(ctx, nil, "PUBLIC", 20)
 	require.NoError(t, err)
 	require.Equal(t, "partial", partial.Status)
 	require.Empty(t, partial.Documents)
+}
+
+type partialTitleStore struct{ *selectedMCPStore }
+
+func (s partialTitleStore) LoadDocumentReadSnapshot(
+	ctx context.Context, user string, key uint64, kb string,
+) (*types.EnterpriseReadSnapshot, error) {
+	if kb == "selected" {
+		return nil, types.ErrLegacySourceRestricted
+	}
+	snapshot, err := s.selectedMCPStore.LoadDocumentReadSnapshot(ctx, user, key, "selected")
+	if err != nil {
+		return nil, err
+	}
+	snapshot.KBID = kb
+	snapshot.Documents = nil
+	return snapshot, nil
 }
