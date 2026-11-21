@@ -3,7 +3,7 @@
 这些是本次验收的操作脚本，不是生产发布脚本。连接复用本机已有 DPAPI 加密凭据及固定 SSH 主机公钥；需要 Python、Paramiko 和已有 `E:/AIData/Codex/sourceid-ssh.py`。密码只在进程内解密，不放入命令行或仓库。
 
 - `remote_readonly.py --mode production --output <新的私有文件>`：有超时的生产只读元数据核查。
-- `isolated_site.py stage --source-root <独立 worktree> --sha <完整 SHA> --manifest <新的私有文件>`：上传准确的 Git archive 和已构建前端，校验摘要。前端必须提前从相同 SHA 构建。
+- `isolated_site.py stage --source-root <独立 worktree> --sha <完整 SHA> --manifest <新的私有文件>`：上传准确的 Git archive 和已构建前端，校验摘要。归档导出显式关闭 `core.autocrlf`，避免 Windows 配置改变 Rust/TOML 等文本字节。前端必须提前从相同 SHA 构建。
 - `isolated_site.py build|poll|deploy|seed|audit --manifest <文件>`：有限资源编译、新建隔离实例、创建真实测试账号和测试文档、只读复核。不会操作已有应用数据库。新数据库使用 TCP 就绪检查，避免命中初始化临时进程；恢复验证库从 `template0` 创建，避免继承扩展造成冲突。
 - `forward_site.py --manifest <文件> --runtime <新的私有文件>`：将测试主机 loopback 前端转发到本机随机 loopback 端口，最长一小时。创建同名 `.stop` 文件停止转发，远程测试实例保留。
 

@@ -368,7 +368,7 @@ def main():
                 raise ValueError('source_revision_mismatch')
             args.manifest.parent.mkdir(parents=True, exist_ok=True)
             source = args.manifest.parent / 'source.tar'
-            subprocess.run(['git', '-C', str(args.source_root), 'archive', '--format=tar', '-o', str(source), args.sha], check=True)
+            subprocess.run(['git', '-c', 'core.autocrlf=false', '-C', str(args.source_root), 'archive', '--format=tar', '-o', str(source), args.sha], check=True)
             frontend = args.manifest.parent / 'frontend.tar.gz'
             if not (args.source_root / 'frontend/dist/index.html').is_file():
                 raise ValueError('frontend_build_missing')
