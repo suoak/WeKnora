@@ -253,7 +253,8 @@ func newPortalApprovalTestDB(t *testing.T, name string) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	for _, statement := range []string{
 		`CREATE TABLE tenants (id INTEGER PRIMARY KEY, status TEXT, deleted_at DATETIME)`,
-		`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT, is_active BOOLEAN NOT NULL DEFAULT 1, deleted_at DATETIME)`,
+		`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT,
+		 is_active BOOLEAN NOT NULL DEFAULT 1, deleted_at DATETIME)`,
 		`CREATE TABLE tenant_members (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, tenant_id INTEGER NOT NULL,
 			role TEXT NOT NULL, status TEXT NOT NULL, invited_by TEXT, joined_at DATETIME,
@@ -272,7 +273,8 @@ func newPortalApprovalTestDB(t *testing.T, name string) *gorm.DB {
 		require.NoError(t, db.Exec(statement).Error, statement)
 	}
 	require.NoError(t, db.AutoMigrate(&types.UserNotification{}))
-	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS tenant_portal_configs (tenant_id INTEGER PRIMARY KEY, display_name TEXT)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS tenant_portal_configs
+		(tenant_id INTEGER PRIMARY KEY, display_name TEXT)`).Error)
 	return db
 }
 
