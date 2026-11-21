@@ -52,7 +52,8 @@ func (r *NotificationRepository) List(
 	}
 	var requests []types.TenantAccessRequest
 	if err := r.db.WithContext(ctx).Table("tenant_access_requests AS ar").
-		Select("ar.id, ar.tenant_id, ar.status, ar.reviewed_by, ar.reviewed_at, COALESCE(u.username, '') AS reviewer_name").
+		Select(`ar.id, ar.tenant_id, ar.status, ar.reviewed_by, ar.reviewed_at,
+			COALESCE(u.username, '') AS reviewer_name`).
 		Joins("LEFT JOIN users AS u ON u.id = ar.reviewed_by AND u.deleted_at IS NULL").
 		Where("ar.id IN ?", ids).Scan(&requests).Error; err != nil {
 		return nil, 0, err

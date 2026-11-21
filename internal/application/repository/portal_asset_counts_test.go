@@ -132,11 +132,13 @@ func TestPortalPublishesDocumentScaleWithoutContentOrDetailedPrivateAggregates(t
 			}
 			payload, err := json.Marshal(rows)
 			require.NoError(t, err)
-			require.NotContains(t, string(payload), `"private"`, "document IDs and content must not appear in discovery metadata")
+			require.NotContains(t, string(payload), `"private"`, "document IDs and content must stay private")
 			require.EqualValues(t, 0, rows[0].FileCount, "legacy field is not repurposed for manual entries")
 		})
 	}
-	ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{"doc"}})
+	ctx := types.WithTenantAPIKeyScope(context.Background(), types.TenantAPIKeyScope{
+		KnowledgeBaseRestricted: true, KnowledgeBaseIDs: types.StringArray{"doc"},
+	})
 	rows, err := repo.ListPublished(ctx, "owner", 0, interfaces.PortalListQuery{})
 	require.NoError(t, err)
 	require.Equal(t, "hidden", rows[0].AssetCountScope)

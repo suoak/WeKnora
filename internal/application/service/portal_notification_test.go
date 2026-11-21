@@ -80,21 +80,27 @@ func TestPortalResolutionClosesAllOwnerRemindersAndKeepsHistory(t *testing.T) {
 			// Reading one inbox must not affect the other recipient. Resolution
 			// must preserve that first read time and unrelated unread messages.
 			readAt := time.Now().UTC().Add(-time.Hour)
-			require.NoError(t, db.Model(&types.UserNotification{}).Where("user_id = ?", "owner").Updates(map[string]any{"is_read": true, "read_at": readAt}).Error)
-			require.NoError(t, db.Create(&types.UserNotification{ID: "unrelated", UserID: "owner2", NotificationType: "other", ReferenceID: "other", TenantID: 8}).Error)
+			require.NoError(t, db.Model(&types.UserNotification{}).Where("user_id = ?", "owner").
+				Updates(map[string]any{"is_read": true, "read_at": readAt}).Error)
+			require.NoError(t, db.Create(&types.UserNotification{
+				ID: "unrelated", UserID: "owner2", NotificationType: "other", ReferenceID: "other", TenantID: 8,
+			}).Error)
 			switch outcome {
 			case "approved":
 				require.NoError(t, svc.ApproveAccessRequest(ctx, "owner", 7, request.ID, "approved"))
 				// A second Owner's retry is idempotent; it cannot replace the
 				// original reviewer or send another applicant notification.
 				require.NoError(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "retry"))
-				require.ErrorIs(t, svc.RejectAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+				err = svc.RejectAccessRequest(ctx, "owner2", 7, request.ID, "stale")
+				require.ErrorIs(t, err, ErrPortalRequestNotPending)
 			case "rejected":
 				require.NoError(t, svc.RejectAccessRequest(ctx, "owner", 7, request.ID, "rejected"))
-				require.ErrorIs(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+				err = svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale")
+				require.ErrorIs(t, err, ErrPortalRequestNotPending)
 			case "cancelled":
 				require.NoError(t, svc.CancelAccessRequest(ctx, "applicant", request.ID))
-				require.ErrorIs(t, svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale"), ErrPortalRequestNotPending)
+				err = svc.ApproveAccessRequest(ctx, "owner2", 7, request.ID, "stale")
+				require.ErrorIs(t, err, ErrPortalRequestNotPending)
 			}
 			for _, owner := range []string{"owner", "owner2"} {
 				rows, _, err := repo.List(ctx, owner, 1, 20, false)
@@ -169,8 +175,10 @@ func TestNotificationRequestMetadataRespectsTenantBinding(t *testing.T) {
 	request, err := svc.CreateAccessRequest(ctx, "applicant", 7, "tenant-bound state")
 	require.NoError(t, err)
 	require.NoError(t, svc.ApproveAccessRequest(ctx, "owner", 7, request.ID, "approve"))
-	require.NoError(t, db.Create(&types.UserNotification{ID: "foreign-reference", UserID: "owner2", TenantID: 8,
-		NotificationType: "other", ReferenceType: "tenant_access_request", ReferenceID: request.ID}).Error)
+	require.NoError(t, db.Create(&types.UserNotification{
+		ID: "foreign-reference", UserID: "owner2", TenantID: 8,
+		NotificationType: "other", ReferenceType: "tenant_access_request", ReferenceID: request.ID,
+	}).Error)
 	rows, _, err := repository.NewNotificationRepository(db).List(ctx, "owner2", 1, 20, false)
 	require.NoError(t, err)
 	for _, row := range rows {
