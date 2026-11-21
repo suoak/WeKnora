@@ -5,9 +5,9 @@
       <span v-if="auth.pendingInvitationCount" class="invitation-dot" :title="t('notifications.invitationPending')" />
     </button>
   </t-badge>
-  <t-drawer v-model:visible="visible" :header="t('notifications.title')" :footer="false" size="min(560px, 100vw)" @close="visible = false">
+  <t-drawer v-model:visible="visible" :header="t('notifications.title')" :footer="false" :close-btn="true" :z-index="2500" size="min(560px, 100vw)" @close="visible = false">
     <div class="inbox">
-      <t-button variant="outline" @click="invitationsVisible = true">{{ t('notifications.invitations') }} ({{ auth.pendingInvitationCount }})</t-button>
+      <t-button variant="outline" @click="openInvitations">{{ t('notifications.invitations') }} ({{ auth.pendingInvitationCount }})</t-button>
       <t-tabs v-model="tab" @change="load">
         <t-tab-panel value="notifications" :label="t('notifications.messages')" />
         <t-tab-panel value="requests" :label="t('notifications.myRequests')" />
@@ -86,6 +86,7 @@ async function load() {
   finally { if (version === loadVersion) loading.value = false }
 }
 function open() { visible.value = true; void notifications.refresh(); void auth.fetchPendingInvitationCount(); void load() }
+function openInvitations() { visible.value = false; invitationsVisible.value = true }
 function filterChanged() { page.value = 1; void load() }
 async function act(action: () => Promise<unknown>) {
   busy.value = true

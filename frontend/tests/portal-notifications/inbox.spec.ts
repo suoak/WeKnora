@@ -61,7 +61,15 @@ test('mobile dark portal shows a single bell with zero unread messages', async (
   expect(rect!.x + rect!.width).toBeLessThanOrEqual(390)
   await bell.click()
   await expect(page.getByText('我的申请', { exact: true })).toBeVisible()
-  await page.screenshot({ path: 'test-results/portal-notifications/mobile-dark.png' })
+  await expect.poll(async () => {
+    const drawer = await page.locator('.t-drawer__content-wrapper').filter({ has: page.locator('.inbox') }).boundingBox()
+    return drawer ? drawer.x + drawer.width : Infinity
+  }).toBeLessThanOrEqual(390)
+  const close = page.locator('.t-drawer__close-btn').filter({ visible: true })
+  await expect(close).toBeVisible()
+  await page.screenshot({ path: 'test-results/portal-notifications/mobile-dark.png', animations: 'disabled' })
+  await close.click()
+  await expect(page.getByText('我的申请', { exact: true })).not.toBeVisible()
 })
 
 test('reading the last unread item on page two returns to the remaining first page', async ({ page }) => {
