@@ -22,6 +22,8 @@ type PortalKBDirectory interface {
 	ListPortalMCPCandidates(context.Context) ([]PortalKBDescriptor, error)
 }
 
+var ErrPortalKBAmbiguous = errors.New("ambiguous knowledge base name; use an exact knowledge base ID")
+
 // PortalMCPResolver reuses M2 whole-KB classification and M3 private grants.
 // Unknown/mixed public KBs are excluded as a unit, before any driver is called.
 type PortalMCPResolver struct {
@@ -113,7 +115,10 @@ func (r *PortalMCPResolver) Resolve(ctx context.Context, requested []string) ([]
 				matched = append(matched, kb.ID)
 			}
 		}
-		if len(matched) != 1 {
+		if len(matched) > 1 {
+			return nil, ErrPortalKBAmbiguous
+		}
+		if len(matched) == 0 {
 			return nil, ErrForbidden
 		}
 		for _, id := range matched {

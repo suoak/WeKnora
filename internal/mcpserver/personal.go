@@ -231,6 +231,11 @@ func personalMetadataMethod(method string) bool {
 }
 
 func writePersonalScopeError(w http.ResponseWriter, r *http.Request, err error) {
+	if errors.Is(err, access.ErrPortalKBAmbiguous) {
+		w.Header().Set("X-KnowHub-Error-Code", "ambiguous_knowledge_base")
+		http.Error(w, "ambiguous knowledge base name; use an exact knowledge base ID", http.StatusBadRequest)
+		return
+	}
 	if errors.Is(err, context.DeadlineExceeded) || errors.Is(r.Context().Err(), context.DeadlineExceeded) {
 		w.Header().Set("X-KnowHub-Error-Code", "scope_timeout")
 		http.Error(w, "personal MCP scope resolution timed out; retry later", http.StatusGatewayTimeout)
@@ -530,8 +535,8 @@ func (s *PersonalServer) readTools() []mcp.Tool {
 	for i := range tools {
 		tool := &tools[i]
 		if tool.Name == "search_knowledge" {
-			tool.Description = "Search authorized document passages. Hybrid is the default; keyword finds exact terms; " +
-				"semantic answers natural-language questions. For document existence or titles use search_documents first. " +
+			tool.Description = "Search authorized document passages. Hybrid is the default; keyword finds exact terms. " +
+				"Semantic answers natural-language questions. Use search_documents first for titles or existence. " +
 				"Inspect status, mode_fallbacks and partial_failures: " +
 				"partial/failed/no_scope/no_searchable_index never prove a document is absent."
 		}

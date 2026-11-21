@@ -33,7 +33,6 @@ func TestPersonalConsistencyOptionalTargets(t *testing.T) {
 
 func TestPersonalConsistencyJSONRPC(t *testing.T) {
 	f := fixture.New(t)
-	f.PreparePublished(t)
 	knowledge := &service.PortalMCPKnowledge{
 		Resolver:  f.Portal(t),
 		Knowledge: repository.NewKnowledgeRepository(f.DB),

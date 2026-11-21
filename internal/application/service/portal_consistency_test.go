@@ -174,6 +174,15 @@ func TestPortalConsistencyTitleSearchAndNames(t *testing.T) {
 	for _, d := range result.Documents {
 		require.NotEqual(t, "public-doc", d.DocumentID)
 	}
+	require.NoError(t, f.DB.Exec("UPDATE tenant_members SET status='inactive' WHERE user_id='A'").Error)
+	s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+		t.Fatal("empty scope must not call the retriever")
+		return nil, nil
+	}
+	empty, e := s.Search(ctx, nil, "HA", "hybrid", 10)
+	require.NoError(t, e)
+	require.Equal(t, "no_scope", empty.Status)
+	require.Zero(t, empty.Searched)
 }
 
 func TestPortalConsistencyRequestEmbeddingSingleflight(t *testing.T) {
