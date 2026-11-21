@@ -54,12 +54,14 @@ type PortalMCPSearchResult struct {
 	Skipped         int                   `json:"unsearchable_kbs"`
 }
 
+// PortalMCPModeDetail identifies an effective mode or a safe execution failure.
 type PortalMCPModeDetail struct {
 	KBID   string `json:"knowledge_base_id"`
 	Mode   string `json:"mode"`
 	Reason string `json:"reason"`
 }
 
+// Capabilities loads the target's real indexes through the bound application adapter.
 func (s *PortalMCPKnowledge) Capabilities(ctx context.Context, d access.PortalKBDescriptor) ([]string, error) {
 	if s.SearchCapabilities != nil {
 		return s.SearchCapabilities(ctx, d)

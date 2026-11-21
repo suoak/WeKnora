@@ -46,6 +46,7 @@ type PortalKBDirectory interface {
 	ListPortalMCPCandidates(context.Context) ([]PortalKBDescriptor, error)
 }
 
+// ErrPortalKBAmbiguous requires the caller to select an exact authorized KB ID.
 var ErrPortalKBAmbiguous = errors.New("ambiguous knowledge base name; use an exact knowledge base ID")
 
 // PortalMCPResolver reuses M2 whole-KB classification and M3 private grants.

@@ -14,6 +14,7 @@ import (
 type portalDocumentMetadataSearch interface {
 	SearchPortalDocumentMetadata(context.Context, uint64, string, []string, string, int) ([]*types.Knowledge, error)
 }
+// PortalMCPDocument exposes only verified document metadata and its read reference.
 type PortalMCPDocument struct {
 	PortalMCPHit
 	FileName    string    `json:"file_name"`
@@ -21,6 +22,7 @@ type PortalMCPDocument struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 	MatchRank   int       `json:"match_rank"`
 }
+// PortalMCPDocumentSearchResult reports a bounded, deterministically ranked search.
 type PortalMCPDocumentSearchResult struct {
 	Status    string              `json:"status"`
 	Documents []PortalMCPDocument `json:"documents"`
@@ -41,6 +43,7 @@ func documentMatchRank(query, title, file string) int {
 	return 2
 }
 
+// SearchDocuments matches titles and filenames within the live authorized scope.
 func (s *PortalMCPKnowledge) SearchDocuments(
 	ctx context.Context,
 	ids []string,
