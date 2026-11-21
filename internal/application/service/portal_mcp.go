@@ -332,9 +332,9 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 				if mode == "grep" && !pattern.MatchString(text) {
 					continue
 				}
-				copy := *chunk
-				copy.Content = text
-				hit := portalHit(t, row, &copy)
+				canonical := *chunk
+				canonical.Content = text
+				hit := portalHit(t, row, &canonical)
 				key := hit.Reference + ":" + chunk.ID
 				if local[key] == nil {
 					local[key] = &hit
