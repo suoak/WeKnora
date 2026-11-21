@@ -14,6 +14,7 @@ func TestPortalRoutesAreJWTOnlyAndDoNotDeclareAPIKeyScope(t *testing.T) {
 	g := &rbacGuards{}
 	engine := gin.New()
 	RegisterPortalRoutes(engine.Group("/api/v1"), &handler.PortalHandler{}, g)
+	RegisterNotificationRoutes(engine.Group("/api/v1"), &handler.NotificationHandler{})
 
 	for _, route := range []struct{ method, path string }{
 		{http.MethodGet, "/api/v1/portal/stages"},
@@ -22,6 +23,10 @@ func TestPortalRoutesAreJWTOnlyAndDoNotDeclareAPIKeyScope(t *testing.T) {
 		{http.MethodPost, "/api/v1/portal/spaces/:tenant_id/access-requests"},
 		{http.MethodPost, "/api/v1/portal/spaces/:tenant_id/interaction/resolve"},
 		{http.MethodGet, "/api/v1/me/tenant-access-requests"},
+		{http.MethodGet, "/api/v1/me/notifications"},
+		{http.MethodGet, "/api/v1/me/notifications/unread-count"},
+		{http.MethodPost, "/api/v1/me/notifications/read-all"},
+		{http.MethodPost, "/api/v1/me/notifications/:notification_id/read"},
 		{http.MethodPost, "/api/v1/me/tenant-access-requests/:request_id/cancel"},
 		{http.MethodGet, "/api/v1/tenants/:id/access-requests"},
 		{http.MethodPost, "/api/v1/tenants/:id/access-requests/:request_id/approve"},

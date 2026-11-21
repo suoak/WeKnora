@@ -4,6 +4,12 @@ import { canReviewPortalRequests, defaultPortalStageKey, displayPortalStage, por
 import { buildPortalSpacesPath, portalAccessRequestBody } from '../api/portalContracts'
 import type { PortalSpace } from '@/api/portal'
 
+test('access reasons reject invisible controls and accept multiline Unicode text', () => {
+  for (const text of ['', ' \n\t', '字'.repeat(1001), 'bad\x00text', 'hidden\u202etext']) assert.equal(validAccessReason(text), false)
+  assert.equal(validAccessReason('字'.repeat(1000)), true)
+  assert.equal(validAccessReason('Context\nA legitimate reason\twith detail'), true)
+})
+
 const space = (tenant_id: number, category = 'ntos'): PortalSpace => ({
   tenant_id, category, display_name: `space-${tenant_id}`, description: '', responsible_team: '', contact: '',
   stages: ['design', 'testing'], featured: false, knowledge_base_count: 0, file_count: 0,

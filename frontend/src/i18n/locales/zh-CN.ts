@@ -1,6 +1,8 @@
+import { notificationsZh } from '../notificationMessages'
 import { branding } from '../../config/branding'
 
 export default {
+  notifications: notificationsZh,
   workspaceDefaults: {"title":"空间默认模型","description":"未单独选择模型时继承企业配置。已有知识库和智能体的显式配置保持不变。","inherit":"继承企业默认模型","loadFailed":"加载失败，请重试后编辑。"},
 
   localBrowser: {

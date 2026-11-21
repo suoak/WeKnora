@@ -32,6 +32,7 @@ var versionedSQLiteTables = []string{
 	"tenant_portal_configs",
 	"tenant_portal_stages",
 	"tenant_access_requests",
+	"user_notifications",
 	"model_usage_events",
 	"mcp_usage_events",
 	"usage_resource_links",
@@ -80,7 +81,7 @@ var versionedSQLiteColumns = map[string][]string{
 
 // The full migration runner applies the already accepted personal recovery and
 // application-principal migrations too. Keep their schema assertions above.
-const expectedSQLiteMigrationVersion = 3049
+const expectedSQLiteMigrationVersion = 3050
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)

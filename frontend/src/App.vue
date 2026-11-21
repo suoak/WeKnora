@@ -7,6 +7,7 @@ import ProtectedResourcePreview from '@/components/ProtectedResourcePreview.vue'
 import ManualKnowledgeEditor from '@/components/manual-knowledge-editor.vue'
 import UploadConfirmHost from '@/components/UploadConfirmHost.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useNotificationsStore } from '@/stores/notifications'
 import { useSettingsStore } from '@/stores/settings'
 import { getCurrentUser, userInfoFromApi } from '@/api/auth'
 import { consumePendingTenantSwitchToast } from '@/utils/tenantSwitch'
@@ -31,6 +32,7 @@ const { locale, t, tm } = useI18n()
 const { formatRole, roleIcon } = useRoleLabel()
 const router = useRouter()
 const authStore = useAuthStore()
+const notificationsStore = useNotificationsStore()
 const settingsStore = useSettingsStore()
 
 const tdLocaleMap: Record<string, object> = {
@@ -186,6 +188,11 @@ const handleGlobalOIDCCallback = async () => {
   }
 }
 
+watch(() => authStore.user?.id, () => {
+  notificationsStore.reset()
+  if (authStore.isLoggedIn) void notificationsStore.refresh()
+})
+
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null
 
 // Pending invitations poll: fires once on mount (logged-in case) and
@@ -200,9 +207,11 @@ const startInvitationPolling = () => {
   if (invitationPollTimer || !authStore.isLoggedIn) return
   // Immediate fetch so the badge is correct before the first tick.
   authStore.fetchPendingInvitationCount()
+  void notificationsStore.refresh()
   invitationPollTimer = setInterval(() => {
     if (!authStore.isLoggedIn) return
     authStore.fetchPendingInvitationCount()
+    void notificationsStore.refresh()
   }, INVITATION_POLL_INTERVAL_MS)
 }
 
@@ -220,7 +229,7 @@ watch(
   () => authStore.isLoggedIn,
   (logged) => {
     if (logged) startInvitationPolling()
-    else stopInvitationPolling()
+    else { stopInvitationPolling(); notificationsStore.reset() }
   },
   { immediate: true },
 )

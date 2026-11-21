@@ -45,6 +45,7 @@ func TestPortalStageCatalogContainsOnlyConfiguredIPDStages(t *testing.T) {
 
 func TestCreateAccessRequestAllowsTenantlessUserAndLocksPortalViewer(t *testing.T) {
 	db := newPortalApprovalTestDB(t, "portal-create-request")
+	require.NoError(t, db.Exec(`DROP TABLE tenant_portal_configs`).Error)
 	require.NoError(t, db.Exec(`CREATE TABLE tenant_portal_configs (
 		tenant_id INTEGER PRIMARY KEY, status TEXT, display_name TEXT, description TEXT,
 		category TEXT, responsible_team TEXT, contact TEXT, featured BOOLEAN, display_order INTEGER,
@@ -208,6 +209,7 @@ func TestListTenantAccessRequestsRequiresTargetActiveOwner(t *testing.T) {
 
 func TestResolveInteractionUsesConfiguredOrganizationAndRealActiveTenantAccess(t *testing.T) {
 	db := newPortalApprovalTestDB(t, "portal-interaction")
+	require.NoError(t, db.Exec("DROP TABLE tenant_portal_configs").Error)
 	for _, statement := range []string{
 		`CREATE TABLE tenant_portal_configs (
 			tenant_id INTEGER PRIMARY KEY, status TEXT, interaction_organization_id TEXT)`,
@@ -251,7 +253,7 @@ func newPortalApprovalTestDB(t *testing.T, name string) *gorm.DB {
 	t.Cleanup(func() { _ = sqlDB.Close() })
 	for _, statement := range []string{
 		`CREATE TABLE tenants (id INTEGER PRIMARY KEY, status TEXT, deleted_at DATETIME)`,
-		`CREATE TABLE users (id TEXT PRIMARY KEY, is_active BOOLEAN NOT NULL DEFAULT 1, deleted_at DATETIME)`,
+		`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT, is_active BOOLEAN NOT NULL DEFAULT 1, deleted_at DATETIME)`,
 		`CREATE TABLE tenant_members (
 			id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT NOT NULL, tenant_id INTEGER NOT NULL,
 			role TEXT NOT NULL, status TEXT NOT NULL, invited_by TEXT, joined_at DATETIME,
@@ -269,6 +271,8 @@ func newPortalApprovalTestDB(t *testing.T, name string) *gorm.DB {
 	} {
 		require.NoError(t, db.Exec(statement).Error, statement)
 	}
+	require.NoError(t, db.AutoMigrate(&types.UserNotification{}))
+	require.NoError(t, db.Exec(`CREATE TABLE IF NOT EXISTS tenant_portal_configs (tenant_id INTEGER PRIMARY KEY, display_name TEXT)`).Error)
 	return db
 }
 

@@ -38,7 +38,7 @@ type TenantPortalConfig struct {
 	Contact                   string       `json:"-" gorm:"type:varchar(256)"`
 	Featured                  bool         `json:"-" gorm:"not null;default:false"`
 	DisplayOrder              int          `json:"-" gorm:"not null;default:0"`
-	AllowAccessRequest        bool         `json:"-" gorm:"not null;default:false"`
+	AllowAccessRequest        bool         `json:"-" gorm:"not null"`
 	InteractionOrganizationID *string      `json:"-" gorm:"type:varchar(36)"`
 	CreatedBy                 string       `json:"-" gorm:"type:varchar(36);not null"`
 	UpdatedBy                 string       `json:"-" gorm:"type:varchar(36);not null"`
@@ -68,6 +68,8 @@ const (
 )
 
 type TenantAccessRequest struct {
+	TenantName      string                    `json:"tenant_name" gorm:"->;-:migration"`
+	ReviewerName    string                    `json:"reviewer_name,omitempty" gorm:"->;-:migration"`
 	ID              string                    `json:"id" gorm:"type:varchar(36);primaryKey"`
 	TenantID        uint64                    `json:"tenant_id" gorm:"not null;index"`
 	ApplicantUserID string                    `json:"applicant_user_id" gorm:"type:varchar(36);not null;index"`
@@ -177,6 +179,6 @@ type PortalConfigUpdateRequest struct {
 	Stages                    []string `json:"stages"`
 	Featured                  bool     `json:"featured"`
 	DisplayOrder              int      `json:"display_order"`
-	AllowAccessRequest        bool     `json:"allow_access_request"`
+	AllowAccessRequest        *bool    `json:"allow_access_request"`
 	InteractionOrganizationID *string  `json:"interaction_organization_id"`
 }
