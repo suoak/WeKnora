@@ -562,6 +562,11 @@ func (s *PersonalServer) readTools() []mcp.Tool {
 				"description": "Optional result offset (0..1000); large scopes may be explicitly truncated.",
 			}
 		}
+		// Advertise the same nullable selection accepted at HTTP/tool admission,
+		// so clients that validate arguments locally also accept explicit null.
+		if property, ok := tool.InputSchema.Properties["knowledge_base_ids"].(map[string]any); ok {
+			property["type"] = []string{"array", "null"}
+		}
 	}
 	return tools
 }

@@ -13,6 +13,11 @@ import (
 )
 
 func TestPersonalConsistencyOptionalTargets(t *testing.T) {
+	for _, tool := range NewPersonalServer(false, nil).readTools() {
+		if property, ok := tool.InputSchema.Properties["knowledge_base_ids"].(map[string]any); ok {
+			require.ElementsMatch(t, []string{"array", "null"}, property["type"])
+		}
+	}
 	for _, tool := range []string{"search_knowledge", "grep_chunks", "search_documents", "wiki_search"} {
 		for _, args := range []map[string]any{
 			{},
