@@ -172,7 +172,6 @@ func TestPortalGlobalSearchConcurrentInvalidationDiscardsEveryResult(t *testing.
 			got := <-reply
 			require.Error(t, got.err)
 			require.Nil(t, got.result, "concurrent invalidation must never expose a successful partial response")
-
 		})
 	}
 }
