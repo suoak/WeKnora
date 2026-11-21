@@ -46,7 +46,10 @@ func (l *portalSQLTraceM7) Trace(_ context.Context, _ time.Time, fc func() (stri
 		return
 	}
 	query, _ := fc()
-	if strings.Contains(query, "WITH lexical AS MATERIALIZED") || strings.Contains(query, "WITH authorized AS MATERIALIZED") || strings.Contains(query, "paradedb.score(id) as score") {
+	if strings.Contains(query, "WITH lexical AS MATERIALIZED") ||
+		strings.Contains(query, "WITH authorized AS MATERIALIZED") ||
+		strings.Contains(query, "WITH portal_vector_candidates AS MATERIALIZED") ||
+		strings.Contains(query, "paradedb.score(id) as score") {
 		l.mu.Lock()
 		l.last = query
 		l.mu.Unlock()
