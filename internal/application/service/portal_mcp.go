@@ -421,7 +421,8 @@ func (s *PortalMCPKnowledge) search(
 	outcomes := make([]portalTargetSearchOutcome, len(targets))
 	group, execution := errgroup.WithContext(ctx)
 	group.SetLimit(portalSearchTargetConcurrency)
-	for i, target := range targets {
+	for _, i := range portalSearchOrder(ctx, s.Resolver.Store, targets) {
+		target := targets[i]
 		if execution.Err() != nil {
 			break
 		}
