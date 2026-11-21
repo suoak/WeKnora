@@ -15,7 +15,17 @@ func bulkPortalVector(ctx context.Context) bool {
 	_, _, _, _, exact := types.ExactPublishedDocumentIdentity(ctx)
 	// Exact serving receipts have their own row-bound manifest predicates.
 	// Workspace reads retain their existing source-hold exception as well.
-	return protected && !exact && types.WorkspaceWebReadTenant(ctx) == 0 && !types.LocalSourceContentRead(ctx)
+	return protected && !exact && types.WorkspaceWebReadTenant(ctx) == 0
+}
+
+// HTTP middleware marks platform-serving reads as local. That policy selects
+// the existing source predicate; it must not disable the equivalent scalar
+// vector plan or accidentally replace local policy with connector restrictions.
+func portalBulkSourcePredicate(ctx context.Context) string {
+	if types.LocalSourceContentRead(ctx) {
+		return legacySourceCandidatePredicate(ctx)
+	}
+	return portalOrdinarySourcePredicate()
 }
 
 // A statement-local set, never a process authorization cache. Explicit NULL

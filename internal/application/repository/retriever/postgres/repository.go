@@ -557,7 +557,7 @@ func (g *pgRepository) vectorRetrieve(
 
 	if types.LegacyReadGuardsEnabled(g.db) {
 		if bulkPortal {
-			whereParts = append(whereParts, portalOrdinarySourcePredicate())
+			whereParts = append(whereParts, portalBulkSourcePredicate(ctx))
 		} else {
 			whereParts = append(whereParts, legacySourceCandidatePredicate(ctx))
 		}

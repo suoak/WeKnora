@@ -179,11 +179,13 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 			types.ChunkSourceType).Error)
 		defer func() { require.NoError(t, db.Exec("DELETE FROM embeddings WHERE id=9999").Error) }()
 		for _, public := range []bool{false, true} {
-			for _, sql := range portalVectorEquivalenceQueries(public) {
-				var rows []pgVectorWithScore
-				err := db.Raw(sql, "[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, 2, 1).
-					Scan(&rows).Error
-				require.Error(t, err, "authorized malformed vectors must not become a successful omission")
+			for _, local := range []bool{false, true} {
+				for _, sql := range portalVectorEquivalenceQueries(public, local) {
+					var rows []pgVectorWithScore
+					err := db.Raw(sql, "[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, 2, 1).
+						Scan(&rows).Error
+					require.Error(t, err, "authorized malformed vectors must not become a successful omission")
+				}
 			}
 		}
 	})
@@ -261,27 +263,34 @@ func assertPortalVectorEquivalent(t *testing.T, db *gorm.DB,
 	public bool, threshold float64, limit int, mutation string,
 ) {
 	t.Helper()
-	queries := portalVectorEquivalenceQueries(public)
-	args := []any{"[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, threshold, limit}
-	var before, after []pgVectorWithScore
-	for _, query := range []struct {
-		sql string
-		out *[]pgVectorWithScore
-	}{{queries[0], &before}, {queries[1], &after}} {
-		require.NoError(t, db.Raw(query.sql, args...).Scan(query.out).Error)
+	for _, local := range []bool{false, true} {
+		queries := portalVectorEquivalenceQueries(public, local)
+		args := []any{"[1,0,0]", 1024, 1, types.ChunkSourceType, "kb", "viewer", 200, threshold, limit}
+		var before, after []pgVectorWithScore
+		for _, query := range []struct {
+			sql string
+			out *[]pgVectorWithScore
+		}{{queries[0], &before}, {queries[1], &after}} {
+			require.NoError(t, db.Raw(query.sql, args...).Scan(query.out).Error)
+		}
+		require.Equal(t, before, after, "public=%v local=%v limit=%d threshold=%v mutation=%s",
+			public, local, limit, threshold, mutation)
 	}
-	require.Equal(t, before, after, "public=%v limit=%d threshold=%v mutation=%s", public, limit, threshold, mutation)
 }
 
-func portalVectorEquivalenceQueries(public bool) [2]string {
+func portalVectorEquivalenceQueries(public bool, local ...bool) [2]string {
+	ctx := context.Background()
+	if len(local) == 1 && local[0] {
+		ctx = types.WithLocalSourceContentRead(ctx)
+	}
 	const base = `WHERE embeddings.dimension=$2 AND embeddings.knowledge_base_id IN ($5)
  AND (embeddings.is_enabled IS NULL OR embeddings.is_enabled=true)`
 	privateOld := privateSourceCandidatePredicate("$6")
 	privateNew := portalExcludedSet("embeddings.knowledge_base_id",
 		"SELECT kb_id FROM feishu_private_kbs WHERE kb_id IS NOT NULL AND owner_id <> $6")
 	oldWhere := base + " AND " + portalCanonicalPredicate("$3", public, true) +
-		" AND " + legacySourceCandidatePredicate(context.Background()) + " AND " + privateOld
-	newWhere := base + " AND " + portalOrdinarySourcePredicate() + " AND " + privateNew
+		" AND " + legacySourceCandidatePredicate(ctx) + " AND " + privateOld
+	newWhere := base + " AND " + portalBulkSourcePredicate(ctx) + " AND " + privateNew
 	beforeSQL := fmt.Sprintf(`WITH authorized AS MATERIALIZED (
  SELECT id,%s AS content,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,tag_id,embedding
  FROM embeddings %s)
