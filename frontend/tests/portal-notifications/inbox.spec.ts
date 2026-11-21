@@ -67,6 +67,7 @@ test('mobile dark portal shows a single bell with zero unread messages', async (
   }).toBeLessThanOrEqual(390)
   const close = page.locator('.t-drawer__close-btn').filter({ visible: true })
   await expect(close).toBeVisible()
+  expect(await page.evaluate(() => Boolean(document.elementFromPoint(25, 25)?.closest('.mobile-nav-trigger')))).toBe(false)
   await page.screenshot({ path: 'test-results/portal-notifications/mobile-dark.png', animations: 'disabled' })
   await close.click()
   await expect(page.getByText('我的申请', { exact: true })).not.toBeVisible()

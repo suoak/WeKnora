@@ -5,7 +5,7 @@
       <span v-if="auth.pendingInvitationCount" class="invitation-dot" :title="t('notifications.invitationPending')" />
     </button>
   </t-badge>
-  <t-drawer v-model:visible="visible" :header="t('notifications.title')" :footer="false" :close-btn="true" :z-index="2500" size="min(560px, 100vw)" @close="visible = false">
+  <t-drawer v-model:visible="visible" attach="body" :header="t('notifications.title')" :footer="false" :close-btn="true" :z-index="2500" size="min(560px, 100vw)" @close="visible = false">
     <div class="inbox">
       <t-button variant="outline" @click="openInvitations">{{ t('notifications.invitations') }} ({{ auth.pendingInvitationCount }})</t-button>
       <t-tabs v-model="tab" @change="load">

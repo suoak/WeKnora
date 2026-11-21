@@ -168,7 +168,9 @@ func (s *portalService) CreateAccessRequest(ctx context.Context, userID string, 
 			}
 			return err
 		}
-		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(ctx, request, "access_request_submitted", ""); err != nil {
+		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(
+			ctx, request, "access_request_submitted", "",
+		); err != nil {
 			return err
 		}
 		return NewAuditLogService(repository.NewAuditLogRepository(tx)).Log(ctx, &types.AuditLog{
@@ -324,7 +326,9 @@ func (s *portalService) reviewAccessRequest(ctx context.Context, reviewerID stri
 		if approve {
 			event = "access_request_approved"
 		}
-		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(ctx, request, event, strings.TrimSpace(note)); err != nil {
+		if err := repository.NewNotificationRepository(tx).AccessRequestEvent(
+			ctx, request, event, strings.TrimSpace(note),
+		); err != nil {
 			return err
 		}
 		return txAudit.Log(ctx, &types.AuditLog{

@@ -11,10 +11,12 @@ import (
 	"gorm.io/gorm"
 )
 
+// NotificationHandler exposes the authenticated user inbox.
 type NotificationHandler struct {
 	repo *repository.NotificationRepository
 }
 
+// NewNotificationHandler creates a handler for the persistent inbox.
 func NewNotificationHandler(db *gorm.DB) *NotificationHandler {
 	return &NotificationHandler{repo: repository.NewNotificationRepository(db)}
 }
@@ -32,6 +34,7 @@ func notificationActor(c *gin.Context) (string, bool) {
 	return uid, true
 }
 
+// List returns the authenticated user's paginated notifications.
 func (h *NotificationHandler) List(c *gin.Context) {
 	uid, ok := notificationActor(c)
 	if !ok {
@@ -52,6 +55,7 @@ func (h *NotificationHandler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": rows, "total": total, "page": page, "page_size": size})
 }
 
+// UnreadCount returns the authenticated user's cross-workspace unread total.
 func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	uid, ok := notificationActor(c)
 	if !ok {
@@ -65,6 +69,7 @@ func (h *NotificationHandler) UnreadCount(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"success": true, "data": gin.H{"unread_count": n}})
 }
 
+// MarkRead marks one owned notification or the entire owned inbox read.
 func (h *NotificationHandler) MarkRead(c *gin.Context) {
 	uid, ok := notificationActor(c)
 	if !ok {

@@ -409,7 +409,10 @@ func (r *portalRepository) GetAdminSpace(ctx context.Context, tenantID uint64) (
 	if err != nil {
 		return nil, err
 	}
-	item := &types.PortalAdminSpaceResponse{TenantID: tenant.ID, TenantName: tenant.Name, Status: types.PortalStatusDraft, Stages: stages, AllowAccessRequest: true}
+	item := &types.PortalAdminSpaceResponse{
+		TenantID: tenant.ID, TenantName: tenant.Name, Status: types.PortalStatusDraft,
+		Stages: stages, AllowAccessRequest: true,
+	}
 	if config != nil {
 		item.Status = config.Status
 		item.DisplayName = config.DisplayName

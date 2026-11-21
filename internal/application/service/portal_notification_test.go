@@ -19,12 +19,48 @@ func portalNotificationRequestFixture(t *testing.T) (*gorm.DB, interfaces.Portal
 	require.NoError(t, db.AutoMigrate(&types.TenantPortalConfig{}, &types.TenantPortalStage{}))
 	require.NoError(t, db.Exec("ALTER TABLE tenants ADD COLUMN name TEXT").Error)
 	require.NoError(t, db.Exec("INSERT INTO tenants(id,name,status) VALUES(7,'Portal','active')").Error)
-	require.NoError(t, db.Exec("INSERT INTO users(id,username) VALUES('owner','Owner'),('owner2','Owner Two'),('applicant','Applicant')").Error)
-	require.NoError(t, db.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('owner',7,'owner','active'),('owner2',7,'owner','active')").Error)
-	require.NoError(t, db.Exec("CREATE UNIQUE INDEX uq_pending_request ON tenant_access_requests(tenant_id,applicant_user_id) WHERE status='pending'").Error)
-	require.NoError(t, db.Create(&types.TenantPortalConfig{TenantID: 7, DisplayName: "Portal", Status: types.PortalStatusPublished, AllowAccessRequest: true, CreatedBy: "owner", UpdatedBy: "owner"}).Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"INSERT INTO users(id,username) VALUES('owner','Owner'),('owner2','Owner Two'),('applicant','Applicant')",
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			`INSERT INTO tenant_members(user_id,tenant_id,role,status)
+			VALUES('owner',7,'owner','active'),('owner2',7,'owner','active')`,
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Exec(
+			`CREATE UNIQUE INDEX uq_pending_request
+			ON tenant_access_requests(tenant_id,applicant_user_id) WHERE status='pending'`,
+		).Error,
+	)
+	require.NoError(
+		t,
+		db.Create(
+			&types.TenantPortalConfig{
+				TenantID:           7,
+				DisplayName:        "Portal",
+				Status:             types.PortalStatusPublished,
+				AllowAccessRequest: true,
+				CreatedBy:          "owner",
+				UpdatedBy:          "owner",
+			},
+		).Error,
+	)
 	audit := NewAuditLogService(repository.NewAuditLogRepository(db))
-	return db, NewPortalService(db, repository.NewPortalRepository(db), NewTenantService(repository.NewTenantRepository(db), nil), NewTenantMemberService(repository.NewTenantMemberRepository(db), audit, nil, nil), nil, audit)
+	return db, NewPortalService(
+		db,
+		repository.NewPortalRepository(db),
+		NewTenantService(repository.NewTenantRepository(db), nil),
+		NewTenantMemberService(repository.NewTenantMemberRepository(db), audit, nil, nil),
+		nil,
+		audit,
+	)
 }
 
 func TestPortalRequestNotificationCreationAndRollback(t *testing.T) {
@@ -50,7 +86,10 @@ func TestPortalRequestNotificationCreationAndRollback(t *testing.T) {
 	require.Error(t, err)
 	require.NoError(t, db.Table("tenant_access_requests").Where("status='pending'").Count(&n).Error)
 	require.Zero(t, n)
-	require.NoError(t, db.Table("audit_logs").Where("action = ?", types.AuditActionTenantAccessRequested).Count(&n).Error)
+	require.NoError(
+		t,
+		db.Table("audit_logs").Where("action = ?", types.AuditActionTenantAccessRequested).Count(&n).Error,
+	)
 	require.EqualValues(t, 1, n, "failed creation must not add an audit record")
 }
 
@@ -65,7 +104,12 @@ func TestPortalRequestStateAndTextBoundaries(t *testing.T) {
 	_, err := svc.CreateAccessRequest(ctx, "applicant", 7, "valid")
 	require.ErrorIs(t, err, ErrPortalNotRequestable)
 	require.NoError(t, db.Exec("UPDATE tenant_portal_configs SET allow_access_request=true WHERE tenant_id=7").Error)
-	require.NoError(t, db.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('applicant',7,'viewer','suspended')").Error)
+	require.NoError(
+		t,
+		db.Exec(
+			"INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES('applicant',7,'viewer','suspended')",
+		).Error,
+	)
 	_, err = svc.CreateAccessRequest(ctx, "applicant", 7, "valid")
 	require.ErrorIs(t, err, ErrPortalMembershipSuspended)
 	require.NoError(t, db.Exec("UPDATE tenant_members SET status='active' WHERE user_id='applicant'").Error)
@@ -87,7 +131,12 @@ func TestPortalConfigDefaultsAndExplicitOptOut(t *testing.T) {
 	require.NoError(t, err)
 	require.True(t, config.AllowAccessRequest)
 	closed := false
-	config, err = svc.UpdateConfig(ctx, "owner", 7, &types.PortalConfigUpdateRequest{DisplayName: "Portal", AllowAccessRequest: &closed})
+	config, err = svc.UpdateConfig(
+		ctx,
+		"owner",
+		7,
+		&types.PortalConfigUpdateRequest{DisplayName: "Portal", AllowAccessRequest: &closed},
+	)
 	require.NoError(t, err)
 	require.False(t, config.AllowAccessRequest)
 	config, err = svc.UpdateConfig(ctx, "owner", 7, &types.PortalConfigUpdateRequest{DisplayName: "Portal renamed"})
@@ -102,7 +151,10 @@ func TestPortalReviewNotificationsAreAtomicAndIdempotent(t *testing.T) {
 			seedPortalApproval(t, db, types.TenantMemberStatusActive)
 			svc := &portalService{db: db, repo: repository.NewPortalRepository(db)}
 			for range 2 {
-				require.NoError(t, svc.reviewAccessRequest(context.Background(), "owner", 7, "request-1", "review note", approve))
+				require.NoError(
+					t,
+					svc.reviewAccessRequest(context.Background(), "owner", 7, "request-1", "review note", approve),
+				)
 			}
 			var rows []types.UserNotification
 			require.NoError(t, db.Find(&rows).Error)
@@ -138,18 +190,33 @@ func TestPortalSubmittedNotificationOnlyForAllEffectiveOwners(t *testing.T) {
 	db := newPortalApprovalTestDB(t, "notification-owners")
 	seedPortalApproval(t, db, types.TenantMemberStatusActive)
 	for _, id := range []string{"owner", "owner2", "suspended", "inactive", "admin"} {
-		require.NoError(t, db.Exec("INSERT INTO users(id,username,is_active) VALUES(?,?,?)", id, id, id != "inactive").Error)
+		require.NoError(
+			t,
+			db.Exec("INSERT INTO users(id,username,is_active) VALUES(?,?,?)", id, id, id != "inactive").Error,
+		)
 	}
 	for _, row := range []struct{ id, role, status string }{
-		{"owner2", "owner", "active"}, {"suspended", "owner", "suspended"}, {"inactive", "owner", "active"}, {"admin", "admin", "active"},
+		{"owner2", "owner", "active"},
+		{"suspended", "owner", "suspended"},
+		{"inactive", "owner", "active"},
+		{"admin", "admin", "active"},
 	} {
-		require.NoError(t, db.Exec("INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES(?,7,?,?)", row.id, row.role, row.status).Error)
+		require.NoError(
+			t,
+			db.Exec(
+				"INSERT INTO tenant_members(user_id,tenant_id,role,status) VALUES(?,7,?,?)",
+				row.id,
+				row.role,
+				row.status,
+			).Error,
+		)
 	}
 	var request types.TenantAccessRequest
 	require.NoError(t, db.First(&request, "id = ?", "request-1").Error)
 	for range 2 {
 		require.NoError(t, db.Transaction(func(tx *gorm.DB) error {
-			return repository.NewNotificationRepository(tx).AccessRequestEvent(context.Background(), &request, "access_request_submitted", "")
+			return repository.NewNotificationRepository(tx).
+				AccessRequestEvent(context.Background(), &request, "access_request_submitted", "")
 		}))
 	}
 	var rows []types.UserNotification
