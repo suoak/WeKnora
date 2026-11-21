@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	fixture "github.com/Tencent/WeKnora/internal/testutil/documentaccess"
@@ -233,4 +234,36 @@ func TestPortalConsistencyRequestEmbeddingSingleflight(t *testing.T) {
 	)
 	require.NoError(t, e)
 	require.EqualValues(t, 2, calls.Load())
+}
+
+func TestPortalConsistencyDeadlinePreservesOtherKBHits(t *testing.T) {
+	f, s, base, count := globalPortalSearchFixture(t, 0)
+	var chunk types.Chunk
+	require.NoError(t, f.DB.Where("knowledge_base_id=? AND chunk_type=?",
+		"public-two", types.ChunkTypeText).First(&chunk).Error)
+	s.Engine = func(_ context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+		return portalV1Driver{f: func(ctx context.Context, _ types.RetrieveParams) ([]*types.RetrieveResult, error) {
+			if d.ID == "public-kb" {
+				<-ctx.Done()
+				return nil, ctx.Err()
+			}
+			if d.ID != "public-two" {
+				return nil, nil
+			}
+			return []*types.RetrieveResult{{Results: []*types.IndexWithScore{{
+				KnowledgeID: chunk.KnowledgeID, KnowledgeBaseID: chunk.KnowledgeBaseID,
+				ChunkID: chunk.ID, Content: chunk.Content, SourceType: types.ChunkSourceType,
+			}}}}, nil
+		}}, nil
+	}
+	ctx, cancel := context.WithTimeout(base, 3*time.Second)
+	defer cancel()
+	result, err := s.Search(ctx, nil, "PUBLIC", "keyword", 10)
+	require.NoError(t, err)
+	require.Equal(t, "partial", result.Status)
+	require.Equal(t, 1, result.Failed)
+	require.Equal(t, count-1, result.Searched)
+	require.Len(t, result.Results, 1)
+	require.Equal(t, chunk.KnowledgeID, result.Results[0].DocumentID)
+	require.NoError(t, ctx.Err(), "final fences must run before the parent request expires")
 }

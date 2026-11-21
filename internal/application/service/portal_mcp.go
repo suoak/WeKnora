@@ -235,6 +235,7 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 const (
 	portalSearchTargetConcurrency = 8
 	portalSearchModeTimeout       = 10 * time.Second
+	portalSearchFinalizeReserve   = 5 * time.Second
 )
 
 type portalTargetSearchOutcome struct {
@@ -247,12 +248,23 @@ type portalTargetSearchOutcome struct {
 }
 
 func (s *PortalMCPKnowledge) searchPortalTarget(
-	ctx context.Context, t *access.PortalKBTarget, query, mode string, pattern *regexp.Regexp,
+	ctx, budget context.Context, t *access.PortalKBTarget, query, mode string, pattern *regexp.Regexp,
 ) (portalTargetSearchOutcome, error) {
 	var outcome portalTargetSearchOutcome
+	if budget.Err() != nil {
+		outcome.failed = true
+		outcome.failures = append(outcome.failures,
+			PortalMCPModeDetail{t.Descriptor().ID, mode, "retrieval_budget_exhausted"})
+		return outcome, nil
+	}
 	execution, e := t.SearchContext(ctx)
 	if e != nil {
 		return outcome, e
+	}
+	if deadline, ok := budget.Deadline(); ok {
+		var cancel context.CancelFunc
+		execution, cancel = context.WithDeadline(execution, deadline)
+		defer cancel()
 	}
 	descriptor := t.Descriptor()
 	caps, e := s.Capabilities(execution, descriptor)
@@ -502,6 +514,15 @@ func (s *PortalMCPKnowledge) search(
 		return nil, err
 	}
 	ctx = withPortalQueryEmbeddings(ctx)
+	// Leave time for the existing live authorization and canonical output
+	// fences. A retrieval deadline must not erase already successful KBs.
+	budget := ctx
+	if deadline, ok := ctx.Deadline(); ok {
+		var cancel context.CancelFunc
+		reserve := min(portalSearchFinalizeReserve, time.Until(deadline)/5)
+		budget, cancel = context.WithDeadline(ctx, deadline.Add(-reserve))
+		defer cancel()
+	}
 	result := &PortalMCPSearchResult{
 		Results:         []PortalMCPHit{},
 		Status:          "complete",
@@ -518,16 +539,21 @@ func (s *PortalMCPKnowledge) search(
 	// Each worker owns one target and result slot. Merge only after every worker
 	// exits, so authorization failures discard all in-flight results.
 	outcomes := make([]portalTargetSearchOutcome, len(targets))
+	for i, target := range targets {
+		outcomes[i] = portalTargetSearchOutcome{failed: true, failures: []PortalMCPModeDetail{
+			{target.Descriptor().ID, mode, "retrieval_budget_exhausted"},
+		}}
+	}
 	group, execution := errgroup.WithContext(ctx)
 	group.SetLimit(portalSearchTargetConcurrency)
 	for _, i := range portalSearchOrder(ctx, s.Resolver.Store, targets) {
 		target := targets[i]
-		if execution.Err() != nil {
+		if execution.Err() != nil || budget.Err() != nil {
 			break
 		}
 		group.Go(func() error {
 			var targetErr error
-			outcomes[i], targetErr = s.searchPortalTarget(execution, target, query, mode, pattern)
+			outcomes[i], targetErr = s.searchPortalTarget(execution, budget, target, query, mode, pattern)
 			return targetErr
 		})
 	}
