@@ -30,6 +30,8 @@ const (
 	WikiCandidates
 	WikiOutputProof
 	SearchWorkQueue
+	CandidateCompute
+	CandidateJoin
 	stageCount
 )
 
@@ -46,6 +48,7 @@ var names = [stageCount]string{
 	"auth", "resolve", "snapshot", "dimension_sql", "bm25_sql", "vector_sql", "embedding", "merge", "serialize",
 	"usage_analytics", "wiki_source_proof", "wiki_candidates", "wiki_output_proof",
 	"search_work_queue",
+	"candidate_compute", "candidate_join",
 }
 
 // Trace belongs to one HTTP request; no user ID, query, result, or Key is stored.

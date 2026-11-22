@@ -3,7 +3,6 @@ package access
 import (
 	"context"
 	"fmt"
-	"reflect"
 	"strings"
 	"time"
 
@@ -157,7 +156,7 @@ func (r *EnterprisePublicReader) Revalidate(ctx context.Context, grant *Enterpri
 	if err != nil {
 		return err
 	}
-	if fresh.userID != grant.userID || fresh.keyID != grant.keyID || !reflect.DeepEqual(fresh.snapshot, grant.snapshot) {
+	if fresh.userID != grant.userID || fresh.keyID != grant.keyID || !samePortalSnapshot(fresh.snapshot, grant.snapshot) {
 		return ErrForbidden
 	}
 	return nil

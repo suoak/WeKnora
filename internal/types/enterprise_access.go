@@ -90,6 +90,9 @@ type EnterpriseDocumentState struct {
 }
 
 type EnterpriseReadSnapshot struct {
+	// CandidateEpoch is only an in-flight computation discriminator. It is not
+	// an authorization grant and must not replace any live policy comparison.
+	CandidateEpoch  string `json:"-"`
 	UserID          string
 	UserActive      bool
 	Credential      EnterpriseCredential

@@ -32,10 +32,25 @@ type portalBatchReply struct {
 // A request-local adapter over the existing retriever. The coordinator still
 // ranks and validates every KB independently; only identical SQL work is merged.
 type portalBatchEngine struct {
-	engine  access.DocumentRetriever
-	targets []*access.PortalKBTarget
-	mu      sync.Mutex
-	calls   map[string]*portalBatchReply
+	engine                access.DocumentRetriever
+	targets               []*access.PortalKBTarget
+	mu                    sync.Mutex
+	calls                 map[string]*portalBatchReply
+	shared                *portalCandidateWork
+	scope, request, batch [32]byte
+}
+
+type portalCandidateRequestKey struct{}
+
+func withPortalCandidateRequest(ctx context.Context, query, mode string, limit int) context.Context {
+	if mode == "grep" {
+		return context.WithValue(ctx, portalCandidateRequestKey{}, false)
+	}
+	encoded, _ := json.Marshal(struct {
+		Query, Mode string
+		Limit       int
+	}{query, mode, limit})
+	return context.WithValue(ctx, portalCandidateRequestKey{}, sha256.Sum256(encoded))
 }
 
 func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*access.PortalKBTarget) context.Context {
@@ -58,12 +73,27 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 		buckets[key] = append(buckets[key], target)
 	}
 	engines := make(map[string]access.DocumentRetriever)
+	scope, scoped := access.PortalCandidateIdentity(ctx, targets)
+	request, requested := ctx.Value(portalCandidateRequestKey{}).([32]byte)
+	if scoped && requested {
+		s.candidateOnce.Do(func() { s.candidateWork = newPortalCandidateWork() })
+	}
 	for key, bucket := range buckets {
 		// Bound materialized lexical work without selecting or dropping KBs.
 		// Unlike a global TopK, each batch retains 100 candidates per KB/mode.
 		for start := 0; start < len(bucket); start += 8 {
 			part := bucket[start:min(start+8, len(bucket))]
 			batch := &portalBatchEngine{engine: key.engine, targets: part, calls: make(map[string]*portalBatchReply)}
+			// Only ordinary Published public candidates are shared. Private and
+			// exact-receipt computation retains its independent existing path.
+			if scoped && requested && key.public {
+				ids := make([]string, len(part))
+				for i, t := range part {
+					ids[i] = t.Descriptor().ID
+				}
+				encoded, _ := json.Marshal(ids)
+				batch.shared, batch.scope, batch.request, batch.batch = s.candidateWork, scope, request, sha256.Sum256(encoded)
+			}
 			for _, target := range part {
 				engines[target.Descriptor().ID] = batch
 			}
@@ -181,6 +211,11 @@ func (b *portalBatchEngine) Retrieve(
 }
 
 func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveParams, call *portalBatchReply) {
+	if b.shared != nil {
+		// Every joining request issues its own live group certificate. Never
+		// substitute the worker's snapshot for the follower's authorization.
+		ctx = access.WithPortalSnapshotReads(access.WithoutPortalSnapshotReads(ctx))
+	}
 	group, err := access.PortalGroupSearchContext(ctx, b.targets)
 	if err != nil {
 		if canceled := ctx.Err(); canceled != nil {
@@ -198,7 +233,25 @@ func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveP
 		params.KnowledgeBaseIDs = append(params.KnowledgeBaseIDs, id)
 		byKB[id] = target
 	}
-	rows, err := b.engine.Retrieve(group, params)
+	var rows []*types.RetrieveResult
+	if b.shared == nil {
+		rows, err = b.engine.Retrieve(group, params)
+	} else {
+		params, err = access.GuardPortalRetrieval(group, b.engine.EngineType(), params)
+		if err == nil {
+			var encoded []byte
+			encoded, err = json.Marshal(params)
+			if err == nil {
+				key := portalCandidateKey{b.engine, b.scope, b.request, b.batch, sha256.Sum256(encoded)}
+				rows, err = b.shared.do(group, key, func(work context.Context) ([]*types.RetrieveResult, error) {
+					return b.engine.Retrieve(work, params)
+				})
+				if errors.Is(err, errPortalCandidateCapacity) {
+					rows, err = b.engine.Retrieve(group, params)
+				}
+			}
+		}
+	}
 	for _, row := range rows {
 		if row != nil && row.Error != nil {
 			err = row.Error

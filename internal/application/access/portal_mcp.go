@@ -335,7 +335,7 @@ func (t *PortalKBTarget) Revalidate(ctx context.Context) error {
 		if e != nil {
 			return e
 		}
-		if !reflect.DeepEqual(fresh, t.privateSnapshot) {
+		if !samePortalSnapshot(fresh, t.privateSnapshot) {
 			return ErrForbidden
 		}
 		if e := checkLiveDocumentCredential(fresh, p.ID, t.credential.KeyID, true); e != nil {
