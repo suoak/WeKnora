@@ -192,6 +192,23 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 			}
 		}
 	})
+	t.Run("synthetic_identity_prefilter_preserves_exact_ranks", func(t *testing.T) {
+		// Generated questions share source_type and chunk metadata with canonical
+		// rows, but their source identity can never satisfy the canonical proof.
+		// Include nearest, malformed and NULL vectors; only canonical rows may
+		// reach distance evaluation, and no authorized farther row may disappear.
+		require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (id,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ SELECT n,'chunk-question-' || n,?,'chunk','doc','kb','ordinary text',1024,true,
+ CASE WHEN n%3=0 THEN '[1,0]'::halfvec WHEN n%3=1 THEN '[1,0,0]'::halfvec ELSE NULL END
+ FROM generate_series(2000,2250) n`, types.ChunkSourceType).Error)
+		defer func() { require.NoError(t, db.Exec("DELETE FROM embeddings WHERE id BETWEEN 2000 AND 2250").Error) }()
+		for _, public := range []bool{false, true} {
+			for _, limit := range []int{1, 3, 100} {
+				assertPortalVectorEquivalent(t, db, public, 2, limit, "synthetic identities cannot affect exact TopK")
+			}
+		}
+	})
 	for _, mutation := range []string{
 		"SELECT 1",
 		`INSERT INTO feishu_legacy_resources VALUES(NULL,'hold'),('foreign','revoked')`,

@@ -57,6 +57,10 @@ func portalVectorSQL(dimension int, tenantPlaceholder, chunkScope, whereClause s
 	// Detoast an unconstrained halfvec once for dimension and distance checks.
 	// Invalid dimensions sort first but raise an error only after authorization;
 	// an untrusted malformed index row must not break another document's search.
+	// Generated questions have a different source ID from their canonical chunk.
+	// The final proof already requires both IDs to equal acl_c.id. Apply this
+	// necessary scalar condition before detoasting/distance calculation as well;
+	// it cannot discard any row that could pass that proof, even during updates.
 	if chunkScope != "" {
 		chunkScope = " AND " + chunkScope
 	}
@@ -69,6 +73,7 @@ func portalVectorSQL(dimension int, tenantPlaceholder, chunkScope, whereClause s
  FROM embeddings JOIN LATERAL (
  SELECT halfvec(embeddings.embedding,-1,false) AS embedding OFFSET 0
  ) vector_payload ON true %s AND embeddings.source_type=%s
+ AND embeddings.source_id=embeddings.chunk_id
 )
  SELECT proof.id,proof.content,proof.source_id,proof.source_type,proof.chunk_id,
  proof.knowledge_id,proof.knowledge_base_id,proof.tag_id,
