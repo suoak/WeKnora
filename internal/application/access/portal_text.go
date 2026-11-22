@@ -10,6 +10,7 @@ import (
 
 var (
 	portalImage         = regexp.MustCompile(`!\[[^\]\r\n]*\]\([^\r\n]*?\)|!\[[^\]\r\n]*\]\[[^\]\r\n]*\]`)
+	portalImageLabel    = regexp.MustCompile(`!\[[^\]\r\n]*\]`)
 	portalLink          = regexp.MustCompile(`\[([^\]\r\n]*)\]\([^\r\n]*?\)|\[([^\]\r\n]*)\]\[[^\]\r\n]*\]`)
 	portalDefinition    = regexp.MustCompile(`(?m)^\s{0,3}\[[^\]\r\n]+\]:[^\r\n]*`)
 	portalEntity        = regexp.MustCompile(`&(?:#[xX][0-9a-fA-F]+;?|#[0-9]+;?|[A-Za-z][A-Za-z0-9]*;?)`)
@@ -39,6 +40,11 @@ func SanitizePortalText(text string) (string, error) {
 		marker  string
 	}{
 		{portalImage, "[image omitted]"},
+		// PDF extraction can leave a closed image label without a destination.
+		// Remove the whole label, including encoded forms, rather than exposing
+		// Markdown image syntax or failing every other authorized grep result.
+		// Unclosed labels remain rejected by the strict final predicate.
+		{portalImageLabel, "[image omitted]"},
 		{portalLink, ""},
 		{portalDefinition, "[link omitted]"},
 		{portalLocation, "[link omitted]"},

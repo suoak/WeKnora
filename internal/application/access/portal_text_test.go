@@ -44,6 +44,35 @@ func TestPortalV1TextProjection(t *testing.T) {
 	require.False(t, SafeDocumentText("https://example.test"))
 }
 
+func TestPortalV1ClosedImageLabelsRemainInert(t *testing.T) {
+	for _, input := range []string{
+		"PDF ![2] extracted figure caption\nordinary technical text",
+		"PDF !&#91;2&#93; extracted figure caption",
+		"PDF !%5B2%5D extracted figure caption",
+		"![https://files.invalid/?token=SECRET] safe caption",
+		"![image]\nhttps://files.invalid/?token=SECRET safe caption",
+		"![image] /api/download?token=SECRET safe caption",
+		"![image](https://files.invalid/?token=SECRET) safe caption",
+	} {
+		text, err := SanitizePortalText(input)
+		require.NoError(t, err)
+		require.Contains(t, text, "[image omitted]")
+		require.NotContains(t, text, "![")
+		require.NotContains(t, text, "SECRET")
+		require.NotContains(t, text, "files.invalid")
+		require.True(t, SafeDocumentText(text))
+		again, err := SanitizePortalText(text)
+		require.NoError(t, err)
+		require.Equal(t, text, again)
+		require.Error(t, ValidatePortalQuery(input), "redaction must never authorize a query destination")
+		require.False(t, SafeDocumentText(input), "the legacy guard remains strict")
+	}
+	for _, input := range []string{"![unfinished", "![split\nlabel]", "![label]\x00", "![label]%00", "![label]%252525253A"} {
+		_, err := SanitizePortalText(input)
+		require.Error(t, err)
+	}
+}
+
 func TestPortalTechnicalTextFidelity(t *testing.T) {
 	for _, input := range []string{
 		"| **NETCONF 操作** | `<edit-config>`, `<get-config>` | `<get>` |",

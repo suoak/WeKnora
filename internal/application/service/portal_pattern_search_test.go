@@ -58,6 +58,21 @@ func TestPortalPatternSearchFiltersCanonicalChunksAndRetainsRevocation(t *testin
 	result, err = s.SearchPattern(ctx, []string{"public-kb"}, "timeout deadline", pattern, 10)
 	require.NoError(t, err)
 	require.Empty(t, result.Results, "keyword candidates must still satisfy the regex on canonical text")
+	for _, text := range []string{
+		"PDF ![2] ordinary figure caption",
+		"PDF ![2] timeout on port 443",
+	} {
+		require.NoError(t, f.DB.Model(&types.Chunk{}).Where("id=?", chunk.ID).Update("content", text).Error)
+		result, err = s.SearchPattern(ctx, []string{"public-kb"}, "timeout deadline", pattern, 10)
+		require.NoError(t, err, "a destination-free closed PDF image label must not abort grep")
+		require.Equal(t, "complete", result.Status)
+		if pattern.MatchString(text) {
+			require.Len(t, result.Results, 1)
+			require.Equal(t, "PDF [image omitted] timeout on port 443", result.Results[0].Text)
+		} else {
+			require.Empty(t, result.Results)
+		}
+	}
 	require.NoError(t, f.DB.Exec("UPDATE tenant_api_keys SET revoked_at=CURRENT_TIMESTAMP WHERE id=1").Error)
 	_, err = s.SearchPattern(ctx, []string{"public-kb"}, "timeout deadline", pattern, 10)
 	require.Error(t, err)
