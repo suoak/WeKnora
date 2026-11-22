@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
@@ -11,6 +12,49 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
+
+func TestPortalLexicalOrderedIdentityPreservesAuthorizedTopKPostgres(t *testing.T) {
+	db, err := gorm.Open(postgres.Open(feishulegacy.PrivateDSN(t)), &gorm.Config{})
+	require.NoError(t, err)
+	pool, err := db.DB()
+	require.NoError(t, err)
+	t.Cleanup(func() { _ = pool.Close() })
+	require.NoError(t, db.Exec(`CREATE TABLE embeddings(id bigint PRIMARY KEY,content text,
+ knowledge_base_id text,knowledge_id text,source_id text,chunk_id text,allowed bool);
+INSERT INTO embeddings VALUES(1,'needle ordinary','kb','doc','chunk','chunk',true),
+(2,'needle denied','kb','doc','denied','denied',false),
+(3,'needle sibling','other-kb','other-doc','other','other',true);
+INSERT INTO embeddings SELECT n,repeat('needle ',10),'kb','doc','question-'||n,'chunk',true
+FROM generate_series(1000,1250)n;
+CREATE INDEX portal_ordered_identity_bm25 ON embeddings
+USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
+	r := &pgRepository{db: db}
+	conditions := []clause.Expression{
+		clause.Expr{SQL: "embeddings.allowed AND embeddings.source_id=embeddings.chunk_id"},
+		clause.Eq{Column: "embeddings.knowledge_base_id", Value: "kb"},
+	}
+	params := types.RetrieveParams{Query: "needle", KnowledgeBaseIDs: []string{"kb"}, TopK: 100}
+	sql, vars, err := r.portalOrderedKeywordSQL(context.Background(), params, conditions,
+		[]string{"paradedb.score(id) AS score", "id", "knowledge_base_id"})
+	require.NoError(t, err)
+	baseline := strings.Replace(sql, " AND source_id=chunk_id ORDER BY score DESC,id)",
+		" ORDER BY score DESC,id)", 1)
+	require.NotEqual(t, baseline, sql)
+	type scored struct {
+		ID    int64
+		Score float64
+	}
+	var before, after []scored
+	for _, query := range []struct {
+		sql string
+		out *[]scored
+	}{{baseline, &before}, {sql, &after}} {
+		require.NoError(t, db.Raw("?", clause.Expr{SQL: query.sql, Vars: vars}).Scan(query.out).Error)
+	}
+	require.Equal(t, before, after, "candidate IDs, order and exact BM25 scores must remain identical")
+	require.Len(t, after, 1, "synthetic and denied candidates cannot consume the authorized limit")
+	require.Equal(t, int64(1), after[0].ID)
+}
 
 func TestPortalLexicalNumericScopeNative(t *testing.T) {
 	db, err := gorm.Open(postgres.Open(feishulegacy.PrivateDSN(t)), &gorm.Config{})

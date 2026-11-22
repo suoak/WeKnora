@@ -30,8 +30,11 @@ func (g *pgRepository) portalOrderedKeywordSQL(
 	if err != nil {
 		return "", nil, err
 	}
+	// The canonical proof already binds both source_id and chunk_id to the
+	// same current chunk. Exclude synthetic identities before materialization
+	// and per-KB proof probes too; no authoritative predicate or LIMIT moves.
 	cte := "WITH lexical AS MATERIALIZED (SELECT id,knowledge_base_id,paradedb.score(id) AS score " +
-		"FROM embeddings WHERE " + where + " ORDER BY score DESC,id) "
+		"FROM embeddings WHERE " + where + " AND source_id=chunk_id ORDER BY score DESC,id) "
 	selection := "SELECT proof.* FROM lexical JOIN LATERAL (" + proof.SQL.String() + " OFFSET 0) proof ON true "
 	vars = append(vars, params.TopK)
 	limit := fmt.Sprintf("$%d", len(vars))
