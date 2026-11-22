@@ -82,6 +82,10 @@ func (s *PortalMCPKnowledge) Resolve(ctx context.Context, ids []string) ([]*acce
 }
 
 func validatePortalTargets(ctx context.Context, ts []*access.PortalKBTarget) error {
+	// This is a NEW live output boundary, never the candidate phase's cache.
+	// The same KB is checked by public admission and both document operations;
+	// share that boundary's immutable facts without sharing across consumers.
+	ctx = access.WithPortalSnapshotReads(access.WithoutPortalSnapshotReads(ctx))
 	for _, t := range ts {
 		if err := t.Revalidate(ctx); err != nil {
 			return err
@@ -568,8 +572,9 @@ func (s *PortalMCPKnowledge) search(
 		}}
 	}
 	group, execution := errgroup.WithContext(ctx)
-	group.SetLimit(portalSearchTargetConcurrency)
-	for _, i := range portalSearchOrder(ctx, s.Resolver.Store, targets) {
+	group.SetLimit(portalBatchConcurrency(ctx))
+	order := portalBatchOrder(ctx, targets, portalSearchOrder(ctx, s.Resolver.Store, targets))
+	for _, i := range order {
 		target := targets[i]
 		if execution.Err() != nil || budget.Err() != nil {
 			break

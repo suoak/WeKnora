@@ -224,6 +224,9 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(independentBody), &independentValue))
 	require.Equal(t, independentValue, groupedValue,
 		"real grouped BM25/vector results and RRF scores must equal per-KB execution")
+	if os.Getenv("KNOWHUB_MCP_FULLSCOPE_LOAD") == "1" {
+		exerciseFullScopePostgresLoad(t, g, db, create)
+	}
 	// A real PostgreSQL keyword result survives an independent model outage.
 	embed := s.Embed
 	s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {

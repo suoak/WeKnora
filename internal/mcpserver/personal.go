@@ -312,7 +312,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 				return nil, err
 			}
 			retry := false
-			verification := access.WithoutPortalSnapshotReads(ctx)
+			verification := access.WithPortalSnapshotReads(access.WithoutPortalSnapshotReads(ctx))
 			for _, t := range targets {
 				if e := t.Revalidate(verification); e != nil {
 					if attempt == 0 && errors.Is(e, types.ErrLegacySourceRestricted) {

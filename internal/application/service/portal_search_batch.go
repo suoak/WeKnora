@@ -63,9 +63,6 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 		// Unlike a global TopK, each batch retains 100 candidates per KB/mode.
 		for start := 0; start < len(bucket); start += 8 {
 			part := bucket[start:min(start+8, len(bucket))]
-			if len(part) < 2 {
-				continue
-			}
 			batch := &portalBatchEngine{engine: key.engine, targets: part, calls: make(map[string]*portalBatchReply)}
 			for _, target := range part {
 				engines[target.Descriptor().ID] = batch
@@ -73,6 +70,49 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 		}
 	}
 	return context.WithValue(ctx, portalBatchEnginesKey{}, engines)
+}
+
+func portalBatchConcurrency(ctx context.Context) int {
+	engines, _ := ctx.Value(portalBatchEnginesKey{}).(map[string]access.DocumentRetriever)
+	if len(engines) > 0 {
+		// Reuse the existing Store fan-out budget. Sixteen admitted MCP calls
+		// must not each open eight expensive PostgreSQL tasks against a 100-
+		// connection server. This leaves the user/global admission pools intact.
+		return defaultMultiStoreFanoutLimit
+	}
+	return portalSearchTargetConcurrency
+}
+
+func portalBatchOrder(ctx context.Context, targets []*access.PortalKBTarget, order []int) []int {
+	engines, _ := ctx.Value(portalBatchEnginesKey{}).(map[string]access.DocumentRetriever)
+	if len(engines) == 0 {
+		return order
+	}
+	var buckets [][]int
+	positions := make(map[access.DocumentRetriever]int)
+	for _, i := range order {
+		engine := engines[targets[i].Descriptor().ID]
+		if engine == nil {
+			buckets = append(buckets, []int{i})
+			continue
+		}
+		position, found := positions[engine]
+		if !found {
+			position = len(buckets)
+			positions[engine] = position
+			buckets = append(buckets, nil)
+		}
+		buckets[position] = append(buckets[position], i)
+	}
+	result := make([]int, 0, len(order))
+	for round := 0; len(result) < len(order); round++ {
+		for _, bucket := range buckets {
+			if round < len(bucket) {
+				result = append(result, bucket[round])
+			}
+		}
+	}
+	return result
 }
 
 func (s *PortalMCPKnowledge) portalSearchEngine(
