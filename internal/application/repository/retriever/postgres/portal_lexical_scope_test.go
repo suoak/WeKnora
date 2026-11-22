@@ -20,11 +20,12 @@ func TestPortalLexicalNumericScopeNative(t *testing.T) {
 	t.Cleanup(func() { _ = pool.Close() })
 	require.NoError(t, db.Exec(`CREATE TABLE knowledges(id text PRIMARY KEY,tenant_id bigint,knowledge_base_id text);
 CREATE TABLE knowledge_bases(id text PRIMARY KEY,tenant_id bigint,deleted_at timestamptz);
-INSERT INTO knowledge_bases VALUES('kb',1,NULL);
+INSERT INTO knowledge_bases VALUES('kb',1,NULL),('sibling',1,NULL),('foreign-kb',2,NULL);
 CREATE TABLE embeddings(id bigint PRIMARY KEY,content text,knowledge_base_id text,knowledge_id text,allowed bool);
 INSERT INTO knowledges VALUES('doc',1,'kb'),('other',1,'kb'),('foreign',2,'kb');
 INSERT INTO embeddings VALUES(1,'needle alpha','kb','doc',true),(2,repeat('needle ',20),'kb','doc',false),
-(3,'needle','kb','other',true),(4,'needle','kb','foreign',true);
+(3,'needle','kb','other',true),(4,'needle','kb','foreign',true),
+(5,'needle sibling','sibling','sibling-doc',true),(6,'needle foreign','foreign-kb','foreign-doc',true);
 INSERT INTO embeddings SELECT n,'needle','global','outside',true FROM generate_series(10,1010)n;
 CREATE INDEX portal_lexical_bm25 ON embeddings
 USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
@@ -77,6 +78,26 @@ SELECT * FROM lexical WHERE id IN(1,2) ORDER BY id`, "needle").Scan(&baseline).E
 	)
 	require.NoError(t, err)
 	require.Equal(t, "{1,2,3,4}", all[1], "coarse KB corpus; document authority remains in the outer relation")
+	group := types.RetrieveParams{KnowledgeBaseIDs: []string{"kb", "sibling", "foreign-kb"}}
+	groupWhere, groupVars, err := r.portalLexicalSearchScope(
+		context.Background(), 1, "content ||| $1", []interface{}{"needle"}, group,
+	)
+	require.NoError(t, err)
+	require.Equal(t, "{1,2,3,4,5}", groupVars[1], "batch IDs retain all same-tenant KBs and exclude foreign tenants")
+	groupCTE := "WITH lexical AS MATERIALIZED (SELECT id,paradedb.score(id) score FROM embeddings WHERE " +
+		groupWhere + ") "
+	groupRaw := func(sql string) *gorm.DB { return db.Raw("?", clause.Expr{SQL: sql, Vars: groupVars}) }
+	var grouped, expected []scored
+	require.NoError(t, groupRaw(groupCTE+"SELECT id,score FROM lexical ORDER BY id").Scan(&grouped).Error)
+	require.NoError(t, db.Raw(`WITH lexical AS MATERIALIZED(
+SELECT id,paradedb.score(id) score FROM embeddings WHERE content ||| ?)
+SELECT id,score FROM lexical WHERE id IN(1,2,3,4,5) ORDER BY id`, "needle").Scan(&expected).Error)
+	require.Equal(t, expected, grouped, "batched numeric postings preserve text scores and the full candidate set")
+	var groupPlan []byte
+	require.NoError(t, groupRaw("EXPLAIN(FORMAT JSON) "+groupCTE+"SELECT count(*) FROM lexical").
+		Row().Scan(&groupPlan))
+	require.Contains(t, string(groupPlan), "term_set")
+	require.NotContains(t, string(groupPlan), "heap_filter", "grouping must not restore a global postings scan")
 	foreign, _, err := r.portalLexicalSearchScope(
 		context.Background(), 2, "content ||| $1", []interface{}{"needle"}, params)
 	require.NoError(t, err)
@@ -111,6 +132,19 @@ SELECT * FROM lexical WHERE id IN(1,2) ORDER BY id`, "needle").Scan(&baseline).E
 		"oversized corpora retain the full original path instead of truncation",
 	)
 	require.Contains(t, fallback, "knowledge_base_id IN")
+	group.KnowledgeBaseIDs = []string{"kb", "sibling"}
+	groupFallback, fallbackVars, err := r.portalLexicalSearchScope(
+		context.Background(), 1, "content ||| $1", []interface{}{"needle"}, group,
+	)
+	require.NoError(t, err)
+	require.NotContains(t, groupFallback, "term_set")
+	var fullCount int64
+	require.NoError(t, db.Raw("?", clause.Expr{
+		SQL:  "SELECT count(*) FROM embeddings WHERE " + groupFallback,
+		Vars: fallbackVars,
+	}).Scan(&fullCount).Error)
+	require.Greater(t, fullCount, int64(maxPortalLexicalCandidateIDs),
+		"an oversized group must never truncate candidates")
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, _, err = r.portalLexicalSearchScope(canceled, 1, "content ||| $1", []interface{}{"needle"}, params)
