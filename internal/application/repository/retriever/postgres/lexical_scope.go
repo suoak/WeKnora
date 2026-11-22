@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -85,7 +86,10 @@ func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint
 	if len(params.KnowledgeIDs) > 0 {
 		q = q.Where("e.knowledge_id IN ?", params.KnowledgeIDs)
 	}
-	if err := q.Order("e.id").Limit(maxPortalLexicalCandidateIDs+1).Pluck("e.id", &ids).Error; err != nil {
+	// Order is irrelevant when the corpus exceeds the bound: all sampled IDs
+	// are discarded and the complete KB predicate is retained. Ordering before
+	// LIMIT can force a global primary-key scan instead of the scoped access path.
+	if err := q.Limit(maxPortalLexicalCandidateIDs+1).Pluck("e.id", &ids).Error; err != nil {
 		return "", nil, err
 	}
 	if len(ids) > maxPortalLexicalCandidateIDs {
@@ -96,6 +100,9 @@ func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint
 	if len(ids) == 0 {
 		return where + " AND FALSE", vars, nil
 	}
+	// A non-overflowing read contains the entire set. Preserve the original
+	// ascending term-set input, including its score and tie behavior.
+	slices.Sort(ids)
 	values := make([]string, len(ids))
 	for i, id := range ids {
 		values[i] = strconv.FormatInt(id, 10)
