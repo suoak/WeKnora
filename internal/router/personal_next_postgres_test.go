@@ -57,7 +57,9 @@ func (e *countedPortalCandidateEngine) EngineType() types.RetrieverEngineType {
 	return types.PostgresRetrieverEngineType
 }
 
-func (e *countedPortalCandidateEngine) Retrieve(ctx context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
+func (e *countedPortalCandidateEngine) Retrieve(
+	ctx context.Context, p types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
 	e.mu.Lock()
 	engine, gate := e.engine, e.gate
 	e.mu.Unlock()
@@ -91,7 +93,9 @@ type countedPortalCandidateChunks struct {
 	reads atomic.Int32
 }
 
-func (c *countedPortalCandidateChunks) GetChunkByID(ctx context.Context, tenant uint64, id string) (*types.Chunk, error) {
+func (c *countedPortalCandidateChunks) GetChunkByID(
+	ctx context.Context, tenant uint64, id string,
+) (*types.Chunk, error) {
 	c.reads.Add(1)
 	return c.ChunkRepository.GetChunkByID(ctx, tenant, id)
 }
@@ -376,7 +380,8 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		require.EqualValues(t, 2, observed.calls.Load(), "one real BM25 and one vector computation for both requests")
 		require.EqualValues(t, 1, groupedKeywords.Load())
 		require.EqualValues(t, 1, groupedVectors.Load())
-		require.GreaterOrEqual(t, reader.reads.Load(), int32(4), "each request must read its own final canonical chunks")
+		require.GreaterOrEqual(t, reader.reads.Load(), int32(4),
+			"each request must read its own final canonical chunks")
 		a2 := create("A", 1, "dynamic_all")
 		for _, tokens := range [][2]string{{a.Token, a2.Token}, {a.Token, b.Token}} {
 			observed.calls.Store(0)
@@ -398,7 +403,8 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		out := make(chan *httptest.ResponseRecorder, 2)
 		go func() { out <- perform(a.Token, args, context.Background()) }()
 		require.Eventually(t, func() bool { return observed.calls.Load() == 1 }, time.Second, time.Millisecond)
-		require.NoError(t, db.Exec("UPDATE tenant_api_keys SET last_used_at=last_used_at WHERE id=?", a.APIKey.ID).Error)
+		require.NoError(t, db.Exec("UPDATE tenant_api_keys SET last_used_at=last_used_at WHERE id=?",
+			a.APIKey.ID).Error)
 		go func() { out <- perform(a.Token, args, context.Background()) }()
 		require.Eventually(t, func() bool { return observed.calls.Load() == 2 }, time.Second, time.Millisecond)
 		close(gate)
@@ -417,7 +423,8 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		go func() { out <- perform(revoked.Token, args, context.Background()) }()
 		go func() { out <- perform(revoked.Token, args, context.Background()) }()
 		require.Eventually(t, func() bool { return observed.calls.Load() > 0 }, time.Second, time.Millisecond)
-		require.NoError(t, keys.(interfaces.UserMCPAPIKeyService).RevokeUserMCPAPIKey(context.Background(), "A", revoked.APIKey.ID))
+		require.NoError(t, keys.(interfaces.UserMCPAPIKeyService).
+			RevokeUserMCPAPIKey(context.Background(), "A", revoked.APIKey.ID))
 		close(gate)
 		for range 2 {
 			reply := <-out

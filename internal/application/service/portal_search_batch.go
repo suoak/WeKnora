@@ -92,7 +92,8 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 					ids[i] = t.Descriptor().ID
 				}
 				encoded, _ := json.Marshal(ids)
-				batch.shared, batch.scope, batch.request, batch.batch = s.candidateWork, scope, request, sha256.Sum256(encoded)
+				batch.shared, batch.scope = s.candidateWork, scope
+				batch.request, batch.batch = request, sha256.Sum256(encoded)
 			}
 			for _, target := range part {
 				engines[target.Descriptor().ID] = batch

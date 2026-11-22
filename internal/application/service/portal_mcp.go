@@ -408,7 +408,8 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 					key := hit.Reference + ":" + candidate.ChunkID
 					if modeHits[key] == nil {
 						modeHits[key] = &hit
-					} else if portalContentDigest(modeHits[key].Text, modeHits[key].canonicalDigest) != portalContentDigest(hit.Text, hit.canonicalDigest) {
+					} else if portalContentDigest(modeHits[key].Text, modeHits[key].canonicalDigest) !=
+						portalContentDigest(hit.Text, hit.canonicalDigest) {
 						return outcome, access.ErrForbidden
 					} else {
 						continue // use the best rank once per mode
@@ -466,7 +467,8 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 			if local[key] == nil {
 				local[key] = hit
 			} else {
-				if portalContentDigest(local[key].Text, local[key].canonicalDigest) != portalContentDigest(hit.Text, hit.canonicalDigest) {
+				if portalContentDigest(local[key].Text, local[key].canonicalDigest) !=
+					portalContentDigest(hit.Text, hit.canonicalDigest) {
 					return outcome, access.ErrForbidden
 				}
 				local[key].RankScore += hit.RankScore

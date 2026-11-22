@@ -51,7 +51,9 @@ type portalCandidateWork struct {
 }
 
 func newPortalCandidateWork() *portalCandidateWork {
-	return &portalCandidateWork{active: make(map[portalCandidateKey]*portalCandidateTask), live: make(map[*portalCandidateTask]bool)}
+	return &portalCandidateWork{
+		active: make(map[portalCandidateKey]*portalCandidateTask), live: make(map[*portalCandidateTask]bool),
+	}
 }
 
 func (w *portalCandidateWork) release(key portalCandidateKey, t *portalCandidateTask) {
@@ -71,7 +73,9 @@ func (w *portalCandidateWork) release(key portalCandidateKey, t *portalCandidate
 	}
 }
 
-func (w *portalCandidateWork) finish(key portalCandidateKey, t *portalCandidateTask, rows []*types.RetrieveResult, err error) {
+func (w *portalCandidateWork) finish(
+	key portalCandidateKey, t *portalCandidateTask, rows []*types.RetrieveResult, err error,
+) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if t.finished {
@@ -182,7 +186,8 @@ func portalCandidateProjection(rows []*types.RetrieveResult) ([]*types.RetrieveR
 			count++
 			// Conservative allocation charge includes struct/slice/hash overhead,
 			// copied string allocation classes and result-group storage.
-			bytes += 768 + 2*(len(c.ID)+len(c.SourceID)+len(c.ChunkID)+len(c.KnowledgeID)+len(c.KnowledgeBaseID)+len(c.TagID))
+			bytes += 768 + 2*(len(c.ID)+len(c.SourceID)+len(c.ChunkID)+
+				len(c.KnowledgeID)+len(c.KnowledgeBaseID)+len(c.TagID))
 			if count > 800 || bytes > portalCandidateReplyBytes {
 				return nil, errPortalCandidateCapacity
 			}

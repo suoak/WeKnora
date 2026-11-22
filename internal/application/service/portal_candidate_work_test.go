@@ -15,7 +15,10 @@ import (
 
 func candidateTestRows() []*types.RetrieveResult {
 	return []*types.RetrieveResult{{RetrieverType: types.KeywordsRetrieverType, Results: []*types.IndexWithScore{
-		{ID: "1", KnowledgeBaseID: "kb", KnowledgeID: "doc", ChunkID: "chunk", SourceID: "chunk", Content: "canonical private body", Score: 7},
+		{
+			ID: "1", KnowledgeBaseID: "kb", KnowledgeID: "doc", ChunkID: "chunk",
+			SourceID: "chunk", Content: "canonical private body", Score: 7,
+		},
 	}}}
 }
 
@@ -141,7 +144,11 @@ func TestPortalCandidateWorkAllCancelDeadlineAndClose(t *testing.T) {
 			case <-time.After(time.Second):
 				t.Fatal("driver cancellation was not propagated")
 			}
-			require.Eventually(t, func() bool { w.mu.Lock(); defer w.mu.Unlock(); return len(w.live) == 0 && len(w.active) == 0 }, time.Second, time.Millisecond)
+			require.Eventually(t, func() bool {
+				w.mu.Lock()
+				defer w.mu.Unlock()
+				return len(w.live) == 0 && len(w.active) == 0
+			}, time.Second, time.Millisecond)
 		})
 	}
 }
@@ -194,7 +201,8 @@ func TestPortalCandidateWorkIdentityIsolationAndBounds(t *testing.T) {
 			})
 		}()
 	}
-	require.Eventually(t, func() bool { return calls.Load() == portalCandidateWorkSlots }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool { return calls.Load() == portalCandidateWorkSlots },
+		time.Second, time.Millisecond)
 	key := portalCandidateKey{}
 	key.scope[1] = 1
 	_, e := w.do(ctx, key, func(context.Context) ([]*types.RetrieveResult, error) {
@@ -218,14 +226,21 @@ func TestPortalCandidateWorkIdentityIsolationAndBounds(t *testing.T) {
 
 func TestPortalCandidateWorkPanicCannotLeakTask(t *testing.T) {
 	w := newPortalCandidateWork()
-	_, e := w.do(context.Background(), portalCandidateKey{}, func(context.Context) ([]*types.RetrieveResult, error) { panic("driver panic must remain private") })
+	_, e := w.do(context.Background(), portalCandidateKey{}, func(context.Context) ([]*types.RetrieveResult, error) {
+		panic("driver panic must remain private")
+	})
 	require.True(t, errors.Is(e, errPortalCandidatePanic))
-	require.Eventually(t, func() bool { w.mu.Lock(); defer w.mu.Unlock(); return len(w.active) == 0 && len(w.live) == 0 }, time.Second, time.Millisecond)
+	require.Eventually(t, func() bool {
+		w.mu.Lock()
+		defer w.mu.Unlock()
+		return len(w.active) == 0 && len(w.live) == 0
+	}, time.Second, time.Millisecond)
 	s := &PortalMCPKnowledge{}
 	require.NoError(t, s.ClosePortalCandidateWork())
-	_, e = s.candidateWork.do(context.Background(), portalCandidateKey{}, func(context.Context) ([]*types.RetrieveResult, error) {
+	load := func(context.Context) ([]*types.RetrieveResult, error) {
 		t.Fatal("closed service started work")
 		return nil, nil
-	})
+	}
+	_, e = s.candidateWork.do(context.Background(), portalCandidateKey{}, load)
 	require.ErrorIs(t, e, context.Canceled)
 }

@@ -315,18 +315,24 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 			anchorColumns += `, concat_ws(':', kb.xmin::text,t.xmin::text,pc.xmin::text,
  (SELECT m.xmin::text FROM models m WHERE m.id=kb.embedding_model_id),
  ARRAY(SELECT m.id::text || '/' || m.xmin::text FROM tenant_members m WHERE m.user_id=? ORDER BY m.id)::text,
- ARRAY(SELECT p.owner_id || '/' || p.xmin::text FROM feishu_private_kbs p WHERE p.kb_id=kb.id ORDER BY p.owner_id)::text,
+ ARRAY(SELECT p.owner_id || '/' || p.xmin::text FROM feishu_private_kbs p
+ WHERE p.kb_id=kb.id ORDER BY p.owner_id)::text,
  ARRAY(SELECT p.id || '/' || p.xmin::text FROM kb_shares p WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text,
  ARRAY(SELECT p.id || '/' || p.xmin::text FROM organization_tenant_members p
  WHERE p.tenant_id IN(SELECT m.tenant_id FROM tenant_members m WHERE m.user_id=?) ORDER BY p.id)::text,
  ARRAY(SELECT p.id || '/' || p.xmin::text FROM organizations p WHERE p.id IN
  (SELECT q.organization_id FROM kb_shares q WHERE q.knowledge_base_id=kb.id) ORDER BY p.id)::text,
- ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM data_sources p WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text,
- ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM feishu_legacy_resources p WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text
+ ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM data_sources p
+ WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text,
+ ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM feishu_legacy_resources p
+ WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text
  ) AS candidate_epoch`
 			anchorArgs = append(anchorArgs, userID, userID)
 		}
-		if err := tx.Table("knowledge_bases kb").Select(anchorColumns, anchorArgs...).Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Joins("LEFT JOIN tenant_portal_configs pc ON pc.tenant_id=t.id").Where("kb.id=? AND kb.deleted_at IS NULL", kbID).Take(&anchor).Error; err != nil {
+		if err := tx.Table("knowledge_bases kb").Select(anchorColumns, anchorArgs...).
+			Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").
+			Joins("LEFT JOIN tenant_portal_configs pc ON pc.tenant_id=t.id").
+			Where("kb.id=? AND kb.deleted_at IS NULL", kbID).Take(&anchor).Error; err != nil {
 			return err
 		}
 		s.TenantID, s.KBType, s.KBTemporary, s.TenantActive, s.PortalPublished = anchor.TenantID, anchor.Type, anchor.IsTemporary, true, anchor.Status == "published"
