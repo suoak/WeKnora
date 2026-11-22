@@ -21,7 +21,9 @@ func TestPortalBatchConsumesReadyMembersBeforeUnrelatedWork(t *testing.T) {
 	var releaseOnce, followerOnce sync.Once
 	unblock := func() { releaseOnce.Do(func() { close(release) }) }
 	defer unblock()
-	shared := &portalV1Driver{f: func(execution context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+	shared := &portalV1Driver{f: func(
+		execution context.Context, params types.RetrieveParams,
+	) ([]*types.RetrieveResult, error) {
 		for _, id := range params.KnowledgeBaseIDs {
 			if id == "parallel-00" {
 				return nil, nil
