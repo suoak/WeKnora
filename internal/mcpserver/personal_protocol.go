@@ -178,6 +178,8 @@ func validatePersonalRPC(b []byte) error {
 		case "list_knowledge_bases":
 		case "search_knowledge", "grep_chunks":
 			fields = "query mode limit knowledge_base_ids"
+		case "search_documents":
+			fields = "query limit knowledge_base_ids"
 		case "list_documents":
 			fields = "knowledge_base_id keyword page page_size"
 		case "read_document":
@@ -202,6 +204,9 @@ func validatePersonalRPC(b []byte) error {
 					return errPersonalProtocol
 				}
 			case "knowledge_base_ids":
+				if v == nil {
+					continue
+				}
 				ids, ok := v.([]any)
 				if !ok || len(ids) > 128 {
 					return errPersonalProtocol

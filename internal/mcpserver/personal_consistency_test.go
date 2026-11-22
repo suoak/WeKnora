@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -59,6 +60,17 @@ func TestPersonalConsistencyJSONRPC(t *testing.T) {
 		var response map[string]any
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &response))
 		require.Nil(t, response["error"])
+		isolatedRequest := httptest.NewRequest("POST", isolatedPersonalPath, bytes.NewReader(body)).
+			WithContext(fixture.Key("A", 1, 1, true))
+		isolatedRequest.Header.Set("Content-Type", "application/json")
+		isolatedRequest.Header.Set("Accept", "application/json, text/event-stream")
+		isolatedResponse := httptest.NewRecorder()
+		s.IsolatedHandler().ServeHTTP(isolatedResponse, isolatedRequest)
+		require.Equal(t, 200, isolatedResponse.Code, isolatedResponse.Body.String())
+		var isolated map[string]any
+		require.NoError(t, json.Unmarshal(isolatedResponse.Body.Bytes(), &isolated))
+		require.Nil(t, isolated["error"])
+		require.NotEqual(t, true, isolated["result"].(map[string]any)["isError"])
 		return response["result"].(map[string]any)
 	}
 	initialized := call(
@@ -111,6 +123,42 @@ func TestPersonalConsistencyJSONRPC(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "partial", partial.Status)
 	require.Empty(t, partial.Documents)
+}
+
+func TestPersonalConsistencyIsolatedBoundary(t *testing.T) {
+	for _, tool := range []string{"search_documents", "search_knowledge", "grep_chunks", "wiki_search"} {
+		for _, selection := range []any{nil, []any{}, []any{"kb"}, "kb", true, []any{nil}, []any{1}} {
+			args := map[string]any{"query": "HA", "knowledge_base_ids": selection}
+			body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+				"params": map[string]any{"name": tool, "arguments": args}})
+			require.NoError(t, err)
+			called := false
+			h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				called = true
+				w.WriteHeader(http.StatusOK)
+			}), isolatedPersonalPath)
+			request := httptest.NewRequest("POST", isolatedPersonalPath, bytes.NewReader(body))
+			request.Header.Set("Content-Type", "application/json")
+			response := httptest.NewRecorder()
+			h.ServeHTTP(response, request)
+			valid := selection == nil
+			if ids, ok := selection.([]any); ok {
+				valid = len(ids) == 0
+				if len(ids) == 1 {
+					_, valid = ids[0].(string)
+				}
+			}
+			require.Equal(t, valid, called, "%s: %s", tool, body)
+			if valid {
+				require.Equal(t, http.StatusOK, response.Code)
+			} else {
+				require.Equal(t, http.StatusBadRequest, response.Code)
+			}
+		}
+	}
+	for _, args := range []string{`{"query":"HA","content":"write"}`, `{"query":"HA","path":"/etc/passwd"}`} {
+		require.Error(t, validatePersonalRPC([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_documents","arguments":`+args+`}}`)))
+	}
 }
 
 type partialTitleStore struct{ *selectedMCPStore }
