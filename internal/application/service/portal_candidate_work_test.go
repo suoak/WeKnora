@@ -70,6 +70,38 @@ func TestPortalCandidateWorkLeaderCancellationDoesNotCancelFollower(t *testing.T
 	require.Equal(t, "1", r2[0].Results[0].ID)
 }
 
+func TestPortalCandidateWorkNewCallerCannotJoinAbandonedDriver(t *testing.T) {
+	w := newPortalCandidateWork()
+	key := portalCandidateKey{}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	started, cleanup := make(chan struct{}), make(chan struct{})
+	defer close(cleanup)
+	first := make(chan error, 1)
+	go func() {
+		_, err := w.do(ctx, key, func(work context.Context) ([]*types.RetrieveResult, error) {
+			close(started)
+			<-work.Done()
+			<-cleanup // A database driver may finish cancellation asynchronously.
+			return nil, work.Err()
+		})
+		first <- err
+	}()
+	<-started
+	cancel()
+	require.ErrorIs(t, <-first, context.Canceled)
+	next, stop := context.WithTimeout(context.Background(), time.Second)
+	defer stop()
+	called := false
+	rows, err := w.do(next, key, func(context.Context) ([]*types.RetrieveResult, error) {
+		called = true
+		return candidateTestRows(), nil
+	})
+	require.NoError(t, err)
+	require.True(t, called, "new request needs a fresh computation before the abandoned driver exits")
+	require.Len(t, rows, 1)
+}
+
 func TestPortalCandidateWorkAllCancelDeadlineAndClose(t *testing.T) {
 	for _, kind := range []string{"last_waiter", "deadline", "shutdown"} {
 		t.Run(kind, func(t *testing.T) {

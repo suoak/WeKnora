@@ -54,11 +54,16 @@ func newPortalCandidateWork() *portalCandidateWork {
 	return &portalCandidateWork{active: make(map[portalCandidateKey]*portalCandidateTask), live: make(map[*portalCandidateTask]bool)}
 }
 
-func (w *portalCandidateWork) release(t *portalCandidateTask) {
+func (w *portalCandidateWork) release(key portalCandidateKey, t *portalCandidateTask) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	t.refs--
 	if t.refs == 0 {
+		// Remove a canceled, unobserved task synchronously. A new request must
+		// never join its already canceled SQL while driver cleanup is pending.
+		if w.active[key] == t {
+			delete(w.active, key)
+		}
 		t.cancel()
 		if t.exited {
 			delete(w.live, t)
@@ -142,7 +147,7 @@ func (w *portalCandidateWork) do(ctx context.Context, key portalCandidateKey,
 		perftrace.Measure(ctx, perftrace.CandidateJoin)()
 	}
 	w.mu.Unlock()
-	defer w.release(t)
+	defer w.release(key, t)
 	select {
 	case <-ctx.Done():
 		return nil, ctx.Err()
