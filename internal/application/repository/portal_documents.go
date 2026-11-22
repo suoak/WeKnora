@@ -47,7 +47,7 @@ func (r *knowledgeRepository) SearchPortalDocumentMetadata(
 func (r *knowledgeRepository) SearchPortalDocumentMetadataBatch(
 	ctx context.Context, targets []*access.PortalKBTarget, query string, limit int,
 ) ([]*types.Knowledge, bool, error) {
-	if r.db.Dialector.Name() != "postgres" {
+	if r.db.Name() != "postgres" {
 		return nil, false, nil
 	}
 	type scope struct {

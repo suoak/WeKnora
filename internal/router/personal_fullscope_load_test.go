@@ -27,6 +27,7 @@ type fullScopeLoadReply struct {
 	HTTP, Planned, Completed int
 	Status                   string
 	Error                    bool
+	Detail                   string
 	Milliseconds             float64
 }
 
@@ -121,6 +122,9 @@ func exerciseFullScopePostgresLoad(
 		if response.StatusCode == 200 {
 			err = json.Unmarshal(body, &envelope)
 			reply.Error = reply.Error || err != nil || envelope.Error != nil || envelope.Result.IsError
+			if reply.Error {
+				reply.Detail = string(body)
+			}
 			reply.Status = envelope.Result.Data.Status
 			reply.Planned, reply.Completed = envelope.Result.Data.Planned, envelope.Result.Data.Completed
 		}
@@ -137,10 +141,11 @@ func exerciseFullScopePostgresLoad(
 	}
 	require.NoError(t, pool.Ping())
 	var phases []map[string]any
+	failed := false
 	for _, phase := range []struct {
 		name  string
 		count int
-	}{{"cold_shared_buffers_os_cache_uncontrolled", 1}, {"warm", 1}, {"four_viewers_140_request_burst", 140}} {
+	}{{"cold_shared_buffers_os_cache_uncontrolled", 1}, {"warm", 1}, {"two_concurrent", 2}, {"four_concurrent", 4}, {"four_viewers_140_request_burst", 140}} {
 		replies := make([]fullScopeLoadReply, phase.count)
 		before := pool.Stats()
 		var wg sync.WaitGroup
@@ -189,8 +194,7 @@ func exerciseFullScopePostgresLoad(
 		if root != "" {
 			require.NoError(t, os.WriteFile(filepath.Join(root, "load-result.json"), encoded, 0o600))
 		}
-		require.NotEmpty(t, accepted)
-		require.Empty(t, failures, "partial results, 500/504 and transport errors are not successful load outcomes")
+		failed = failed || len(accepted) == 0 || len(failures) != 0
 	}
 	encoded, err := json.Marshal(map[string]any{"scope": "disposable synthetic PostgreSQL", "phases": phases})
 	require.NoError(t, err)
@@ -198,4 +202,5 @@ func exerciseFullScopePostgresLoad(
 		require.NoError(t, os.WriteFile(filepath.Join(root, "load-result.json"), encoded, 0o600))
 	}
 	t.Logf("FULLSCOPE_LOAD_REPORT %s", encoded)
+	require.False(t, failed, "partial results, 500/504 and transport errors are not successful load outcomes")
 }

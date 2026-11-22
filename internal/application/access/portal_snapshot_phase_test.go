@@ -52,9 +52,9 @@ func TestPortalSnapshotPhaseMergesReadsWithoutSharingMutableFacts(t *testing.T) 
 func TestPortalSnapshotPhasePreservesExactTimestampRepresentation(t *testing.T) {
 	now := time.Now()
 	value := &types.EnterpriseReadSnapshot{KB: types.EnterprisePolicy{UpdatedAt: now, ReviewedAt: &now}}
-	copy := clonePortalSnapshot(value)
-	require.Equal(t, value, copy, "do not round-trip live PostgreSQL timestamps through JSON")
-	*copy.KB.ReviewedAt = now.Add(time.Second)
+	cloned := clonePortalSnapshot(value)
+	require.Equal(t, value, cloned, "do not round-trip live PostgreSQL timestamps through JSON")
+	*cloned.KB.ReviewedAt = now.Add(time.Second)
 	require.Equal(t, now, *value.KB.ReviewedAt)
 }
 

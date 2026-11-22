@@ -105,8 +105,8 @@ func clonePortalSnapshotPointer[T any](value *T) *T {
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	return &copy
+	cloned := *value
+	return &cloned
 }
 
 func clonePortalSnapshotPolicy(value types.EnterprisePolicy) types.EnterprisePolicy {
@@ -119,16 +119,16 @@ func clonePortalSnapshot(value *types.EnterpriseReadSnapshot) *types.EnterpriseR
 	if value == nil {
 		return nil
 	}
-	copy := *value
-	copy.Credential.OwnerUserID = clonePortalSnapshotPointer(value.Credential.OwnerUserID)
-	copy.Credential.RevokedAt = clonePortalSnapshotPointer(value.Credential.RevokedAt)
-	copy.Credential.ExpiresAt = clonePortalSnapshotPointer(value.Credential.ExpiresAt)
-	copy.Credential.Capabilities = append(value.Credential.Capabilities[:0:0], value.Credential.Capabilities...)
-	copy.Space = clonePortalSnapshotPolicy(value.Space)
-	copy.KB = clonePortalSnapshotPolicy(value.KB)
-	copy.Documents = append(value.Documents[:0:0], value.Documents...)
-	for i := range copy.Documents {
-		copy.Documents[i].EnterprisePolicy = clonePortalSnapshotPolicy(value.Documents[i].EnterprisePolicy)
+	cloned := *value
+	cloned.Credential.OwnerUserID = clonePortalSnapshotPointer(value.Credential.OwnerUserID)
+	cloned.Credential.RevokedAt = clonePortalSnapshotPointer(value.Credential.RevokedAt)
+	cloned.Credential.ExpiresAt = clonePortalSnapshotPointer(value.Credential.ExpiresAt)
+	cloned.Credential.Capabilities = append(value.Credential.Capabilities[:0:0], value.Credential.Capabilities...)
+	cloned.Space = clonePortalSnapshotPolicy(value.Space)
+	cloned.KB = clonePortalSnapshotPolicy(value.KB)
+	cloned.Documents = append(value.Documents[:0:0], value.Documents...)
+	for i := range cloned.Documents {
+		cloned.Documents[i].EnterprisePolicy = clonePortalSnapshotPolicy(value.Documents[i].EnterprisePolicy)
 	}
-	return &copy
+	return &cloned
 }

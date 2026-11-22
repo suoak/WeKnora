@@ -15,6 +15,7 @@ type portalVectorIndexError struct{ ids []string }
 func (e *portalVectorIndexError) Error() string {
 	return "personal MCP vector index does not match bound model"
 }
+
 func (e *portalVectorIndexError) InvalidPortalKnowledgeBases() []string {
 	return append([]string(nil), e.ids...)
 }

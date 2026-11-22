@@ -239,17 +239,17 @@ func clonePortalBatchResults(rows []*types.RetrieveResult) []*types.RetrieveResu
 		if row == nil {
 			continue
 		}
-		copy := *row
-		copy.Results = nil
+		cloned := *row
+		cloned.Results = nil
 		for _, candidate := range row.Results {
 			if candidate == nil {
-				copy.Results = append(copy.Results, nil)
+				cloned.Results = append(cloned.Results, nil)
 				continue
 			}
 			value := *candidate
-			copy.Results = append(copy.Results, &value)
+			cloned.Results = append(cloned.Results, &value)
 		}
-		out = append(out, &copy)
+		out = append(out, &cloned)
 	}
 	return out
 }
