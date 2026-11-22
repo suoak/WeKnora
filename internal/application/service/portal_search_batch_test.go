@@ -3,13 +3,70 @@ package service
 import (
 	"context"
 	"errors"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
+
+func TestPortalBatchConsumesReadyMembersBeforeUnrelatedWork(t *testing.T) {
+	_, s, ctx, count := globalPortalSearchFixture(t, 24)
+	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+	defer cancel()
+	release, follower := make(chan struct{}), make(chan struct{})
+	var releaseOnce, followerOnce sync.Once
+	unblock := func() { releaseOnce.Do(func() { close(release) }) }
+	defer unblock()
+	shared := &portalV1Driver{f: func(
+		execution context.Context, params types.RetrieveParams,
+	) ([]*types.RetrieveResult, error) {
+		for _, id := range params.KnowledgeBaseIDs {
+			if id == "parallel-00" {
+				return nil, nil
+			}
+		}
+		select {
+		case <-release:
+			return nil, nil
+		case <-execution.Done():
+			return nil, execution.Err()
+		}
+	}}
+	s.Engine = func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error) { return shared, nil }
+	original := s.SearchCapabilities
+	var calls atomic.Int32
+	s.SearchCapabilities = func(execution context.Context, d access.PortalKBDescriptor) ([]string, error) {
+		if d.ID == "parallel-01" && calls.Add(1) == 2 {
+			followerOnce.Do(func() { close(follower) })
+		}
+		if original != nil {
+			return original(execution, d)
+		}
+		return d.SearchCapabilities(), nil
+	}
+	done := make(chan struct{})
+	var result *PortalMCPSearchResult
+	var searchErr error
+	go func() {
+		defer close(done)
+		result, searchErr = s.Search(ctx, nil, "PUBLIC", "hybrid", 30)
+	}()
+	defer func() { unblock(); cancel(); <-done }()
+	select {
+	case <-follower:
+	case <-ctx.Done():
+		t.Fatal("a completed batch member waited behind unrelated blocked database work")
+	}
+	unblock()
+	<-done
+	require.NoError(t, searchErr)
+	require.Equal(t, "complete", result.Status)
+	require.Equal(t, count, result.Completed)
+}
 
 func TestPortalBatchPreservesPerKBRanksAndFailureIsolation(t *testing.T) {
 	f, s, ctx, count := globalPortalSearchFixture(t, 6)

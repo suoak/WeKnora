@@ -13,6 +13,13 @@ func portalDimensionQuerySession(db *gorm.DB, query func(*gorm.DB) error) error 
 	return portalReadQuerySession(db, query, "SET LOCAL jit = off")
 }
 
+// Common natural-language terms can push an exact canonical BM25 plan above
+// the expression JIT threshold. Compiling its correlated proofs can exceed the
+// entire mode budget. This changes execution only inside this read transaction.
+func portalKeywordQuerySession(db *gorm.DB, query func(*gorm.DB) error) error {
+	return portalReadQuerySession(db, query, "SET LOCAL jit = off")
+}
+
 // Vector expression JIT remains useful; bound its compilation effort instead
 // of disabling expression execution for large, exact-distance scans.
 func portalVectorQuerySession(db *gorm.DB, query func(*gorm.DB) error) error {
