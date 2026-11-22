@@ -27,7 +27,7 @@ type personalContentService interface {
 }
 
 // ConfigurePersonalContentServer creates a separate external registry. The
-// original registry and isolated TLS handler always retain exactly eight reads.
+// original registry and isolated TLS handler retain only read tools.
 func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalContent) *PersonalServer {
 	if !s.Enabled() || writer == nil {
 		return s
@@ -38,6 +38,7 @@ func ConfigurePersonalContentServer(s *PersonalServer, writer *service.PersonalC
 		"knowhub-personal",
 		"0.2.0",
 		server.WithToolCapabilities(false),
+		server.WithInstructions(personalServerInstructions),
 		server.WithRecovery(),
 		server.WithToolFilter(func(ctx context.Context, all []mcp.Tool) []mcp.Tool {
 			scope, _ := types.TenantAPIKeyScopeFromContext(ctx)

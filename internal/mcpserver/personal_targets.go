@@ -24,7 +24,7 @@ func personalOperationTargets(name string, arguments map[string]any) ([]string, 
 			return nil, errPersonalTargets
 		}
 		return []string{value}, nil
-	case "search_knowledge", "grep_chunks", "wiki_search":
+	case "search_knowledge", "grep_chunks", "wiki_search", "search_documents":
 		value, present := arguments["knowledge_base_ids"]
 		if !present {
 			if name == "wiki_search" {
@@ -40,6 +40,8 @@ func personalOperationTargets(name string, arguments map[string]any) ([]string, 
 		}
 		var raw []any
 		switch ids := value.(type) {
+		case nil:
+			return nil, nil
 		case []any:
 			raw = ids
 		case []string:

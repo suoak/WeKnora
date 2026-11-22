@@ -6,6 +6,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"sync/atomic"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	pgdriver "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
 	"github.com/Tencent/WeKnora/internal/application/service"
@@ -124,8 +126,24 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	}
 	status, body := rpc(a.Token, "tools/list", map[string]any{})
 	require.Equal(t, 200, status, body)
+	catalogBody := body
+	require.Contains(t, body, `"name":"search_documents"`)
+	for _, selection := range []any{nil, []string{}} {
+		status, body = call(a.Token, "search_documents", map[string]any{
+			"query": "PUBLIC", "knowledge_base_ids": selection, "limit": 20,
+		})
+		require.Equal(t, 200, status, body)
+		require.NotContains(t, body, "isError")
+		require.Contains(t, body, "public-doc")
+		require.Contains(t, body, "public-two-doc")
+		require.Contains(t, body, "structuredContent")
+	}
+	_, body = call(a.Token, "search_documents", map[string]any{"query": "public-doc.txt"})
+	require.Contains(t, body, "public-doc")
+	_, body = call(a.Token, "search_documents", map[string]any{"query": "%"})
+	require.Contains(t, body, `documents\":[]`)
 	for _, name := range []string{"wiki_search", "wiki_read_page", "wiki_index", "search_knowledge", "read_document", "list_documents", "grep_chunks", "list_knowledge_bases"} {
-		require.Contains(t, body, `"name":"`+name+`"`)
+		require.Contains(t, catalogBody, `"name":"`+name+`"`)
 	}
 	// Actual PG/ParadeDB BM25, vectors, hybrid and grep serve uploaded content
 	// under platform permissions even when the upstream source is held.
@@ -141,6 +159,16 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		require.Contains(t, body, `knowledge_id\":\"public-doc`)
 		require.Contains(t, body, "complete")
 	}
+	// A real PostgreSQL keyword result survives an independent model outage.
+	embed := s.Embed
+	s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {
+		return nil, errors.New("synthetic private provider diagnostic")
+	}
+	_, body = call(a.Token, "search_knowledge", map[string]any{"query": "PUBLIC", "mode": "hybrid"})
+	require.Contains(t, body, "partial")
+	require.Contains(t, body, "public-two-doc")
+	require.NotContains(t, body, "private provider diagnostic")
+	s.Embed = embed
 	status, body = call(a.Token, "read_document", map[string]any{"knowledge_id": "public-doc"})
 	require.Equal(t, 200, status, body)
 	require.NotContains(t, body, "isError")
@@ -162,11 +190,17 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	_, body = call(a.Token, "read_document", map[string]any{"knowledge_id": "next-private-doc"})
 	require.NotContains(t, body, "isError")
 	require.Contains(t, body, "private A only")
+	_, body = call(a.Token, "search_documents", map[string]any{"query": "private A only"})
+	require.Contains(t, body, "next-private-doc")
 	for _, key := range []string{b.Token, old.Token} {
+		_, body = call(key, "search_documents", map[string]any{"query": "private A only"})
+		require.NotContains(t, body, "next-private-doc")
 		_, body = call(key, "read_document", map[string]any{"knowledge_id": "next-private-doc"})
 		require.Contains(t, body, "isError")
 	}
 	require.NoError(t, db.Exec("UPDATE tenant_members SET status='inactive' WHERE user_id='A' AND tenant_id=7").Error)
+	_, body = call(a.Token, "search_documents", map[string]any{"query": "private A only"})
+	require.NotContains(t, body, "next-private-doc")
 	_, body = call(a.Token, "read_document", map[string]any{"knowledge_id": "next-private-doc"})
 	require.Contains(t, body, "isError")
 	pages := repository.NewWikiPageRepository(db)

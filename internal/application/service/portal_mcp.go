@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"time"
 
 	"golang.org/x/sync/errgroup"
 
@@ -18,13 +19,14 @@ import (
 // PortalMCPKnowledge is a bounded coordinator over existing access, repositories
 // and retrieval drivers. It does not implement an index or issue memberships.
 type PortalMCPKnowledge struct {
-	personalRecovery *PersonalRecovery
-	Wiki             PersonalWikiReader
-	Resolver         *access.PortalMCPResolver
-	Knowledge        interfaces.KnowledgeRepository
-	Chunks           interfaces.ChunkRepository
-	Engine           func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error)
-	Embed            func(context.Context, access.PortalKBDescriptor, string) ([]float32, error)
+	personalRecovery   *PersonalRecovery
+	Wiki               PersonalWikiReader
+	Resolver           *access.PortalMCPResolver
+	Knowledge          interfaces.KnowledgeRepository
+	Chunks             interfaces.ChunkRepository
+	Engine             func(context.Context, access.PortalKBDescriptor) (access.DocumentRetriever, error)
+	Embed              func(context.Context, access.PortalKBDescriptor, string) ([]float32, error)
+	SearchCapabilities func(context.Context, access.PortalKBDescriptor) ([]string, error)
 	// Consumers are trusted model adapters (Rerank/LLM), not request parameters.
 	Consumers []func(context.Context, []PortalMCPHit) error
 }
@@ -41,10 +43,30 @@ type PortalMCPHit struct {
 	RankScore  float64 `json:"rank_score"`
 }
 type PortalMCPSearchResult struct {
-	Results  []PortalMCPHit `json:"results"`
-	Searched int            `json:"searched_kbs"`
-	Failed   int            `json:"failed_kbs"`
-	Status   string         `json:"status"`
+	Results         []PortalMCPHit        `json:"results"`
+	Searched        int                   `json:"searched_kbs"`
+	Failed          int                   `json:"failed_kbs"`
+	Status          string                `json:"status"`
+	RequestedMode   string                `json:"requested_mode"`
+	ResultCount     int                   `json:"result_count"`
+	ModeFallbacks   []PortalMCPModeDetail `json:"mode_fallbacks"`
+	PartialFailures []PortalMCPModeDetail `json:"partial_failures"`
+	Skipped         int                   `json:"unsearchable_kbs"`
+}
+
+// PortalMCPModeDetail identifies an effective mode or a safe execution failure.
+type PortalMCPModeDetail struct {
+	KBID   string `json:"knowledge_base_id"`
+	Mode   string `json:"mode"`
+	Reason string `json:"reason"`
+}
+
+// Capabilities loads the target's real indexes through the bound application adapter.
+func (s *PortalMCPKnowledge) Capabilities(ctx context.Context, d access.PortalKBDescriptor) ([]string, error) {
+	if s.SearchCapabilities != nil {
+		return s.SearchCapabilities(ctx, d)
+	}
+	return d.SearchCapabilities(), nil
 }
 
 func (s *PortalMCPKnowledge) Resolve(ctx context.Context, ids []string) ([]*access.PortalKBTarget, error) {
@@ -212,27 +234,65 @@ func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]Por
 // Keep the existing per-target credential, publication, canonical-body and source
 // checks inside each task. Only independent KB tasks overlap; no authorization
 // result is cached or shared between targets or requests.
-const portalSearchTargetConcurrency = 8
+const (
+	portalSearchTargetConcurrency = 8
+	portalSearchModeTimeout       = 10 * time.Second
+	portalSearchFinalizeReserve   = 5 * time.Second
+)
 
 type portalTargetSearchOutcome struct {
-	hits    map[string]*PortalMCPHit
-	failed  bool
-	partial bool
+	hits      map[string]*PortalMCPHit
+	failed    bool
+	partial   bool
+	skipped   bool
+	failures  []PortalMCPModeDetail
+	fallbacks []PortalMCPModeDetail
 }
 
 func (s *PortalMCPKnowledge) searchPortalTarget(
-	ctx context.Context, t *access.PortalKBTarget, query, mode string, pattern *regexp.Regexp,
+	ctx, budget context.Context, t *access.PortalKBTarget, query, mode string, pattern *regexp.Regexp,
 ) (portalTargetSearchOutcome, error) {
 	var outcome portalTargetSearchOutcome
+	if budget.Err() != nil {
+		outcome.failed = true
+		outcome.failures = append(outcome.failures,
+			PortalMCPModeDetail{t.Descriptor().ID, mode, "retrieval_budget_exhausted"})
+		return outcome, nil
+	}
 	execution, e := t.SearchContext(ctx)
 	if e != nil {
 		return outcome, e
 	}
+	searchExecution := execution
+	if deadline, ok := budget.Deadline(); ok {
+		var cancel context.CancelFunc
+		searchExecution, cancel = context.WithDeadline(execution, deadline)
+		defer cancel()
+	}
 	descriptor := t.Descriptor()
+	caps, e := s.Capabilities(searchExecution, descriptor)
+	if e != nil {
+		outcome.failed = true
+		outcome.failures = append(
+			outcome.failures,
+			PortalMCPModeDetail{descriptor.ID, mode, "index_configuration_unavailable"},
+		)
+		return outcome, nil
+	}
+	hasKeyword, hasVector := false, false
+	for _, capability := range caps {
+		hasKeyword = hasKeyword || capability == "keyword"
+		hasVector = hasVector || capability == "semantic"
+	}
+	if !hasKeyword && !hasVector || mode == "grep" && !hasKeyword {
+		outcome.skipped = true
+		return outcome, nil
+	}
 	types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
-	engine, e := s.Engine(execution, descriptor)
+	engine, e := s.Engine(searchExecution, descriptor)
 	if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
 		outcome.failed = true
+		outcome.failures = append(outcome.failures, PortalMCPModeDetail{descriptor.ID, mode, "retriever_unavailable"})
 		return outcome, nil
 	}
 	kinds := []types.RetrieverType{types.KeywordsRetrieverType, types.VectorRetrieverType}
@@ -242,40 +302,61 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 	if mode == "semantic" {
 		kinds = kinds[1:]
 	}
+	if !hasKeyword {
+		kinds = []types.RetrieverType{types.VectorRetrieverType}
+	}
+	if !hasVector {
+		kinds = []types.RetrieverType{types.KeywordsRetrieverType}
+	}
 	local := map[string]*PortalMCPHit{}
-	failed := false
+	succeeded := []string{}
 	for _, kind := range kinds {
+		actualMode := "keyword"
+		if kind == types.VectorRetrieverType {
+			actualMode = "semantic"
+		}
+		modeFailed := func(reason string) {
+			outcome.partial = true
+			outcome.failures = append(outcome.failures, PortalMCPModeDetail{descriptor.ID, actualMode, reason})
+		}
 		if e = t.Revalidate(ctx); e != nil {
 			return outcome, e
 		}
+		modeCtx, cancelMode := context.WithTimeout(searchExecution, portalSearchModeTimeout)
 		params := types.RetrieveParams{Query: query, RetrieverType: kind, TopK: 100, Threshold: -1}
 		if kind == types.VectorRetrieverType {
 			if s.Embed == nil {
-				failed = true
-				break
+				cancelMode()
+				modeFailed("embedding_unavailable")
+				continue
 			}
-			params.Embedding, e = s.Embed(execution, descriptor, query)
+			params.Embedding, e = s.Embed(modeCtx, descriptor, query)
 			if e != nil {
-				failed = true
-				break
+				cancelMode()
+				modeFailed("embedding_failed")
+				continue
 			}
 		}
 		params, e = access.GuardPortalRetrieval(execution, engine.EngineType(), params)
 		if e != nil {
+			cancelMode()
 			return outcome, e
 		}
-		groups, partial, e := s.retrievePublishedPortalDocuments(execution, t, engine, params)
+		groups, partial, e := s.retrievePublishedPortalDocuments(modeCtx, t, engine, params)
+		cancelMode()
 		if partial {
 			outcome.partial = true
 		}
 		if e != nil {
-			failed = true
-			break
+			modeFailed("retrieval_failed")
+			continue
 		}
 		if e = t.Revalidate(ctx); e != nil {
 			return outcome, e
 		}
 		rank := 0
+		modeHits := map[string]*PortalMCPHit{}
+		failed := false
 		for _, g := range groups {
 			if g == nil || g.Error != nil {
 				failed = true
@@ -295,12 +376,14 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 					hit := portalHit(t, &types.Knowledge{ID: candidate.KnowledgeID},
 						&types.Chunk{ID: candidate.ChunkID, Content: candidate.Content})
 					key := hit.Reference + ":" + candidate.ChunkID
-					if local[key] == nil {
-						local[key] = &hit
-					} else if local[key].Text != hit.Text {
+					if modeHits[key] == nil {
+						modeHits[key] = &hit
+					} else if modeHits[key].Text != hit.Text {
 						return outcome, access.ErrForbidden
+					} else {
+						continue // use the best rank once per mode
 					}
-					local[key].RankScore += 1 / float64(60+rank)
+					modeHits[key].RankScore += 1 / float64(60+rank)
 					continue
 				}
 				// Completeness/canonical equality is enforced in SQL before candidates.
@@ -336,19 +419,40 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 				canonical.Content = text
 				hit := portalHit(t, row, &canonical)
 				key := hit.Reference + ":" + chunk.ID
-				if local[key] == nil {
-					local[key] = &hit
+				if modeHits[key] == nil {
+					modeHits[key] = &hit
+				} else {
+					continue
 				}
-				local[key].RankScore += 1 / float64(60+rank)
+				modeHits[key].RankScore += 1 / float64(60+rank)
 			}
 		}
 		if failed {
-			break
+			modeFailed("retrieval_failed")
+			continue
+		}
+		succeeded = append(succeeded, actualMode)
+		for key, hit := range modeHits {
+			if local[key] == nil {
+				local[key] = hit
+			} else {
+				if local[key].Text != hit.Text {
+					return outcome, access.ErrForbidden
+				}
+				local[key].RankScore += hit.RankScore
+			}
 		}
 	}
-	if failed {
+	if len(succeeded) == 0 {
 		outcome.failed = true
 		return outcome, nil
+	}
+	if mode != "grep" && (len(succeeded) == 1 && mode != succeeded[0]) {
+		reason := "index_unavailable"
+		if len(outcome.failures) > 0 {
+			reason = "mode_failed"
+		}
+		outcome.fallbacks = append(outcome.fallbacks, PortalMCPModeDetail{descriptor.ID, succeeded[0], reason})
 	}
 	outcome.hits = local
 	return outcome, nil
@@ -412,23 +516,47 @@ func (s *PortalMCPKnowledge) search(
 	if err != nil {
 		return nil, err
 	}
-	result := &PortalMCPSearchResult{Results: []PortalMCPHit{}, Status: "complete"}
+	ctx = withPortalQueryEmbeddings(ctx)
+	// Leave time for the existing live authorization and canonical output
+	// fences. A retrieval deadline must not erase already successful KBs.
+	budget := ctx
+	if deadline, ok := ctx.Deadline(); ok {
+		var cancel context.CancelFunc
+		reserve := min(portalSearchFinalizeReserve, time.Until(deadline)/5)
+		budget, cancel = context.WithDeadline(ctx, deadline.Add(-reserve))
+		defer cancel()
+	}
+	result := &PortalMCPSearchResult{
+		Results:         []PortalMCPHit{},
+		Status:          "complete",
+		RequestedMode:   mode,
+		ModeFallbacks:   []PortalMCPModeDetail{},
+		PartialFailures: []PortalMCPModeDetail{},
+	}
+	if len(targets) == 0 {
+		result.Status = "no_scope"
+	}
 	aggregate := map[string]*PortalMCPHit{}
 	byKB := map[string]*access.PortalKBTarget{}
 	// Bound fan-out within the existing request admission limits and deadline.
 	// Each worker owns one target and result slot. Merge only after every worker
 	// exits, so authorization failures discard all in-flight results.
 	outcomes := make([]portalTargetSearchOutcome, len(targets))
+	for i, target := range targets {
+		outcomes[i] = portalTargetSearchOutcome{failed: true, failures: []PortalMCPModeDetail{
+			{target.Descriptor().ID, mode, "retrieval_budget_exhausted"},
+		}}
+	}
 	group, execution := errgroup.WithContext(ctx)
 	group.SetLimit(portalSearchTargetConcurrency)
 	for _, i := range portalSearchOrder(ctx, s.Resolver.Store, targets) {
 		target := targets[i]
-		if execution.Err() != nil {
+		if execution.Err() != nil || budget.Err() != nil {
 			break
 		}
 		group.Go(func() error {
 			var targetErr error
-			outcomes[i], targetErr = s.searchPortalTarget(execution, target, query, mode, pattern)
+			outcomes[i], targetErr = s.searchPortalTarget(execution, budget, target, query, mode, pattern)
 			return targetErr
 		})
 	}
@@ -439,6 +567,12 @@ func (s *PortalMCPKnowledge) search(
 		return nil, err
 	}
 	for i, outcome := range outcomes {
+		result.ModeFallbacks = append(result.ModeFallbacks, outcome.fallbacks...)
+		result.PartialFailures = append(result.PartialFailures, outcome.failures...)
+		if outcome.skipped {
+			result.Skipped++
+			continue
+		}
 		byKB[targets[i].Descriptor().ID] = targets[i]
 		if outcome.partial {
 			result.Status = "partial"
@@ -510,6 +644,10 @@ func (s *PortalMCPKnowledge) search(
 			result.Status = "failed"
 		}
 	}
+	if len(targets) > 0 && result.Skipped == len(targets) {
+		result.Status = "no_searchable_index"
+	}
+	result.ResultCount = len(result.Results)
 	for _, consumer := range s.Consumers {
 		if e := s.validatePublishedPortalHits(ctx, result.Results); e != nil {
 			return nil, e
