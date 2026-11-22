@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -70,6 +71,25 @@ func (g *pgRepository) lexicalSearchScope(
 // live tenant/document/canonical predicate outside MATERIALIZED and before LIMIT.
 const maxPortalLexicalCandidateIDs = 131072
 
+func portalKeywordTenantClause(ctx context.Context, alias string, tenant uint64) (string, []any) {
+	owners := access.PortalKeywordTenants(ctx)
+	if len(owners) == 0 {
+		return "?", []any{tenant}
+	}
+	ids := make([]string, 0, len(owners))
+	for id := range owners {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	parts := []string{"CASE " + alias + ".knowledge_base_id"}
+	vars := make([]any, 0, len(ids)*2)
+	for _, id := range ids {
+		parts = append(parts, "WHEN ? THEN ?::bigint")
+		vars = append(vars, id, owners[id])
+	}
+	return strings.Join(parts, " ") + " ELSE 0 END", vars
+}
+
 func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint64,
 	where string, vars []interface{}, params types.RetrieveParams,
 ) (string, []interface{}, error) {
@@ -78,10 +98,11 @@ func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint
 		return where, vars, nil
 	}
 	var ids []int64
+	tenantSQL, tenantVars := portalKeywordTenantClause(ctx, "e", tenant)
 	q := g.db.WithContext(ctx).Table("embeddings AS e").
 		Where("e.knowledge_base_id IN ?", params.KnowledgeBaseIDs).
 		Where("EXISTS(SELECT 1 FROM knowledge_bases kb WHERE kb.id=e.knowledge_base_id "+
-			"AND kb.tenant_id=? AND kb.deleted_at IS NULL)", tenant)
+			"AND kb.tenant_id="+tenantSQL+" AND kb.deleted_at IS NULL)", tenantVars...)
 	if len(params.KnowledgeIDs) > 0 {
 		q = q.Where("e.knowledge_id IN ?", params.KnowledgeIDs)
 	}

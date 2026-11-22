@@ -224,6 +224,71 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	require.NoError(t, json.Unmarshal([]byte(independentBody), &independentValue))
 	require.Equal(t, independentValue, groupedValue,
 		"real grouped BM25/vector results and RRF scores must equal per-KB execution")
+	t.Run("grouped_vector_preserves_each_kb_topk", func(t *testing.T) {
+		require.NoError(t, db.Exec(`INSERT INTO chunks
+ (id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_type,is_enabled,chunk_index,start_at,end_at)
+ SELECT c.id||'-equivalent-'||n,c.tenant_id,c.knowledge_base_id,c.knowledge_id,c.content,
+ 'text',true,n,0,length(c.content)
+ FROM chunks c CROSS JOIN generate_series(1,120)n
+ WHERE c.id IN('public-doc-chunk','public-batch-chunk')`).Error)
+		require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ SELECT c.id,0,c.id,c.knowledge_id,c.knowledge_base_id,c.content,1024,true,e.embedding
+ FROM chunks c CROSS JOIN (SELECT embedding FROM embeddings WHERE source_id='public-doc-chunk')e
+ WHERE c.id LIKE '%-equivalent-%'`).Error)
+		defer func() {
+			s.Engine = factory
+			require.NoError(t, db.Exec("DELETE FROM embeddings WHERE source_id LIKE '%-equivalent-%'").Error)
+			require.NoError(t, db.Exec("DELETE FROM chunks WHERE id LIKE '%-equivalent-%'").Error)
+		}()
+		for _, mode := range []string{"semantic", "hybrid"} {
+			args := map[string]any{
+				"query": "PUBLIC", "mode": mode, "limit": 30,
+				"knowledge_base_ids": []string{"public-kb", "public-batch"},
+			}
+			s.Engine = factory
+			_, grouped := call(a.Token, "search_knowledge", args)
+			s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+				engine, err := factory(ctx, d)
+				return independentPortalPostgresEngine{engine: engine}, err
+			}
+			_, independent := call(a.Token, "search_knowledge", args)
+			require.Contains(t, independent, `knowledge_id\":\"public-doc`)
+			require.Contains(t, independent, "public-batch-doc")
+			var actual, expected map[string]any
+			require.NoError(t, json.Unmarshal([]byte(grouped), &actual))
+			require.NoError(t, json.Unmarshal([]byte(independent), &expected))
+			require.Equal(t, expected, actual, "more than 100 live candidates per KB must survive the real Retriever")
+		}
+	})
+	t.Run("public_keyword_scan_binds_distinct_tenants", func(t *testing.T) {
+		require.NoError(t, db.Exec(
+			"UPDATE knowledge_bases SET embedding_model_id='synthetic' WHERE id='public-two'",
+		).Error)
+		defer func() {
+			s.Engine = factory
+			require.NoError(t, db.Exec(
+				"UPDATE knowledge_bases SET embedding_model_id='model-public-two' WHERE id='public-two'",
+			).Error)
+		}()
+		args := map[string]any{
+			"query": "PUBLIC", "mode": "keyword", "limit": 30,
+			"knowledge_base_ids": []string{"public-kb", "public-two", "public-batch"},
+		}
+		s.Engine = factory
+		_, grouped := call(a.Token, "search_knowledge", args)
+		s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+			engine, err := factory(ctx, d)
+			return independentPortalPostgresEngine{engine: engine}, err
+		}
+		_, independent := call(a.Token, "search_knowledge", args)
+		require.Contains(t, grouped, "public-two-doc")
+		require.Contains(t, grouped, `knowledge_id\":\"public-doc`)
+		var actual, expected map[string]any
+		require.NoError(t, json.Unmarshal([]byte(grouped), &actual))
+		require.NoError(t, json.Unmarshal([]byte(independent), &expected))
+		require.Equal(t, expected, actual, "each public tenant retains its canonical SQL authority and ranks")
+	})
 	if os.Getenv("KNOWHUB_MCP_FULLSCOPE_LOAD") == "1" {
 		exerciseFullScopePostgresLoad(t, g, db, create)
 	}

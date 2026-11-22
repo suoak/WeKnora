@@ -293,7 +293,12 @@ func (g *pgRepository) keywordsRetrieve(
 		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate(ctx)})
 	}
 	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
-		conds = append(conds, clause.Expr{SQL: portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), Vars: []interface{}{tenant, types.ChunkSourceType}})
+		tenantSQL, vars := portalKeywordTenantClause(ctx, "embeddings", tenant)
+		conds = append(conds, clause.Expr{
+			SQL: portalCanonicalPredicate(tenantSQL, access.PortalRetrievalPublic(ctx),
+				access.PortalRetrievalPublishedDefaults(ctx)),
+			Vars: append(vars, types.ChunkSourceType),
+		})
 	}
 
 	// KnowledgeBaseIDs and KnowledgeIDs use AND logic
@@ -682,7 +687,8 @@ func (g *pgRepository) vectorRetrieve(
 	allVars = append(allVars, expandedTopK)       // LIMIT in subquery
 	allVars = append(allVars, 1-params.Threshold) // Distance threshold
 	allVars = append(allVars, params.TopK)        // Final LIMIT
-	if bulkPortal && access.PortalRetrievalGrouped(ctx) {
+	groupedPortal := bulkPortal && access.PortalRetrievalGrouped(ctx)
+	if groupedPortal {
 		querySQL, allVars = portalGroupedVectorSQL(querySQL, params.KnowledgeBaseIDs, allVars)
 	}
 
@@ -755,8 +761,9 @@ func (g *pgRepository) vectorRetrieve(
 		return nil, err
 	}
 
-	// Apply final TopK limit (in case we got more results than needed)
-	if len(embeddingDBList) > int(params.TopK) {
+	// A grouped query already limits each KB independently. A second global
+	// slice would erase later KBs and change their RRF candidate sets.
+	if !groupedPortal && len(embeddingDBList) > int(params.TopK) {
 		embeddingDBList = embeddingDBList[:params.TopK]
 	}
 

@@ -13,6 +13,48 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPortalBatchKeywordCertificateBindsEachTenantAndRejectsVector(t *testing.T) {
+	f, s, ctx, _ := globalPortalSearchFixture(t, 0)
+	require.NoError(t, f.DB.Exec(`UPDATE knowledge_bases SET embedding_model_id=
+ (SELECT embedding_model_id FROM knowledge_bases WHERE id='public-kb') WHERE id='public-two'`).Error)
+	targets, err := s.Resolve(ctx, []string{"public-kb", "public-two"})
+	require.NoError(t, err)
+	require.Len(t, targets, 2)
+	_, err = access.PortalGroupSearchContext(ctx, targets)
+	require.ErrorIs(t, err, access.ErrForbidden, "vector groups cannot cross tenants")
+	group, err := access.PortalKeywordGroupSearchContext(ctx, targets)
+	require.NoError(t, err)
+	params := types.RetrieveParams{RetrieverType: types.KeywordsRetrieverType, TopK: 100}
+	guarded, err := access.GuardPortalRetrieval(group, types.PostgresRetrieverEngineType, params)
+	require.NoError(t, err)
+	require.Len(t, guarded.KnowledgeBaseIDs, 2)
+	owners := access.PortalKeywordTenants(group)
+	for _, target := range targets {
+		require.Equal(t, target.Descriptor().TenantID, owners[target.Descriptor().ID])
+	}
+	owners[targets[0].Descriptor().ID] = 0
+	require.NotZero(t, access.PortalKeywordTenants(group)[targets[0].Descriptor().ID])
+	params.RetrieverType = types.VectorRetrieverType
+	_, err = access.GuardPortalRetrieval(group, types.PostgresRetrieverEngineType, params)
+	require.ErrorIs(t, err, access.ErrDocumentFilterDenied)
+	params.RetrieverType = types.KeywordsRetrieverType
+	params.KnowledgeBaseIDs = []string{"outside-issued-scope"}
+	_, err = access.GuardPortalRetrieval(group, types.PostgresRetrieverEngineType, params)
+	require.ErrorIs(t, err, access.ErrDocumentFilterDenied)
+	other := *s.Resolver
+	foreign, err := other.Resolve(ctx, []string{targets[1].Descriptor().ID})
+	require.NoError(t, err)
+	_, err = access.PortalKeywordGroupSearchContext(ctx, []*access.PortalKBTarget{targets[0], foreign[0]})
+	require.ErrorIs(t, err, access.ErrForbidden)
+	private, err := s.Resolve(ctx, []string{"private-home"})
+	require.NoError(t, err)
+	_, err = access.PortalKeywordGroupSearchContext(ctx, append(targets, private...))
+	require.ErrorIs(t, err, access.ErrForbidden)
+	require.NoError(t, f.DB.Exec("UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=99").Error)
+	_, err = access.PortalKeywordGroupSearchContext(access.WithoutPortalSnapshotReads(ctx), targets)
+	require.Error(t, err, "fresh publication revocation must invalidate the combined certificate")
+}
+
 func TestPortalBatchConsumesReadyMembersBeforeUnrelatedWork(t *testing.T) {
 	_, s, ctx, count := globalPortalSearchFixture(t, 24)
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
