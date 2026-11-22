@@ -143,7 +143,8 @@ SELECT id,score FROM lexical WHERE id IN(1,2,3,4,5) ORDER BY id`, "needle").Scan
 		SQL:  "SELECT count(*) FROM embeddings WHERE " + groupFallback,
 		Vars: fallbackVars,
 	}).Scan(&fullCount).Error)
-	require.Greater(t, fullCount, int64(maxPortalLexicalCandidateIDs), "an oversized group must never truncate candidates")
+	require.Greater(t, fullCount, int64(maxPortalLexicalCandidateIDs),
+		"an oversized group must never truncate candidates")
 	canceled, cancel := context.WithCancel(context.Background())
 	cancel()
 	_, _, err = r.portalLexicalSearchScope(canceled, 1, "content ||| $1", []interface{}{"needle"}, params)
