@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"regexp"
 	"sort"
+	"sync"
 	"time"
 
 	"golang.org/x/sync/errgroup"
@@ -19,6 +20,8 @@ import (
 // PortalMCPKnowledge is a bounded coordinator over existing access, repositories
 // and retrieval drivers. It does not implement an index or issue memberships.
 type PortalMCPKnowledge struct {
+	candidateOnce      sync.Once
+	candidateWork      *portalCandidateWork
 	personalRecovery   *PersonalRecovery
 	Wiki               PersonalWikiReader
 	Resolver           *access.PortalMCPResolver
@@ -31,16 +34,17 @@ type PortalMCPKnowledge struct {
 	Consumers []func(context.Context, []PortalMCPHit) error
 }
 type PortalMCPHit struct {
-	TenantID   uint64  `json:"tenant_id"`
-	Space      string  `json:"space"`
-	KBID       string  `json:"knowledge_base_id"`
-	KBName     string  `json:"knowledge_base_name"`
-	DocumentID string  `json:"knowledge_id"`
-	ChunkID    string  `json:"chunk_id"`
-	Title      string  `json:"title"`
-	Text       string  `json:"content"`
-	Reference  string  `json:"reference"`
-	RankScore  float64 `json:"rank_score"`
+	canonicalDigest string
+	TenantID        uint64  `json:"tenant_id"`
+	Space           string  `json:"space"`
+	KBID            string  `json:"knowledge_base_id"`
+	KBName          string  `json:"knowledge_base_name"`
+	DocumentID      string  `json:"knowledge_id"`
+	ChunkID         string  `json:"chunk_id"`
+	Title           string  `json:"title"`
+	Text            string  `json:"content"`
+	Reference       string  `json:"reference"`
+	RankScore       float64 `json:"rank_score"`
 }
 type PortalMCPSearchResult struct {
 	Results         []PortalMCPHit        `json:"results"`
@@ -400,10 +404,12 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 					// credential revalidation still precede every output boundary.
 					hit := portalHit(t, &types.Knowledge{ID: candidate.KnowledgeID},
 						&types.Chunk{ID: candidate.ChunkID, Content: candidate.Content})
+					hit.canonicalDigest = candidate.PortalCandidateDigest
 					key := hit.Reference + ":" + candidate.ChunkID
 					if modeHits[key] == nil {
 						modeHits[key] = &hit
-					} else if modeHits[key].Text != hit.Text {
+					} else if portalContentDigest(modeHits[key].Text, modeHits[key].canonicalDigest) !=
+						portalContentDigest(hit.Text, hit.canonicalDigest) {
 						return outcome, access.ErrForbidden
 					} else {
 						continue // use the best rank once per mode
@@ -461,7 +467,8 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 			if local[key] == nil {
 				local[key] = hit
 			} else {
-				if local[key].Text != hit.Text {
+				if portalContentDigest(local[key].Text, local[key].canonicalDigest) !=
+					portalContentDigest(hit.Text, hit.canonicalDigest) {
 					return outcome, access.ErrForbidden
 				}
 				local[key].RankScore += hit.RankScore
@@ -537,12 +544,16 @@ func (s *PortalMCPKnowledge) search(
 		}
 	}
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
+	if mode != "grep" {
+		ctx = access.WithPortalCandidateVersions(ctx)
+	}
 	ctx = access.WithPortalSnapshotReads(ctx)
 	targets, err := s.Resolve(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 	ctx = withPortalQueryEmbeddings(ctx)
+	ctx = withPortalCandidateRequest(ctx, query, mode, limit)
 	ctx = s.portalBatchContext(ctx, targets)
 	// Leave time for the existing live authorization and canonical output
 	// fences. A retrieval deadline must not erase already successful KBs.
@@ -677,7 +688,8 @@ func (s *PortalMCPKnowledge) search(
 			}
 			if chunk == nil || chunk.KnowledgeID != row.ID || chunk.KnowledgeBaseID != ranked.KBID ||
 				chunk.TenantID != ranked.TenantID || chunk.DeletedAt.Valid || !chunk.IsEnabled ||
-				chunk.ChunkType != types.ChunkTypeText || chunk.Content != ranked.Text {
+				chunk.ChunkType != types.ChunkTypeText ||
+				portalContentDigest(chunk.Content, "") != portalContentDigest(ranked.Text, ranked.canonicalDigest) {
 				return nil, access.ErrForbidden
 			}
 			text, e := access.SanitizePortalText(chunk.Content)

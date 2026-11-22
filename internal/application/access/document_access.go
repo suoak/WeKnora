@@ -147,7 +147,9 @@ func (g *DocumentReadGrant) Revalidate(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	if fresh.user != g.user || fresh.key != g.key || fresh.tenant != g.tenant || fresh.caller != g.caller || fresh.public != g.public || !reflect.DeepEqual(fresh.credentialContext, g.credentialContext) || !reflect.DeepEqual(fresh.snapshot, g.snapshot) || !reflect.DeepEqual(fresh.subject, g.subject) {
+	if fresh.user != g.user || fresh.key != g.key || fresh.tenant != g.tenant || fresh.caller != g.caller ||
+		fresh.public != g.public || !reflect.DeepEqual(fresh.credentialContext, g.credentialContext) ||
+		!samePortalSnapshot(fresh.snapshot, g.snapshot) || !reflect.DeepEqual(fresh.subject, g.subject) {
 		return ErrForbidden
 	}
 	return nil

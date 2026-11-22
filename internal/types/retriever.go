@@ -74,6 +74,9 @@ type RetrieverEngineParams struct {
 
 // IndexWithScore represents the index with score
 type IndexWithScore struct {
+	// PortalCandidateDigest carries no body or authority. A coalesced candidate
+	// must be matched to independently read canonical content before output.
+	PortalCandidateDigest string `json:"-"`
 	// ID
 	ID string
 	// Content

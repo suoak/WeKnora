@@ -259,17 +259,36 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 		if err := types.CheckPrivateKBRead(tx, "", kbID); err != nil {
 			return err
 		}
-		var user struct{ IsActive bool }
-		if err := tx.Table("users").Select("is_active").Where("id = ? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
+		stamped := published && tx.Name() == "postgres" && access.PortalCandidateVersionsRequested(ctx)
+		var user struct {
+			IsActive       bool
+			CandidateEpoch string
+		}
+		userColumns := "is_active"
+		if stamped {
+			userColumns += ", xmin::text AS candidate_epoch"
+		}
+		if err := tx.Table("users").Select(userColumns).
+			Where("id = ? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
 			return err
 		}
 		s.UserActive = user.IsActive
 		var credential struct {
 			types.EnterpriseCredential
 			CapabilitiesJSON string `gorm:"column:capabilities"`
+			CandidateEpoch   string
 		}
 		if keyID != 0 {
-			if err := tx.Table("tenant_api_keys").Select("id, owner_user_id, scope_type, capabilities, revoked_at, expires_at, full_access").Where("id = ?", keyID).Take(&credential).Error; err != nil {
+			columns := "id, owner_user_id, scope_type, capabilities, revoked_at, expires_at, full_access"
+			if stamped {
+				columns += `, concat_ws(':',xmin::text,
+ ARRAY(SELECT s.id::text || '/' || s.xmin::text FROM api_key_tenant_scopes s
+ WHERE s.api_key_id=tenant_api_keys.id ORDER BY s.id)::text,
+ ARRAY(SELECT s.id::text || '/' || s.xmin::text FROM api_key_kb_scopes s
+ WHERE s.api_key_id=tenant_api_keys.id ORDER BY s.id)::text) AS candidate_epoch`
+			}
+			if err := tx.Table("tenant_api_keys").Select(columns).
+				Where("id = ?", keyID).Take(&credential).Error; err != nil {
 				return err
 			}
 			// SQLite TEXT and PostgreSQL JSONB must both be parsed strictly. The
@@ -282,15 +301,44 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 			return errors.New("public key required")
 		}
 		var anchor struct {
-			TenantID    uint64
-			Type        string
-			IsTemporary bool
-			Status      string
+			TenantID       uint64
+			Type           string
+			IsTemporary    bool
+			Status         string
+			CandidateEpoch string
 		}
-		if err := tx.Table("knowledge_bases kb").Select("kb.tenant_id, kb.type, kb.is_temporary, pc.status").Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").Joins("LEFT JOIN tenant_portal_configs pc ON pc.tenant_id=t.id").Where("kb.id=? AND kb.deleted_at IS NULL", kbID).Take(&anchor).Error; err != nil {
+		anchorColumns := "kb.tenant_id, kb.type, kb.is_temporary, pc.status"
+		var anchorArgs []any
+		if stamped {
+			// Physical incarnations are read in this same repeatable-read snapshot.
+			// No updated_at approximation, authority cache or schema change.
+			anchorColumns += `, concat_ws(':', kb.xmin::text,t.xmin::text,pc.xmin::text,
+ (SELECT m.xmin::text FROM models m WHERE m.id=kb.embedding_model_id),
+ ARRAY(SELECT m.id::text || '/' || m.xmin::text FROM tenant_members m WHERE m.user_id=? ORDER BY m.id)::text,
+ ARRAY(SELECT p.owner_id || '/' || p.xmin::text FROM feishu_private_kbs p
+ WHERE p.kb_id=kb.id ORDER BY p.owner_id)::text,
+ ARRAY(SELECT p.id || '/' || p.xmin::text FROM kb_shares p WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text,
+ ARRAY(SELECT p.id || '/' || p.xmin::text FROM organization_tenant_members p
+ WHERE p.tenant_id IN(SELECT m.tenant_id FROM tenant_members m WHERE m.user_id=?) ORDER BY p.id)::text,
+ ARRAY(SELECT p.id || '/' || p.xmin::text FROM organizations p WHERE p.id IN
+ (SELECT q.organization_id FROM kb_shares q WHERE q.knowledge_base_id=kb.id) ORDER BY p.id)::text,
+ ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM data_sources p
+ WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text,
+ ARRAY(SELECT p.id::text || '/' || p.xmin::text FROM feishu_legacy_resources p
+ WHERE p.knowledge_base_id=kb.id ORDER BY p.id)::text
+ ) AS candidate_epoch`
+			anchorArgs = append(anchorArgs, userID, userID)
+		}
+		if err := tx.Table("knowledge_bases kb").Select(anchorColumns, anchorArgs...).
+			Joins("JOIN tenants t ON t.id=kb.tenant_id AND t.deleted_at IS NULL AND t.status='active'").
+			Joins("LEFT JOIN tenant_portal_configs pc ON pc.tenant_id=t.id").
+			Where("kb.id=? AND kb.deleted_at IS NULL", kbID).Take(&anchor).Error; err != nil {
 			return err
 		}
 		s.TenantID, s.KBType, s.KBTemporary, s.TenantActive, s.PortalPublished = anchor.TenantID, anchor.Type, anchor.IsTemporary, true, anchor.Status == "published"
+		if stamped && user.CandidateEpoch != "" && credential.CandidateEpoch != "" && anchor.CandidateEpoch != "" {
+			s.CandidateEpoch = user.CandidateEpoch + ":" + credential.CandidateEpoch + ":" + anchor.CandidateEpoch
+		}
 		var err error
 		s.Space, err = loadEnterprisePolicy(tx, types.EnterprisePolicyTarget{Kind: "space", ID: strconv.FormatUint(s.TenantID, 10)}, false)
 		if err != nil {

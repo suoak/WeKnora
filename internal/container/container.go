@@ -653,6 +653,7 @@ func BuildContainer(container *dig.Container) *dig.Container {
 	must(container.Provide(router.NewRouter))
 	must(container.Invoke(configurePersonalRecovery))
 	must(container.Invoke(configurePublishedSnapshotPortal))
+	must(container.Invoke(registerPortalCandidateCleanup))
 
 	if redisAvailable {
 		must(container.Invoke(router.RunAsynqServer))

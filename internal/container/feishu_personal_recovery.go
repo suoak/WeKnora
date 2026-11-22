@@ -12,6 +12,12 @@ func configurePublishedSnapshotPortal(portal *service.PortalMCPKnowledge, person
 	service.BindPersonalPublishedSnapshotReads(portal, personal)
 }
 
+func registerPortalCandidateCleanup(portal *service.PortalMCPKnowledge, cleaner interfaces.ResourceCleaner) {
+	if portal != nil && cleaner != nil {
+		cleaner.RegisterWithName("PortalCandidateWork", portal.ClosePortalCandidateWork)
+	}
+}
+
 func configurePersonalRecovery(
 	personal *service.FeishuPersonalService,
 	knowledge interfaces.KnowledgeService,

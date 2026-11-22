@@ -12,8 +12,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -42,6 +44,60 @@ func (s documentTestMembers) ListByUser(ctx context.Context, user string) ([]*ty
 type independentPortalPostgresEngine struct {
 	engine        access.DocumentRetriever
 	nonComparable []string
+}
+
+type countedPortalCandidateEngine struct {
+	mu     sync.Mutex
+	engine access.DocumentRetriever
+	calls  atomic.Int32
+	gate   <-chan struct{}
+}
+
+func (e *countedPortalCandidateEngine) EngineType() types.RetrieverEngineType {
+	return types.PostgresRetrieverEngineType
+}
+
+func (e *countedPortalCandidateEngine) Retrieve(
+	ctx context.Context, p types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
+	e.mu.Lock()
+	engine, gate := e.engine, e.gate
+	e.mu.Unlock()
+	e.calls.Add(1)
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	} else {
+		timer := time.NewTimer(150 * time.Millisecond)
+		defer timer.Stop()
+		select {
+		case <-timer.C:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return engine.Retrieve(ctx, p)
+}
+
+func (e *countedPortalCandidateEngine) setGate(gate <-chan struct{}) {
+	e.mu.Lock()
+	e.gate = gate
+	e.mu.Unlock()
+}
+
+type countedPortalCandidateChunks struct {
+	interfaces.ChunkRepository
+	reads atomic.Int32
+}
+
+func (c *countedPortalCandidateChunks) GetChunkByID(
+	ctx context.Context, tenant uint64, id string,
+) (*types.Chunk, error) {
+	c.reads.Add(1)
+	return c.ChunkRepository.GetChunkByID(ctx, tenant, id)
 }
 
 func (e independentPortalPostgresEngine) EngineType() types.RetrieverEngineType {
@@ -259,6 +315,121 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 			require.NoError(t, json.Unmarshal([]byte(grouped), &actual))
 			require.NoError(t, json.Unmarshal([]byte(independent), &expected))
 			require.Equal(t, expected, actual, "more than 100 live candidates per KB must survive the real Retriever")
+		}
+	})
+	t.Run("inflight_candidates_real_sql_isolation_and_revocation", func(t *testing.T) {
+		factory, originalChunks := s.Engine, s.Chunks
+		defer func() { s.Engine = factory; s.Chunks = originalChunks }()
+		observed := &countedPortalCandidateEngine{}
+		reader := &countedPortalCandidateChunks{ChunkRepository: originalChunks}
+		s.Chunks = reader
+		s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+			engine, err := factory(ctx, d)
+			if err != nil {
+				return nil, err
+			}
+			observed.mu.Lock()
+			observed.engine = engine
+			observed.mu.Unlock()
+			return observed, nil
+		}
+		args := map[string]any{
+			"query": "PUBLIC", "mode": "hybrid", "limit": 2,
+			"knowledge_base_ids": []string{"public-kb", "public-batch"},
+		}
+		_, baseline := call(a.Token, "search_knowledge", args)
+		require.Contains(t, baseline, `"status":"complete"`)
+		perform := func(token string, arguments map[string]any, ctx context.Context) *httptest.ResponseRecorder {
+			payload, _ := json.Marshal(map[string]any{
+				"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+				"params": map[string]any{"name": "search_knowledge", "arguments": arguments},
+			})
+			r := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewReader(payload)).WithContext(ctx)
+			r.Header.Set("Authorization", "Bearer "+token)
+			r.Header.Set("Content-Type", "application/json")
+			r.Header.Set("Accept", "application/json, text/event-stream")
+			w := httptest.NewRecorder()
+			g.ServeHTTP(w, r)
+			return w
+		}
+		pair := func(tokens [2]string, queries [2]string) []*httptest.ResponseRecorder {
+			out := make(chan *httptest.ResponseRecorder, 2)
+			for i := range 2 {
+				go func(i int) {
+					input := map[string]any{}
+					for k, v := range args {
+						input[k] = v
+					}
+					input["query"] = queries[i]
+					out <- perform(tokens[i], input, context.Background())
+				}(i)
+			}
+			return []*httptest.ResponseRecorder{<-out, <-out}
+		}
+		observed.calls.Store(0)
+		reader.reads.Store(0)
+		groupedKeywords.Store(0)
+		groupedVectors.Store(0)
+		for _, reply := range pair([2]string{a.Token, a.Token}, [2]string{"PUBLIC", "PUBLIC"}) {
+			require.Equal(t, 200, reply.Code)
+			var actual, expected map[string]any
+			require.NoError(t, json.Unmarshal(reply.Body.Bytes(), &actual))
+			require.NoError(t, json.Unmarshal([]byte(baseline), &expected))
+			require.Equal(t, expected, actual, "independent canonical bodies and exact RRF must match")
+		}
+		require.EqualValues(t, 2, observed.calls.Load(), "one real BM25 and one vector computation for both requests")
+		require.EqualValues(t, 1, groupedKeywords.Load())
+		require.EqualValues(t, 1, groupedVectors.Load())
+		require.GreaterOrEqual(t, reader.reads.Load(), int32(4),
+			"each request must read its own final canonical chunks")
+		a2 := create("A", 1, "dynamic_all")
+		for _, tokens := range [][2]string{{a.Token, a2.Token}, {a.Token, b.Token}} {
+			observed.calls.Store(0)
+			for _, reply := range pair(tokens, [2]string{"PUBLIC", "PUBLIC"}) {
+				require.Contains(t, reply.Body.String(), `"status":"complete"`)
+			}
+			require.EqualValues(t, 4, observed.calls.Load(), "different users and keys cannot share SQL")
+		}
+		observed.calls.Store(0)
+		for _, reply := range pair([2]string{a.Token, a.Token}, [2]string{"PUBLIC", "PUBLIC DIFFERENT"}) {
+			require.Contains(t, reply.Body.String(), `"status":"complete"`)
+		}
+		require.EqualValues(t, 4, observed.calls.Load(), "different source queries cannot share SQL")
+		// A physical key incarnation change must isolate even equal effective
+		// permissions; ordinary last-used writes must not revoke either request.
+		gate := make(chan struct{})
+		observed.setGate(gate)
+		observed.calls.Store(0)
+		out := make(chan *httptest.ResponseRecorder, 2)
+		go func() { out <- perform(a.Token, args, context.Background()) }()
+		require.Eventually(t, func() bool { return observed.calls.Load() == 1 }, time.Second, time.Millisecond)
+		require.NoError(t, db.Exec("UPDATE tenant_api_keys SET last_used_at=last_used_at WHERE id=?",
+			a.APIKey.ID).Error)
+		go func() { out <- perform(a.Token, args, context.Background()) }()
+		require.Eventually(t, func() bool { return observed.calls.Load() == 2 }, time.Second, time.Millisecond)
+		close(gate)
+		for range 2 {
+			reply := <-out
+			require.Contains(t, reply.Body.String(), `"status":"complete"`)
+		}
+		require.EqualValues(t, 4, observed.calls.Load(), "different permission incarnations must not coalesce")
+		// Revoke a separate key with both requests in flight. Existing output
+		// fences, not a shared snapshot, must withhold every document body.
+		revoked := create("A", 1, "dynamic_all")
+		_, _ = call(revoked.Token, "search_knowledge", args)
+		gate = make(chan struct{})
+		observed.setGate(gate)
+		observed.calls.Store(0)
+		go func() { out <- perform(revoked.Token, args, context.Background()) }()
+		go func() { out <- perform(revoked.Token, args, context.Background()) }()
+		require.Eventually(t, func() bool { return observed.calls.Load() > 0 }, time.Second, time.Millisecond)
+		require.NoError(t, keys.(interfaces.UserMCPAPIKeyService).
+			RevokeUserMCPAPIKey(context.Background(), "A", revoked.APIKey.ID))
+		close(gate)
+		for range 2 {
+			reply := <-out
+			require.NotContains(t, reply.Body.String(), `"status":"complete"`)
+			require.NotContains(t, reply.Body.String(), "PUBLIC_BATCH auth-type heart-interval")
 		}
 	})
 	if os.Getenv("KNOWHUB_MCP_FULLSCOPE_LOAD") == "1" {

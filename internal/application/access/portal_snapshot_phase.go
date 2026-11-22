@@ -27,6 +27,7 @@ type portalSnapshotIdentity struct {
 	user, kb, privateUser string
 	key                   uint64
 	public, published     bool
+	candidateVersion      bool
 }
 
 // WithPortalSnapshotReads shares immutable policy facts only inside one read
@@ -58,7 +59,9 @@ func ReadPortalSnapshot(
 	if phase == nil {
 		return load()
 	}
-	id := portalSnapshotIdentity{store, user, kb, types.PrivateKBReadUser(ctx), key, public, published}
+	id := portalSnapshotIdentity{
+		store, user, kb, types.PrivateKBReadUser(ctx), key, public, published, PortalCandidateVersionsRequested(ctx),
+	}
 	phase.mu.Lock()
 	entry, found := phase.entries[id]
 	if !found && len(phase.entries) >= 256 {
