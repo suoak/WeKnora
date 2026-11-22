@@ -6,6 +6,7 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
@@ -44,6 +45,15 @@ func TestPortalSnapshotPhaseMergesReadsWithoutSharingMutableFacts(t *testing.T) 
 	_, err = ReadPortalSnapshot(ctx, store, "A", 2, "kb", false, true, load)
 	require.NoError(t, err)
 	require.EqualValues(t, 5, calls.Load())
+}
+
+func TestPortalSnapshotPhasePreservesExactTimestampRepresentation(t *testing.T) {
+	now := time.Now()
+	value := &types.EnterpriseReadSnapshot{KB: types.EnterprisePolicy{UpdatedAt: now, ReviewedAt: &now}}
+	copy := clonePortalSnapshot(value)
+	require.Equal(t, value, copy, "do not round-trip live PostgreSQL timestamps through JSON")
+	*copy.KB.ReviewedAt = now.Add(time.Second)
+	require.Equal(t, now, *value.KB.ReviewedAt)
 }
 
 func TestPortalSnapshotPhaseDoesNotCacheFailures(t *testing.T) {

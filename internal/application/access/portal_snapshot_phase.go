@@ -11,9 +11,9 @@ import (
 type portalSnapshotPhaseKey struct{}
 
 type portalSnapshotEntry struct {
-	done chan struct{}
-	data []byte
-	err  error
+	done  chan struct{}
+	value *types.EnterpriseReadSnapshot
+	err   error
 }
 
 type portalSnapshotPhase struct {
@@ -78,15 +78,19 @@ func ReadPortalSnapshot(
 		}
 	} else {
 		value, err := load()
+		size := 0
 		if err == nil {
-			entry.data, err = json.Marshal(value)
+			var encoded []byte
+			encoded, err = json.Marshal(value)
+			size = len(encoded)
+			entry.value = clonePortalSnapshot(value)
 		}
 		entry.err = err
 		phase.mu.Lock()
-		if err != nil || phase.bytes+len(entry.data) > 16<<20 {
+		if err != nil || phase.bytes+size > 16<<20 {
 			delete(phase.entries, id)
 		} else {
-			phase.bytes += len(entry.data)
+			phase.bytes += size
 		}
 		close(entry.done)
 		phase.mu.Unlock()
@@ -94,9 +98,37 @@ func ReadPortalSnapshot(
 	if entry.err != nil {
 		return nil, entry.err
 	}
-	var value *types.EnterpriseReadSnapshot
-	if err := json.Unmarshal(entry.data, &value); err != nil {
-		return nil, err
+	return clonePortalSnapshot(entry.value), nil
+}
+
+func clonePortalSnapshotPointer[T any](value *T) *T {
+	if value == nil {
+		return nil
 	}
-	return value, nil
+	copy := *value
+	return &copy
+}
+
+func clonePortalSnapshotPolicy(value types.EnterprisePolicy) types.EnterprisePolicy {
+	value.ReviewedBy = clonePortalSnapshotPointer(value.ReviewedBy)
+	value.ReviewedAt = clonePortalSnapshotPointer(value.ReviewedAt)
+	return value
+}
+
+func clonePortalSnapshot(value *types.EnterpriseReadSnapshot) *types.EnterpriseReadSnapshot {
+	if value == nil {
+		return nil
+	}
+	copy := *value
+	copy.Credential.OwnerUserID = clonePortalSnapshotPointer(value.Credential.OwnerUserID)
+	copy.Credential.RevokedAt = clonePortalSnapshotPointer(value.Credential.RevokedAt)
+	copy.Credential.ExpiresAt = clonePortalSnapshotPointer(value.Credential.ExpiresAt)
+	copy.Credential.Capabilities = append(value.Credential.Capabilities[:0:0], value.Credential.Capabilities...)
+	copy.Space = clonePortalSnapshotPolicy(value.Space)
+	copy.KB = clonePortalSnapshotPolicy(value.KB)
+	copy.Documents = append(value.Documents[:0:0], value.Documents...)
+	for i := range copy.Documents {
+		copy.Documents[i].EnterprisePolicy = clonePortalSnapshotPolicy(value.Documents[i].EnterprisePolicy)
+	}
+	return &copy
 }

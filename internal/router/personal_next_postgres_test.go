@@ -54,6 +54,19 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	defer pool.Close()
 	f := fixture.Seed(t, db)
 	f.PreparePublished(t)
+	require.NoError(t, db.Exec(`INSERT INTO knowledge_bases
+ (id,name,tenant_id,embedding_model_id,summary_model_id,type)
+ SELECT 'public-batch','PUBLIC_BATCH',tenant_id,embedding_model_id,summary_model_id,type
+ FROM knowledge_bases WHERE id='public-kb'`).Error)
+	require.NoError(t, db.Create(&types.Knowledge{
+		ID: "public-batch-doc", TenantID: 99, KnowledgeBaseID: "public-batch", Title: "PUBLIC_BATCH",
+		FileName: "public-batch.txt", Type: "manual", ParseStatus: types.ParseStatusCompleted,
+		EnableStatus: "enabled", Channel: "web",
+	}).Error)
+	require.NoError(t, db.Create(&types.Chunk{
+		ID: "public-batch-chunk", TenantID: 99, KnowledgeBaseID: "public-batch", KnowledgeID: "public-batch-doc",
+		Content: "PUBLIC_BATCH auth-type heart-interval", ChunkType: "text", IsEnabled: true,
+	}).Error)
 	types.EnableLegacyReadGuards(db)
 	t.Setenv("SYSTEM_AES_KEY", strings.Repeat("n", 32))
 	var revokeDuringEmbedding atomic.Bool
@@ -86,12 +99,25 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	registry := retriever.NewRetrieveEngineRegistry(nil, nil)
 	require.NoError(t, registry.Register(retriever.NewKVHybridRetrieveEngine(driver, types.PostgresRetrieverEngineType)))
 	var chunks []*types.Chunk
-	require.NoError(t, db.Where("knowledge_id IN ?", []string{"public-doc", "public-two-doc", "private-home-doc"}).Find(&chunks).Error)
+	require.NoError(t, db.Where("knowledge_id IN ?", []string{
+		"public-doc", "public-two-doc", "private-home-doc", "public-batch-doc",
+	}).Find(&chunks).Error)
 	vector := make([]float32, 1024)
 	vector[0] = 1
 	for _, c := range chunks {
 		require.NoError(t, driver.Save(context.Background(), &types.IndexInfo{SourceID: c.ID, SourceType: types.ChunkSourceType, ChunkID: c.ID, KnowledgeID: c.KnowledgeID, KnowledgeBaseID: c.KnowledgeBaseID, Content: c.Content, IsEnabled: true}, map[string]any{"embedding": map[string][]float32{c.ID: vector}}))
 	}
+	var groupedKeywords, groupedVectors atomic.Int32
+	require.NoError(t, db.Callback().Row().Before("gorm:row").Register("observe_portal_batch", func(tx *gorm.DB) {
+		sql := tx.Statement.SQL.String()
+		if strings.Contains(sql, "scopes(kb)") {
+			if strings.Contains(sql, "portal_vector_candidates") {
+				groupedVectors.Add(1)
+			} else if strings.Contains(sql, "WITH lexical AS MATERIALIZED") {
+				groupedKeywords.Add(1)
+			}
+		}
+	}))
 	keys := service.NewTenantAPIKeyService(repository.NewTenantAPIKeyRepository(db))
 	require.NoError(t, db.Exec("SELECT setval(pg_get_serial_sequence('tenant_api_keys','id'),(SELECT max(id)FROM tenant_api_keys))").Error)
 	create := func(user string, tenant uint64, mode string) *interfaces.TenantAPIKeyCreateResult {
@@ -157,8 +183,11 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 		require.Equal(t, 200, status, body)
 		require.Contains(t, body, "public-two-doc")
 		require.Contains(t, body, `knowledge_id\":\"public-doc`)
+		require.Contains(t, body, "public-batch-doc")
 		require.Contains(t, body, "complete")
 	}
+	require.Positive(t, groupedKeywords.Load(), "exercise the real grouped BM25 SQL")
+	require.Positive(t, groupedVectors.Load(), "exercise the real grouped exact-vector SQL")
 	// A real PostgreSQL keyword result survives an independent model outage.
 	embed := s.Embed
 	s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {
