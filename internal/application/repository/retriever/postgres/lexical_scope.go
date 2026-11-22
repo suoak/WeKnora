@@ -22,12 +22,12 @@ const maxPublishedLexicalCandidateIDs = 16384
 // Every authoritative KB/document/state/receipt/hash predicate remains in the
 // outer query, BEFORE its only LIMIT. This is not an authorization grant.
 func (g *pgRepository) lexicalSearchScope(
-	ctx context.Context, where string, vars []interface{}, params types.RetrieveParams,
+	ctx context.Context, where string, vars []interface{}, params types.RetrieveParams, canonicalOnly ...bool,
 ) (string, []interface{}, error) {
 	_, _, knowledge, kb, exact := types.ExactPublishedDocumentIdentity(ctx)
 	if !exact {
 		if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
-			return g.portalLexicalSearchScope(ctx, tenant, where, vars, params)
+			return g.portalLexicalSearchScope(ctx, tenant, where, vars, params, canonicalOnly...)
 		}
 		where, vars = lexicalCandidateScope(where, vars, params)
 		return where, vars, nil
@@ -70,8 +70,13 @@ func (g *pgRepository) lexicalSearchScope(
 // live tenant/document/canonical predicate outside MATERIALIZED and before LIMIT.
 const maxPortalLexicalCandidateIDs = 131072
 
+// Canonical-only sets exclude synthetic question identities before collecting
+// numeric postings. Bound the largest binding to a few MiB; overflow still
+// falls back to the complete existing coarse path, never a truncated corpus.
+const maxPortalCanonicalLexicalCandidateIDs = 524288
+
 func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint64,
-	where string, vars []interface{}, params types.RetrieveParams,
+	where string, vars []interface{}, params types.RetrieveParams, canonicalOnly ...bool,
 ) (string, []interface{}, error) {
 	if tenant == 0 || len(params.KnowledgeBaseIDs) == 0 {
 		where, vars = lexicalCandidateScope(where, vars, params)
@@ -85,10 +90,19 @@ func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint
 	if len(params.KnowledgeIDs) > 0 {
 		q = q.Where("e.knowledge_id IN ?", params.KnowledgeIDs)
 	}
-	if err := q.Order("e.id").Limit(maxPortalLexicalCandidateIDs+1).Pluck("e.id", &ids).Error; err != nil {
+	limit := maxPortalLexicalCandidateIDs
+	if len(canonicalOnly) == 1 && canonicalOnly[0] {
+		// Only the ordered canonical Portal path requests this necessary identity
+		// condition. Its full proof binds source_id and chunk_id to the same
+		// current chunk. Keep field comparisons out of ParadeDB's custom scan;
+		// that shape is unsupported in the deployed engine.
+		q = q.Where("e.source_id=e.chunk_id")
+		limit = maxPortalCanonicalLexicalCandidateIDs
+	}
+	if err := q.Order("e.id").Limit(limit+1).Pluck("e.id", &ids).Error; err != nil {
 		return "", nil, err
 	}
-	if len(ids) > maxPortalLexicalCandidateIDs {
+	if len(ids) > limit {
 		// Never truncate a search corpus before ranking or authorization.
 		where, vars = lexicalCandidateScope(where, vars, params)
 		return where, vars, nil

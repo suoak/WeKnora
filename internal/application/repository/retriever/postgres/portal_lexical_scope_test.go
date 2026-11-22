@@ -2,7 +2,6 @@ package postgres
 
 import (
 	"context"
-	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
@@ -19,41 +18,37 @@ func TestPortalLexicalOrderedIdentityPreservesAuthorizedTopKPostgres(t *testing.
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = pool.Close() })
-	require.NoError(t, db.Exec(`CREATE TABLE embeddings(id bigint PRIMARY KEY,content text,
- knowledge_base_id text,knowledge_id text,source_id text,chunk_id text,allowed bool);
-INSERT INTO embeddings VALUES(1,'needle ordinary','kb','doc','chunk','chunk',true),
-(2,'needle denied','kb','doc','denied','denied',false),
-(3,'needle sibling','other-kb','other-doc','other','other',true);
-INSERT INTO embeddings SELECT n,repeat('needle ',10),'kb','doc','question-'||n,'chunk',true
-FROM generate_series(1000,1250)n;
-CREATE INDEX portal_ordered_identity_bm25 ON embeddings
-USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE knowledge_bases(id text PRIMARY KEY,tenant_id bigint,deleted_at timestamptz);
+ INSERT INTO knowledge_bases VALUES('kb',1,NULL);
+ CREATE TABLE embeddings(id bigint PRIMARY KEY,content text,knowledge_base_id text,knowledge_id text,source_id text,chunk_id text,allowed bool);
+ INSERT INTO embeddings VALUES(1,'needle ordinary','kb','doc','chunk','chunk',true),
+ (2,'needle denied','kb','doc','denied','denied',false),(3,'needle foreign','other-kb','other-doc','other','other',true);
+ INSERT INTO embeddings SELECT n,repeat('needle ',10),'kb','doc','question-'||n,'chunk',true FROM generate_series(1000,1250)n;
+ CREATE INDEX portal_ordered_identity_bm25 ON embeddings USING bm25(id,content,knowledge_base_id,knowledge_id) WITH(key_field='id')`).Error)
 	r := &pgRepository{db: db}
-	conditions := []clause.Expression{
-		clause.Expr{SQL: "embeddings.allowed AND embeddings.source_id=embeddings.chunk_id"},
-		clause.Eq{Column: "embeddings.knowledge_base_id", Value: "kb"},
-	}
 	params := types.RetrieveParams{Query: "needle", KnowledgeBaseIDs: []string{"kb"}, TopK: 100}
-	sql, vars, err := r.portalOrderedKeywordSQL(context.Background(), params, conditions,
-		[]string{"paradedb.score(id) AS score", "id", "knowledge_base_id"})
-	require.NoError(t, err)
-	baseline := strings.Replace(sql, " AND source_id=chunk_id ORDER BY score DESC,id)",
-		" ORDER BY score DESC,id)", 1)
-	require.NotEqual(t, baseline, sql)
 	type scored struct {
 		ID    int64
 		Score float64
 	}
-	var before, after []scored
-	for _, query := range []struct {
-		sql string
-		out *[]scored
-	}{{baseline, &before}, {sql, &after}} {
-		require.NoError(t, db.Raw("?", clause.Expr{SQL: query.sql, Vars: vars}).Scan(query.out).Error)
+	var results [][]scored
+	for _, canonical := range []bool{false, true} {
+		where, vars, err := r.portalLexicalSearchScope(context.Background(), 1, "content ||| $1", []interface{}{"needle"}, params, canonical)
+		require.NoError(t, err)
+		require.Len(t, vars, 2)
+		if canonical {
+			require.Equal(t, "{1,2}", vars[1], "denied canonical rows remain for the authoritative proof")
+		}
+		query := "WITH lexical AS MATERIALIZED(SELECT id,paradedb.score(id) score FROM embeddings WHERE " + where + ") " +
+			"SELECT lexical.id,lexical.score FROM lexical JOIN embeddings proof ON proof.id=lexical.id " +
+			"WHERE proof.allowed AND proof.source_id=proof.chunk_id ORDER BY lexical.score DESC,lexical.id LIMIT 100"
+		var rows []scored
+		require.NoError(t, db.Raw("?", clause.Expr{SQL: query, Vars: vars}).Scan(&rows).Error)
+		results = append(results, rows)
 	}
-	require.Equal(t, before, after, "candidate IDs, order and exact BM25 scores must remain identical")
-	require.Len(t, after, 1, "synthetic and denied candidates cannot consume the authorized limit")
-	require.Equal(t, int64(1), after[0].ID)
+	require.Equal(t, results[0], results[1], "exact scores/order remain unchanged; synthetic rows exceed TopK")
+	require.Len(t, results[1], 1)
+	require.Equal(t, int64(1), results[1][0].ID)
 }
 
 func TestPortalLexicalNumericScopeNative(t *testing.T) {
