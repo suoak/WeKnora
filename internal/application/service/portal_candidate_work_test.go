@@ -128,14 +128,15 @@ func TestPortalCandidateWorkAllCancelDeadlineAndClose(t *testing.T) {
 				done <- e
 			}()
 			<-started
-			if kind == "shutdown" {
+			switch kind {
+			case "shutdown":
 				w.mu.Lock()
 				w.closed = true
 				for task := range w.live {
 					task.cancel()
 				}
 				w.mu.Unlock()
-			} else if kind == "last_waiter" {
+			case "last_waiter":
 				cancel()
 			}
 			require.Error(t, <-done)

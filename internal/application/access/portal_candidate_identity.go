@@ -18,6 +18,7 @@ func WithPortalCandidateVersions(ctx context.Context) context.Context {
 	return context.WithValue(ctx, portalCandidateVersionKey{}, true)
 }
 
+// PortalCandidateVersionsRequested reports whether this search needs row stamps.
 func PortalCandidateVersionsRequested(ctx context.Context) bool {
 	enabled, _ := ctx.Value(portalCandidateVersionKey{}).(bool)
 	return enabled

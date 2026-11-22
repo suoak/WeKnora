@@ -259,7 +259,7 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 		if err := types.CheckPrivateKBRead(tx, "", kbID); err != nil {
 			return err
 		}
-		stamped := published && tx.Dialector.Name() == "postgres" && access.PortalCandidateVersionsRequested(ctx)
+		stamped := published && tx.Name() == "postgres" && access.PortalCandidateVersionsRequested(ctx)
 		var user struct {
 			IsActive       bool
 			CandidateEpoch string
