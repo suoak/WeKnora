@@ -66,20 +66,20 @@ func (g *pgRepository) lexicalSearchScope(
 
 // UUID columns in the deployed ParadeDB index use heap_filter. Constrain the
 // native postings by their numeric indexed identities instead. This is only a
-// coarse accelerator: the caller retains every live tenant/document/canonical
-// predicate outside MATERIALIZED and before its sole ranking LIMIT.
+// coarse accelerator for the full issued KB group: the caller retains every
+// live tenant/document/canonical predicate outside MATERIALIZED and before LIMIT.
 const maxPortalLexicalCandidateIDs = 131072
 
 func (g *pgRepository) portalLexicalSearchScope(ctx context.Context, tenant uint64,
 	where string, vars []interface{}, params types.RetrieveParams,
 ) (string, []interface{}, error) {
-	if tenant == 0 || len(params.KnowledgeBaseIDs) != 1 {
+	if tenant == 0 || len(params.KnowledgeBaseIDs) == 0 {
 		where, vars = lexicalCandidateScope(where, vars, params)
 		return where, vars, nil
 	}
 	var ids []int64
 	q := g.db.WithContext(ctx).Table("embeddings AS e").
-		Where("e.knowledge_base_id=?", params.KnowledgeBaseIDs[0]).
+		Where("e.knowledge_base_id IN ?", params.KnowledgeBaseIDs).
 		Where("EXISTS(SELECT 1 FROM knowledge_bases kb WHERE kb.id=e.knowledge_base_id "+
 			"AND kb.tenant_id=? AND kb.deleted_at IS NULL)", tenant)
 	if len(params.KnowledgeIDs) > 0 {
