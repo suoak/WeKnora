@@ -23,7 +23,7 @@ CREATE TABLE knowledge_bases(id text PRIMARY KEY,tenant_id bigint,deleted_at tim
 INSERT INTO knowledge_bases VALUES('kb',1,NULL),('sibling',1,NULL),('foreign-kb',2,NULL);
 CREATE TABLE embeddings(id bigint PRIMARY KEY,content text,knowledge_base_id text,knowledge_id text,allowed bool);
 INSERT INTO knowledges VALUES('doc',1,'kb'),('other',1,'kb'),('foreign',2,'kb');
-INSERT INTO embeddings VALUES(1,'needle alpha','kb','doc',true),(2,repeat('needle ',20),'kb','doc',false),
+INSERT INTO embeddings VALUES(2,repeat('needle ',20),'kb','doc',false),(1,'needle alpha','kb','doc',true),
 (3,'needle','kb','other',true),(4,'needle','kb','foreign',true),
 (5,'needle sibling','sibling','sibling-doc',true),(6,'needle foreign','foreign-kb','foreign-doc',true);
 INSERT INTO embeddings SELECT n,'needle','global','outside',true FROM generate_series(10,1010)n;
@@ -115,8 +115,17 @@ SELECT id,score FROM lexical WHERE id IN(1,2,3,4,5) ORDER BY id`, "needle").Scan
 	params.KnowledgeIDs = nil
 	require.NoError(
 		t,
-		db.Exec(`INSERT INTO embeddings SELECT n,'needle','kb','doc',true FROM generate_series(2000,134000)n`).Error,
+		db.Exec(`INSERT INTO embeddings SELECT n,'needle','kb','doc',true FROM generate_series(2000,133067)n`).Error,
 	)
+	bounded, boundedVars, err := r.portalLexicalSearchScope(
+		context.Background(), 1, "content ||| $1", []interface{}{"needle"}, params,
+	)
+	require.NoError(t, err)
+	require.Contains(t, bounded, "term_set", "the complete set at the exact bound is still usable")
+	var boundedCount int
+	require.NoError(t, db.Raw("SELECT cardinality(?::bigint[])", boundedVars[1]).Scan(&boundedCount).Error)
+	require.Equal(t, maxPortalLexicalCandidateIDs, boundedCount)
+	require.NoError(t, db.Exec(`INSERT INTO embeddings VALUES(133068,'needle','kb','doc',true)`).Error)
 	fallback, _, err := r.portalLexicalSearchScope(
 		context.Background(),
 		1,
