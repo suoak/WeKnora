@@ -29,6 +29,7 @@ type PersonalServer struct {
 	knowledge       *service.PortalMCPKnowledge
 	handler         http.Handler
 	admission       *personalAdmission
+	searchWork      *personalAdmission
 	protocol        *personalAdmission
 	streams         *personalAdmission
 	content         personalContentService
@@ -50,7 +51,8 @@ func newPersonalServer(
 	s := &PersonalServer{
 		enabled: enabled, knowledge: knowledge,
 		admission: newPersonalAdmission(limits, false), protocol: newPersonalAdmission(limits, true),
-		streams: newPersonalStreamAdmission(limits),
+		streams:    newPersonalStreamAdmission(limits),
+		searchWork: newPersonalSearchWork(limits),
 	}
 	m := server.NewMCPServer(
 		"knowhub-personal",
@@ -167,6 +169,13 @@ func (s *PersonalServer) Handler() http.Handler {
 			release()
 			perftrace.AdmissionReleased(r.Context(), pool.snapshot(principal.ID))
 		}()
+		if personalNeedsSearchWork(toolName, targets) {
+			workRelease, admitted := s.acquireSearchWork(w, r, principal.ID)
+			if !admitted {
+				return
+			}
+			defer workRelease()
+		}
 		authorize := func() error {
 			if protocolOnly {
 				return s.knowledge.Resolver.AuthorizeProtocol(r.Context())
