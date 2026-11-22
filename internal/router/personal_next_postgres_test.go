@@ -56,6 +56,7 @@ type countedPortalCandidateEngine struct {
 func (e *countedPortalCandidateEngine) EngineType() types.RetrieverEngineType {
 	return types.PostgresRetrieverEngineType
 }
+
 func (e *countedPortalCandidateEngine) Retrieve(ctx context.Context, p types.RetrieveParams) ([]*types.RetrieveResult, error) {
 	e.mu.Lock()
 	engine, gate := e.engine, e.gate
@@ -328,13 +329,17 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 			observed.mu.Unlock()
 			return observed, nil
 		}
-		args := map[string]any{"query": "PUBLIC", "mode": "hybrid", "limit": 2,
-			"knowledge_base_ids": []string{"public-kb", "public-batch"}}
+		args := map[string]any{
+			"query": "PUBLIC", "mode": "hybrid", "limit": 2,
+			"knowledge_base_ids": []string{"public-kb", "public-batch"},
+		}
 		_, baseline := call(a.Token, "search_knowledge", args)
 		require.Contains(t, baseline, `"status":"complete"`)
 		perform := func(token string, arguments map[string]any, ctx context.Context) *httptest.ResponseRecorder {
-			payload, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-				"params": map[string]any{"name": "search_knowledge", "arguments": arguments}})
+			payload, _ := json.Marshal(map[string]any{
+				"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+				"params": map[string]any{"name": "search_knowledge", "arguments": arguments},
+			})
 			r := httptest.NewRequest("POST", "/api/v1/mcp/personal", bytes.NewReader(payload)).WithContext(ctx)
 			r.Header.Set("Authorization", "Bearer "+token)
 			r.Header.Set("Content-Type", "application/json")

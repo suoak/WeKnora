@@ -14,12 +14,23 @@ func candidateIdentityFixture() (context.Context, *PortalKBTarget) {
 	c := types.Caller{TenantID: 1, UserID: p.ID, Role: types.TenantRoleViewer}
 	ctx := context.WithValue(context.Background(), types.PrincipalContextKey, p)
 	ctx = types.WithCaller(ctx, c)
-	ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{KeyID: 7, ScopeType: types.APIKeyScopeUserMCP,
-		Capabilities: types.StringArray{string(types.APIKeyCapabilityRetrieve), string(types.APIKeyCapabilityEnterpriseRetrieve)}})
-	snapshot := &types.EnterpriseReadSnapshot{CandidateEpoch: "user/key/kb/portal/model/roles/v1", UserID: p.ID,
-		KBID: "kb", Documents: []types.EnterpriseDocumentState{{ID: "doc", CurrentVersion: "published-epoch-v1:immutable"}}}
-	t := &PortalKBTarget{descriptor: PortalKBDescriptor{TenantID: 1, ID: "kb", EmbeddingModelID: "model"},
-		principal: p, caller: c, credential: normalizedReadCredential(ctx), public: &EnterpriseReadGrant{snapshot: snapshot, documents: []string{"doc"}}}
+	ctx = types.WithTenantAPIKeyScope(ctx, types.TenantAPIKeyScope{
+		KeyID: 7, ScopeType: types.APIKeyScopeUserMCP,
+		Capabilities: types.StringArray{
+			string(types.APIKeyCapabilityRetrieve), string(types.APIKeyCapabilityEnterpriseRetrieve),
+		},
+	})
+	snapshot := &types.EnterpriseReadSnapshot{
+		CandidateEpoch: "user/key/kb/portal/model/roles/v1", UserID: p.ID,
+		KBID: "kb", Documents: []types.EnterpriseDocumentState{
+			{ID: "doc", CurrentVersion: "published-epoch-v1:immutable"},
+		},
+	}
+	t := &PortalKBTarget{
+		descriptor: PortalKBDescriptor{TenantID: 1, ID: "kb", EmbeddingModelID: "model"},
+		principal:  p, caller: c, credential: normalizedReadCredential(ctx),
+		public: &EnterpriseReadGrant{snapshot: snapshot, documents: []string{"doc"}},
+	}
 	return ctx, t
 }
 

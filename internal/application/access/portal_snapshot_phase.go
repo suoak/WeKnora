@@ -59,7 +59,9 @@ func ReadPortalSnapshot(
 	if phase == nil {
 		return load()
 	}
-	id := portalSnapshotIdentity{store, user, kb, types.PrivateKBReadUser(ctx), key, public, published, PortalCandidateVersionsRequested(ctx)}
+	id := portalSnapshotIdentity{
+		store, user, kb, types.PrivateKBReadUser(ctx), key, public, published, PortalCandidateVersionsRequested(ctx),
+	}
 	phase.mu.Lock()
 	entry, found := phase.entries[id]
 	if !found && len(phase.entries) >= 256 {

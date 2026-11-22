@@ -14,12 +14,16 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
-const portalCandidateWorkSlots = 32
-const portalCandidateReplyBytes = 1 << 20
+const (
+	portalCandidateWorkSlots  = 32
+	portalCandidateReplyBytes = 1 << 20
+)
 
-var errPortalCandidateCapacity = errors.New("candidate computation capacity unavailable")
-var errPortalCandidateCalculation = errors.New("candidate computation failed")
-var errPortalCandidatePanic = errors.New("candidate driver panic")
+var (
+	errPortalCandidateCapacity    = errors.New("candidate computation capacity unavailable")
+	errPortalCandidateCalculation = errors.New("candidate computation failed")
+	errPortalCandidatePanic       = errors.New("candidate driver panic")
+)
 
 type portalCandidateKey struct {
 	engine                        access.DocumentRetriever

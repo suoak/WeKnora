@@ -268,7 +268,8 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 		if stamped {
 			userColumns += ", xmin::text AS candidate_epoch"
 		}
-		if err := tx.Table("users").Select(userColumns).Where("id = ? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
+		if err := tx.Table("users").Select(userColumns).
+			Where("id = ? AND deleted_at IS NULL", userID).Take(&user).Error; err != nil {
 			return err
 		}
 		s.UserActive = user.IsActive
@@ -286,7 +287,8 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
  ARRAY(SELECT s.id::text || '/' || s.xmin::text FROM api_key_kb_scopes s
  WHERE s.api_key_id=tenant_api_keys.id ORDER BY s.id)::text) AS candidate_epoch`
 			}
-			if err := tx.Table("tenant_api_keys").Select(columns).Where("id = ?", keyID).Take(&credential).Error; err != nil {
+			if err := tx.Table("tenant_api_keys").Select(columns).
+				Where("id = ?", keyID).Take(&credential).Error; err != nil {
 				return err
 			}
 			// SQLite TEXT and PostgreSQL JSONB must both be parsed strictly. The
