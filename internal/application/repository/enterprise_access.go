@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
@@ -238,6 +239,15 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 }
 
 func (r *EnterpriseAccessRepository) loadReadSnapshotMode(
+	ctx context.Context, userID string, keyID uint64, kbID string, publicOnly, published bool,
+) (*types.EnterpriseReadSnapshot, error) {
+	load := func() (*types.EnterpriseReadSnapshot, error) {
+		return r.readSnapshotMode(ctx, userID, keyID, kbID, publicOnly, published)
+	}
+	return access.ReadPortalSnapshot(ctx, r, userID, keyID, kbID, publicOnly, published, load)
+}
+
+func (r *EnterpriseAccessRepository) readSnapshotMode(
 	ctx context.Context, userID string, keyID uint64, kbID string, publicOnly, published bool,
 ) (*types.EnterpriseReadSnapshot, error) {
 	if r == nil || r.db == nil {

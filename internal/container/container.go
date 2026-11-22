@@ -998,6 +998,7 @@ func initDatabase(cfg *config.Config) (*gorm.DB, error) {
 		sqlDB.SetMaxOpenConns(1)
 	} else {
 		sqlDB.SetMaxIdleConns(10)
+		applyDBMaxOpenConns(context.Background(), sqlDB)
 	}
 	sqlDB.SetConnMaxLifetime(time.Duration(10) * time.Minute)
 	// Source read guards remain installed when the ingestion feature is turned

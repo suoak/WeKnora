@@ -51,12 +51,22 @@ func TestPublishedSnapshotColdReadUsesEpochsWithoutChunkScan(t *testing.T) {
 }
 
 func TestPublishedSnapshotRevalidationKeepsLiveRevocations(t *testing.T) {
+	testPublishedSnapshotRevocations(t, false)
+}
+
+func TestPublishedSnapshotPhaseFinalFenceKeepsLiveRevocations(t *testing.T) {
+	testPublishedSnapshotRevocations(t, true)
+}
+
+func testPublishedSnapshotRevocations(t *testing.T, phase bool) {
+	t.Helper()
 	for name, statement := range map[string]string{
 		"chunk":      "UPDATE chunks SET content='raw write' WHERE id='chunk'",
 		"key":        "UPDATE tenant_api_keys SET revoked_at='2026-10-23 00:00:00' WHERE id=1",
 		"capability": "UPDATE tenant_api_keys SET capabilities='[\"retrieve\"]' WHERE id=1",
 		"user":       "UPDATE users SET is_active=false WHERE id='A'",
 		"portal":     "UPDATE tenant_portal_configs SET status='draft' WHERE tenant_id=99",
+		"delete":     "UPDATE knowledges SET deleted_at='2026-11-22 00:00:00' WHERE id='doc'",
 		"policy": "INSERT INTO knowledge_access_policies(knowledge_id,state,policy,content_class," +
 			"source_acl_state,revision,updated_by) VALUES('doc','pending_review','deny','ordinary','local',1,'owner')",
 	} {
@@ -66,11 +76,14 @@ func TestPublishedSnapshotRevalidationKeepsLiveRevocations(t *testing.T) {
 				Enabled: true, PortalPublishedDefault: true,
 			}, f.repo, f.employees, NewChunkRepository(f.db))
 			ctx := enterpriseUserContext("A", 1, true)
+			if phase {
+				ctx = access.WithPortalSnapshotReads(ctx)
+			}
 			grant, err := reader.Authorize(ctx, "public-kb")
 			require.NoError(t, err)
 			require.NoError(t, reader.Revalidate(ctx, grant))
 			require.NoError(t, f.db.Exec(statement).Error)
-			require.Error(t, reader.Revalidate(ctx, grant))
+			require.Error(t, reader.Revalidate(access.WithoutPortalSnapshotReads(ctx), grant))
 		})
 	}
 }
