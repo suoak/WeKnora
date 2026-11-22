@@ -58,6 +58,9 @@ func exerciseFullScopePostgresLoad(
  SELECT c.id,0,c.id,c.knowledge_id,c.knowledge_base_id,c.content,1024,true,e.embedding
  FROM chunks c CROSS JOIN (SELECT embedding FROM embeddings WHERE source_id='public-doc-chunk') e
  WHERE c.knowledge_base_id LIKE 'load-full-%'`).Error)
+	// Bulk-loaded disposable data needs representative planner statistics before
+	// comparing pools or clearing shared buffers. This never targets production.
+	require.NoError(t, db.Exec("ANALYZE embeddings, chunks, knowledges, knowledge_bases").Error)
 	var keys []string
 	for i := range 4 {
 		id := fmt.Sprintf("load-viewer-%02d", i)

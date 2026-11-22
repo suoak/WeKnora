@@ -66,3 +66,23 @@ func TestPortalBatchPreservesPerKBRanksAndFailureIsolation(t *testing.T) {
 	require.Equal(t, count-1, partial.Searched)
 	require.NotEmpty(t, partial.Results)
 }
+
+func TestPortalBatchCancellationIsNotAuthorizationDenial(t *testing.T) {
+	_, s, ctx, _ := globalPortalSearchFixture(t, 2)
+	targets, err := s.Resolve(ctx, nil)
+	require.NoError(t, err)
+	execution, cancel := context.WithCancel(ctx)
+	defer cancel()
+	batch := &portalBatchEngine{targets: targets, calls: make(map[string]*portalBatchReply)}
+	batch.engine = &portalV1Driver{f: func(context.Context, types.RetrieveParams) ([]*types.RetrieveResult, error) {
+		cancel()
+		return nil, context.Canceled
+	}}
+	_, err = batch.Retrieve(execution, types.RetrieveParams{
+		KnowledgeBaseIDs: []string{targets[0].Descriptor().ID}, RetrieverType: types.KeywordsRetrieverType, TopK: 100,
+	})
+	require.ErrorIs(t, err, context.Canceled)
+	require.False(t, portalBatchAuthorizationError(err))
+	_, err = batch.Retrieve(ctx, types.RetrieveParams{KnowledgeBaseIDs: []string{"outside-issued-batch"}})
+	require.ErrorIs(t, err, access.ErrForbidden)
+}

@@ -133,6 +133,13 @@ func (b *portalBatchEngine) Retrieve(
 		return b.engine.Retrieve(ctx, params)
 	}
 	kb := params.KnowledgeBaseIDs[0]
+	member := false
+	for _, target := range b.targets {
+		member = member || target.Descriptor().ID == kb
+	}
+	if !member {
+		return nil, access.ErrForbidden
+	}
 	identity, err := json.Marshal(struct {
 		Query     string
 		Kind      types.RetrieverType
@@ -193,6 +200,12 @@ func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveP
 		}
 	}
 	if err != nil {
+		if canceled := ctx.Err(); canceled != nil {
+			for id := range byKB {
+				call.errors[id] = canceled
+			}
+			return
+		}
 		// A corrupt/incompatible KB must not erase another KB's successful leg.
 		// Split only on a real execution failure, inside the existing mode budget.
 		for _, target := range b.targets {
@@ -202,6 +215,9 @@ func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveP
 				narrow := params
 				narrow.KnowledgeBaseIDs = []string{id}
 				call.results[id], e = b.engine.Retrieve(execution, narrow)
+			}
+			if canceled := ctx.Err(); canceled != nil {
+				e = canceled
 			}
 			call.errors[id] = e
 		}
