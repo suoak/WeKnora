@@ -35,7 +35,9 @@ func TestPortalSnapshotPhaseMergesReadsWithoutSharingMutableFacts(t *testing.T) 
 	value, err := ReadPortalSnapshot(ctx, store, "A", 1, "kb", false, true, load)
 	require.NoError(t, err)
 	require.Equal(t, "doc", value.Documents[0].ID)
-	for _, fresh := range []context.Context{WithoutPortalSnapshotReads(ctx), WithPortalSnapshotReads(context.Background())} {
+	for _, fresh := range []context.Context{
+		WithoutPortalSnapshotReads(ctx), WithPortalSnapshotReads(context.Background()),
+	} {
 		_, err = ReadPortalSnapshot(fresh, store, "A", 1, "kb", false, true, load)
 		require.NoError(t, err)
 	}

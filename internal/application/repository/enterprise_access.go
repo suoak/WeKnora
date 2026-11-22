@@ -241,9 +241,10 @@ func (r *EnterpriseAccessRepository) loadReadSnapshot(ctx context.Context, userI
 func (r *EnterpriseAccessRepository) loadReadSnapshotMode(
 	ctx context.Context, userID string, keyID uint64, kbID string, publicOnly, published bool,
 ) (*types.EnterpriseReadSnapshot, error) {
-	return access.ReadPortalSnapshot(ctx, r, userID, keyID, kbID, publicOnly, published, func() (*types.EnterpriseReadSnapshot, error) {
+	load := func() (*types.EnterpriseReadSnapshot, error) {
 		return r.readSnapshotMode(ctx, userID, keyID, kbID, publicOnly, published)
-	})
+	}
+	return access.ReadPortalSnapshot(ctx, r, userID, keyID, kbID, publicOnly, published, load)
 }
 
 func (r *EnterpriseAccessRepository) readSnapshotMode(

@@ -517,7 +517,9 @@ func GuardPortalRetrieval(
 	return set.Constrain(tenant, s.target.descriptor.ID, params, true)
 }
 
-func guardPortalGroup(ctx context.Context, scope portalRetrievalScope, params types.RetrieveParams) (types.RetrieveParams, error) {
+func guardPortalGroup(
+	ctx context.Context, scope portalRetrievalScope, params types.RetrieveParams,
+) (types.RetrieveParams, error) {
 	targets := append([]*PortalKBTarget{scope.target}, scope.others...)
 	kbs := make(map[string]bool, len(targets))
 	docs := make(map[string]bool)

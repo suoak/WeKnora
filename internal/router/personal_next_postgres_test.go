@@ -39,6 +39,21 @@ func (s documentTestMembers) ListByUser(ctx context.Context, user string) ([]*ty
 	return s.repo.ListByUser(ctx, user)
 }
 
+type independentPortalPostgresEngine struct {
+	engine        access.DocumentRetriever
+	nonComparable []string
+}
+
+func (e independentPortalPostgresEngine) EngineType() types.RetrieverEngineType {
+	return e.engine.EngineType()
+}
+
+func (e independentPortalPostgresEngine) Retrieve(
+	ctx context.Context, params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
+	return e.engine.Retrieve(ctx, params)
+}
+
 func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	dsn := feishulegacy.PrivateDSN(t)
 	cwd, e := os.Getwd()
@@ -107,6 +122,13 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	for _, c := range chunks {
 		require.NoError(t, driver.Save(context.Background(), &types.IndexInfo{SourceID: c.ID, SourceType: types.ChunkSourceType, ChunkID: c.ID, KnowledgeID: c.KnowledgeID, KnowledgeBaseID: c.KnowledgeBaseID, Content: c.Content, IsEnabled: true}, map[string]any{"embedding": map[string][]float32{c.ID: vector}}))
 	}
+	// More than TopK stale index bodies precede the live vector row by ID.
+	// Authorization must reject them before each KB's final candidate limit.
+	require.NoError(t, db.Exec(`INSERT INTO embeddings
+ (id,source_id,source_type,chunk_id,knowledge_id,knowledge_base_id,content,dimension,is_enabled,embedding)
+ SELECT -1000+n,'stale-batch-'||n,e.source_type,e.chunk_id,e.knowledge_id,e.knowledge_base_id,
+ repeat('PUBLIC ',20),e.dimension,true,e.embedding
+ FROM embeddings e CROSS JOIN generate_series(1,200) n WHERE e.source_id='public-batch-chunk'`).Error)
 	var groupedKeywords, groupedVectors atomic.Int32
 	require.NoError(t, db.Callback().Row().Before("gorm:row").Register("observe_portal_batch", func(tx *gorm.DB) {
 		sql := tx.Statement.SQL.String()
@@ -188,6 +210,20 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	}
 	require.Positive(t, groupedKeywords.Load(), "exercise the real grouped BM25 SQL")
 	require.Positive(t, groupedVectors.Load(), "exercise the real grouped exact-vector SQL")
+	args := map[string]any{"query": "PUBLIC", "mode": "hybrid", "limit": 30}
+	_, groupedBody := call(a.Token, "search_knowledge", args)
+	factory := s.Engine
+	s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+		engine, err := factory(ctx, d)
+		return independentPortalPostgresEngine{engine: engine}, err
+	}
+	_, independentBody := call(a.Token, "search_knowledge", args)
+	s.Engine = factory
+	var groupedValue, independentValue map[string]any
+	require.NoError(t, json.Unmarshal([]byte(groupedBody), &groupedValue))
+	require.NoError(t, json.Unmarshal([]byte(independentBody), &independentValue))
+	require.Equal(t, independentValue, groupedValue,
+		"real grouped BM25/vector results and RRF scores must equal per-KB execution")
 	// A real PostgreSQL keyword result survives an independent model outage.
 	embed := s.Embed
 	s.Embed = func(context.Context, access.PortalKBDescriptor, string) ([]float32, error) {

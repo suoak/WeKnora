@@ -16,7 +16,9 @@ type portalDocumentMetadataSearch interface {
 }
 
 type portalDocumentMetadataBatchSearch interface {
-	SearchPortalDocumentMetadataBatch(context.Context, []*access.PortalKBTarget, string, int) ([]*types.Knowledge, bool, error)
+	SearchPortalDocumentMetadataBatch(
+		context.Context, []*access.PortalKBTarget, string, int,
+	) ([]*types.Knowledge, bool, error)
 }
 
 // PortalMCPDocument exposes only verified document metadata and its read reference.
@@ -97,7 +99,9 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 		d := target.Descriptor()
 		rows := byKB[d.ID]
 		if !batched {
-			rows, e = repo.SearchPortalDocumentMetadata(execution, d.TenantID, d.ID, target.DocumentIDs(), query, limit+1)
+			rows, e = repo.SearchPortalDocumentMetadata(
+				execution, d.TenantID, d.ID, target.DocumentIDs(), query, limit+1,
+			)
 			if e != nil {
 				return nil, e
 			}

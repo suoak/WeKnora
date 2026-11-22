@@ -75,7 +75,9 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 	return context.WithValue(ctx, portalBatchEnginesKey{}, engines)
 }
 
-func (s *PortalMCPKnowledge) portalSearchEngine(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
+func (s *PortalMCPKnowledge) portalSearchEngine(
+	ctx context.Context, d access.PortalKBDescriptor,
+) (access.DocumentRetriever, error) {
 	if engines, _ := ctx.Value(portalBatchEnginesKey{}).(map[string]access.DocumentRetriever); engines[d.ID] != nil {
 		return engines[d.ID], nil
 	}
@@ -84,7 +86,9 @@ func (s *PortalMCPKnowledge) portalSearchEngine(ctx context.Context, d access.Po
 
 func (b *portalBatchEngine) EngineType() types.RetrieverEngineType { return b.engine.EngineType() }
 
-func (b *portalBatchEngine) Retrieve(ctx context.Context, params types.RetrieveParams) ([]*types.RetrieveResult, error) {
+func (b *portalBatchEngine) Retrieve(
+	ctx context.Context, params types.RetrieveParams,
+) ([]*types.RetrieveResult, error) {
 	if len(params.KnowledgeBaseIDs) != 1 || len(params.KnowledgeIDs) > 0 {
 		return b.engine.Retrieve(ctx, params)
 	}
@@ -103,7 +107,11 @@ func (b *portalBatchEngine) Retrieve(ctx context.Context, params types.RetrieveP
 	b.mu.Lock()
 	call, found := b.calls[key]
 	if !found {
-		call = &portalBatchReply{done: make(chan struct{}), results: make(map[string][]*types.RetrieveResult), errors: make(map[string]error)}
+		call = &portalBatchReply{
+			done:    make(chan struct{}),
+			results: make(map[string][]*types.RetrieveResult),
+			errors:  make(map[string]error),
+		}
 		b.calls[key] = call
 	}
 	b.mu.Unlock()

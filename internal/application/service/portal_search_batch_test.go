@@ -26,7 +26,9 @@ func TestPortalBatchPreservesPerKBRanksAndFailureIsolation(t *testing.T) {
 			grouped.Add(1)
 			require.True(t, access.PortalRetrievalGrouped(execution))
 		}
-		row := &types.RetrieveResult{RetrieverType: params.RetrieverType, RetrieverEngineType: types.PostgresRetrieverEngineType}
+		row := &types.RetrieveResult{
+			RetrieverType: params.RetrieverType, RetrieverEngineType: types.PostgresRetrieverEngineType,
+		}
 		for _, kb := range guarded.KnowledgeBaseIDs {
 			if fail.Load() && kb == "parallel-00" {
 				return nil, errors.New("one unavailable index")
