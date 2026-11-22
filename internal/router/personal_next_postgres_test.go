@@ -261,34 +261,6 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 			require.Equal(t, expected, actual, "more than 100 live candidates per KB must survive the real Retriever")
 		}
 	})
-	t.Run("public_keyword_scan_binds_distinct_tenants", func(t *testing.T) {
-		require.NoError(t, db.Exec(
-			"UPDATE knowledge_bases SET embedding_model_id='synthetic' WHERE id='public-two'",
-		).Error)
-		defer func() {
-			s.Engine = factory
-			require.NoError(t, db.Exec(
-				"UPDATE knowledge_bases SET embedding_model_id='model-public-two' WHERE id='public-two'",
-			).Error)
-		}()
-		args := map[string]any{
-			"query": "PUBLIC", "mode": "keyword", "limit": 30,
-			"knowledge_base_ids": []string{"public-kb", "public-two", "public-batch"},
-		}
-		s.Engine = factory
-		_, grouped := call(a.Token, "search_knowledge", args)
-		s.Engine = func(ctx context.Context, d access.PortalKBDescriptor) (access.DocumentRetriever, error) {
-			engine, err := factory(ctx, d)
-			return independentPortalPostgresEngine{engine: engine}, err
-		}
-		_, independent := call(a.Token, "search_knowledge", args)
-		require.Contains(t, grouped, "public-two-doc")
-		require.Contains(t, grouped, `knowledge_id\":\"public-doc`)
-		var actual, expected map[string]any
-		require.NoError(t, json.Unmarshal([]byte(grouped), &actual))
-		require.NoError(t, json.Unmarshal([]byte(independent), &expected))
-		require.Equal(t, expected, actual, "each public tenant retains its canonical SQL authority and ranks")
-	})
 	if os.Getenv("KNOWHUB_MCP_FULLSCOPE_LOAD") == "1" {
 		exerciseFullScopePostgresLoad(t, g, db, create)
 	}

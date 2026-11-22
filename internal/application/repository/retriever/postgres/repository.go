@@ -293,12 +293,7 @@ func (g *pgRepository) keywordsRetrieve(
 		conds = append(conds, clause.Expr{SQL: legacySourceCandidatePredicate(ctx)})
 	}
 	if tenant, protected := access.PortalRetrievalTenant(ctx); protected {
-		tenantSQL, vars := portalKeywordTenantClause(ctx, "embeddings", tenant)
-		conds = append(conds, clause.Expr{
-			SQL: portalCanonicalPredicate(tenantSQL, access.PortalRetrievalPublic(ctx),
-				access.PortalRetrievalPublishedDefaults(ctx)),
-			Vars: append(vars, types.ChunkSourceType),
-		})
+		conds = append(conds, clause.Expr{SQL: portalCanonicalPredicate("?", access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx)), Vars: []interface{}{tenant, types.ChunkSourceType}})
 	}
 
 	// KnowledgeBaseIDs and KnowledgeIDs use AND logic
@@ -761,8 +756,8 @@ func (g *pgRepository) vectorRetrieve(
 		return nil, err
 	}
 
-	// A grouped query already limits each KB independently. A second global
-	// slice would erase later KBs and change their RRF candidate sets.
+	// A grouped query already limits each KB independently. A global slice
+	// would erase later KBs and change their RRF candidate sets.
 	if !groupedPortal && len(embeddingDBList) > int(params.TopK) {
 		embeddingDBList = embeddingDBList[:params.TopK]
 	}

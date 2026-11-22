@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
-	"sort"
 	"strings"
 	"sync"
 
@@ -37,10 +36,6 @@ type portalBatchEngine struct {
 	targets []*access.PortalKBTarget
 	mu      sync.Mutex
 	calls   map[string]*portalBatchReply
-	// Keyword batches may share a scan across public tenants. Vector batches
-	// keep their original tenant/model/store identity and scheduling budget.
-	keywords    map[string]*portalBatchEngine
-	keywordOnly bool
 }
 
 func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*access.PortalKBTarget) context.Context {
@@ -48,7 +43,6 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 		return ctx
 	}
 	buckets := make(map[portalBatchIdentity][]*access.PortalKBTarget)
-	keywordBuckets := make(map[portalBatchIdentity][]*access.PortalKBTarget)
 	for _, target := range targets {
 		d := target.Descriptor()
 		caps, err := s.Capabilities(ctx, d)
@@ -62,64 +56,20 @@ func (s *PortalMCPKnowledge) portalBatchContext(ctx context.Context, targets []*
 		}
 		key := portalBatchIdentity{engine, d.TenantID, d.EmbeddingModelID, strings.Join(caps, ","), target.Public()}
 		buckets[key] = append(buckets[key], target)
-		if target.Public() && strings.Contains(","+key.modes+",", ",keyword,") {
-			key.tenant = 0
-			keywordBuckets[key] = append(keywordBuckets[key], target)
-		}
 	}
-	keywords := portalKeywordBatches(keywordBuckets)
 	engines := make(map[string]access.DocumentRetriever)
 	for key, bucket := range buckets {
 		// Bound materialized lexical work without selecting or dropping KBs.
 		// Unlike a global TopK, each batch retains 100 candidates per KB/mode.
 		for start := 0; start < len(bucket); start += 8 {
 			part := bucket[start:min(start+8, len(bucket))]
-			batch := &portalBatchEngine{
-				engine: key.engine, targets: part, calls: make(map[string]*portalBatchReply), keywords: keywords,
-			}
+			batch := &portalBatchEngine{engine: key.engine, targets: part, calls: make(map[string]*portalBatchReply)}
 			for _, target := range part {
 				engines[target.Descriptor().ID] = batch
 			}
 		}
 	}
 	return context.WithValue(ctx, portalBatchEnginesKey{}, engines)
-}
-
-func portalKeywordBatches(buckets map[portalBatchIdentity][]*access.PortalKBTarget) map[string]*portalBatchEngine {
-	engines := make(map[string]*portalBatchEngine)
-	for key, targets := range buckets {
-		weights := make(map[string]int, len(targets))
-		for _, target := range targets {
-			weights[target.Descriptor().ID] = len(target.DocumentIDs())
-		}
-		sort.Slice(targets, func(i, j int) bool {
-			a, b := targets[i].Descriptor().ID, targets[j].Descriptor().ID
-			if weights[a] != weights[b] {
-				return weights[a] > weights[b]
-			}
-			return a < b
-		})
-		for start := 0; start < len(targets); {
-			end, weight := start, 0
-			for end < len(targets) && end-start < 16 {
-				next := weights[targets[end].Descriptor().ID]
-				if end > start && weight+next > 1024 {
-					break
-				}
-				weight += next
-				end++
-			}
-			batch := &portalBatchEngine{
-				engine: key.engine, targets: targets[start:end],
-				calls: make(map[string]*portalBatchReply), keywordOnly: true,
-			}
-			for _, target := range batch.targets {
-				engines[target.Descriptor().ID] = batch
-			}
-			start = end
-		}
-	}
-	return engines
 }
 
 func portalBatchConcurrency(ctx context.Context) int {
@@ -192,9 +142,6 @@ func (b *portalBatchEngine) Retrieve(
 	if !member {
 		return nil, access.ErrForbidden
 	}
-	if params.RetrieverType == types.KeywordsRetrieverType && b.keywords[kb] != nil {
-		return b.keywords[kb].Retrieve(ctx, params)
-	}
 	identity, err := json.Marshal(struct {
 		Query     string
 		Kind      types.RetrieverType
@@ -234,11 +181,7 @@ func (b *portalBatchEngine) Retrieve(
 }
 
 func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveParams, call *portalBatchReply) {
-	authorize := access.PortalGroupSearchContext
-	if b.keywordOnly {
-		authorize = access.PortalKeywordGroupSearchContext
-	}
-	group, err := authorize(ctx, b.targets)
+	group, err := access.PortalGroupSearchContext(ctx, b.targets)
 	if err != nil {
 		if canceled := ctx.Err(); canceled != nil {
 			err = canceled

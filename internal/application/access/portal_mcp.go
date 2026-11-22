@@ -419,9 +419,8 @@ func (t *PortalKBTarget) authorizePrivateSnapshot(ctx context.Context, snapshot 
 type (
 	portalRetrievalKey   struct{}
 	portalRetrievalScope struct {
-		target      *PortalKBTarget
-		others      []*PortalKBTarget
-		keywordOnly bool
+		target *PortalKBTarget
+		others []*PortalKBTarget
 	}
 )
 
@@ -440,30 +439,14 @@ func (t *PortalKBTarget) SearchContext(ctx context.Context) (context.Context, er
 // identical tenant, model and public/private policy semantics. Store identity
 // is verified by the coordinator before selecting the shared PostgreSQL engine.
 func PortalGroupSearchContext(ctx context.Context, targets []*PortalKBTarget) (context.Context, error) {
-	return portalGroupSearchContext(ctx, targets, false)
-}
-
-// PortalKeywordGroupSearchContext shares only the lexical scan across issued
-// public KBs. PostgreSQL must bind each row to its certified tenant; this scope
-// cannot be used for vector retrieval or private/public policy mixing.
-func PortalKeywordGroupSearchContext(ctx context.Context, targets []*PortalKBTarget) (context.Context, error) {
-	return portalGroupSearchContext(ctx, targets, true)
-}
-
-func portalGroupSearchContext(
-	ctx context.Context, targets []*PortalKBTarget, keywordOnly bool,
-) (context.Context, error) {
 	if len(targets) == 0 || len(targets) > 128 || targets[0] == nil {
 		return nil, ErrForbidden
 	}
 	first := targets[0]
-	if keywordOnly && !first.Public() {
-		return nil, ErrForbidden
-	}
 	seen := make(map[string]bool, len(targets))
 	for _, target := range targets {
 		if target == nil || target.resolver != first.resolver ||
-			!keywordOnly && target.descriptor.TenantID != first.descriptor.TenantID ||
+			target.descriptor.TenantID != first.descriptor.TenantID ||
 			target.descriptor.EmbeddingModelID != first.descriptor.EmbeddingModelID ||
 			target.Public() != first.Public() || seen[target.descriptor.ID] ||
 			target.public == nil && target.privateSnapshot == nil {
@@ -475,23 +458,7 @@ func portalGroupSearchContext(
 		seen[target.descriptor.ID] = true
 	}
 	return context.WithValue(types.WithExecutionTenant(ctx, first.descriptor.TenantID),
-		portalRetrievalKey{}, portalRetrievalScope{
-			target: first, others: append([]*PortalKBTarget(nil), targets[1:]...), keywordOnly: keywordOnly,
-		}), nil
-}
-
-// PortalKeywordTenants returns only server-issued owner bindings, never caller
-// metadata. The canonical SQL uses these identities before its per-KB LIMIT.
-func PortalKeywordTenants(ctx context.Context) map[string]uint64 {
-	s, ok := ctx.Value(portalRetrievalKey{}).(portalRetrievalScope)
-	if !ok || !s.keywordOnly || s.target == nil {
-		return nil
-	}
-	owners := make(map[string]uint64, len(s.others)+1)
-	for _, target := range append([]*PortalKBTarget{s.target}, s.others...) {
-		owners[target.descriptor.ID] = target.descriptor.TenantID
-	}
-	return owners
+		portalRetrievalKey{}, portalRetrievalScope{first, append([]*PortalKBTarget(nil), targets[1:]...)}), nil
 }
 
 // GuardPortalRetrieval is consumed by the real PostgreSQL entrypoints before
@@ -506,7 +473,6 @@ func GuardPortalRetrieval(
 		return params, nil
 	}
 	if s.target == nil || engine != types.PostgresRetrieverEngineType || params.TopK < 1 || params.TopK > 100 ||
-		s.keywordOnly && params.RetrieverType != types.KeywordsRetrieverType ||
 		len(params.Query) > 4096 ||
 		len(params.KnowledgeIDs) > MaxDocumentAllowSet ||
 		len(params.TagIDs) > 0 ||
