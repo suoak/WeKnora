@@ -129,8 +129,10 @@ func TestPersonalConsistencyIsolatedBoundary(t *testing.T) {
 	for _, tool := range []string{"search_documents", "search_knowledge", "grep_chunks", "wiki_search"} {
 		for _, selection := range []any{nil, []any{}, []any{"kb"}, "kb", true, []any{nil}, []any{1}} {
 			args := map[string]any{"query": "HA", "knowledge_base_ids": selection}
-			body, err := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": "tools/call",
-				"params": map[string]any{"name": tool, "arguments": args}})
+			body, err := json.Marshal(map[string]any{
+				"jsonrpc": "2.0", "id": 1, "method": "tools/call",
+				"params": map[string]any{"name": tool, "arguments": args},
+			})
 			require.NoError(t, err)
 			called := false
 			h := personalHTTPBoundary(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
@@ -157,7 +159,9 @@ func TestPersonalConsistencyIsolatedBoundary(t *testing.T) {
 		}
 	}
 	for _, args := range []string{`{"query":"HA","content":"write"}`, `{"query":"HA","path":"/etc/passwd"}`} {
-		require.Error(t, validatePersonalRPC([]byte(`{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"search_documents","arguments":`+args+`}}`)))
+		body := `{"jsonrpc":"2.0","id":1,"method":"tools/call",` +
+			`"params":{"name":"search_documents","arguments":` + args + `}}`
+		require.Error(t, validatePersonalRPC([]byte(body)))
 	}
 }
 
