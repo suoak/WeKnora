@@ -542,6 +542,9 @@ func (s *PortalMCPKnowledge) search(
 		}
 	}
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
+	if mode != "grep" {
+		ctx = access.WithPortalCandidateVersions(ctx)
+	}
 	ctx = access.WithPortalSnapshotReads(ctx)
 	targets, err := s.Resolve(ctx, ids)
 	if err != nil {

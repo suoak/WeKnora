@@ -259,7 +259,7 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 		if err := types.CheckPrivateKBRead(tx, "", kbID); err != nil {
 			return err
 		}
-		stamped := published && tx.Dialector.Name() == "postgres"
+		stamped := published && tx.Dialector.Name() == "postgres" && access.PortalCandidateVersionsRequested(ctx)
 		var user struct {
 			IsActive       bool
 			CandidateEpoch string
@@ -280,7 +280,11 @@ func (r *EnterpriseAccessRepository) readSnapshotMode(
 		if keyID != 0 {
 			columns := "id, owner_user_id, scope_type, capabilities, revoked_at, expires_at, full_access"
 			if stamped {
-				columns += ", xmin::text AS candidate_epoch"
+				columns += `, concat_ws(':',xmin::text,
+ ARRAY(SELECT s.id::text || '/' || s.xmin::text FROM api_key_tenant_scopes s
+ WHERE s.api_key_id=tenant_api_keys.id ORDER BY s.id)::text,
+ ARRAY(SELECT s.id::text || '/' || s.xmin::text FROM api_key_kb_scopes s
+ WHERE s.api_key_id=tenant_api_keys.id ORDER BY s.id)::text) AS candidate_epoch`
 			}
 			if err := tx.Table("tenant_api_keys").Select(columns).Where("id = ?", keyID).Take(&credential).Error; err != nil {
 				return err

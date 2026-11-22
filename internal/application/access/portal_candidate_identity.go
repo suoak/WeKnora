@@ -10,6 +10,19 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
+type portalCandidateVersionKey struct{}
+
+// WithPortalCandidateVersions opts only candidate searches into optional
+// physical-version projection. Title, protocol and ordinary reads stay intact.
+func WithPortalCandidateVersions(ctx context.Context) context.Context {
+	return context.WithValue(ctx, portalCandidateVersionKey{}, true)
+}
+
+func PortalCandidateVersionsRequested(ctx context.Context) bool {
+	enabled, _ := ctx.Value(portalCandidateVersionKey{}).(bool)
+	return enabled
+}
+
 // samePortalSnapshot excludes only optional physical row stamps used to avoid
 // joining computations across credential/publication incarnations. A benign
 // last-used write must not change the existing authorization contract.
