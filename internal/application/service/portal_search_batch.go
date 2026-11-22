@@ -83,10 +83,14 @@ func portalBatchConcurrency(ctx context.Context) int {
 	return portalSearchTargetConcurrency
 }
 
-func portalBatchOrder(ctx context.Context, targets []*access.PortalKBTarget, order []int) []int {
+func portalBatchWork(ctx context.Context, targets []*access.PortalKBTarget, order []int) [][]int {
 	engines, _ := ctx.Value(portalBatchEnginesKey{}).(map[string]access.DocumentRetriever)
 	if len(engines) == 0 {
-		return order
+		work := make([][]int, 0, len(order))
+		for _, i := range order {
+			work = append(work, []int{i})
+		}
+		return work
 	}
 	var buckets [][]int
 	positions := make(map[access.DocumentRetriever]int)
@@ -104,15 +108,10 @@ func portalBatchOrder(ctx context.Context, targets []*access.PortalKBTarget, ord
 		}
 		buckets[position] = append(buckets[position], i)
 	}
-	result := make([]int, 0, len(order))
-	for round := 0; len(result) < len(order); round++ {
-		for _, bucket := range buckets {
-			if round < len(bucket) {
-				result = append(result, bucket[round])
-			}
-		}
-	}
-	return result
+	// One worker executes a batch and immediately consumes its per-KB results.
+	// Queuing cached followers behind every other SQL batch can exhaust their
+	// budget after the database has already successfully searched those KBs.
+	return buckets
 }
 
 func (s *PortalMCPKnowledge) portalSearchEngine(

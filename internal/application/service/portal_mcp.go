@@ -282,9 +282,13 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 	caps, e := s.Capabilities(searchExecution, descriptor)
 	if e != nil {
 		outcome.failed = true
+		reason := "index_configuration_unavailable"
+		if errors.Is(searchExecution.Err(), context.DeadlineExceeded) {
+			reason = "retrieval_budget_exhausted"
+		}
 		outcome.failures = append(
 			outcome.failures,
-			PortalMCPModeDetail{descriptor.ID, mode, "index_configuration_unavailable"},
+			PortalMCPModeDetail{descriptor.ID, mode, reason},
 		)
 		return outcome, nil
 	}
@@ -573,16 +577,23 @@ func (s *PortalMCPKnowledge) search(
 	}
 	group, execution := errgroup.WithContext(ctx)
 	group.SetLimit(portalBatchConcurrency(ctx))
-	order := portalBatchOrder(ctx, targets, portalSearchOrder(ctx, s.Resolver.Store, targets))
-	for _, i := range order {
-		target := targets[i]
+	work := portalBatchWork(ctx, targets, portalSearchOrder(ctx, s.Resolver.Store, targets))
+	for _, batch := range work {
 		if execution.Err() != nil || budget.Err() != nil {
 			break
 		}
 		group.Go(func() error {
-			var targetErr error
-			outcomes[i], targetErr = s.searchPortalTarget(execution, budget, target, query, mode, pattern)
-			return targetErr
+			for _, i := range batch {
+				if execution.Err() != nil || budget.Err() != nil {
+					break
+				}
+				var targetErr error
+				outcomes[i], targetErr = s.searchPortalTarget(execution, budget, targets[i], query, mode, pattern)
+				if targetErr != nil {
+					return targetErr
+				}
+			}
+			return nil
 		})
 	}
 	if err := group.Wait(); err != nil {

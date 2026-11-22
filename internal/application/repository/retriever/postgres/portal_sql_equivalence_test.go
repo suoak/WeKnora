@@ -110,11 +110,14 @@ func TestPortalSQLDimensionAndCanonicalEquivalencePostgres(t *testing.T) {
 		require.NoError(t, db.Exec("SET jit_inline_above_cost = 500000").Error)
 		require.NoError(t, db.Exec("SET jit_optimize_above_cost = 500000").Error)
 		aborted := errors.New("synthetic query transaction rollback")
-		for _, vector := range []bool{false, true} {
+		for _, kind := range []string{"dimension", "keyword", "vector"} {
+			vector := kind == "vector"
 			for _, rollback := range []bool{false, true} {
 				session := portalDimensionQuerySession
 				if vector {
 					session = portalVectorQuerySession
+				} else if kind == "keyword" {
+					session = portalKeywordQuerySession
 				}
 				called := false
 				err := session(db, func(tx *gorm.DB) error {

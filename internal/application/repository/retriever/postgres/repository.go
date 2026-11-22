@@ -357,7 +357,9 @@ func (g *pgRepository) keywordsRetrieve(
 			bm25Done()
 			return nil, buildErr
 		}
-		err = query.Raw("?", clause.Expr{SQL: sql, Vars: vars}).Scan(&embeddingDBList).Error
+		err = portalKeywordQuerySession(query, func(tx *gorm.DB) error {
+			return tx.Raw("?", clause.Expr{SQL: sql, Vars: vars}).Scan(&embeddingDBList).Error
+		})
 	} else if guarded {
 		columns[0] = "score"
 		outer := query.Session(&gorm.Session{DryRun: true}).Table("lexical AS embeddings").Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Statement
