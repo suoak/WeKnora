@@ -69,7 +69,7 @@ func TestPortalBatchPreservesPerKBRanksAndFailureIsolation(t *testing.T) {
 
 func TestPortalBatchCancellationIsNotAuthorizationDenial(t *testing.T) {
 	_, s, ctx, _ := globalPortalSearchFixture(t, 2)
-	targets, err := s.Resolve(ctx, nil)
+	targets, err := s.Resolve(ctx, []string{"parallel-00", "parallel-01"})
 	require.NoError(t, err)
 	execution, cancel := context.WithCancel(ctx)
 	defer cancel()
