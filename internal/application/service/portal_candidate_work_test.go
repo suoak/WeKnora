@@ -114,6 +114,35 @@ func TestPortalCandidateWorkAllCancelDeadlineAndClose(t *testing.T) {
 	}
 }
 
+func TestPortalCandidateWorkShortLeaderDeadlineDoesNotExpireFollower(t *testing.T) {
+	w := newPortalCandidateWork()
+	key := portalCandidateKey{}
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Millisecond)
+	defer cancel()
+	started, release := make(chan struct{}), make(chan struct{})
+	var calls atomic.Int32
+	load := func(work context.Context) ([]*types.RetrieveResult, error) {
+		if calls.Add(1) == 1 {
+			close(started)
+		}
+		select {
+		case <-release:
+			return candidateTestRows(), nil
+		case <-work.Done():
+			return nil, work.Err()
+		}
+	}
+	first, second := make(chan error, 1), make(chan error, 1)
+	go func() { _, e := w.do(ctx, key, load); first <- e }()
+	<-started
+	go func() { _, e := w.do(context.Background(), key, load); second <- e }()
+	require.Eventually(t, func() bool { return candidateRefs(w, key) == 2 }, time.Second, time.Millisecond)
+	require.ErrorIs(t, <-first, context.DeadlineExceeded)
+	close(release)
+	require.NoError(t, <-second)
+	require.EqualValues(t, 1, calls.Load())
+}
+
 func TestPortalCandidateWorkIdentityIsolationAndBounds(t *testing.T) {
 	w := newPortalCandidateWork()
 	ctx, cancel := context.WithCancel(context.Background())
@@ -158,7 +187,7 @@ func TestPortalCandidateWorkIdentityIsolationAndBounds(t *testing.T) {
 func TestPortalCandidateWorkPanicCannotLeakTask(t *testing.T) {
 	w := newPortalCandidateWork()
 	_, e := w.do(context.Background(), portalCandidateKey{}, func(context.Context) ([]*types.RetrieveResult, error) { panic("driver panic must remain private") })
-	require.True(t, errors.Is(e, errPortalCandidateCalculation))
+	require.True(t, errors.Is(e, errPortalCandidatePanic))
 	require.Eventually(t, func() bool { w.mu.Lock(); defer w.mu.Unlock(); return len(w.active) == 0 && len(w.live) == 0 }, time.Second, time.Millisecond)
 	s := &PortalMCPKnowledge{}
 	require.NoError(t, s.ClosePortalCandidateWork())

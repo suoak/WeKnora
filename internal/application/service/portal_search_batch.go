@@ -258,6 +258,13 @@ func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveP
 		}
 	}
 	if err != nil {
+		if b.shared != nil && (errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+			errors.Is(err, errPortalCandidatePanic)) {
+			for id := range byKB {
+				call.errors[id] = err
+			}
+			return
+		}
 		if canceled := ctx.Err(); canceled != nil {
 			for id := range byKB {
 				call.errors[id] = canceled

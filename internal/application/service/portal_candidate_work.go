@@ -19,6 +19,7 @@ const portalCandidateReplyBytes = 1 << 20
 
 var errPortalCandidateCapacity = errors.New("candidate computation capacity unavailable")
 var errPortalCandidateCalculation = errors.New("candidate computation failed")
+var errPortalCandidatePanic = errors.New("candidate driver panic")
 
 type portalCandidateKey struct {
 	engine                        access.DocumentRetriever
@@ -93,9 +94,9 @@ func (w *portalCandidateWork) do(ctx context.Context, key portalCandidateKey,
 			return nil, errPortalCandidateCapacity
 		}
 		deadline := time.Now().Add(portalSearchModeTimeout)
-		if d, ok := ctx.Deadline(); ok && d.Before(deadline) {
-			deadline = d
-		}
+		// The worker has its own bounded active lifetime. A short first caller
+		// must not impose its deadline on an independently live follower. Each
+		// waiter still obeys its own mode/HTTP deadline; zero waiters cancels SQL.
 		work, cancel := context.WithDeadline(context.WithoutCancel(ctx), deadline)
 		t = &portalCandidateTask{done: make(chan struct{}), cancel: cancel, refs: 1}
 		w.active[key], w.live[t] = t, true
@@ -104,7 +105,7 @@ func (w *portalCandidateWork) do(ctx context.Context, key portalCandidateKey,
 			defer w.wg.Done()
 			defer func() {
 				if recover() != nil {
-					w.finish(key, t, nil, errPortalCandidateCalculation)
+					w.finish(key, t, nil, errPortalCandidatePanic)
 				}
 				cancel()
 				w.mu.Lock()
