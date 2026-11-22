@@ -15,6 +15,10 @@ type portalDocumentMetadataSearch interface {
 	SearchPortalDocumentMetadata(context.Context, uint64, string, []string, string, int) ([]*types.Knowledge, error)
 }
 
+type portalDocumentMetadataBatchSearch interface {
+	SearchPortalDocumentMetadataBatch(context.Context, []*access.PortalKBTarget, string, int) ([]*types.Knowledge, bool, error)
+}
+
 // PortalMCPDocument exposes only verified document metadata and its read reference.
 type PortalMCPDocument struct {
 	PortalMCPHit
@@ -73,15 +77,30 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 	if len(targets) == 0 {
 		out.Status = "no_scope"
 	}
+	batched := false
+	byKB := make(map[string][]*types.Knowledge)
+	if batch, ok := s.Knowledge.(portalDocumentMetadataBatchSearch); ok {
+		rows, supported, e := batch.SearchPortalDocumentMetadataBatch(ctx, targets, query, limit+1)
+		if e != nil {
+			return nil, e
+		}
+		batched = supported
+		for _, row := range rows {
+			byKB[row.KnowledgeBaseID] = append(byKB[row.KnowledgeBaseID], row)
+		}
+	}
 	for _, target := range targets {
 		execution, e := target.SearchContext(ctx)
 		if e != nil {
 			return nil, e
 		}
 		d := target.Descriptor()
-		rows, e := repo.SearchPortalDocumentMetadata(execution, d.TenantID, d.ID, target.DocumentIDs(), query, limit+1)
-		if e != nil {
-			return nil, e
+		rows := byKB[d.ID]
+		if !batched {
+			rows, e = repo.SearchPortalDocumentMetadata(execution, d.TenantID, d.ID, target.DocumentIDs(), query, limit+1)
+			if e != nil {
+				return nil, e
+			}
 		}
 		for _, row := range rows {
 			canonical, e := s.document(ctx, target, row.ID)
