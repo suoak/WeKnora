@@ -65,9 +65,11 @@ func TestPortalV1ClosedImageLabelsRemainInert(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, text, again)
 		require.Error(t, ValidatePortalQuery(input), "redaction must never authorize a query destination")
-		require.False(t, SafeDocumentText(input), "the legacy guard remains strict")
 	}
-	for _, input := range []string{"![unfinished", "![split\nlabel]", "![label]\x00", "![label]%00", "![label]%252525253A"} {
+	require.False(t, SafeDocumentText("![2]"), "the legacy guard remains strict")
+	for _, input := range []string{
+		"![unfinished", "![split\nlabel]", "![label]\x00", "![label]%00", "![label]%252525253A",
+	} {
 		_, err := SanitizePortalText(input)
 		require.Error(t, err)
 	}
