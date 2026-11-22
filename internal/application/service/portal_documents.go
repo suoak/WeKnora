@@ -60,6 +60,7 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 		return nil, err
 	}
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
+	ctx = access.WithPortalSnapshotReads(ctx)
 	targets, err := s.Resolve(ctx, ids)
 	if err != nil {
 		return nil, err
@@ -129,6 +130,7 @@ func (s *PortalMCPKnowledge) SearchDocuments(
 	for _, row := range out.Documents {
 		hits = append(hits, row.PortalMCPHit)
 	}
+	ctx = access.WithoutPortalSnapshotReads(ctx)
 	if err = validatePortalTargets(ctx, targets); err != nil {
 		return nil, err
 	}

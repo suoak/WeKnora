@@ -351,7 +351,14 @@ func (g *pgRepository) keywordsRetrieve(
 	columns := []string{"paradedb.score(id) as score", "id", contentProjection, "source_id", "source_type", "chunk_id", "knowledge_id", "knowledge_base_id", "tag_id"}
 	var err error
 	bm25Done := perftrace.Measure(ctx, perftrace.BM25SQL)
-	if guarded {
+	if portalProtected && bulkPortalVector(ctx) {
+		sql, vars, buildErr := g.portalOrderedKeywordSQL(ctx, params, conds, columns)
+		if buildErr != nil {
+			bm25Done()
+			return nil, buildErr
+		}
+		err = query.Raw("?", clause.Expr{SQL: sql, Vars: vars}).Scan(&embeddingDBList).Error
+	} else if guarded {
 		columns[0] = "score"
 		outer := query.Session(&gorm.Session{DryRun: true}).Table("lexical AS embeddings").Clauses(conds...).Select(columns).Limit(int(params.TopK)).Find(&embeddingDBList).Statement
 		vars := append([]interface{}{}, outer.Vars...)
@@ -468,16 +475,24 @@ func (g *pgRepository) vectorRetrieve(
 		incompatible := relation().Where("dimension IS DISTINCT FROM ?", dimension)
 		matching := relation().Where("dimension = ?", dimension)
 		dimensionDone := perftrace.Measure(ctx, perftrace.DimensionSQL)
-		err := portalDimensionQuerySession(g.db.WithContext(ctx), func(tx *gorm.DB) error {
-			return tx.Raw("SELECT EXISTS (?) AS incompatible, EXISTS (?) AS matching",
-				incompatible, matching).Scan(&shape).Error
-		})
-		dimensionDone()
-		if err != nil {
-			return nil, err
-		}
-		if shape.Incompatible || !shape.Matching && access.PortalRetrievalHasDocuments(ctx) {
-			return nil, fmt.Errorf("personal MCP vector index dimension does not match the bound model")
+		if access.PortalRetrievalGrouped(ctx) {
+			err := g.portalGroupedVectorDimensions(ctx, params, dimension, relation)
+			dimensionDone()
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			err := portalDimensionQuerySession(g.db.WithContext(ctx), func(tx *gorm.DB) error {
+				return tx.Raw("SELECT EXISTS (?) AS incompatible, EXISTS (?) AS matching",
+					incompatible, matching).Scan(&shape).Error
+			})
+			dimensionDone()
+			if err != nil {
+				return nil, err
+			}
+			if shape.Incompatible || !shape.Matching && access.PortalRetrievalHasDocuments(ctx) {
+				return nil, fmt.Errorf("personal MCP vector index dimension does not match the bound model")
+			}
 		}
 	}
 
@@ -643,6 +658,9 @@ func (g *pgRepository) vectorRetrieve(
 			for _, column := range []string{"knowledge_base_id", "knowledge_id", "tag_id"} {
 				qualified = strings.ReplaceAll(qualified, " AND "+column+" IN (", " AND embeddings."+column+" IN (")
 			}
+			if access.PortalRetrievalGrouped(ctx) {
+				qualified += " AND embeddings.knowledge_base_id=scopes.kb"
+			}
 			querySQL = portalVectorSQL(dimension, portalTenantPlaceholder, strings.Join(portalChunkScopes, " AND "),
 				qualified, access.PortalRetrievalPublic(ctx), access.PortalRetrievalPublishedDefaults(ctx),
 				subqueryLimitParam, thresholdParam, finalLimitParam)
@@ -662,6 +680,9 @@ func (g *pgRepository) vectorRetrieve(
 	allVars = append(allVars, expandedTopK)       // LIMIT in subquery
 	allVars = append(allVars, 1-params.Threshold) // Distance threshold
 	allVars = append(allVars, params.TopK)        // Final LIMIT
+	if bulkPortal && access.PortalRetrievalGrouped(ctx) {
+		querySQL, allVars = portalGroupedVectorSQL(querySQL, params.KnowledgeBaseIDs, allVars)
+	}
 
 	vectorDone := perftrace.Measure(ctx, perftrace.VectorSQL)
 	defer vectorDone()

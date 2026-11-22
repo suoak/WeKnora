@@ -420,6 +420,7 @@ type (
 	portalRetrievalKey   struct{}
 	portalRetrievalScope struct {
 		target *PortalKBTarget
+		others []*PortalKBTarget
 	}
 )
 
@@ -432,6 +433,32 @@ func (t *PortalKBTarget) SearchContext(ctx context.Context) (context.Context, er
 		portalRetrievalKey{},
 		portalRetrievalScope{target: t},
 	), nil
+}
+
+// PortalGroupSearchContext combines only already-issued whole-KB grants with
+// identical tenant, model and public/private policy semantics. Store identity
+// is verified by the coordinator before selecting the shared PostgreSQL engine.
+func PortalGroupSearchContext(ctx context.Context, targets []*PortalKBTarget) (context.Context, error) {
+	if len(targets) == 0 || len(targets) > 128 || targets[0] == nil {
+		return nil, ErrForbidden
+	}
+	first := targets[0]
+	seen := make(map[string]bool, len(targets))
+	for _, target := range targets {
+		if target == nil || target.resolver != first.resolver ||
+			target.descriptor.TenantID != first.descriptor.TenantID ||
+			target.descriptor.EmbeddingModelID != first.descriptor.EmbeddingModelID ||
+			target.Public() != first.Public() || seen[target.descriptor.ID] ||
+			target.public == nil && target.privateSnapshot == nil {
+			return nil, ErrForbidden
+		}
+		if err := target.Revalidate(ctx); err != nil {
+			return nil, err
+		}
+		seen[target.descriptor.ID] = true
+	}
+	return context.WithValue(types.WithExecutionTenant(ctx, first.descriptor.TenantID),
+		portalRetrievalKey{}, portalRetrievalScope{first, append([]*PortalKBTarget(nil), targets[1:]...)}), nil
 }
 
 // GuardPortalRetrieval is consumed by the real PostgreSQL entrypoints before
@@ -455,6 +482,9 @@ func GuardPortalRetrieval(
 	tenant, ok := types.TenantIDFromContext(ctx)
 	if !ok || tenant != s.target.descriptor.TenantID {
 		return types.RetrieveParams{}, ErrDocumentFilterDenied
+	}
+	if len(s.others) > 0 {
+		return guardPortalGroup(ctx, s, params)
 	}
 	if err := s.target.Revalidate(ctx); err != nil {
 		return types.RetrieveParams{}, err
@@ -485,6 +515,59 @@ func GuardPortalRetrieval(
 	}
 	set := AuthorizedDocumentSet{tenantID: tenant, kbID: s.target.descriptor.ID, ids: s.target.DocumentIDs()}
 	return set.Constrain(tenant, s.target.descriptor.ID, params, true)
+}
+
+func guardPortalGroup(ctx context.Context, scope portalRetrievalScope, params types.RetrieveParams) (types.RetrieveParams, error) {
+	targets := append([]*PortalKBTarget{scope.target}, scope.others...)
+	kbs := make(map[string]bool, len(targets))
+	docs := make(map[string]bool)
+	for _, target := range targets {
+		if err := target.Revalidate(ctx); err != nil {
+			return types.RetrieveParams{}, err
+		}
+		kbs[target.descriptor.ID] = true
+		for _, id := range target.DocumentIDs() {
+			docs[id] = true
+		}
+	}
+	for _, id := range params.KnowledgeBaseIDs {
+		if !kbs[id] {
+			return types.RetrieveParams{}, ErrDocumentFilterDenied
+		}
+	}
+	for _, id := range params.KnowledgeIDs {
+		if !docs[id] {
+			return types.RetrieveParams{}, ErrDocumentFilterDenied
+		}
+	}
+	if len(params.KnowledgeBaseIDs) == 0 {
+		for _, target := range targets {
+			params.KnowledgeBaseIDs = append(params.KnowledgeBaseIDs, target.descriptor.ID)
+		}
+	}
+	return params, nil
+}
+
+// PortalRetrievalGrouped selects per-KB candidate budgets within a certified
+// group; a shared SQL query must never replace them with a global TopK.
+func PortalRetrievalGrouped(ctx context.Context) bool {
+	scope, ok := ctx.Value(portalRetrievalKey{}).(portalRetrievalScope)
+	return ok && scope.target != nil && len(scope.others) > 0
+}
+
+// PortalRetrievalKBHasDocuments distinguishes an empty authorized KB from a
+// non-empty KB whose bound vector index is unavailable.
+func PortalRetrievalKBHasDocuments(ctx context.Context, kb string) bool {
+	scope, ok := ctx.Value(portalRetrievalKey{}).(portalRetrievalScope)
+	if !ok || scope.target == nil {
+		return false
+	}
+	for _, target := range append([]*PortalKBTarget{scope.target}, scope.others...) {
+		if target.descriptor.ID == kb {
+			return len(target.DocumentIDs()) > 0
+		}
+	}
+	return false
 }
 
 func PortalRetrievalTenant(ctx context.Context) (uint64, bool) {

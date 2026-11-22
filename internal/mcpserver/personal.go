@@ -133,6 +133,9 @@ func (s *PersonalServer) Handler() http.Handler {
 			}
 		}
 		waitStarted := time.Now()
+		if toolName == "search_knowledge" || toolName == "grep_chunks" || toolName == "search_documents" {
+			r = r.WithContext(access.WithPortalSnapshotReads(r.Context()))
+		}
 		release, err := pool.acquire(r.Context(), principal.ID)
 		outcome := "admitted"
 		if err != nil {
@@ -309,8 +312,9 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 				return nil, err
 			}
 			retry := false
+			verification := access.WithoutPortalSnapshotReads(ctx)
 			for _, t := range targets {
-				if e := t.Revalidate(ctx); e != nil {
+				if e := t.Revalidate(verification); e != nil {
 					if attempt == 0 && errors.Is(e, types.ErrLegacySourceRestricted) {
 						retry = true
 						continue
@@ -320,6 +324,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 			}
 			if retry {
 				types.DiscardLegacyReadAttempt(ctx)
+				ctx = access.WithoutPortalSnapshotReads(ctx)
 				continue
 			}
 			if result != nil && !result.IsError && diagnostics.Partial() {

@@ -289,7 +289,7 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 		return outcome, nil
 	}
 	types.ObserveMCPKnowledgeBase(ctx, descriptor.ID)
-	engine, e := s.Engine(searchExecution, descriptor)
+	engine, e := s.portalSearchEngine(searchExecution, descriptor)
 	if e != nil || engine == nil || engine.EngineType() != types.PostgresRetrieverEngineType {
 		outcome.failed = true
 		outcome.failures = append(outcome.failures, PortalMCPModeDetail{descriptor.ID, mode, "retriever_unavailable"})
@@ -348,6 +348,9 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 			outcome.partial = true
 		}
 		if e != nil {
+			if portalBatchAuthorizationError(e) {
+				return outcome, e
+			}
 			modeFailed("retrieval_failed")
 			continue
 		}
@@ -512,11 +515,13 @@ func (s *PortalMCPKnowledge) search(
 		}
 	}
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
+	ctx = access.WithPortalSnapshotReads(ctx)
 	targets, err := s.Resolve(ctx, ids)
 	if err != nil {
 		return nil, err
 	}
 	ctx = withPortalQueryEmbeddings(ctx)
+	ctx = s.portalBatchContext(ctx, targets)
 	// Leave time for the existing live authorization and canonical output
 	// fences. A retrieval deadline must not erase already successful KBs.
 	budget := ctx
@@ -566,6 +571,9 @@ func (s *PortalMCPKnowledge) search(
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+	// Candidate work shares immutable request facts. Canonical hydration,
+	// consumers and the final output fences always read current policy state.
+	ctx = access.WithoutPortalSnapshotReads(ctx)
 	for i, outcome := range outcomes {
 		result.ModeFallbacks = append(result.ModeFallbacks, outcome.fallbacks...)
 		result.PartialFailures = append(result.PartialFailures, outcome.failures...)
