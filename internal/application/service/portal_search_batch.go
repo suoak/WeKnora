@@ -129,6 +129,9 @@ func (b *portalBatchEngine) EngineType() types.RetrieverEngineType { return b.en
 func (b *portalBatchEngine) Retrieve(
 	ctx context.Context, params types.RetrieveParams,
 ) ([]*types.RetrieveResult, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	if len(params.KnowledgeBaseIDs) != 1 || len(params.KnowledgeIDs) > 0 {
 		return b.engine.Retrieve(ctx, params)
 	}
@@ -181,6 +184,9 @@ func (b *portalBatchEngine) Retrieve(
 func (b *portalBatchEngine) retrieve(ctx context.Context, params types.RetrieveParams, call *portalBatchReply) {
 	group, err := access.PortalGroupSearchContext(ctx, b.targets)
 	if err != nil {
+		if canceled := ctx.Err(); canceled != nil {
+			err = canceled
+		}
 		for _, target := range b.targets {
 			call.errors[target.Descriptor().ID] = err
 		}
