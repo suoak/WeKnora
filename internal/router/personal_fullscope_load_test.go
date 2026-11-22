@@ -145,7 +145,13 @@ func exerciseFullScopePostgresLoad(
 	for _, phase := range []struct {
 		name  string
 		count int
-	}{{"cold_shared_buffers_os_cache_uncontrolled", 1}, {"warm", 1}, {"two_concurrent", 2}, {"four_concurrent", 4}, {"four_viewers_140_request_burst", 140}} {
+	}{
+		{"cold_shared_buffers_os_cache_uncontrolled", 1},
+		{"warm", 1},
+		{"two_concurrent", 2},
+		{"four_concurrent", 4},
+		{"four_viewers_140_request_burst", 140},
+	} {
 		replies := make([]fullScopeLoadReply, phase.count)
 		before := pool.Stats()
 		var wg sync.WaitGroup
