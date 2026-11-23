@@ -3,6 +3,7 @@ package repository
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/types"
@@ -17,9 +18,18 @@ type ExactSourceHandoff struct {
 	resource types.FeishuPersonalResource
 	attempt  types.FeishuPersonalAttempt
 	receipt  types.TaskPendingOp
+	revision time.Time
 }
 
+// KnowledgeID returns the stable first-import ID reserved for publication.
 func (p *ExactSourceHandoff) KnowledgeID() string { return p.imported.KnowledgeID }
+
+func (p *ExactSourceHandoff) checkRevision(updated time.Time) error {
+	if updated.Before(p.revision) {
+		return legacyFence("source_revision_regressed")
+	}
+	return nil
+}
 
 // FindPersonalExactSourceHandoff recognizes only the source whose server-owned
 // ID and credential reference match an independently verified first import.
@@ -96,6 +106,11 @@ func FindPersonalExactSourceHandoff(
 		receipt.AppConfigVersion != ref.IdentityVersion {
 		return nil, legacyFence("personal_handoff_receipt_changed")
 	}
+	modified, parseErr := strconv.ParseInt(receipt.Revision, 10, 64)
+	if parseErr != nil || imported.SourceModified != receipt.Revision {
+		return nil, legacyFence("personal_handoff_revision_changed")
+	}
+	p.revision = time.Unix(modified, 0)
 	expectedConnection := types.FeishuConnectionReferenceID(ref.Kind, ref.AppID, ref.IdentityVersion)
 	if ref.Kind == types.FeishuUserOAuth {
 		expectedConnection = types.FeishuConnectionReferenceID(ref.Kind, imported.UserID, imported.AppID,

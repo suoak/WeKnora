@@ -4,10 +4,13 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	storagefiles "github.com/Tencent/WeKnora/internal/application/service/file"
@@ -136,6 +139,12 @@ func exerciseExactSourceHandoff(t *testing.T, f *personalRecoveryFixture, old ty
 	items, err := (core.ReferenceLinkOps{}).Fetch(bound, client, resource, "links", false)
 	require.NoError(t, err)
 	require.Len(t, items, 1)
+	regressed := *items[0]
+	regressed.UpdatedAt = time.Unix(0, 0)
+	hash := sha256.Sum256(regressed.Content)
+	_, _, err = repository.NewFeishuLegacyStore(f.db).Begin(bound, ds, &regressed, hex.EncodeToString(hash[:]))
+	require.ErrorContains(t, err, "source_revision_regressed")
+	require.NoError(t, f.p.verifyExactPublishedDatabase(f.ctx, old))
 	stale := types.WithSyncExecution(bound, types.SyncExecution{
 		DataSourceID: ds.ID,
 		SyncLogID:    log.ID, TenantID: ds.TenantID, Generation: 2,

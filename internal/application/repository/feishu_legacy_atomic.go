@@ -322,6 +322,9 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 				return e
 			}
 			if handoff != nil {
+				if e = handoff.checkRevision(item.UpdatedAt); e != nil {
+					return e
+				}
 				if len(old) != 0 {
 					return legacyFence("personal_handoff_binding_ambiguous")
 				}
@@ -530,6 +533,11 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		}
 		if handoff != nil && handoff.KnowledgeID() != r.KnowledgeID {
 			return legacyFence("personal_handoff_binding_changed")
+		}
+		if handoff != nil {
+			if e = handoff.checkRevision(item.UpdatedAt); e != nil {
+				return e
+			}
 		}
 		var old types.Knowledge
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
@@ -913,6 +921,15 @@ func (s *FeishuLegacyStore) Publish(
 		}
 		if handoff != nil && handoff.KnowledgeID() != r.KnowledgeID {
 			return legacyFence("personal_handoff_binding_changed")
+		}
+		if handoff != nil {
+			publishedRevision, parseErr := time.Parse(time.RFC3339Nano, a.Revision)
+			if parseErr != nil {
+				return legacyFence("invalid_source_revision")
+			}
+			if e = handoff.checkRevision(publishedRevision); e != nil {
+				return e
+			}
 		}
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&old, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).
