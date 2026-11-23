@@ -65,7 +65,7 @@ func newSSRFSafeTransportWithDependencies(
 		if err != nil {
 			return nil, fmt.Errorf("invalid address %s: %w", addr, err)
 		}
-		if IsSystemProxy(addr) || IsSSRFWhitelisted(host) {
+		if IsSystemProxy(addr) || isSSRFWhitelistedWithLookup(host, ssrfContextIPLookup(ctx, deps.lookupIPAddr)) {
 			return deps.dialContext(ctx, network, addr)
 		}
 		return ssrfSafeDialContextWithDeps(ctx, network, addr, ssrfDialDependencies{
@@ -142,7 +142,7 @@ func ssrfSafeDialTLSContextWithDeps(
 
 	// Preserve the pre-existing explicit whitelist/system-proxy behavior. This
 	// path is not used for Feishu and does not add any new whitelist exception.
-	if IsSystemProxy(addr) || IsSSRFWhitelisted(host) {
+	if IsSystemProxy(addr) || isSSRFWhitelistedWithLookup(host, ssrfContextIPLookup(overallCtx, deps.lookupIPAddr)) {
 		directCtx, cancel := context.WithTimeout(overallCtx, deps.candidateTimeout)
 		defer cancel()
 		conn, result := dialAndHandshakeTLS(
