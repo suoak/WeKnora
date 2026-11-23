@@ -78,7 +78,7 @@ func (c *Controller) automaticPermitWithProviderRecovery(ctx context.Context, ke
 		return ordinary()
 	}
 	windowStart := stopMS + "-0"
-	covered, err := c.Client.XRangeN(ctx, c.prefix+"control_audit", "-", windowStart, 1).Result()
+	covered, err := c.Client.XRangeN(ctx, c.prefix+"control_audit", "-", "("+windowStart, 1).Result()
 	if err != nil {
 		return err
 	}

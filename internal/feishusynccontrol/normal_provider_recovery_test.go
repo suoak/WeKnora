@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -18,6 +19,9 @@ func providerStopFixture(t *testing.T) *normalFixture {
 	f.c.Config.DedicatedSyncLane = true
 	ctx := context.Background()
 	require.NoError(t, f.c.Step(ctx))
+	// Establish an audit entry strictly before the stop millisecond, as the
+	// retained-history check must reject a same-millisecond truncated stream.
+	time.Sleep(2 * time.Millisecond)
 	digest := func(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
 	evidence, err := json.Marshal(map[string]any{
 		"Family": "embedding", "Operation": "embedding", "Status": 403,
