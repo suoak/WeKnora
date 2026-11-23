@@ -18,11 +18,17 @@ func providerStopFixture(t *testing.T) *normalFixture {
 	ctx := context.Background()
 	require.NoError(t, f.c.Step(ctx))
 	digest := func(s string) string { h := sha256.Sum256([]byte(s)); return hex.EncodeToString(h[:]) }
-	evidence, err := json.Marshal(map[string]any{"Family": "embedding", "Operation": "embedding", "Status": 403, "SourceHash": digest("other-source"), "EndpointHash": digest("gateway.invalid")})
+	evidence, err := json.Marshal(map[string]any{
+		"Family": "embedding", "Operation": "embedding", "Status": 403,
+		"SourceHash": digest("other-source"), "EndpointHash": digest("gateway.invalid"),
+	})
 	require.NoError(t, err)
 	require.NoError(t, f.r.Set(ctx, f.c.prefix+"trip", "embedding_http_403", 0).Err())
 	require.NoError(t, f.r.Del(ctx, f.c.Guard.PermitKey()).Err())
-	require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{Stream: f.c.prefix + "audit", Values: map[string]any{"event": "trip", "reason": "embedding_http_403", "http_evidence": string(evidence)}}).Err())
+	require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+		Stream: f.c.prefix + "audit",
+		Values: map[string]any{"event": "trip", "reason": "embedding_http_403", "http_evidence": string(evidence)},
+	}).Err())
 	return f
 }
 
@@ -67,13 +73,18 @@ func TestNormalServiceRecoversEvidencedProviderStopAfterFullHealth(t *testing.T)
 }
 
 func TestNormalProviderRecoveryRetainsManualUnknownAndUnhealthyStops(t *testing.T) {
-	for _, failure := range []string{"emergency_after_provider", "operator_pause", "revoked", "changed_record", "missing_evidence", "wrong_endpoint", "missing_consumer", "locally_closed", "not_dedicated", "audit_failure"} {
+	for _, failure := range []string{
+		"emergency_after_provider", "operator_pause", "revoked", "changed_record", "missing_evidence",
+		"wrong_endpoint", "missing_consumer", "locally_closed", "not_dedicated", "audit_failure",
+	} {
 		t.Run(failure, func(t *testing.T) {
 			f := providerStopFixture(t)
 			ctx := context.Background()
 			switch failure {
 			case "emergency_after_provider":
-				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{Stream: f.c.prefix + "audit", Values: map[string]any{"event": "emergency_stop"}}).Err())
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "audit", Values: map[string]any{"event": "emergency_stop"},
+				}).Err())
 			case "operator_pause":
 				require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", "operator_pause", 0).Err())
 			case "revoked":
@@ -83,7 +94,15 @@ func TestNormalProviderRecoveryRetainsManualUnknownAndUnhealthyStops(t *testing.
 			case "missing_evidence":
 				require.NoError(t, f.r.Del(ctx, f.c.prefix+"audit").Err())
 			case "wrong_endpoint":
-				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{Stream: f.c.prefix + "audit", Values: map[string]any{"event": "trip", "reason": "embedding_http_403", "http_evidence": `{"Family":"embedding","Operation":"embedding","Status":403,"SourceHash":"source","EndpointHash":"other"}`}}).Err())
+				badEvidence, err := json.Marshal(map[string]any{
+					"Family": "embedding", "Operation": "embedding", "Status": 403,
+					"SourceHash": "source", "EndpointHash": "other",
+				})
+				require.NoError(t, err)
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "audit",
+					Values: map[string]any{"event": "trip", "reason": "embedding_http_403", "http_evidence": string(badEvidence)},
+				}).Err())
 			case "missing_consumer":
 				f.c.Consumers = func(context.Context) ([]string, error) { return nil, nil }
 			case "locally_closed":

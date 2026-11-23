@@ -36,7 +36,10 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		{feishusafety.ErrSourceValidationUnavailable, "source_verification_unavailable"},
 		{fmt.Errorf("probe: %w", feishusafety.ErrSourceValidationUnavailable), "source_verification_unavailable"},
 		{feishusafety.ErrClosed, ""},
-		{&feishusafety.ProviderResponseError{Status: 403, Cause: errors.New("provider denied")}, "embedding_provider_http_403"},
+		{
+			&feishusafety.ProviderResponseError{Status: 403, Cause: errors.New("provider denied")},
+			"embedding_provider_http_403",
+		},
 		{feishusafety.ErrProviderFailure, "embedding_provider_failed"},
 		{errors.Join(feishusafety.ErrProviderFailure, feishusafety.ErrClosed), ""},
 		{errors.Join(feishusafety.ErrProviderFailure, types.ErrStaleSyncExecution), ""},

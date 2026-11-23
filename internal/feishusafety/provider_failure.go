@@ -30,9 +30,11 @@ func (e *ProviderResponseError) Unwrap() []error { return []error{ErrProviderFai
 // Only the automatic controller sets this after verifying the current signed
 // normal-service authorization. It does not grant an outbound permit.
 func (g *Guard) SetProviderFailureIsolation(enabled bool) { g.providerFailureIsolation.Store(enabled) }
+
 func (g *Guard) ProviderFailuresIsolated() bool {
 	return g != nil && g.providerFailureIsolation.Load() && !g.localClosed.Load()
 }
+
 func ProviderFailuresIsolated(ctx context.Context) bool {
 	return Scoped(ctx) && Default().ProviderFailuresIsolated()
 }

@@ -17,7 +17,9 @@ func TestNormalProviderHTTPFailureKeepsSiblingAdmissionAndAccounting(t *testing.
 			InstallDefault(g)
 			g.SetProviderFailureIsolation(true)
 			ctx := WithScope(context.Background(), "source-a")
-			req, _ := http.NewRequestWithContext(ctx, "POST", "https://gateway.invalid/v1/embeddings?token=PRIVATE_QUERY", strings.NewReader(`{"input":["PRIVATE_INPUT"]}`))
+			req, _ := http.NewRequestWithContext(ctx, "POST",
+				"https://gateway.invalid/v1/embeddings?token=PRIVATE_QUERY",
+				strings.NewReader(`{"input":["PRIVATE_INPUT"]}`))
 			req.Header.Set("Authorization", "Bearer PRIVATE_TOKEN")
 			wire := &httpEvidenceWire{status: status}
 			resp, err := (Transport{Base: wire, Embedding: true}).RoundTrip(req)
@@ -47,7 +49,8 @@ func TestNormalProviderHTTPFailureKeepsSiblingAdmissionAndAccounting(t *testing.
 					}
 				}
 			}
-			next, _ := http.NewRequestWithContext(WithScope(context.Background(), "source-b"), "POST", "https://gateway.invalid/v1/embeddings", strings.NewReader(`{"input":["next"]}`))
+			next, _ := http.NewRequestWithContext(WithScope(context.Background(), "source-b"), "POST",
+				"https://gateway.invalid/v1/embeddings", strings.NewReader(`{"input":["next"]}`))
 			wire.status = 200
 			resp, err = (Transport{Base: wire, Embedding: true}).RoundTrip(next)
 			if err != nil || resp.StatusCode != 200 {

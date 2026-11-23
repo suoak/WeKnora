@@ -343,7 +343,10 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		if resp.Body == nil {
 			finish()
 		} else {
-			resp.Body = &guardedBody{ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding, sourceHTTP: !t.Embedding && !t.BackgroundModel}
+			resp.Body = &guardedBody{
+				ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx,
+				embedding: t.Embedding, sourceHTTP: !t.Embedding && !t.BackgroundModel,
+			}
 		}
 		return resp, nil
 	}
