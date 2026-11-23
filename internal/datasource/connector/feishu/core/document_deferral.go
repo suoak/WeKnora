@@ -124,7 +124,8 @@ func (p *documentPlan) retry(_ string, externalID string) bool {
 // sync retries it. Other documents continue and the run remains visibly partial.
 func (p *documentPlan) exhausted(externalID, version string) bool {
 	for _, entry := range p.failed {
-		if entry.ExternalID == externalID && entry.SourceVersion == version && entry.Attempts >= maxDocumentFailureAttempts {
+		if entry.ExternalID == externalID && entry.SourceVersion == version &&
+			entry.Attempts >= maxDocumentFailureAttempts {
 			return true
 		}
 	}
@@ -151,7 +152,10 @@ func (p *documentPlan) rejected(root, externalID, code, version string) error {
 	if previous.SourceVersion == version {
 		attempts = previous.Attempts + 1
 	}
-	p.failed[identity.Key()] = failedDocument{SourceResourceID: root, ExternalID: externalID, Code: code, SourceVersion: version, Attempts: attempts}
+	p.failed[identity.Key()] = failedDocument{
+		SourceResourceID: root, ExternalID: externalID, Code: code,
+		SourceVersion: version, Attempts: attempts,
+	}
 	if len(p.failed) > 1000 {
 		return errors.New("too many failed Feishu documents")
 	}

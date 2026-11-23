@@ -171,11 +171,13 @@ func TestDocumentFailureUnlistedRemainsPending(t *testing.T) {
 
 func TestDocumentFailureFiniteBudgetSurvivesRestart(t *testing.T) {
 	ops := &deferralTestOps{nodes: []string{"bad", "B", "C"}}
-	cursor := ops.EncodeCursor(map[string]map[string]string{"root": {"bad": "old"}}, time.Now())
+	cursor := ops.EncodeCursor(
+		map[string]map[string]string{"root": {"bad": "old"}}, time.Now())
 	for attempt := 1; attempt <= maxDocumentFailureAttempts+1; attempt++ {
 		current := &deferralTestOps{nodes: ops.nodes}
 		h := &documentFailureHandler{failure: &datasource.DocumentFailureError{Code: "unsupported_file_type"}}
-		next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, cursor, h, current)
+		next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{},
+			[]string{"root"}, cursor, h, current)
 		require.NoError(t, err)
 		if attempt == 1 {
 			require.Equal(t, []string{"bad", "B", "C"}, current.fetched)

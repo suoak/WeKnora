@@ -139,7 +139,8 @@ func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]D
 		if len(all) > maxDocumentBlocks || (len(all) == maxDocumentBlocks && resp.Data.HasMore) {
 			return nil, &ContentTruncatedError{Resource: "docx blocks", Limit: maxDocumentBlocks}
 		}
-		if err := validateContentPage("docx blocks", resp.Data.HasMore, resp.Data.PageToken, len(resp.Data.Items), seenPageTokens); err != nil {
+		if err := validateContentPage("docx blocks", resp.Data.HasMore,
+			resp.Data.PageToken, len(resp.Data.Items), seenPageTokens); err != nil {
 			return nil, err
 		}
 		if !resp.Data.HasMore {
@@ -385,7 +386,8 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 		if len(cols) > maxBitableFields || (len(cols) == maxBitableFields && fieldsResp.Data.HasMore) {
 			return nil, true, &ContentTruncatedError{Resource: "bitable fields", Limit: maxBitableFields}
 		}
-		if err := validateContentPage("bitable fields", fieldsResp.Data.HasMore, fieldsResp.Data.PageToken, len(fieldsResp.Data.Items), seenFieldTokens); err != nil {
+		if err := validateContentPage("bitable fields", fieldsResp.Data.HasMore,
+			fieldsResp.Data.PageToken, len(fieldsResp.Data.Items), seenFieldTokens); err != nil {
 			return nil, false, err
 		}
 		if !fieldsResp.Data.HasMore {
@@ -429,7 +431,8 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			}
 			dataRows = append(dataRows, row)
 		}
-		if err := validateContentPage("bitable records", rec.Data.HasMore, rec.Data.PageToken, len(rec.Data.Items), seenPageTokens); err != nil {
+		if err := validateContentPage("bitable records", rec.Data.HasMore,
+			rec.Data.PageToken, len(rec.Data.Items), seenPageTokens); err != nil {
 			return nil, false, err
 		}
 		if len(dataRows) >= maxTableRows {

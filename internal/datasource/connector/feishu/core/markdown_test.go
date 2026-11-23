@@ -90,7 +90,8 @@ func TestBlocksToMarkdown_IncompleteTablesRefused(t *testing.T) {
 
 func TestBlocksToMarkdown_BitableInlined(t *testing.T) {
 	fr := fakeReader{bitable: [][]string{{"task", "status"}, {"write", "done"}}}
-	md, _, err := blocksToMarkdown(context.Background(), fr, []DocxBlock{{BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}})
+	blocks := []DocxBlock{{BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}}
+	md, _, err := blocksToMarkdown(context.Background(), fr, blocks)
 	if err != nil || !strings.Contains(string(md), "| write | done |") {
 		t.Fatalf("%s %v", md, err)
 	}

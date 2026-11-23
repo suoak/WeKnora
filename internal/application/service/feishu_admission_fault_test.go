@@ -110,22 +110,37 @@ func TestFeishuCheckpointFailureRestoresInMemoryCursor(t *testing.T) {
 	)
 }
 
+type unsupportedIsolationWriter struct{ resourceIsolationWriter }
+
+func (w *unsupportedIsolationWriter) StageFeishuLegacyItem(
+	ctx context.Context, ds *types.DataSource, item *types.FetchedItem, tags []string,
+) (*types.FeishuLegacyReceipt, error) {
+	receipt, err := w.resourceIsolationWriter.StageFeishuLegacyItem(ctx, ds, item, tags)
+	if receipt != nil {
+		receipt.ResourceID = item.ExternalID + "-resource"
+		receipt.KnowledgeID = item.ExternalID + "-knowledge"
+	}
+	return receipt, err
+}
+
 func TestFeishuAdmissionUnsupportedRetainsRetryEligibility(t *testing.T) {
 	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
-	ks := &sweepFakeKS{repo: &sweepFakeRepo{}, createErr: ErrInvalidFileType}
-	h := newStreamHandler(&DataSourceService{knowledgeService: ks}, &types.DataSource{ID: "source", Type: "feishu"}, &types.SyncResult{}, &types.SyncLog{})
-	item := types.FetchedItem{ExternalID: "A", Content: []byte("body"), FileName: "A.md"}
-	err := h.Emit(context.Background(), item)
+	writer := &unsupportedIsolationWriter{resourceIsolationWriter: resourceIsolationWriter{err: ErrInvalidFileType}}
+	h := newStreamHandler(&DataSourceService{knowledgeService: writer},
+		&types.DataSource{ID: "source", Type: "feishu"}, &types.SyncResult{}, &types.SyncLog{})
+	ctx := types.WithLegacyReceiptSet(t.Context())
+	item := types.FetchedItem{ExternalID: "oversized", Content: []byte("body"), FileName: "A.unsupported"}
+	err := h.Emit(ctx, item)
 	var local *datasource.DocumentFailureError
 	require.ErrorAs(t, err, &local)
 	require.Equal(t, "unsupported_file_type", local.Code)
 	require.Nil(t, h.ingestErr, "a confirmed document rejection must not latch a source failure")
-	ks.createErr = nil
 	for _, id := range []string{"B", "C"} {
 		item.ExternalID = id
-		require.NoError(t, h.Emit(context.Background(), item))
+		require.NoError(t, h.Emit(ctx, item))
 	}
 	require.Equal(t, 2, h.result.Created)
 	require.Equal(t, 1, h.result.Failed)
-	require.Empty(t, ks.deleted)
+	require.Len(t, types.LegacyReceipts(ctx), 2, "only B and C have publication receipts")
+	require.Equal(t, []string{"oversized", "B", "C"}, writer.items)
 }

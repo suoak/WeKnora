@@ -18,7 +18,9 @@ import (
 // second-page failure. Exercise real HTTP decoding, query encoding and retries.
 func TestPaginationIntegrityHTTP(t *testing.T) {
 	for _, reader := range []string{"wiki_spaces", "wiki_nodes", "drive", "blocks", "fields", "records"} {
-		for _, mode := range []string{"complete", "final_empty", "missing", "repeated", "empty", "403", "429", "500", "timeout"} {
+		for _, mode := range []string{
+			"complete", "final_empty", "missing", "repeated", "empty", "403", "429", "500", "timeout",
+		} {
 			t.Run(reader+"/"+mode, func(t *testing.T) {
 				const token = "next+&#%?"
 				calls := 0
@@ -28,8 +30,11 @@ func TestPaginationIntegrityHTTP(t *testing.T) {
 						return
 					}
 					// Bitable's other endpoint is a complete prerequisite/result.
-					if (reader == "records" && strings.HasSuffix(r.URL.Path, "/fields")) || (reader == "fields" && strings.HasSuffix(r.URL.Path, "/records/search")) {
-						_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"items": []map[string]any{{"field_name": "column"}}, "has_more": false}})
+					if (reader == "records" && strings.HasSuffix(r.URL.Path, "/fields")) ||
+						(reader == "fields" && strings.HasSuffix(r.URL.Path, "/records/search")) {
+						_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
+							"items": []map[string]any{{"field_name": "column"}}, "has_more": false,
+						}})
 						return
 					}
 					calls++
@@ -56,7 +61,10 @@ func TestPaginationIntegrityHTTP(t *testing.T) {
 							return
 						}
 					}
-					items := []map[string]any{{"space_id": "space", "node_token": "node", "token": "file", "block_id": "block", "field_name": "column", "fields": map[string]any{"column": "value"}}}
+					items := []map[string]any{{
+						"space_id": "space", "node_token": "node", "token": "file",
+						"block_id": "block", "field_name": "column", "fields": map[string]any{"column": "value"},
+					}}
 					more, next := calls == 1, token
 					if calls > 1 {
 						next = ""
@@ -71,7 +79,9 @@ func TestPaginationIntegrityHTTP(t *testing.T) {
 					case "final_empty":
 						more, items, next = false, nil, ""
 					}
-					data := map[string]any{"items": items, "files": items, "has_more": more, "page_token": next, "next_page_token": next}
+					data := map[string]any{
+						"items": items, "files": items, "has_more": more, "page_token": next, "next_page_token": next,
+					}
 					_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
 				}))
 				defer srv.Close()
@@ -179,13 +189,16 @@ func (o *paginationListOps) List(ctx context.Context, c *Client, _ string) ([]st
 	_, err := c.ListWikiNodes(ctx, "space", "")
 	return nil, nil, err
 }
+
 func TestPaginationFailureCannotDeleteOrCheckpoint(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/auth/") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "tenant_access_token": "t", "expire": 7200})
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"items": []map[string]any{{"node_token": "new"}}, "has_more": true, "page_token": ""}})
+		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
+			"items": []map[string]any{{"node_token": "new"}}, "has_more": true, "page_token": "",
+		}})
 	}))
 	defer srv.Close()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
@@ -204,7 +217,8 @@ func TestPaginationFailureCannotDeleteOrCheckpoint(t *testing.T) {
 	require.JSONEq(t, string(before), string(after))
 	// A different source can still sync with its own execution and cursor.
 	good := &deferralTestOps{nodes: []string{"healthy"}}
-	_, err = runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"other"}, nil, &deferralTestHandler{}, good)
+	_, err = runSync(context.Background(), &Client{}, &types.DataSourceConfig{},
+		[]string{"other"}, nil, &deferralTestHandler{}, good)
 	require.NoError(t, err)
 	require.Equal(t, []string{"healthy"}, good.fetched)
 }
