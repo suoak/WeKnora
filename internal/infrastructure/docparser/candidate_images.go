@@ -20,6 +20,10 @@ type candidateImageEdit struct {
 	replacement string
 }
 
+// Parser-provided embedded assets are already bounded by the document parser.
+// Keep inline and remotely acquired image limits independent of this allowance.
+const maxCandidateEmbeddedImageSize = 32 * 1024 * 1024
+
 // ErrCandidateImageData identifies a deterministic document-local image refusal.
 var ErrCandidateImageData = errors.New("candidate image data unavailable or invalid")
 
@@ -76,9 +80,11 @@ func ResolveCandidateImages(ctx context.Context, result *types.ReadResult, files
 		}
 		var data []byte
 		mimeType := ""
+		maxSize := maxRemoteImageSize
 		if supplied, ok := refs[ref]; ok && len(supplied.ImageData) > 0 {
 			data = supplied.ImageData
 			mimeType = supplied.MimeType
+			maxSize = maxCandidateEmbeddedImageSize
 		} else if mime, payload, ok := parseImageDataURI(ref); ok {
 			var err error
 			data, err = decodeBase64Flexible(cleanBase64Payload(payload))
@@ -89,7 +95,7 @@ func ResolveCandidateImages(ctx context.Context, result *types.ReadResult, files
 		} else {
 			return nil, candidateImageInvalid("candidate image bytes unavailable")
 		}
-		if len(data) == 0 || len(data) > maxRemoteImageSize {
+		if len(data) == 0 || len(data) > maxSize {
 			return nil, candidateImageInvalid("candidate image size invalid")
 		}
 		detected := http.DetectContentType(data)
