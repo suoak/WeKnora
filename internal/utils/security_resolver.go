@@ -14,7 +14,9 @@ func ValidateURLForSSRFWithResolver(ctx context.Context, rawURL string, resolver
 	return validateURLForSSRFWithLookup(rawURL, ssrfContextIPLookup(ctx, resolver.LookupIPAddr))
 }
 
-func ssrfContextIPLookup(ctx context.Context, lookup func(context.Context, string) ([]net.IPAddr, error)) func(string) ([]net.IP, error) {
+func ssrfContextIPLookup(
+	ctx context.Context, lookup func(context.Context, string) ([]net.IPAddr, error),
+) func(string) ([]net.IP, error) {
 	return func(host string) ([]net.IP, error) {
 		addresses, err := lookup(ctx, host)
 		if err != nil {

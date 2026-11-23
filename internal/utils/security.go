@@ -798,7 +798,9 @@ func (t *SSRFValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 	if t == nil || t.Base == nil {
 		return nil, fmt.Errorf("outbound request blocked: base transport is required")
 	}
-	if err := validateURLForSSRFForResolverOutbound(req.Context(), req.URL.String(), t.DNSResolver); err != nil {
+	if err := validateURLForSSRFForResolverOutbound(
+		req.Context(), req.URL.String(), t.DNSResolver,
+	); err != nil {
 		return nil, fmt.Errorf("outbound request blocked by SSRF policy: %w", err)
 	}
 	return t.Base.RoundTrip(req)

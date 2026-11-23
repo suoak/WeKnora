@@ -40,8 +40,10 @@ func resolverFixture(answers map[string][]string, calls *atomic.Int32) *net.Reso
 				for _, raw := range answers[strings.TrimSuffix(question.Name.String(), ".")] {
 					ip := net.ParseIP(raw).To4()
 					message.Answers = append(message.Answers, dnsmessage.Resource{
-						Header: dnsmessage.ResourceHeader{Name: question.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 1},
-						Body:   &dnsmessage.AResource{A: [4]byte{ip[0], ip[1], ip[2], ip[3]}},
+						Header: dnsmessage.ResourceHeader{
+							Name: question.Name, Type: dnsmessage.TypeA, Class: dnsmessage.ClassINET, TTL: 1,
+						},
+						Body: &dnsmessage.AResource{A: [4]byte{ip[0], ip[1], ip[2], ip[3]}},
 					})
 				}
 			}
@@ -96,9 +98,12 @@ func TestSSRFConnectorResolverCoversRequestAndRedirectPolicy(t *testing.T) {
 			cfg := DefaultSSRFSafeHTTPClientConfig()
 			cfg.Timeout, cfg.DNSResolver = time.Second, resolverFixture(answers, &dnsCalls)
 			requests := 0
-			client := NewSSRFSafeHTTPClientWithTransport(cfg, resolverRoundTrip(func(r *http.Request) (*http.Response, error) {
+			roundTrip := resolverRoundTrip(func(r *http.Request) (*http.Response, error) {
 				requests++
-				response := &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("ok")), Request: r}
+				response := &http.Response{
+					StatusCode: http.StatusOK, Header: make(http.Header),
+					Body: io.NopCloser(strings.NewReader("ok")), Request: r,
+				}
 				if test.redirect && r.URL.Hostname() == "connector.invalid" {
 					response.StatusCode = http.StatusFound
 					response.Header.Set("Location", "https://redirect.invalid/final")
@@ -106,7 +111,8 @@ func TestSSRFConnectorResolverCoversRequestAndRedirectPolicy(t *testing.T) {
 					t.Fatal("redirect leaked credentials")
 				}
 				return response, nil
-			}))
+			})
+			client := NewSSRFSafeHTTPClientWithTransport(cfg, roundTrip)
 			request, err := http.NewRequest(http.MethodGet, "https://connector.invalid/start", nil)
 			if err != nil {
 				t.Fatal(err)
@@ -130,7 +136,8 @@ func TestSSRFConnectorResolverCoversRequestAndRedirectPolicy(t *testing.T) {
 				wantRequests++
 			}
 			if requests != wantRequests || dnsCalls.Load() == 0 {
-				t.Fatalf("unexpected request/resolver counts: requests=%d want=%d dns=%d", requests, wantRequests, dnsCalls.Load())
+				t.Fatalf("unexpected request/resolver counts: requests=%d want=%d dns=%d",
+					requests, wantRequests, dnsCalls.Load())
 			}
 		})
 	}
@@ -162,12 +169,17 @@ func TestSSRFConnectorResolverDoesNotShareSuccessOrRelaxPolicy(t *testing.T) {
 			}
 			var calls atomic.Int32
 			cfg := DefaultSSRFSafeHTTPClientConfig()
-			cfg.Timeout, cfg.DNSResolver = time.Second, resolverFixture(map[string][]string{"connector.invalid": test.ips}, &calls)
+			answers := map[string][]string{"connector.invalid": test.ips}
+			cfg.Timeout, cfg.DNSResolver = time.Second, resolverFixture(answers, &calls)
 			reached := false
-			client := NewSSRFSafeHTTPClientWithTransport(cfg, resolverRoundTrip(func(r *http.Request) (*http.Response, error) {
+			roundTrip := resolverRoundTrip(func(r *http.Request) (*http.Response, error) {
 				reached = true
-				return &http.Response{StatusCode: http.StatusOK, Header: make(http.Header), Body: io.NopCloser(strings.NewReader("ok")), Request: r}, nil
-			}))
+				return &http.Response{
+					StatusCode: http.StatusOK, Header: make(http.Header),
+					Body: io.NopCloser(strings.NewReader("ok")), Request: r,
+				}, nil
+			})
+			client := NewSSRFSafeHTTPClientWithTransport(cfg, roundTrip)
 			response, err := client.Get(test.url)
 			if response != nil {
 				_ = response.Body.Close()
