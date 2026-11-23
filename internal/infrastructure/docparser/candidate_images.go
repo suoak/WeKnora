@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"sort"
 	"strings"
-	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -37,9 +36,15 @@ func candidateImageInvalid(reason string) error {
 func ResolveCandidateImages(ctx context.Context, result *types.ReadResult, files interfaces.FileService,
 	tenant uint64,
 ) ([]StoredImage, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
 	before := result.MarkdownContent
 	refs := map[string]types.ImageRef{}
 	for _, ref := range result.ImageRefs {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		if old, ok := refs[ref.OriginalRef]; ok && sha256.Sum256(old.ImageData) != sha256.Sum256(ref.ImageData) {
 			return nil, candidateImageInvalid("candidate image reference is ambiguous")
 		}
@@ -69,6 +74,9 @@ func ResolveCandidateImages(ctx context.Context, result *types.ReadResult, files
 	stored := map[string]StoredImage{}
 	var images []StoredImage
 	for i := range edits {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
 		e := &edits[i]
 		if i > 0 && e.start < edits[i-1].end {
 			return nil, candidateImageInvalid("overlapping candidate image references")
@@ -117,18 +125,9 @@ func ResolveCandidateImages(ctx context.Context, result *types.ReadResult, files
 	}
 	// Translate exact rune boundaries. A boundary inside a replaced URL is
 	// ambiguous and must fail, never discard parser semantic segmentation.
-	position := func(offset int) (int, error) {
-		delta := 0
-		for _, e := range edits {
-			start, end := utf8.RuneCountInString(before[:e.start]), utf8.RuneCountInString(before[:e.end])
-			if offset > start && offset < end {
-				return 0, candidateImageInvalid("parser boundary inside image reference")
-			}
-			if offset >= end {
-				delta += utf8.RuneCountInString(e.replacement) - (end - start)
-			}
-		}
-		return offset + delta, nil
+	position, err := candidateImagePositions(ctx, before, edits)
+	if err != nil {
+		return nil, err
 	}
 	rangeMap := func(start, end *int) error {
 		a, err := position(*start)
