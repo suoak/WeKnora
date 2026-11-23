@@ -290,6 +290,8 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		require.NoError(t, e)
 		require.NoError(t, s.WrapPrivateTaskHandler(post.Handle)(context.Background(),
 			asynq.NewTask(types.TypeKnowledgePostProcess, body)))
+		// Include the source guards installed by the production container.
+		db = types.EnableLegacyReadGuards(db)
 		s.dataSources = &v2HandoffSources{db: db}
 		ds, e = s.EnableImportSource(ctx, kb.ID, m.ID, "")
 		require.NoError(t, e)
