@@ -101,6 +101,7 @@ func (s *PersonalServer) Handler() http.Handler {
 		r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 		var targets []string
 		var toolName string
+		var documentID string
 		var requestID json.RawMessage
 		protocolOnly := r.Method == http.MethodGet || r.Method == http.MethodDelete
 		pool, class := s.protocol, "protocol"
@@ -123,19 +124,24 @@ func (s *PersonalServer) Handler() http.Handler {
 				Method string          `json:"method"`
 				ID     json.RawMessage `json:"id"`
 				Params struct {
-					Name string `json:"name"`
+					Name      string         `json:"name"`
+					Arguments map[string]any `json:"arguments"`
 				} `json:"params"`
 			}
 			_ = json.Unmarshal(body, &envelope) // Already validated by personalHTTPRequestTargets.
 			protocolOnly = personalMetadataMethod(envelope.Method)
 			if envelope.Method == "tools/call" {
 				toolName = envelope.Params.Name
+				if toolName == "read_document" {
+					documentID, _ = envelope.Params.Arguments["knowledge_id"].(string)
+				}
 				pool, class = s.admission, "tool"
 				requestID = envelope.ID
 			}
 		}
 		waitStarted := time.Now()
-		if toolName == "search_knowledge" || toolName == "grep_chunks" || toolName == "search_documents" {
+		if toolName == "search_knowledge" || toolName == "grep_chunks" ||
+			toolName == "search_documents" || toolName == "read_document" {
 			r = r.WithContext(access.WithPortalSnapshotReads(r.Context()))
 		}
 		release, err := pool.acquire(r.Context(), principal.ID)
@@ -180,7 +186,13 @@ func (s *PersonalServer) Handler() http.Handler {
 			if protocolOnly {
 				return s.knowledge.Resolver.AuthorizeProtocol(r.Context())
 			}
-			resolved, err := s.knowledge.Resolve(r.Context(), targets)
+			var resolved []*access.PortalKBTarget
+			var err error
+			if toolName == "read_document" {
+				resolved, err = s.knowledge.ResolveDocument(r.Context(), documentID)
+			} else {
+				resolved, err = s.knowledge.Resolve(r.Context(), targets)
+			}
 			if err == nil && toolName == "list_knowledge_bases" {
 				r = r.WithContext(context.WithValue(r.Context(), personalCatalogAdmissionKey{}, resolved))
 			}
@@ -305,7 +317,11 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 				targets, reused = revalidatedCatalogTargets(ctx)
 			}
 			if !reused {
-				targets, err = s.knowledge.Resolve(ctx, ids)
+				if r.Params.Name == "read_document" {
+					targets, err = s.knowledge.ResolveDocument(ctx, r.GetString("knowledge_id", ""))
+				} else {
+					targets, err = s.knowledge.Resolve(ctx, ids)
+				}
 			}
 			if err != nil {
 				return mcp.NewToolResultError("authorization denied"), nil
@@ -443,6 +459,14 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		}
 		return personalJSON(ctx, map[string]any{"total": len(rows), "documents": rows[start:end]})
 	case "read_document":
+		if r.GetString("query", "") == "" {
+			rows, total, e := s.knowledge.ReadDocumentPage(ctx, r.GetString("knowledge_id", ""),
+				r.GetInt("offset", 0), r.GetInt("limit", 20))
+			if e != nil {
+				return fail()
+			}
+			return personalJSON(ctx, map[string]any{"total": total, "chunks": rows})
+		}
 		rows, e := s.knowledge.ReadDocument(ctx, r.GetString("knowledge_id", ""))
 		if e != nil {
 			return fail()

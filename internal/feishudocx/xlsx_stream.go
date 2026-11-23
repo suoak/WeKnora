@@ -20,6 +20,7 @@ type xlsxXMLStream struct {
 	snapshot     bool
 	links        map[string]string
 	nonceRole    string
+	orderedRules bool
 }
 
 func (s *xlsxXMLStream) next() (xml.Token, error) {
@@ -170,6 +171,20 @@ func (s *xlsxXMLStream) element(t xml.StartElement, depth int) error {
 					return err
 				}
 				if err := normalizeSnapshotHyperlinks(n); err != nil {
+					return err
+				}
+				body, _ := json.Marshal(piece{Kind: "element", Node: n})
+				s.write(string(body))
+			} else if s.orderedRules && depth == 0 &&
+				t.Name == (xml.Name{Space: spreadsheetNS, Local: "worksheet"}) &&
+				v.Name == (xml.Name{Space: spreadsheetNS, Local: "dataValidations"}) {
+				s.columnStart = s.d.InputOffset()
+				n, err := s.columns(v, depth+1)
+				s.columnStart = 0
+				if err != nil {
+					return err
+				}
+				if err := normalizeDisjointValidations(n); err != nil {
 					return err
 				}
 				body, _ := json.Marshal(piece{Kind: "element", Node: n})
