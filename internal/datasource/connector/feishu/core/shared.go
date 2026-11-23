@@ -250,7 +250,7 @@ func ParseFeishuConfig(config *types.DataSourceConfig, region Region) (*Config, 
 		}
 	}
 
-	if err := datasource.ValidateConnectorBaseURL(feishuConfig.GetBaseURL()); err != nil {
+	if err := datasource.ValidateConnectorBaseURLWithResolver(feishuConfig.GetBaseURL(), newFeishuDNSResolver()); err != nil {
 		return nil, err
 	}
 

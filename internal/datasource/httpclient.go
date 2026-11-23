@@ -1,6 +1,7 @@
 package datasource
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"net/http"
@@ -13,6 +14,12 @@ import (
 // ValidateConnectorBaseURL checks a connector API base URL against the SSRF policy.
 // Empty rawURL is allowed; callers apply their own default before issuing requests.
 func ValidateConnectorBaseURL(rawURL string) error {
+	return ValidateConnectorBaseURLWithResolver(rawURL, nil)
+}
+
+// ValidateConnectorBaseURLWithResolver keeps preflight and pinned transport DNS
+// consistent without relaxing the URL, whitelist, or address restrictions.
+func ValidateConnectorBaseURLWithResolver(rawURL string, resolver *net.Resolver) error {
 	url := strings.TrimSpace(rawURL)
 	if url == "" {
 		return nil
@@ -20,7 +27,9 @@ func ValidateConnectorBaseURL(rawURL string) error {
 	if !strings.Contains(url, "://") {
 		url = "https://" + url
 	}
-	if err := utils.ValidateURLForSSRF(url); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := utils.ValidateURLForSSRFWithResolver(ctx, url, resolver); err != nil {
 		return fmt.Errorf("base_url SSRF validation failed: %w", err)
 	}
 	return nil

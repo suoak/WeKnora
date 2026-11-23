@@ -340,6 +340,10 @@ func isIPLikeHostname(hostname string) bool {
 // - Cloud metadata endpoints
 // - Reserved hostnames (localhost, *.local, etc.)
 func isSSRFSafeURL(rawURL string) (bool, string) {
+	return isSSRFSafeURLWithLookup(rawURL, net.LookupIP)
+}
+
+func isSSRFSafeURLWithLookup(rawURL string, lookup func(string) ([]net.IP, error)) (bool, string) {
 	if rawURL == "" {
 		return false, "URL is empty"
 	}
@@ -400,8 +404,8 @@ func isSSRFSafeURL(rawURL string) (bool, string) {
 
 	// Perform DNS resolution to check the resolved IP
 	// This prevents DNS rebinding attacks where a domain resolves to internal IPs
-	ips, err := net.LookupIP(hostname)
-	if err != nil {
+	ips, err := lookup(hostname)
+	if err != nil || len(ips) == 0 {
 		return false, fmt.Sprintf("DNS resolution failed for hostname %s: cannot verify if it resolves to safe IP", hostname)
 	}
 
@@ -736,6 +740,10 @@ func NewSSRFSafeTransport(config SSRFSafeHTTPClientConfig) *http.Transport {
 // count limit, strips sensitive headers on cross-host hops, and re-validates
 // every redirect target against SSRF protections.
 func newSSRFCheckRedirect(maxRedirects int) func(*http.Request, []*http.Request) error {
+	return newSSRFCheckRedirectWithResolver(maxRedirects, nil)
+}
+
+func newSSRFCheckRedirectWithResolver(maxRedirects int, resolver *net.Resolver) func(*http.Request, []*http.Request) error {
 	return func(req *http.Request, via []*http.Request) error {
 		// Check redirect count
 		if len(via) >= maxRedirects {
@@ -758,10 +766,10 @@ func newSSRFCheckRedirect(maxRedirects int) func(*http.Request, []*http.Request)
 			return fmt.Errorf("%w: invalid scheme %s", ErrSSRFRedirectBlocked, redirectScheme)
 		}
 		redirectHost := req.URL.Hostname()
-		if redirectHost != "" && IsSSRFWhitelisted(redirectHost) {
+		if resolver == nil && redirectHost != "" && IsSSRFWhitelisted(redirectHost) {
 			return nil
 		}
-		if err := validateURLForSSRFForOutbound(req.URL.String()); err != nil {
+		if err := validateURLForSSRFForResolverOutbound(req.Context(), req.URL.String(), resolver); err != nil {
 			return fmt.Errorf("%w: %w", ErrSSRFRedirectBlocked, err)
 		}
 
@@ -775,7 +783,8 @@ func newSSRFCheckRedirect(maxRedirects int) func(*http.Request, []*http.Request)
 // remain necessary to pin DNS answers and cover transports that cannot accept
 // this wrapper directly.
 type SSRFValidatingRoundTripper struct {
-	Base http.RoundTripper
+	Base        http.RoundTripper
+	DNSResolver *net.Resolver
 }
 
 // ErrSSRFRequestRejected identifies a request refused before an HTTP connection
@@ -789,7 +798,7 @@ func (t *SSRFValidatingRoundTripper) RoundTrip(req *http.Request) (*http.Respons
 	if t == nil || t.Base == nil {
 		return nil, fmt.Errorf("outbound request blocked: base transport is required")
 	}
-	if err := validateURLForSSRFForOutbound(req.URL.String()); err != nil {
+	if err := validateURLForSSRFForResolverOutbound(req.Context(), req.URL.String(), t.DNSResolver); err != nil {
 		return nil, fmt.Errorf("outbound request blocked by SSRF policy: %w", err)
 	}
 	return t.Base.RoundTrip(req)
@@ -807,12 +816,12 @@ func NewSSRFSafeHTTPClientWithTransport(
 	}
 	return &http.Client{
 		Timeout:   config.Timeout,
-		Transport: &SSRFValidatingRoundTripper{Base: transport},
+		Transport: &SSRFValidatingRoundTripper{Base: transport, DNSResolver: config.DNSResolver},
 		CheckRedirect: func(req *http.Request, via []*http.Request) error {
 			if config.SameOriginRedirectsOnly && len(via) > 0 && !sameHTTPOrigin(via[0].URL, req.URL) {
 				return fmt.Errorf("%w: cross-origin redirect is forbidden", ErrSSRFRedirectBlocked)
 			}
-			return newSSRFCheckRedirect(config.MaxRedirects)(req, via)
+			return newSSRFCheckRedirectWithResolver(config.MaxRedirects, config.DNSResolver)(req, via)
 		},
 	}
 }
@@ -1171,6 +1180,10 @@ func mergeSSRFWhitelistRaws(primary, extra string) string {
 // IsSSRFWhitelisted checks whether the given hostname (or IP string) is
 // covered by the SSRF_WHITELIST environment variable.
 func IsSSRFWhitelisted(hostname string) bool {
+	return isSSRFWhitelistedWithLookup(hostname, net.LookupIP)
+}
+
+func isSSRFWhitelistedWithLookup(hostname string, lookup func(string) ([]net.IP, error)) bool {
 	// One read of the whitelist for the whole decision: SetSSRFWhitelistFromRaw
 	// can swap it between two loads, which would mix generations.
 	wl := loadSSRFWhitelist()
@@ -1183,7 +1196,7 @@ func IsSSRFWhitelisted(hostname string) bool {
 	if wl == nil || len(wl.cidrNets) == 0 || net.ParseIP(hostname) != nil || SSRFWhitelistOnlyEnabled() {
 		return false
 	}
-	if ips, err := net.LookupIP(hostname); err == nil {
+	if ips, err := lookup(hostname); err == nil {
 		for _, ip := range ips {
 			for _, cidr := range wl.cidrNets {
 				if cidr.Contains(ip) {
@@ -1359,7 +1372,11 @@ func parseHostForHint(rawURL string) (string, error) {
 // prepends "https://" before parsing so that net/url can extract the host.
 //
 // Returns nil when the URL is safe, or an error describing the problem.
-func ValidateURLForSSRF(rawURL string) (err error) {
+func ValidateURLForSSRF(rawURL string) error {
+	return validateURLForSSRFWithLookup(rawURL, net.LookupIP)
+}
+
+func validateURLForSSRFWithLookup(rawURL string, lookup func(string) ([]net.IP, error)) (err error) {
 	defer func() {
 		if err != nil {
 			err = fmt.Errorf("%w: %w", ErrSSRFRequestRejected, err)
@@ -1393,7 +1410,7 @@ func ValidateURLForSSRF(rawURL string) (err error) {
 	}
 
 	// If the host is whitelisted, skip the heavy checks.
-	if IsSSRFWhitelisted(hostname) {
+	if isSSRFWhitelistedWithLookup(hostname, lookup) {
 		return nil
 	}
 
@@ -1404,7 +1421,7 @@ func ValidateURLForSSRF(rawURL string) (err error) {
 	}
 
 	// Delegate to the full SSRF validation (uses the normalised URL).
-	if safe, reason := isSSRFSafeURL(normalized); !safe {
+	if safe, reason := isSSRFSafeURLWithLookup(normalized, lookup); !safe {
 		return fmt.Errorf("SSRF validation failed: %s", reason)
 	}
 	return nil
