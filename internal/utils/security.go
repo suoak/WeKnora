@@ -743,7 +743,9 @@ func newSSRFCheckRedirect(maxRedirects int) func(*http.Request, []*http.Request)
 	return newSSRFCheckRedirectWithResolver(maxRedirects, nil)
 }
 
-func newSSRFCheckRedirectWithResolver(maxRedirects int, resolver *net.Resolver) func(*http.Request, []*http.Request) error {
+func newSSRFCheckRedirectWithResolver(
+	maxRedirects int, resolver *net.Resolver,
+) func(*http.Request, []*http.Request) error {
 	return func(req *http.Request, via []*http.Request) error {
 		// Check redirect count
 		if len(via) >= maxRedirects {
