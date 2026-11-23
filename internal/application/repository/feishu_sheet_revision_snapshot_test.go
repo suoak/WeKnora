@@ -60,7 +60,7 @@ func TestFeishuSheetNonceEquivalenceRequiresLiveImmutableRevisionProof(t *testin
 	t.Cleanup(utils.ResetSSRFWhitelistForTest)
 	var revision atomic.Int64
 	revision.Store(3030)
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = fmt.Fprintf(w, `{"code":0,"data":{"properties":{"revision":%d}}}`, revision.Load())
 	}))
 	defer server.Close()

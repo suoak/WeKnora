@@ -51,10 +51,10 @@ func TestSheetSnapshotProofBindsLiveRevisionBytesAndSource(t *testing.T) {
 		func(x *types.FetchedItem) { x.FileName = "other.xlsx" },
 		func(x *types.FetchedItem) { x.ExportSnapshotProof = map[string]any{"revision": 3030} },
 	} {
-		copy := *second
-		copy.Metadata = maps.Clone(second.Metadata)
-		mutate(&copy)
-		require.False(t, SameImmutableSheetRevision(first, &copy))
+		candidate := *second
+		candidate.Metadata = maps.Clone(second.Metadata)
+		mutate(&candidate)
+		require.False(t, SameImmutableSheetRevision(first, &candidate))
 	}
 	raw, err := json.Marshal(second)
 	require.NoError(t, err)
@@ -82,7 +82,7 @@ func TestSheetSnapshotMissingMetadataDoesNotIssueAuthority(t *testing.T) {
 		`{"code":0,"data":{"properties":{}}}`,
 		`{"code":99991672,"msg":"missing optional sheet scope"}`,
 	} {
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_, _ = fmt.Fprint(w, body)
 		}))
 		client := NewClient(&Config{BaseURL: srv.URL})

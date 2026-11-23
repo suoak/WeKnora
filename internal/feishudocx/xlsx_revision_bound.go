@@ -6,8 +6,10 @@ import (
 	"regexp"
 )
 
-const sheetDrawingNS = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
-const sheetRevisionNS = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision"
+const (
+	sheetDrawingNS  = "http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing"
+	sheetRevisionNS = "http://schemas.microsoft.com/office/spreadsheetml/2014/revision"
+)
 
 var (
 	sheetDrawingPart = regexp.MustCompile(`^xl/drawings/drawing[0-9]+\.xml$`)
