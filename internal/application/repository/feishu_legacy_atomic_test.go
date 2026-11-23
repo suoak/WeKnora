@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -573,6 +574,10 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
 		defer tx.Rollback()
+		selected := *ds
+		selected.Config = types.JSON(`{"resource_ids":["root","approved-overlap"]}`)
+		ds := &selected
+		require.NoError(t, tx.Model(&types.DataSource{}).Where("id=?", ds.ID).Update("config", ds.Config).Error)
 		local := NewFeishuLegacyStore(tx)
 		request, err := local.SourceReparseTarget(ctx, ds, kid)
 		require.NoError(t, err)
@@ -661,6 +666,10 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 		status, err := local.SourceDocumentReparseStatus(ctx, ds, kid)
 		require.NoError(t, err)
 		require.Equal(t, "processing", status.State)
+		version := strconv.FormatInt(item.UpdatedAt.Unix(), 10)
+		confirmed, err := local.ConfirmSourceReparsePublication(ctx, ds, "root", item.ExternalID, version)
+		require.NoError(t, err)
+		require.False(t, confirmed, "a failed publication cannot acknowledge an exhausted document")
 		var stillCurrent types.FeishuLegacyResource
 		require.NoError(t, tx.First(&stillCurrent, "id=?", resource.ID).Error)
 		require.Equal(
@@ -677,6 +686,43 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 		status, err = local.SourceDocumentReparseStatus(ctx, ds, kid)
 		require.NoError(t, err)
 		require.Equal(t, "completed", status.State)
+		confirmed, err = local.ConfirmSourceReparsePublication(ctx, ds, "root", item.ExternalID, version)
+		require.NoError(t, err)
+		require.True(t, confirmed, "the current completed publication may be acknowledged by normal sync")
+		confirmed, err = local.ConfirmSourceReparsePublication(ctx, ds, "approved-overlap", item.ExternalID, version)
+		require.NoError(t, err)
+		require.True(t, confirmed, "overlapping roots within the same unchanged selection share one publication")
+		for _, target := range [][2]string{{"other-root", version}, {"root", version + "0"}} {
+			confirmed, err = local.ConfirmSourceReparsePublication(ctx, ds, target[0], item.ExternalID, target[1])
+			require.NoError(t, err)
+			require.False(t, confirmed, "a different root or source version must keep its failure record")
+		}
+		_, err = local.ConfirmSourceReparsePublication(context.Background(), ds, "root", item.ExternalID, version)
+		require.Error(t, err, "a completed request is not execution authority")
+		var completedOp types.TaskPendingOp
+		require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=? AND op='completed'",
+			sourceDocumentReparseScope, ds.ID, kid).First(&completedOp).Error)
+		for _, field := range []string{"config_hash", "kb_config_hash", "published_attempt", "external_id"} {
+			var edited map[string]any
+			require.NoError(t, json.Unmarshal(completedOp.Payload, &edited))
+			edited[field] = "mismatched"
+			payload, err := json.Marshal(edited)
+			require.NoError(t, err)
+			require.NoError(t, tx.Model(&types.TaskPendingOp{}).Where("id=?", completedOp.ID).
+				UpdateColumn("payload", json.RawMessage(payload)).Error)
+			confirmed, err = local.ConfirmSourceReparsePublication(ctx, ds, "root", item.ExternalID, version)
+			require.NoError(t, err)
+			require.False(t, confirmed, field)
+		}
+		require.NoError(t, tx.Model(&types.TaskPendingOp{}).Where("id=?", completedOp.ID).
+			UpdateColumn("payload", completedOp.Payload).Error)
+		require.NoError(t, tx.Model(&types.FeishuLegacyResource{}).Where("id=?", resource.ID).
+			Updates(map[string]any{"current_attempt": a.ID, "active_attempt": a.ID}).Error)
+		confirmed, err = local.ConfirmSourceReparsePublication(ctx, ds, "root", item.ExternalID, version)
+		require.NoError(t, err)
+		require.False(t, confirmed, "an older publication cannot satisfy the completed request receipt")
+		require.NoError(t, tx.Model(&types.FeishuLegacyResource{}).Where("id=?", resource.ID).
+			Updates(map[string]any{"current_attempt": candidate.ID, "active_attempt": candidate.ID}).Error)
 		catalog, err := local.SourceDocumentReparseStatuses(ctx, ds.TenantID, []string{kid})
 		require.NoError(t, err)
 		require.Len(t, catalog, 1)

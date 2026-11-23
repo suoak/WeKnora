@@ -351,7 +351,7 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 	if err = store.CheckOwner(ctx, ds, attempt); err != nil {
 		return nil, err
 	}
-	parsed, err := s.callDocReaderWithTimeout(
+	parsed, err := s.readFeishuCandidate(
 		ctx,
 		reader,
 		&types.ReadRequest{
@@ -364,6 +364,7 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 			RequestID:                   attempt.ID,
 			ParserSemanticChunkMaxChars: types.DefaultParserSemanticChunkMaxChars,
 		},
+		func(work context.Context) error { return store.Renew(work, ds, attempt) },
 	)
 	if err != nil {
 		if errors.Is(err, docparser.ErrCandidateImageData) {
