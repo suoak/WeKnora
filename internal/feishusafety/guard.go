@@ -267,6 +267,9 @@ redis.call('DEL',KEYS[2])
 if first then
  redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','trip','reason',ARGV[1],
   'http_evidence',ARGV[2],'admission_code',ARGV[3])
+elseif ARGV[1]=='operator_emergency_stop' then
+ -- First-cause preservation must not hide a later independent operator stop.
+ redis.call('XADD',KEYS[3],'MAXLEN','~',1000,'*','event','emergency_stop','reason',ARGV[1])
 end
 return 1`).
 		// Stop must not depend on an EVALSHA/NOSCRIPT round trip. A stalled

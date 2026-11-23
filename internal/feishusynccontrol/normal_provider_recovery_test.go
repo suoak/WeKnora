@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/redis/go-redis/v9"
@@ -76,11 +77,40 @@ func TestNormalProviderRecoveryRetainsManualUnknownAndUnhealthyStops(t *testing.
 	for _, failure := range []string{
 		"emergency_after_provider", "operator_pause", "revoked", "changed_record", "missing_evidence",
 		"wrong_endpoint", "missing_consumer", "locally_closed", "not_dedicated", "audit_failure",
+		"legacy_control_operator_stop", "legacy_control_unknown_stop", "truncated_control_history",
+		"cross_stream_same_millisecond_stop",
 	} {
 		t.Run(failure, func(t *testing.T) {
 			f := providerStopFixture(t)
 			ctx := context.Background()
 			switch failure {
+			case "cross_stream_same_millisecond_stop":
+				original, err := f.r.XRevRangeN(ctx, f.c.prefix+"audit", "+", "-", 1).Result()
+				require.NoError(t, err)
+				require.Len(t, original, 1)
+				ms, _, ok := strings.Cut(original[0].ID, "-")
+				require.True(t, ok)
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "audit", ID: ms + "-100000", Values: original[0].Values,
+				}).Err())
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "control_audit", ID: ms + "-99999",
+					Values: map[string]any{"event": "feishu_safety_stop", "reason": "operator_emergency_stop"},
+				}).Err())
+			case "legacy_control_operator_stop", "legacy_control_unknown_stop":
+				reason := "operator_emergency_stop"
+				if failure == "legacy_control_unknown_stop" {
+					reason = "unconfirmed_worker_loss"
+				}
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "control_audit",
+					Values: map[string]any{"event": "feishu_safety_stop", "reason": reason},
+				}).Err())
+			case "truncated_control_history":
+				require.NoError(t, f.r.Del(ctx, f.c.prefix+"control_audit").Err())
+				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
+					Stream: f.c.prefix + "control_audit", Values: map[string]any{"event": "later_event"},
+				}).Err())
 			case "emergency_after_provider":
 				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
 					Stream: f.c.prefix + "audit", Values: map[string]any{"event": "emergency_stop"},

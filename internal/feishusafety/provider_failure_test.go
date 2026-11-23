@@ -81,3 +81,21 @@ func TestNormalEmbeddingRetryExhaustionIsFiniteAndDoesNotLatch(t *testing.T) {
 		t.Fatal("429 exhaustion stopped service")
 	}
 }
+
+func TestManualStopAfterProviderKeepsOriginalCauseAndIndependentIntent(t *testing.T) {
+	g, r := fixture(t, Config{})
+	ctx := context.Background()
+	if err := g.Trip(ctx, "embedding_http_403"); err != nil {
+		t.Fatal(err)
+	}
+	if err := g.Trip(ctx, "operator_emergency_stop"); err != nil {
+		t.Fatal(err)
+	}
+	if r.Get(ctx, g.key("trip")).Val() != "embedding_http_403" {
+		t.Fatal("first cause overwritten")
+	}
+	entries, err := r.XRevRangeN(ctx, g.key("audit"), "+", "-", 1).Result()
+	if err != nil || len(entries) != 1 || entries[0].Values["event"] != "emergency_stop" {
+		t.Fatal("later operator intent was hidden", err)
+	}
+}
