@@ -47,6 +47,8 @@ func TestFeishuDocumentFailureClassification(t *testing.T) {
 		{ErrFeishuStagingRequired, ""},
 		{context.Canceled, ""},
 		{errors.New("unknown"), ""},
+		{ErrInvalidFileType, "unsupported_file_type"},
+		{fmt.Errorf("wrapped: %w", ErrInvalidFileType), "unsupported_file_type"},
 	} {
 		require.Equal(t, tc.code, feishuDocumentFailureCode(ds, item, tc.err))
 	}
@@ -149,6 +151,16 @@ func TestFeishuDocumentFailureUnlistedIsNotSuccess(t *testing.T) {
 	h.ObserveDocument("overlapping-root", "unlisted-doc", "pending_unlisted")
 	require.Equal(t, 1, h.result.Failed)
 	require.Equal(t, "feishu_document_pending_unlisted", h.result.Errors[0].Code)
+	status, _ := streamingSyncOutcome(h.result)
+	require.Equal(t, types.SyncLogStatusPartial, status)
+}
+
+func TestDocumentRetryExhaustionRemainsPartial(t *testing.T) {
+	h := &streamSyncHandler{result: &types.SyncResult{Unchanged: 2}}
+	h.ObserveDocument("root", "A", "retry_exhausted")
+	h.ObserveDocument("overlap", "A", "retry_exhausted")
+	require.Equal(t, 1, h.result.Failed)
+	require.Equal(t, "feishu_document_retry_exhausted", h.result.Errors[0].Code)
 	status, _ := streamingSyncOutcome(h.result)
 	require.Equal(t, types.SyncLogStatusPartial, status)
 }

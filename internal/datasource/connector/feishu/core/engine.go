@@ -245,6 +245,14 @@ func runSyncMode[N any](
 				}
 			}
 
+			if !forceFull && plan.exhausted(tok, editTimeStr) {
+				observeDocument(h, resourceID, tok, "retry_exhausted")
+				if err := checkpointProcessed(); err != nil {
+					return nil, err
+				}
+				continue
+			}
+
 			// Resume/incremental fast-path: a node recorded at its current edit
 			// time is unchanged (or already synced this run) - keep the record
 			// and Skip re-fetching.
@@ -285,7 +293,7 @@ func runSyncMode[N any](
 					if err := ctx.Err(); err != nil {
 						return nil, err
 					}
-					if err := plan.rejected(resourceID, tok, local.Code); err != nil {
+					if err := plan.rejected(resourceID, tok, local.Code, editTimeStr); err != nil {
 						return nil, err
 					}
 					documentRecovery = true
@@ -355,7 +363,7 @@ func runSyncMode[N any](
 							if err := ctx.Err(); err != nil {
 								return nil, err
 							}
-							if err := plan.rejected(resourceID, tok, local.Code); err != nil {
+							if err := plan.rejected(resourceID, tok, local.Code, editTimeStr); err != nil {
 								return nil, err
 							}
 							// A failed document never acknowledges the fetched edit time.

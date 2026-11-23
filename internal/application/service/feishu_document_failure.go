@@ -15,6 +15,9 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if !safeLegacyIncrementalEnabled() || !legacyWikiDrive(ds.Type) || item.IsDeleted || item.ExternalID == "" {
 		return ""
 	}
+	if errors.Is(err, ErrInvalidFileType) {
+		return "unsupported_file_type"
+	}
 	// A known exhausted allocation is backpressure, never an unknown guard state.
 	// Its request is still denied; only the document remains pending for retry.
 	if errors.Is(err, feishusafety.ErrBudgetBusy) {

@@ -124,13 +124,20 @@ func exerciseLegacyProcessSync(
 	calls := fixture.calls
 	require.NoError(t, svc.ProcessSync(context.Background(), task))
 	require.Equal(t, calls, fixture.calls, "duplicate terminal delivery must not call connector")
-	fixture.err = &feishu.APIError{Category: feishu.ErrorCategoryRateLimit}
-	log, _, err = run(false)
-	require.Error(t, err)
-	require.Equal(t, types.SyncLogStatusFailed, log.Status)
-	require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
-	require.Equal(t, confirmed, string(saved.LastSyncCursor))
-	require.NoError(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID))
+	for _, failure := range []error{
+		&feishu.APIError{Category: feishu.ErrorCategoryRateLimit},
+		&feishu.IncompletePaginationError{Resource: "wiki nodes", Reason: "missing page token"},
+		&feishu.ContentTruncatedError{Resource: "docx blocks", Limit: 50000},
+	} {
+		fixture.err = failure
+		log, _, err = run(false)
+		require.Error(t, err)
+		require.Equal(t, types.SyncLogStatusFailed, log.Status)
+		require.NoError(t, db.First(&saved, "id=?", ds.ID).Error)
+		require.Equal(t, confirmed, string(saved.LastSyncCursor))
+		require.NoError(t, types.CheckLegacySourceRead(db, kid, ds.KnowledgeBaseID))
+	}
+
 	fixture.err = &feishu.APIError{Category: feishu.ErrorCategoryPermission}
 	_, _, err = run(false)
 	require.Error(t, err)

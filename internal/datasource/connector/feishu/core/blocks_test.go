@@ -453,14 +453,14 @@ func TestReadBitableRecords_EmptyRecordPageTerminates(t *testing.T) {
 	defer cancel()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
 	rows, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz")
-	if err != nil {
-		t.Fatalf("empty-page pagination must terminate cleanly, got err: %v", err)
+	if err == nil {
+		t.Fatal("empty non-final records page must fail")
 	}
 	if recordCalls != 1 {
 		t.Errorf("records endpoint called %d times, want 1 (loop must break on the empty page)", recordCalls)
 	}
-	if len(rows) != 1 { // header only
-		t.Errorf("rows = %d, want 1 (header only, no records)", len(rows))
+	if rows != nil {
+		t.Fatal("partial rows must not escape on error")
 	}
 }
 
@@ -488,8 +488,8 @@ func TestReadBitableRecords_EmptyFieldsPageTerminates(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
-	if _, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz"); err != nil {
-		t.Fatalf("empty fields page must terminate cleanly, got err: %v", err)
+	if _, _, err := c.readBitableRecords(ctx, "bascabc_tblxyz"); err == nil {
+		t.Fatal("empty non-final fields page must fail")
 	}
 	if fieldCalls != 1 {
 		t.Errorf("fields endpoint called %d times, want 1 (loop must break on the empty page)", fieldCalls)
@@ -516,8 +516,8 @@ func TestListDocumentBlocks_EmptyPageTerminates(t *testing.T) {
 	defer cancel()
 	c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
 	blocks, err := c.listDocumentBlocks(ctx, "doc-1")
-	if err != nil {
-		t.Fatalf("empty blocks page must terminate cleanly, got err: %v", err)
+	if err == nil {
+		t.Fatal("empty non-final blocks page must fail")
 	}
 	if blockCalls != 1 {
 		t.Errorf("blocks endpoint called %d times, want 1 (loop must break on the empty page)", blockCalls)

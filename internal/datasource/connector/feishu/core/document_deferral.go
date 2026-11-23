@@ -14,7 +14,11 @@ const (
 	failedDocumentCursorKey  = "feishu_failed_documents_v1"
 )
 
+const maxDocumentFailureAttempts = 3
+
 type failedDocument struct {
+	Attempts         int    `json:"attempts,omitempty"`
+	SourceVersion    string `json:"source_version,omitempty"`
 	SourceResourceID string `json:"source_resource_id"`
 	ExternalID       string `json:"external_id"`
 	Code             string `json:"code"`
@@ -116,6 +120,17 @@ func (p *documentPlan) retry(_ string, externalID string) bool {
 	return false
 }
 
+// Exhaustion isolates this source version until it changes or an explicit full
+// sync retries it. Other documents continue and the run remains visibly partial.
+func (p *documentPlan) exhausted(externalID, version string) bool {
+	for _, entry := range p.failed {
+		if entry.ExternalID == externalID && entry.SourceVersion == version && entry.Attempts >= maxDocumentFailureAttempts {
+			return true
+		}
+	}
+	return false
+}
+
 func (p *documentPlan) accepted(_ string, externalID string) {
 	for key, entry := range p.failed {
 		if entry.ExternalID == externalID {
@@ -129,9 +144,14 @@ func (p *documentPlan) accepted(_ string, externalID string) {
 	}
 }
 
-func (p *documentPlan) rejected(root, externalID, code string) error {
+func (p *documentPlan) rejected(root, externalID, code, version string) error {
 	identity := types.SyncDocumentDeferral{SourceResourceID: root, ExternalID: externalID}
-	p.failed[identity.Key()] = failedDocument{SourceResourceID: root, ExternalID: externalID, Code: code}
+	previous := p.failed[identity.Key()]
+	attempts := 1
+	if previous.SourceVersion == version {
+		attempts = previous.Attempts + 1
+	}
+	p.failed[identity.Key()] = failedDocument{SourceResourceID: root, ExternalID: externalID, Code: code, SourceVersion: version, Attempts: attempts}
 	if len(p.failed) > 1000 {
 		return errors.New("too many failed Feishu documents")
 	}

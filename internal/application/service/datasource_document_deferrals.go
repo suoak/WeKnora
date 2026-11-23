@@ -111,6 +111,12 @@ func (h *streamSyncHandler) ObserveDocument(_ string, externalID, disposition st
 		h.result.Unchanged++
 	case "unsupported":
 		h.result.Unsupported++
+	case "retry_exhausted":
+		h.result.Failed++
+		recordSyncError(h.result, types.SyncItemError{
+			Title: externalID, Code: "feishu_document_retry_exhausted",
+			Message: "Document retry budget exhausted; update the source or explicitly retry a full sync",
+		})
 	case "pending_unlisted":
 		h.result.Failed++
 		recordSyncError(h.result, types.SyncItemError{

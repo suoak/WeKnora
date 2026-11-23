@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -107,4 +108,24 @@ func TestFeishuCheckpointFailureRestoresInMemoryCursor(t *testing.T) {
 		h.Checkpoint(ctx, &types.SyncCursor{}),
 		"a later checkpoint cannot bypass the failed write",
 	)
+}
+
+func TestFeishuAdmissionUnsupportedRetainsRetryEligibility(t *testing.T) {
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
+	ks := &sweepFakeKS{repo: &sweepFakeRepo{}, createErr: ErrInvalidFileType}
+	h := newStreamHandler(&DataSourceService{knowledgeService: ks}, &types.DataSource{ID: "source", Type: "feishu"}, &types.SyncResult{}, &types.SyncLog{})
+	item := types.FetchedItem{ExternalID: "A", Content: []byte("body"), FileName: "A.md"}
+	err := h.Emit(context.Background(), item)
+	var local *datasource.DocumentFailureError
+	require.ErrorAs(t, err, &local)
+	require.Equal(t, "unsupported_file_type", local.Code)
+	require.Nil(t, h.ingestErr, "a confirmed document rejection must not latch a source failure")
+	ks.createErr = nil
+	for _, id := range []string{"B", "C"} {
+		item.ExternalID = id
+		require.NoError(t, h.Emit(context.Background(), item))
+	}
+	require.Equal(t, 2, h.result.Created)
+	require.Equal(t, 1, h.result.Failed)
+	require.Empty(t, ks.deleted)
 }
