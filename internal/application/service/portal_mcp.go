@@ -186,7 +186,7 @@ func portalHit(t *access.PortalKBTarget, row *types.Knowledge, c *types.Chunk) P
 }
 
 func (s *PortalMCPKnowledge) ReadDocument(ctx context.Context, id string) ([]PortalMCPHit, error) {
-	targets, err := s.Resolve(ctx, nil)
+	targets, err := s.ResolveDocument(ctx, id)
 	if err != nil {
 		return nil, err
 	}

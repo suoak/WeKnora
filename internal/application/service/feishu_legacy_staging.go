@@ -457,6 +457,8 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		chunkLimit = repository.LargeFeishuChunkLimit
 	}
 	if len(parts) == 0 || len(parts)+len(parents) > chunkLimit {
+		logger.Warnf(ctx, "Feishu chunk count refused source=%s external_id=%s text=%d parents=%d limit=%d",
+			ds.ID, item.ExternalID, len(parts), len(parents), chunkLimit)
 		return nil, &feishuStagingRefusal{reason: "chunk_count_out_of_bounds"}
 	}
 	chunks := make([]*types.Chunk, len(parts))
@@ -592,6 +594,8 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		requestID, configHash, ok := repository.LargeSourceReparseRequest(ctx)
 		if !ok || len(chunks) > repository.LargeFeishuChunkLimit ||
 			int64(len(embeddingInputs))*int64(model.GetDimensions())*4 > 512<<20 {
+			logger.Warnf(ctx, "Feishu embedding input count refused source=%s external_id=%s inputs=%d",
+				ds.ID, item.ExternalID, len(embeddingInputs))
 			return nil, &feishuStagingRefusal{reason: "chunk_count_out_of_bounds"}
 		}
 		checkpoint.Version, checkpoint.RequestID, checkpoint.SourceConfig = 2, requestID, configHash

@@ -143,6 +143,17 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 				if left == right {
 					return nil
 				}
+				left, _, leftErr = feishudocx.CanonicalOrderedRevisionXLSXSnapshotDigest(original.Content)
+				right, _, rightErr = feishudocx.CanonicalOrderedRevisionXLSXSnapshotDigest(current.Content)
+				if leftErr != nil {
+					return leftErr
+				}
+				if rightErr != nil {
+					return rightErr
+				}
+				if left == right {
+					return nil
+				}
 			}
 		}
 		return legacyFence("latest_source_snapshot_changed")
