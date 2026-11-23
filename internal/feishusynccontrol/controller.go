@@ -224,6 +224,11 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 	c.timings.Requested = requested
 	c.timings.LockWaitNS = c.timings.Started.Sub(requested).Nanoseconds()
 	defer func() { c.finishTiming(result) }()
+	defer func() {
+		if result == nil {
+			c.Guard.SuspendDependency(false)
+		}
+	}()
 	defer func() { c.probeStage = "" }()
 	if c.departed {
 		return ErrNotReady
@@ -244,7 +249,7 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 		var err error
 		normal, err = c.steadyManager.NormalServiceActive(ctx)
 		if err != nil {
-			return c.freeze(ctx, "normal_service_authorization_unavailable", true)
+			return c.freezeDependency(ctx, "normal_service_authorization", err, "normal_service_authorization_unavailable")
 		}
 	}
 	if c.recoveryEnabled && !normal {
@@ -262,7 +267,7 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 				renew = c.renewNormalIncidentHealth
 			}
 			if err := renew(ctx); err != nil {
-				return c.freeze(ctx, "steady_health_lost", true)
+				return c.freezeDependency(ctx, "normal_incident_health", err, "steady_health_lost")
 			}
 			if normal {
 				if err := c.steadyManager.resumeNormalQueueAfterHealth(ctx); err != nil {
@@ -333,6 +338,9 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 }
 
 func (c *Controller) freeze(ctx context.Context, reason string, latch bool) error {
+	if latch && c.transientNormalDependency(reason) {
+		return c.suspendNormalDependency(ctx, reason)
+	}
 	failedStage := c.probeStage
 	probeTiming := c.failureTiming()
 	elapsedMS := int64(0)
