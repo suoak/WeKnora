@@ -12,6 +12,7 @@ import (
 )
 
 func TestFeishuPDFTimeoutReleasesExecutionButBoundsNativeWork(t *testing.T) {
+	require.Eventually(t, func() bool { return len(feishuPDFReaderSlot) == 0 }, time.Second, time.Millisecond)
 	started, release := make(chan struct{}), make(chan struct{})
 	defer close(release)
 	done := make(chan feishuPDFReadResult, 1)
@@ -130,11 +131,38 @@ func TestFeishuPDFRenewsDuringSuccessfulParseAndContainsPanic(t *testing.T) {
 			panic("private parser internals")
 		})
 	require.Nil(t, result)
-	require.EqualError(t, err, "Feishu PDF parser failed")
+	require.EqualError(t, err, "feishu PDF parser failed")
 	result, err = readBoundedFeishuPDF(context.Background(), time.Second, time.Hour,
 		func(context.Context) error { return nil }, func(context.Context) (*types.ReadResult, error) {
 			return &types.ReadResult{MarkdownContent: "next"}, nil
 		})
 	require.NoError(t, err)
 	require.Equal(t, "next", result.MarkdownContent)
+}
+
+func TestFeishuPDFDeadlineDuringLeaseRenewalRemainsDocumentLocal(t *testing.T) {
+	require.Eventually(t, func() bool { return len(feishuPDFReaderSlot) == 0 }, time.Second, time.Millisecond)
+	release := make(chan struct{})
+	defer close(release)
+	var calls atomic.Int32
+	result, err := readBoundedFeishuPDF(context.Background(), 40*time.Millisecond, time.Millisecond,
+		func(work context.Context) error {
+			if calls.Add(1) == 1 {
+				return nil
+			}
+			<-work.Done()
+			return work.Err()
+		}, func(context.Context) (*types.ReadResult, error) {
+			<-release
+			return &types.ReadResult{MarkdownContent: "late"}, nil
+		})
+	require.Nil(t, result)
+	var refusal *feishuStagingRefusal
+	require.ErrorAs(t, err, &refusal)
+	require.Equal(t, "parser_timeout", refusal.reason)
+	lost := errors.New("execution fence lost")
+	work, cancel := context.WithCancel(context.Background())
+	cancel()
+	require.ErrorIs(t, feishuPDFRenewalError(context.Background(), work, lost), lost)
+	require.ErrorIs(t, feishuPDFRenewalError(work, work, context.Canceled), context.Canceled)
 }

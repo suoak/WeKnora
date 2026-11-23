@@ -51,14 +51,14 @@ func readBoundedFeishuPDF(
 	defer cancel()
 	if err := renew(work); err != nil {
 		<-feishuPDFReaderSlot
-		return nil, err
+		return nil, feishuPDFRenewalError(ctx, work, err)
 	}
 	done := make(chan feishuPDFReadResult, 1)
 	go func() {
 		var out feishuPDFReadResult
 		defer func() {
 			if recover() != nil {
-				out = feishuPDFReadResult{err: errors.New("Feishu PDF parser failed")}
+				out = feishuPDFReadResult{err: errors.New("feishu PDF parser failed")}
 			}
 			<-feishuPDFReaderSlot
 			done <- out // Buffered: an abandoned native result cannot block or publish.
@@ -76,7 +76,7 @@ func readBoundedFeishuPDF(
 			return nil, &feishuStagingRefusal{reason: "parser_timeout"}
 		case <-ticker.C:
 			if err := renew(work); err != nil {
-				return nil, err
+				return nil, feishuPDFRenewalError(ctx, work, err)
 			}
 		case out := <-done:
 			if err := ctx.Err(); err != nil {
@@ -88,4 +88,12 @@ func readBoundedFeishuPDF(
 			return out.result, out.err
 		}
 	}
+}
+
+func feishuPDFRenewalError(parent, work context.Context, err error) error {
+	if parent.Err() == nil && errors.Is(work.Err(), context.DeadlineExceeded) &&
+		errors.Is(err, context.DeadlineExceeded) {
+		return &feishuStagingRefusal{reason: "parser_timeout"}
+	}
+	return err
 }

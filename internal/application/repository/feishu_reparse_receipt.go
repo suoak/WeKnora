@@ -24,7 +24,7 @@ func (s *FeishuLegacyStore) ConfirmSourceReparsePublication(
 	if err != nil {
 		return false, err
 	}
-	if config == nil || externalID == "" || !slices.Contains(config.ResourceIDs, root) {
+	if config == nil || root == "" || externalID == "" || !slices.Contains(config.ResourceIDs, root) {
 		return false, nil
 	}
 	confirmed := false
