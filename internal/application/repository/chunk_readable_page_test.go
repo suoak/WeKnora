@@ -4,6 +4,7 @@ import (
 	"context"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -83,4 +84,21 @@ func TestReadableTextPageLargeDocumentAndWorkerFences(t *testing.T) {
 	require.ErrorIs(t, err, types.ErrExactDocumentScope)
 	require.Nil(t, rows, "revoked output never escapes the repository")
 	require.Zero(t, total)
+}
+
+func TestPortalDocumentIdentityKeepsMissingAndPrivateDenialsNeutral(t *testing.T) {
+	db := setupChunkTestDB(t)
+	require.NoError(t, db.Exec("CREATE TABLE knowledges(id text,knowledge_base_id text,deleted_at datetime)").Error)
+	require.NoError(t, db.Exec("INSERT INTO knowledges VALUES ('doc','kb',NULL)").Error)
+	store := NewEnterpriseAccessRepository(db)
+	kb, err := store.LookupPortalDocumentKB(context.Background(), "doc")
+	require.NoError(t, err)
+	require.Equal(t, "kb", kb)
+	_, err = store.LookupPortalDocumentKB(context.Background(), "missing")
+	require.ErrorIs(t, err, access.ErrForbidden)
+	require.NoError(t, db.Callback().Query().Before("gorm:query").Register("deny_private_identity", func(tx *gorm.DB) {
+		_ = tx.AddError(types.ErrPrivateKnowledgeBase)
+	}))
+	_, err = store.LookupPortalDocumentKB(context.Background(), "doc")
+	require.ErrorIs(t, err, access.ErrForbidden)
 }

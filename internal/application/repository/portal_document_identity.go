@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
 
@@ -14,7 +15,8 @@ func (r *EnterpriseAccessRepository) LookupPortalDocumentKB(ctx context.Context,
 	var row struct{ KnowledgeBaseID string }
 	err := r.db.WithContext(ctx).Table("knowledges").Select("knowledge_base_id").
 		Where("id=? AND deleted_at IS NULL", id).Take(&row).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
+	if errors.Is(err, gorm.ErrRecordNotFound) || errors.Is(err, types.ErrPrivateKnowledgeBase) ||
+		errors.Is(err, types.ErrLegacySourceRestricted) || errors.Is(err, types.ErrExactDocumentScope) {
 		return "", access.ErrForbidden
 	}
 	return row.KnowledgeBaseID, err
