@@ -27,7 +27,8 @@ var (
 	ErrBudgetBusy = errors.New("feishu safety budget busy")
 	// ErrControlTemporarilyUnavailable denies work while the normal-service
 	// controller retries a dependency observation. It never grants permission.
-	ErrControlTemporarilyUnavailable = fmt.Errorf("%w: control dependency temporarily unavailable", context.DeadlineExceeded)
+	ErrControlTemporarilyUnavailable = fmt.Errorf(
+		"%w: control dependency temporarily unavailable", context.DeadlineExceeded)
 	// ErrEmbeddingTemporarilyUnavailable rejects a drained request that timed
 	// out before response headers while the shared runtime fence stayed healthy.
 	ErrEmbeddingTemporarilyUnavailable = fmt.Errorf(
@@ -114,6 +115,7 @@ func (g *Guard) CloseLocal() { g.localClosed.Store(true) }
 // succeeds. Clearing this flag never clears localClosed or a distributed trip.
 func (g *Guard) SuspendDependency(waiting bool) { g.dependencySuspended.Store(waiting) }
 
+// DependencySuspended reports a temporary wait, excluding permanent local stops.
 func (g *Guard) DependencySuspended() bool {
 	return !g.localClosed.Load() && g.dependencySuspended.Load()
 }

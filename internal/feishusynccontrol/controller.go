@@ -249,7 +249,8 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 		var err error
 		normal, err = c.steadyManager.NormalServiceActive(ctx)
 		if err != nil {
-			return c.freezeDependency(ctx, "normal_service_authorization", err, "normal_service_authorization_unavailable")
+			return c.freezeDependency(ctx, "normal_service_authorization", err,
+				"normal_service_authorization_unavailable")
 		}
 	}
 	if c.recoveryEnabled && !normal {

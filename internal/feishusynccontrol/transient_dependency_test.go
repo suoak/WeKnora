@@ -13,9 +13,11 @@ import (
 type registryTimeoutHook struct{ fail bool }
 
 func (h *registryTimeoutHook) DialHook(next redis.DialHook) redis.DialHook { return next }
+
 func (h *registryTimeoutHook) ProcessPipelineHook(next redis.ProcessPipelineHook) redis.ProcessPipelineHook {
 	return next
 }
+
 func (h *registryTimeoutHook) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
 	return func(ctx context.Context, cmd redis.Cmder) error {
 		if h.fail {
@@ -71,7 +73,10 @@ func TestNormalDedicatedTransientFailurePreservesExistingEmergencyStop(t *testin
 }
 
 func TestNormalDedicatedDependencyTimeoutStagesRecover(t *testing.T) {
-	for _, stage := range []string{"normal_service_authorization", "automatic_audit", "automatic_membership_probe", "automatic_redis_ping", "automatic_asynq_inspection", "automatic_permit", "normal_incident_health"} {
+	for _, stage := range []string{
+		"normal_service_authorization", "automatic_audit", "automatic_membership_probe",
+		"automatic_redis_ping", "automatic_asynq_inspection", "automatic_permit", "normal_incident_health",
+	} {
 		t.Run(stage, func(t *testing.T) {
 			f := newNormalFixture(t)
 			f.activateNormal(t)

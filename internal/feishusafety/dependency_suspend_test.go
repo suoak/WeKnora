@@ -25,7 +25,9 @@ func TestDependencySuspensionDrainsActiveHTTPWithoutRelatching(t *testing.T) {
 				require.NoError(t, err)
 				started, done := make(chan struct{}), make(chan error, 1)
 				go func() {
-					response, runErr := (Transport{Base: cancellationTransport{headers, started}, Embedding: embedding}).RoundTrip(req)
+					response, runErr := (Transport{
+						Base: cancellationTransport{headers, started}, Embedding: embedding,
+					}).RoundTrip(req)
 					if runErr == nil {
 						data, readErr := io.ReadAll(response.Body)
 						_ = response.Body.Close()
