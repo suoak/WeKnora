@@ -5,7 +5,6 @@ import (
 	"errors"
 	"time"
 
-	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
@@ -79,7 +78,10 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 		}
 	}
 	revisionBound := original.ExportSnapshotProof != nil || current.ExportSnapshotProof != nil
-	if revisionBound && !core.SameImmutableSheetRevision(original, current) {
+	proof, ok := original.ExportSnapshotProof.(interface {
+		MatchesImmutableSheetRevision(*types.FetchedItem, *types.FetchedItem) bool
+	})
+	if revisionBound && (!ok || !proof.MatchesImmutableSheetRevision(original, current)) {
 		return legacyFence("latest_source_snapshot_changed")
 	}
 	if LegacySourceHash(

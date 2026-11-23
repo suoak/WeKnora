@@ -54,8 +54,18 @@ func SameImmutableSheetRevision(original, current *types.FetchedItem) bool {
 		return false
 	}
 	left, ok := original.ExportSnapshotProof.(*sheetExportRevisionProof)
+	return ok && left.MatchesImmutableSheetRevision(original, current)
+}
+
+// MatchesImmutableSheetRevision exposes verification without making repository
+// code depend on connector packages (which also depend on datasource contracts).
+func (p *sheetExportRevisionProof) MatchesImmutableSheetRevision(original, current *types.FetchedItem) bool {
+	if original == nil || current == nil {
+		return false
+	}
+	left, ok := original.ExportSnapshotProof.(*sheetExportRevisionProof)
 	right, otherOK := current.ExportSnapshotProof.(*sheetExportRevisionProof)
-	return ok && otherOK && left.matches(original) && right.matches(current) &&
+	return ok && otherOK && left == p && left.matches(original) && right.matches(current) &&
 		left.clientID == right.clientID && left.token == right.token && left.revision == right.revision
 }
 
