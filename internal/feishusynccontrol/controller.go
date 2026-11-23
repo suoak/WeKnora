@@ -258,6 +258,7 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 			return c.freeze(ctx, "recovery_policy_expired_or_invalid", true)
 		}
 	}
+	c.Guard.SetProviderFailureIsolation(normal && c.Config.Automatic && c.Config.DedicatedSyncLane)
 	if c.Config.Automatic {
 		if err := c.automaticStep(ctx); err != nil {
 			return err

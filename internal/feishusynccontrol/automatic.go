@@ -11,7 +11,7 @@ import (
 // All discovered controllers are retained until an explicit rollout reset. A
 // disappeared worker cannot silently shrink the expected inventory and reopen.
 // Redis TIME supplies lease time; no gateway/online-health metrics are invented.
-var automaticPermit = redis.NewScript(`
+const automaticPermitLua = `
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 if redis.call('EXISTS',KEYS[4])==1 then return redis.error_reply('TRIPPED') end
 local workers=redis.call('HGETALL',KEYS[1])
@@ -49,7 +49,9 @@ for i=1,#workers,2 do
  redis.call('ZREM',KEYS[7],workers[i])
 end
 if changed then redis.call('INCR',KEYS[8]) end
-redis.call('SET',KEYS[3],ARGV[2],'PX',750);return 1`)
+redis.call('SET',KEYS[3],ARGV[2],'PX',750);return 1`
+
+var automaticPermit = redis.NewScript(automaticPermitLua)
 
 func (c *Controller) automaticStep(ctx context.Context) error {
 	if c.Consumers == nil {
@@ -95,7 +97,7 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 			c.prefix + "joining",
 			c.prefix + "membership_revision",
 		}
-		err = automaticPermit.Run(ctx, c.Client, keys, args...).Err()
+		err = c.automaticPermitWithProviderRecovery(ctx, keys, args)
 	}
 	if err != nil {
 		if strings.Contains(err.Error(), "JOINING_CONSUMER") ||

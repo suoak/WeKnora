@@ -175,6 +175,18 @@ func (e *protocolEmbedder) BatchEmbed(ctx context.Context, texts []string) ([][]
 				}
 			}
 			if err != nil {
+				if feishusafety.ProviderFailuresIsolated(ctx) && ctx.Err() == nil &&
+					!errors.Is(err, feishusafety.ErrClosed) && !errors.Is(err, feishusafety.ErrBudgetBusy) &&
+					!errors.Is(err, feishusafety.ErrSourceValidationUnavailable) &&
+					!errors.Is(err, feishusafety.ErrControlTemporarilyUnavailable) &&
+					!errors.Is(err, feishusafety.ErrEmbeddingTemporarilyUnavailable) {
+					var response *api.HTTPError
+					if errors.As(err, &response) {
+						return nil, &feishusafety.ProviderResponseError{Status: response.StatusCode, Cause: err}
+					}
+					feishusafety.EmbeddingResultFailed(ctx, "embedding_response_invalid_or_business_error")
+					return nil, fmt.Errorf("%w: %w", feishusafety.ErrProviderFailure, err)
+				}
 				// These finite transport/admission categories already rejected the
 				// request and checked shared health. Preserve their local retry;
 				// a protocol wrapper must not turn them into a new global incident.

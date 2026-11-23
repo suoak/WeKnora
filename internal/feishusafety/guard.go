@@ -64,14 +64,15 @@ type Config struct {
 
 // Guard coordinates a deployment-scoped, fail-closed Redis safety allocation.
 type Guard struct {
-	client                  redis.UniversalClient
-	config                  Config
-	fingerprint             string
-	prefix                  string
-	localClosed             atomic.Bool
-	dependencySuspended     atomic.Bool
-	recoveryRequired        atomic.Bool
-	approvedSourceValidator atomic.Pointer[approvedSourceValidator]
+	client                   redis.UniversalClient
+	config                   Config
+	fingerprint              string
+	prefix                   string
+	localClosed              atomic.Bool
+	dependencySuspended      atomic.Bool
+	providerFailureIsolation atomic.Bool
+	recoveryRequired         atomic.Bool
+	approvedSourceValidator  atomic.Pointer[approvedSourceValidator]
 }
 
 // New validates explicit budgets and constructs a closed-by-default guard.

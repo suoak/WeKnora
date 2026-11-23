@@ -60,6 +60,13 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 	retryableDisconnect := errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.EPIPE) ||
 		(phase == "headers" && errors.Is(err, io.EOF))
 	policyRejected := phase == "headers" && errors.Is(err, utils.ErrSSRFRequestRejected)
+	if g.ProviderFailuresIsolated() {
+		if timedOut {
+			category = "timeout"
+		}
+		g.recordProviderFailure(caller, family+"_"+phase+"_"+category, "")
+		return
+	}
 	if !embedding && (timedOut || retryableDisconnect || policyRejected) {
 		// Source HTTP timeouts belong to the existing connector's bounded
 		// retry/backoff, including a reset while downloading the response body.
@@ -125,8 +132,7 @@ func (t Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		g := Default()
 		if attempt == 2 {
-			trip(g, "embedding_429_retries_exhausted")
-			return nil, ErrClosed
+			return nil, providerRetryFailure(req.Context(), g, "embedding_429_retries_exhausted")
 		}
 		delay := time.Second << attempt
 		jitter := time.Duration(rand.Int64N(int64(100 * time.Millisecond)))
@@ -145,16 +151,14 @@ func (t Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 			} else if date, parseErr := http.ParseTime(value); parseErr == nil {
 				after = time.Until(date)
 			} else {
-				trip(g, "embedding_retry_after_unknown")
-				return nil, ErrClosed
+				return nil, providerRetryFailure(req.Context(), g, "embedding_retry_after_unknown")
 			}
 			if after > delay {
 				delay = after
 			}
 		}
 		if waited+delay > 30*time.Second {
-			trip(g, "embedding_retry_wait_exceeded")
-			return nil, ErrClosed
+			return nil, providerRetryFailure(req.Context(), g, "embedding_retry_wait_exceeded")
 		}
 		waited += delay
 		if t.retrySleep != nil {
@@ -164,7 +168,7 @@ func (t Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 		}
 		if err != nil {
 			if req.Context().Err() == nil && !errors.Is(err, ErrSourceAdmissionChanged) {
-				trip(g, "embedding_retry_state_unavailable")
+				_ = providerRetryFailure(req.Context(), g, "embedding_retry_state_unavailable")
 			}
 			return nil, err
 		}
@@ -332,6 +336,15 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 		_ = resp.Body.Close()
 		finish()
 		resp.Body = http.NoBody
+		return resp, nil
+	}
+	if g.ProviderFailuresIsolated() && (resp.StatusCode < 200 || resp.StatusCode >= 300) {
+		t.tripHTTP(g, req, resp) // audited local failure; original SDK status survives
+		if resp.Body == nil {
+			finish()
+		} else {
+			resp.Body = &guardedBody{ReadCloser: resp.Body, finish: finish, guard: g, caller: caller, execution: ctx, embedding: t.Embedding, sourceHTTP: !t.Embedding && !t.BackgroundModel}
+		}
 		return resp, nil
 	}
 	// Source refusals and known provider availability faults belong to the

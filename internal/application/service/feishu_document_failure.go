@@ -18,6 +18,16 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	if errors.Is(err, ErrInvalidFileType) {
 		return "unsupported_file_type"
 	}
+	if errors.Is(err, feishusafety.ErrProviderFailure) {
+		if errors.Is(err, feishusafety.ErrClosed) || errors.Is(err, types.ErrStaleSyncExecution) {
+			return ""
+		}
+		var response *feishusafety.ProviderResponseError
+		if errors.As(err, &response) && response.Status == 403 {
+			return "embedding_provider_http_403"
+		}
+		return "embedding_provider_failed"
+	}
 	// A known exhausted allocation is backpressure, never an unknown guard state.
 	// Its request is still denied; only the document remains pending for retry.
 	if errors.Is(err, feishusafety.ErrBudgetBusy) {
