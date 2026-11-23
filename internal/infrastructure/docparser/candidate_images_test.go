@@ -3,6 +3,7 @@ package docparser
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"errors"
 	"image"
 	"image/png"
@@ -34,6 +35,33 @@ func candidatePNG(t *testing.T) []byte {
 	var b bytes.Buffer
 	require.NoError(t, png.Encode(&b, image.NewRGBA(image.Rect(0, 0, 80, 80))))
 	return b.Bytes()
+}
+
+func TestCandidateEmbeddedImageLargerThanRemoteLimit(t *testing.T) {
+	data := append(candidatePNG(t), make([]byte, maxRemoteImageSize)...)
+	result := &types.ReadResult{
+		MarkdownContent: "![embedded](images/large.png)",
+		ImageRefs:       []types.ImageRef{{OriginalRef: "images/large.png", ImageData: data}},
+	}
+	files := &candidateFiles{}
+	images, err := ResolveCandidateImages(context.Background(), result, files, 1)
+	require.NoError(t, err)
+	require.Len(t, images, 1)
+	require.Equal(t, 1, files.calls)
+
+	inline := &types.ReadResult{MarkdownContent: "![inline](data:image/png;base64," +
+		base64.StdEncoding.EncodeToString(data) + ")"}
+	files.calls = 0
+	_, err = ResolveCandidateImages(context.Background(), inline, files, 1)
+	require.ErrorIs(t, err, ErrCandidateImageData)
+	require.Zero(t, files.calls)
+
+	result.MarkdownContent = "![embedded](images/large.png)"
+	result.ImageRefs[0].ImageData = append(data, make([]byte, maxCandidateEmbeddedImageSize-len(data)+1)...)
+	files.calls = 0
+	_, err = ResolveCandidateImages(context.Background(), result, files, 1)
+	require.ErrorIs(t, err, ErrCandidateImageData)
+	require.Zero(t, files.calls)
 }
 
 func TestCandidateImagesExactUnicodeSpans(t *testing.T) {
