@@ -101,6 +101,12 @@ type StreamObservationHandler interface {
 	ObserveDocument(root, externalID, disposition string)
 }
 
+// StreamReparseReceiptHandler confirms a completed, source-owned publication.
+// The source's fresh listing version must match the durable published receipt.
+type StreamReparseReceiptHandler interface {
+	ConfirmReparsedDocument(context.Context, string, string, string) (bool, error)
+}
+
 // StreamingConnector is an optional interface. Connectors that implement it let
 // the service interleave fetch→ingest→checkpoint so a large sync persists
 // incrementally and resumes after a timeout, rather than holding every item in

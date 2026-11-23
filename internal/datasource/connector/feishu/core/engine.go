@@ -178,6 +178,9 @@ func runSyncMode[N any](
 
 	processed := 0
 	lastCheckpoint := time.Now()
+	// Overlapping selected roots can list the same logical document. A matching
+	// completed reparse receipt never needs a second export or embedding pass.
+	reparsedVersions := map[string]string{}
 	// Upstream #4736: unchanged nodes earn durable progress too. Unlike the
 	// upstream warning-only callback, an unconfirmed checkpoint is fatal here.
 	checkpointProcessed := func() error {
@@ -245,8 +248,30 @@ func runSyncMode[N any](
 				}
 			}
 
+			if !forceFull && reparsedVersions[tok] == editTimeStr && editTimeStr != "" {
+				newTimes[resourceID][tok] = editTimeStr
+				observeDocument(h, resourceID, tok, "unchanged")
+				if err := checkpointProcessed(); err != nil {
+					return nil, err
+				}
+				continue
+			}
 			if !forceFull && plan.exhausted(tok, editTimeStr) {
-				observeDocument(h, resourceID, tok, "retry_exhausted")
+				confirmed := false
+				if receipts, ok := h.(datasource.StreamReparseReceiptHandler); ok {
+					confirmed, err = receipts.ConfirmReparsedDocument(ctx, resourceID, tok, editTimeStr)
+					if err != nil {
+						return nil, err
+					}
+				}
+				if confirmed {
+					reparsedVersions[tok] = editTimeStr
+					plan.accepted(resourceID, tok)
+					newTimes[resourceID][tok] = editTimeStr
+					observeDocument(h, resourceID, tok, "unchanged")
+				} else {
+					observeDocument(h, resourceID, tok, "retry_exhausted")
+				}
 				if err := checkpointProcessed(); err != nil {
 					return nil, err
 				}
