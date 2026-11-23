@@ -26,7 +26,9 @@ func TestPaginationIntegrityHTTP(t *testing.T) {
 				calls := 0
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if strings.Contains(r.URL.Path, "/auth/") {
-						_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "tenant_access_token": "t", "expire": 7200})
+						_ = json.NewEncoder(w).Encode(map[string]any{
+							"code": 0, "tenant_access_token": "t", "expire": 7200,
+						})
 						return
 					}
 					// Bitable's other endpoint is a complete prerequisite/result.
@@ -85,7 +87,10 @@ func TestPaginationIntegrityHTTP(t *testing.T) {
 					_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": data})
 				}))
 				defer srv.Close()
-				c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client(), retry: defaultRetryPolicy()}
+				c := &Client{
+					baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client(),
+					retry: defaultRetryPolicy(),
+				}
 				c.retry.maxRetries = 0
 				if mode == "timeout" {
 					c.httpClient.Timeout = 30 * time.Millisecond
@@ -132,7 +137,9 @@ func TestPaginationContentLimits(t *testing.T) {
 			t.Run(kind+map[bool]string{false: "/exact", true: "/overflow"}[extra], func(t *testing.T) {
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 					if strings.Contains(r.URL.Path, "/auth/") {
-						_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "tenant_access_token": "t", "expire": 7200})
+						_ = json.NewEncoder(w).Encode(map[string]any{
+							"code": 0, "tenant_access_token": "t", "expire": 7200,
+						})
 						return
 					}
 					limit := maxTableRows
@@ -151,9 +158,13 @@ func TestPaginationContentLimits(t *testing.T) {
 					}
 					items := make([]map[string]any, n)
 					for i := range items {
-						items[i] = map[string]any{"block_id": "b", "field_name": "column", "fields": map[string]any{"column": "value"}}
+						items[i] = map[string]any{
+							"block_id": "b", "field_name": "column", "fields": map[string]any{"column": "value"},
+						}
 					}
-					_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{"items": items, "has_more": false}})
+					_ = json.NewEncoder(w).Encode(map[string]any{
+						"code": 0, "data": map[string]any{"items": items, "has_more": false},
+					})
 				}))
 				defer srv.Close()
 				c := &Client{baseURL: srv.URL, appID: "a", appSecret: "s", httpClient: srv.Client()}
@@ -193,7 +204,9 @@ func (o *paginationListOps) List(ctx context.Context, c *Client, _ string) ([]st
 func TestPaginationFailureCannotDeleteOrCheckpoint(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.Contains(r.URL.Path, "/auth/") {
-			_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "tenant_access_token": "t", "expire": 7200})
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"code": 0, "tenant_access_token": "t", "expire": 7200,
+			})
 			return
 		}
 		_ = json.NewEncoder(w).Encode(map[string]any{"code": 0, "data": map[string]any{
