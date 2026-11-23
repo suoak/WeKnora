@@ -69,7 +69,8 @@ func tripRequestFailure(caller context.Context, g *Guard, err error, embedding b
 		// A healthy shared gate is required even for this local classification.
 		ctx, cancel := context.WithTimeout(context.WithoutCancel(caller), 200*time.Millisecond)
 		defer cancel()
-		if err := g.Check(ctx); err != nil && !errors.Is(err, ErrSourceAdmissionChanged) {
+		if err := g.Check(ctx); err != nil && !errors.Is(err, ErrSourceAdmissionChanged) &&
+			!errors.Is(err, ErrControlTemporarilyUnavailable) {
 			reason := "timeout"
 			if !timedOut {
 				reason = "transient"
@@ -286,7 +287,9 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 				timedOut := errors.Is(checkCtx.Err(), context.DeadlineExceeded)
 				checkCancel()
 				if err != nil {
-					if errors.Is(err, ErrSourceAdmissionChanged) {
+					if errors.Is(err, ErrControlTemporarilyUnavailable) {
+						cancelCause(ErrControlTemporarilyUnavailable)
+					} else if errors.Is(err, ErrSourceAdmissionChanged) {
 						cancelCause(ErrSourceAdmissionChanged)
 					} else if (timedOut || errors.Is(err, errSourceProbeFailed)) && ctx.Err() == nil {
 						// An unavailable source probe must still cancel this request,
@@ -296,7 +299,9 @@ func (t Transport) roundTripAttempt(req *http.Request) (*http.Response, error) {
 						control, cancelControl := context.WithTimeout(ctx, 200*time.Millisecond)
 						controlErr := g.checkRuntime(control, true)
 						cancelControl()
-						if controlErr == nil {
+						if errors.Is(controlErr, ErrControlTemporarilyUnavailable) {
+							cancelCause(ErrControlTemporarilyUnavailable)
+						} else if controlErr == nil {
 							cancelCause(ErrSourceValidationUnavailable)
 						} else {
 							cancelCause(ErrClosed)
@@ -438,6 +443,9 @@ func canceledAdmission(ctx context.Context) error {
 		return nil
 	}
 	cause := context.Cause(ctx)
+	if errors.Is(cause, ErrControlTemporarilyUnavailable) {
+		return ErrControlTemporarilyUnavailable
+	}
 	if errors.Is(cause, ErrSourceValidationUnavailable) {
 		return ErrSourceValidationUnavailable
 	}
@@ -451,6 +459,10 @@ func canceledAdmission(ctx context.Context) error {
 }
 
 func canceledAdmissionError(g *Guard, denial error) error {
+	if errors.Is(denial, ErrControlTemporarilyUnavailable) ||
+		(errors.Is(denial, ErrClosed) && g.DependencySuspended()) {
+		return ErrControlTemporarilyUnavailable
+	}
 	// A verified slow-source cancellation leaves the request's complete RPM/TPM
 	// charge in the shared window. Releasing its concurrency slot does not refund
 	// tokens, even if the provider processed the canceled embedding. The separate

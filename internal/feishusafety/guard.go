@@ -25,6 +25,10 @@ var (
 	ErrSourceAdmissionChanged = fmt.Errorf("%w: source admission changed", ErrClosed)
 	// ErrBudgetBusy indicates that a known local allocation is temporarily full.
 	ErrBudgetBusy = errors.New("feishu safety budget busy")
+	// ErrControlTemporarilyUnavailable denies work while the normal-service
+	// controller retries a dependency observation. It never grants permission.
+	ErrControlTemporarilyUnavailable = fmt.Errorf(
+		"%w: control dependency temporarily unavailable", context.DeadlineExceeded)
 	// ErrEmbeddingTemporarilyUnavailable rejects a drained request that timed
 	// out before response headers while the shared runtime fence stayed healthy.
 	ErrEmbeddingTemporarilyUnavailable = fmt.Errorf(
@@ -65,6 +69,7 @@ type Guard struct {
 	fingerprint             string
 	prefix                  string
 	localClosed             atomic.Bool
+	dependencySuspended     atomic.Bool
 	recoveryRequired        atomic.Bool
 	approvedSourceValidator atomic.Pointer[approvedSourceValidator]
 }
@@ -105,6 +110,15 @@ func (g *Guard) Fingerprint() string { return g.fingerprint }
 // CloseLocal stops this process during a fenced graceful departure without
 // clearing or creating a deployment-global trip latch.
 func (g *Guard) CloseLocal() { g.localClosed.Store(true) }
+
+// SuspendDependency withdraws local execution until a complete controller Step
+// succeeds. Clearing this flag never clears localClosed or a distributed trip.
+func (g *Guard) SuspendDependency(waiting bool) { g.dependencySuspended.Store(waiting) }
+
+// DependencySuspended reports a temporary wait, excluding permanent local stops.
+func (g *Guard) DependencySuspended() bool {
+	return !g.localClosed.Load() && g.dependencySuspended.Load()
+}
 
 // PermitKey is exposed for the controller to issue short-lived permissions ONLY
 // after validating the complete expected worker inventory and metric freshness.
@@ -170,6 +184,9 @@ func (g *Guard) Check(ctx context.Context) error {
 	if g == nil || g.localClosed.Load() {
 		return ErrClosed
 	}
+	if g.DependencySuspended() {
+		return ErrControlTemporarilyUnavailable
+	}
 	scope, _ := ctx.Value(scopeKey{}).(Scope)
 	i := recoveryIdentity(ctx)
 	validated, liveErr := g.checkApprovedSource(ctx, scope.SourceID, i)
@@ -182,6 +199,9 @@ func (g *Guard) Check(ctx context.Context) error {
 func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
 	if g == nil || g.localClosed.Load() {
 		return ErrClosed
+	}
+	if g.DependencySuspended() {
+		return ErrControlTemporarilyUnavailable
 	}
 	scope, _ := ctx.Value(scopeKey{}).(Scope)
 	i := recoveryIdentity(ctx)

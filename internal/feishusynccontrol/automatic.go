@@ -63,7 +63,7 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 			WorkerID: c.Config.WorkerID,
 		}
 		if err := c.audit(ctx, event); err != nil {
-			return c.freeze(ctx, "audit_unavailable", true)
+			return c.freezeDependency(ctx, "automatic_audit", err, "audit_unavailable")
 		}
 		c.lastAlertAck = time.Now()
 	}
