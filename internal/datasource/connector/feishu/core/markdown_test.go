@@ -58,57 +58,42 @@ func TestBlocksToMarkdown_EmbeddedSheetAndFile(t *testing.T) {
 	}
 }
 
-func TestBlocksToMarkdown_SheetTruncatedNote(t *testing.T) {
-	blocks := []DocxBlock{
-		{BlockID: "root", BlockType: BlockTypePage},
-		{BlockID: "s", BlockType: BlockTypeSheet, Sheet: &BlockTokenRef{Token: "sht_a_0"}},
-	}
-	fr := fakeReader{sheet: [][]string{{"h"}, {"1"}}, sheetTruncated: true}
-	md, _, err := blocksToMarkdown(context.Background(), fr, blocks)
-	if err != nil {
-		t.Fatalf("err: %v", err)
-	}
-	if !strings.Contains(string(md), "表格已截断") {
-		t.Errorf("want truncation note, got:\n%s", md)
+func TestBlocksToMarkdown_IncompleteTablesRefused(t *testing.T) {
+	for _, kind := range []string{"sheet", "bitable"} {
+		for _, mode := range []string{"error", "truncated"} {
+			t.Run(kind+"/"+mode, func(t *testing.T) {
+				fr := fakeReader{}
+				b := DocxBlock{BlockID: "table"}
+				if kind == "sheet" {
+					b.BlockType, b.Sheet = BlockTypeSheet, &BlockTokenRef{Token: "sht_a_0"}
+					fr.sheet = [][]string{{"h"}, {"1"}}
+					fr.sheetTruncated = mode == "truncated"
+					if mode == "error" {
+						fr.sheetErr = fmt.Errorf("permission denied")
+					}
+				} else {
+					b.BlockType, b.Bitable = BlockTypeBitable, &BlockTokenRef{Token: "app_table"}
+					fr.bitable = [][]string{{"h"}, {"1"}}
+					fr.bitableTruncated = mode == "truncated"
+					if mode == "error" {
+						fr.bitableErr = fmt.Errorf("page fetch failed")
+					}
+				}
+				md, atts, err := blocksToMarkdown(context.Background(), fr, []DocxBlock{b})
+				if err == nil || md != nil || atts != nil {
+					t.Fatalf("incomplete table escaped: %s %v", md, err)
+				}
+			})
+		}
 	}
 }
 
-func TestBlocksToMarkdown_SheetPermissionDegrades(t *testing.T) {
-	blocks := []DocxBlock{
-		{BlockID: "root", BlockType: BlockTypePage},
-		{BlockID: "s", BlockType: BlockTypeSheet, Sheet: &BlockTokenRef{Token: "sht_a_0"}},
-	}
-	fr := fakeReader{sheetErr: fmt.Errorf("code=99991672 permission denied")}
+func TestBlocksToMarkdown_BitableInlined(t *testing.T) {
+	fr := fakeReader{bitable: [][]string{{"task", "status"}, {"write", "done"}}}
+	blocks := []DocxBlock{{BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "app_table"}}}
 	md, _, err := blocksToMarkdown(context.Background(), fr, blocks)
-	if err != nil {
-		t.Fatalf("should not fail on permission error, got %v", err)
-	}
-	if !strings.Contains(string(md), "无法读取内嵌电子表格") {
-		t.Errorf("want degraded placeholder, got:\n%s", md)
-	}
-}
-
-func TestBlocksToMarkdown_BitableInlinedAndDegrades(t *testing.T) {
-	mk := func(fr fakeReader) string {
-		blocks := []DocxBlock{
-			{BlockID: "root", BlockType: BlockTypePage},
-			{BlockID: "bt", BlockType: BlockTypeBitable, Bitable: &BlockTokenRef{Token: "bascabc_tblxyz"}},
-		}
-		md, _, err := blocksToMarkdown(context.Background(), fr, blocks)
-		if err != nil {
-			t.Fatalf("err: %v", err)
-		}
-		return string(md)
-	}
-
-	inlined := mk(fakeReader{bitable: [][]string{{"任务", "状态"}, {"写文档", "进行中"}}})
-	if !strings.Contains(inlined, "| 任务 | 状态 |") || !strings.Contains(inlined, "| 写文档 | 进行中 |") {
-		t.Errorf("bitable not inlined:\n%s", inlined)
-	}
-
-	degraded := mk(fakeReader{bitableErr: fmt.Errorf("code=99991672 permission denied")})
-	if !strings.Contains(degraded, "无法读取内嵌多维表格") {
-		t.Errorf("want bitable degradation note, got:\n%s", degraded)
+	if err != nil || !strings.Contains(string(md), "| write | done |") {
+		t.Fatalf("%s %v", md, err)
 	}
 }
 

@@ -212,6 +212,18 @@ func releaseStopRedisPostgres(t *testing.T, failure string) {
 	var aReady, bReady atomic.Bool
 	a.Observe = func(step feishusynccontrol.StepTiming) { aReady.Store(!step.Failed) }
 	b.Observe = func(step feishusynccontrol.StepTiming) { bReady.Store(!step.Failed) }
+	// Readiness expects a healthy metrics producer. Seed its first sample before
+	// either controller can observe startup; otherwise scheduling can make an
+	// intentionally fail-closed missing-metrics trip race the fixture itself.
+	serverTime, err := rdb.Time(ctx).Result()
+	require.NoError(t, err)
+	initialSample, err := json.Marshal(map[string]any{
+		"observed_unix_ms": serverTime.UnixMilli(), "gateway_budget_known": true,
+		"gateway_healthy": true, "online_healthy": true, "consumer_healthy": true,
+		"scope_violations": 0, "quota_exceeded": false, "online_p95_ratio": 1.0,
+	})
+	require.NoError(t, err)
+	require.NoError(t, rdb.Set(ctx, a.MetricsKey(), initialSample, time.Second).Err())
 	runCtx, cancel := context.WithCancel(ctx)
 	var workers sync.WaitGroup
 	for _, controller := range []*feishusynccontrol.Controller{a, b} {

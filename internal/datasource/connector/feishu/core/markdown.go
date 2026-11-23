@@ -60,11 +60,19 @@ func blocksToMarkdown(ctx context.Context, client sheetReader, blocks []DocxBloc
 			continue // rendered by its parent table (also covered by `consumed`)
 		case BlockTypeSheet:
 			if b.Sheet != nil {
-				writePara(&sb, inlineTable(ctx, client, b.Sheet.Token, "sheet"))
+				table, err := inlineTable(ctx, client, b.Sheet.Token, "sheet")
+				if err != nil {
+					return nil, nil, err
+				}
+				writePara(&sb, table)
 			}
 		case BlockTypeBitable:
 			if b.Bitable != nil {
-				writePara(&sb, inlineTable(ctx, client, b.Bitable.Token, "bitable"))
+				table, err := inlineTable(ctx, client, b.Bitable.Token, "bitable")
+				if err != nil {
+					return nil, nil, err
+				}
+				writePara(&sb, table)
 			}
 		case BlockTypeImage:
 			// Emit a token-free placeholder: images carry no retrievable text, and
@@ -303,39 +311,24 @@ func escapePipes(row []string) []string {
 	return out
 }
 
-// inlineTable reads an embedded sheet/bitable and renders it as a Markdown
-// table. Read/permission errors degrade to an inline note rather than failing
-// the whole document (partial content beats no content). A reader-reported
-// truncation appends a note.
-func inlineTable(ctx context.Context, client sheetReader, token, kind string) string {
+// inlineTable requires a complete table before the document can be published.
+func inlineTable(ctx context.Context, client sheetReader, token, kind string) (string, error) {
 	if client == nil {
-		return ""
+		return "", nil
 	}
-	var (
-		rows      [][]string
-		truncated bool
-		err       error
-		noun      string
-	)
+	var rows [][]string
+	var truncated bool
+	var err error
 	if kind == "sheet" {
 		rows, truncated, err = client.readSheetRange(ctx, token)
-		noun = "内嵌电子表格"
 	} else {
 		rows, truncated, err = client.readBitableRecords(ctx, token)
-		noun = "内嵌多维表格"
 	}
 	if err != nil {
-		return fmt.Sprintf("> [无法读取%s]", noun)
-	}
-	// markdownTable returns "" when there is nothing renderable (no rows, or a
-	// header with no columns). Skip the truncation note too in that case, since it
-	// would otherwise dangle without a table above it.
-	table := markdownTable(rows)
-	if table == "" {
-		return ""
+		return "", fmt.Errorf("read embedded %s: %w", kind, err)
 	}
 	if truncated {
-		table += fmt.Sprintf("\n\n> 表格已截断（仅显示前 %d 行）", maxTableRows)
+		return "", &ContentTruncatedError{Resource: "embedded " + kind, Limit: maxTableRows}
 	}
-	return table
+	return markdownTable(rows), nil
 }

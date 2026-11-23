@@ -1440,6 +1440,15 @@ func (s *DataSourceService) applyFetchedItem(
 					Message: "Unsupported file type",
 				},
 			)
+			if code := feishuDocumentFailureCode(ds, item, err); code != "" {
+				if retainErr := s.retainVerifiedFeishuItem(ctx, ds, item); retainErr != nil {
+					return &dataSourceIngestError{cause: retainErr}
+				}
+				if fenceErr := s.checkSyncExecution(ctx); fenceErr != nil {
+					return fenceErr
+				}
+				return &datasource.DocumentFailureError{Code: code, Cause: err}
+			}
 			return nil
 		default:
 			logger.Warnf(

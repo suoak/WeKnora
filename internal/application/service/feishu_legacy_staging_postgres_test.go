@@ -83,6 +83,9 @@ func testFeishuLegacyRealParserEmbeddingPostgres(t *testing.T, reparseOnly bool)
 	root, err := filepath.Abs("../../..")
 	require.NoError(t, err)
 	t.Chdir(root)
+	// This parser/index fixture uses synthetic source/model HTTP, without a
+	// deployment controller. Transport safety is exercised separately with Redis.
+	t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "false")
 	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
 	t.Setenv("FEISHU_LEGACY_SYNC_SUSPENDED", "false")
 	t.Setenv("RETRIEVE_DRIVER", "postgres")

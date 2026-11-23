@@ -690,7 +690,7 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 	for {
 		path := "/open-apis/wiki/v2/spaces?page_size=50"
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiSpaceListResponse
@@ -717,8 +717,11 @@ func (c *Client) ListWikiSpaces(ctx context.Context) ([]WikiSpace, error) {
 
 		allSpaces = append(allSpaces, resp.Data.Items...)
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki space pagination missing page token while has_more=true")
 		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki space pagination repeated page token %q", resp.Data.PageToken)
@@ -743,12 +746,12 @@ func (c *Client) ListWikiNodes(
 	seenPageTokens := make(map[string]struct{})
 
 	for {
-		path := fmt.Sprintf("/open-apis/wiki/v2/spaces/%s/nodes?page_size=50", spaceID)
+		path := fmt.Sprintf("/open-apis/wiki/v2/spaces/%s/nodes?page_size=50", url.PathEscape(spaceID))
 		if parentNodeToken != "" {
-			path += "&parent_node_token=" + parentNodeToken
+			path += "&parent_node_token=" + url.QueryEscape(parentNodeToken)
 		}
 		if pageToken != "" {
-			path += "&page_token=" + pageToken
+			path += "&page_token=" + url.QueryEscape(pageToken)
 		}
 
 		var resp WikiNodeListResponse
@@ -766,8 +769,11 @@ func (c *Client) ListWikiNodes(
 			allNodes = append(allNodes, node)
 		}
 
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
+		}
+		if resp.Data.PageToken == "" {
+			return nil, fmt.Errorf("feishu wiki node pagination missing page token while has_more=true")
 		}
 		if _, exists := seenPageTokens[resp.Data.PageToken]; exists {
 			return nil, fmt.Errorf("feishu wiki node pagination repeated page token %q", resp.Data.PageToken)
@@ -1163,8 +1169,11 @@ func (c *Client) ListDriveFilesAllPages(ctx context.Context, folderToken string)
 			return nil, err
 		}
 		all = append(all, files...)
-		if !hasMore || next == "" {
+		if !hasMore {
 			break
+		}
+		if next == "" {
+			return nil, fmt.Errorf("feishu drive file pagination missing page token while has_more=true")
 		}
 		if _, exists := seenPageTokens[next]; exists {
 			return nil, fmt.Errorf("feishu drive file pagination repeated page token %q", next)

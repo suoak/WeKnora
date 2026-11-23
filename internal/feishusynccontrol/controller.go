@@ -194,8 +194,10 @@ var permit = redis.NewScript(`
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 if redis.call('EXISTS',KEYS[5])==1 then return redis.error_reply('TRIPPED') end
 local ttl=redis.call('PTTL',KEYS[3])
-if redis.call('GET',KEYS[3])~=ARGV[3] or ttl<=0 or ttl>2000 then
- return redis.error_reply('STALE_METRICS')
+local raw=redis.call('GET',KEYS[3])
+if not raw or ttl<=0 or ttl>2000 then return redis.error_reply('STALE_METRICS') end
+if raw~=ARGV[3] then
+ redis.call('DEL',KEYS[4]);return redis.error_reply('METRICS_CHANGED')
 end
 local sample=cjson.decode(ARGV[3])
 if now-sample.observed_unix_ms>2000 then return redis.error_reply('STALE_METRICS') end
@@ -278,14 +280,7 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 	if err != nil {
 		return c.freeze(ctx, "metrics_missing", c.admitted || time.Since(c.started) > 10*time.Second)
 	}
-	var metrics Metrics
-	err = decodeMetrics(raw, &metrics)
-	healthy := func(v *bool) bool { return v != nil && *v }
-	if err != nil || !healthy(metrics.GatewayBudgetKnown) || !healthy(metrics.GatewayHealthy) ||
-		!healthy(metrics.OnlineHealthy) || !healthy(metrics.ConsumerHealthy) ||
-		metrics.ScopeViolations == nil || *metrics.ScopeViolations != 0 ||
-		metrics.QuotaExceeded == nil || *metrics.QuotaExceeded || metrics.OnlineP95Ratio <= 0 ||
-		metrics.OnlineP95Ratio > 1.2 || metrics.ObservedUnixMS > now+100 || now-metrics.ObservedUnixMS > 2000 {
+	if !strictMetricsHealthy(raw, now) {
 		return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
 	}
 	if time.Since(c.lastAlertAck) > time.Second {
@@ -305,10 +300,29 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 		args = append(args, id)
 	}
 	c.stage(ctx, "permit")
-	err = permit.Run(ctx, c.Client, []string{
-		c.prefix + "workers", c.prefix + "leases", c.MetricsKey(),
-		c.Guard.PermitKey(), c.prefix + "trip",
-	}, args...).Err()
+	// A fresh sample may replace the validated one before the atomic grant.
+	// Revalidate once; never grant against an unverified sample or retry unknown
+	// Redis/clock failures. Exhaustion retains the existing stop/fencing path.
+	for attempt := 0; attempt < 2; attempt++ {
+		err = permit.Run(ctx, c.Client, []string{
+			c.prefix + "workers", c.prefix + "leases", c.MetricsKey(),
+			c.Guard.PermitKey(), c.prefix + "trip",
+		}, args...).Err()
+		var reply redis.Error
+		if err == nil || attempt == 1 || !errors.As(err, &reply) ||
+			strings.TrimPrefix(reply.Error(), "ERR ") != "METRICS_CHANGED" {
+			break
+		}
+		raw, err = c.Client.Get(ctx, c.MetricsKey()).Result()
+		if err != nil {
+			return c.freeze(ctx, "metrics_missing", true)
+		}
+		observed, clockErr := c.Client.Time(ctx).Result()
+		if clockErr != nil || !strictMetricsHealthy(raw, observed.UnixMilli()) {
+			return c.freeze(ctx, "metrics_unhealthy_or_unknown", true)
+		}
+		args[2] = raw
+	}
 	if err != nil {
 		permanent := c.admitted || time.Since(c.started) > 10*time.Second ||
 			strings.Contains(err.Error(), "MISMATCH") || strings.Contains(err.Error(), "TRIPPED")
@@ -487,4 +501,18 @@ func CancelLocal() {
 	for _, cancel := range local.cancels {
 		cancel()
 	}
+}
+
+func strictMetricsHealthy(raw string, now int64) bool {
+	var metrics Metrics
+	healthy := func(v *bool) bool { return v != nil && *v }
+	if decodeMetrics(raw, &metrics) != nil || !healthy(metrics.GatewayBudgetKnown) ||
+		!healthy(metrics.GatewayHealthy) ||
+		!healthy(metrics.OnlineHealthy) || !healthy(metrics.ConsumerHealthy) ||
+		metrics.ScopeViolations == nil || *metrics.ScopeViolations != 0 ||
+		metrics.QuotaExceeded == nil || *metrics.QuotaExceeded || metrics.OnlineP95Ratio <= 0 ||
+		metrics.OnlineP95Ratio > 1.2 || metrics.ObservedUnixMS > now+100 || now-metrics.ObservedUnixMS > 2000 {
+		return false
+	}
+	return true
 }

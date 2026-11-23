@@ -375,6 +375,12 @@ func FetchDocxWithBlocks(ctx context.Context, client *Client, in DocxFetchInput)
 
 	blocks, err := client.listDocumentBlocks(ctx, in.ObjToken)
 	if err != nil {
+		var incomplete *IncompletePaginationError
+		var truncated *ContentTruncatedError
+		if errors.As(err, &incomplete) || errors.As(err, &truncated) {
+			return nil, err
+		}
+
 		logger.Warnf(ctx, "[Feishu] blocks API failed for %s (%s), falling back to export: %v",
 			in.Title, in.ObjToken, err)
 		item, ferr := exportDocxFallback(ctx, client, in)

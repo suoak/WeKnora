@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"github.com/Tencent/WeKnora/internal/logger"
 )
 
 // Feishu docx block_type integer enum (subset this connector handles).
@@ -126,6 +124,7 @@ type DocxBlocksResponse struct {
 func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]DocxBlock, error) {
 	var all []DocxBlock
 	pageToken := ""
+	seenPageTokens := make(map[string]struct{})
 	for {
 		path := fmt.Sprintf("/open-apis/docx/v1/documents/%s/blocks?page_size=500&document_revision_id=-1",
 			url.PathEscape(documentID))
@@ -137,17 +136,14 @@ func (c *Client) listDocumentBlocks(ctx context.Context, documentID string) ([]D
 			return nil, fmt.Errorf("list document blocks: %w", err)
 		}
 		all = append(all, resp.Data.Items...)
-		if len(resp.Data.Items) == 0 {
-			// Defensive: a malformed page (empty items but has_more=true and a
-			// non-empty page_token) would otherwise loop until the task deadline,
-			// burning API quota. There is nothing more to collect, so stop.
-			break
+		if len(all) > maxDocumentBlocks || (len(all) == maxDocumentBlocks && resp.Data.HasMore) {
+			return nil, &ContentTruncatedError{Resource: "docx blocks", Limit: maxDocumentBlocks}
 		}
-		if len(all) >= maxDocumentBlocks {
-			logger.Warnf(ctx, "[Feishu] document %s exceeded %d blocks; truncating", documentID, maxDocumentBlocks)
-			break
+		if err := validateContentPage("docx blocks", resp.Data.HasMore,
+			resp.Data.PageToken, len(resp.Data.Items), seenPageTokens); err != nil {
+			return nil, err
 		}
-		if !resp.Data.HasMore || resp.Data.PageToken == "" {
+		if !resp.Data.HasMore {
 			break
 		}
 		pageToken = resp.Data.PageToken
@@ -370,6 +366,7 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 	baseFPath := fmt.Sprintf("/open-apis/bitable/v1/apps/%s/tables/%s/fields?page_size=%d",
 		url.PathEscape(appToken), url.PathEscape(tableID), maxBitableFieldPageSize)
 	fieldPageToken := ""
+	seenFieldTokens := make(map[string]struct{})
 	for {
 		fpath := baseFPath
 		if fieldPageToken != "" {
@@ -386,12 +383,14 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			}
 			cols = append(cols, bitableColumn{name: f.FieldName, fieldType: f.Type, dateFormatter: formatter})
 		}
-		if len(fieldsResp.Data.Items) == 0 {
-			// Defensive: an empty page with has_more=true would loop forever (this
-			// loop has no size cap of its own). Nothing more to read, so stop.
-			break
+		if len(cols) > maxBitableFields || (len(cols) == maxBitableFields && fieldsResp.Data.HasMore) {
+			return nil, true, &ContentTruncatedError{Resource: "bitable fields", Limit: maxBitableFields}
 		}
-		if !fieldsResp.Data.HasMore || fieldsResp.Data.PageToken == "" {
+		if err := validateContentPage("bitable fields", fieldsResp.Data.HasMore,
+			fieldsResp.Data.PageToken, len(fieldsResp.Data.Items), seenFieldTokens); err != nil {
+			return nil, false, err
+		}
+		if !fieldsResp.Data.HasMore {
 			break
 		}
 		fieldPageToken = fieldsResp.Data.PageToken
@@ -413,6 +412,7 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 	baseRPath := fmt.Sprintf("/open-apis/bitable/v1/apps/%s/tables/%s/records/search?page_size=500",
 		url.PathEscape(appToken), url.PathEscape(tableID))
 	pageToken := ""
+	seenPageTokens := make(map[string]struct{})
 	for {
 		rpath := baseRPath
 		if pageToken != "" {
@@ -431,19 +431,15 @@ func (c *Client) readBitableRecords(ctx context.Context, embedToken string) ([][
 			}
 			dataRows = append(dataRows, row)
 		}
-		if len(rec.Data.Items) == 0 {
-			// Defensive: an empty page with has_more=true never advances dataRows,
-			// so the maxTableRows cap below would never trip — stop instead of
-			// looping until the task deadline.
-			break
+		if err := validateContentPage("bitable records", rec.Data.HasMore,
+			rec.Data.PageToken, len(rec.Data.Items), seenPageTokens); err != nil {
+			return nil, false, err
 		}
 		if len(dataRows) >= maxTableRows {
-			if len(dataRows) > maxTableRows || rec.Data.HasMore {
-				truncated = true
-			}
+			truncated = len(dataRows) > maxTableRows || rec.Data.HasMore
 			break
 		}
-		if !rec.Data.HasMore || rec.Data.PageToken == "" {
+		if !rec.Data.HasMore {
 			break
 		}
 		pageToken = rec.Data.PageToken

@@ -168,3 +168,32 @@ func TestDocumentFailureUnlistedRemainsPending(t *testing.T) {
 	require.NoError(t, err)
 	require.Empty(t, deferred.unresolved)
 }
+
+func TestDocumentFailureFiniteBudgetSurvivesRestart(t *testing.T) {
+	ops := &deferralTestOps{nodes: []string{"bad", "B", "C"}}
+	cursor := ops.EncodeCursor(
+		map[string]map[string]string{"root": {"bad": "old"}}, time.Now())
+	for attempt := 1; attempt <= maxDocumentFailureAttempts+1; attempt++ {
+		current := &deferralTestOps{nodes: ops.nodes}
+		h := &documentFailureHandler{failure: &datasource.DocumentFailureError{Code: "unsupported_file_type"}}
+		next, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{},
+			[]string{"root"}, cursor, h, current)
+		require.NoError(t, err)
+		if attempt == 1 {
+			require.Equal(t, []string{"bad", "B", "C"}, current.fetched)
+		} else if attempt <= maxDocumentFailureAttempts {
+			require.Equal(t, []string{"bad"}, current.fetched)
+		} else {
+			require.Empty(t, current.fetched)
+		}
+		require.Equal(t, "old", ops.DecodeCursorTimes(next.ConnectorCursor)["root"]["bad"])
+		raw, err := json.Marshal(next)
+		require.NoError(t, err)
+		cursor = &types.SyncCursor{}
+		require.NoError(t, json.Unmarshal(raw, cursor))
+	}
+	plan, err := prepareDocumentPlan(context.Background(), cursor, []string{"root"}, &deferralTestHandler{})
+	require.NoError(t, err)
+	require.True(t, plan.exhausted("bad", "new"))
+	require.False(t, plan.exhausted("bad", "newer"), "a modified source must become eligible")
+}
