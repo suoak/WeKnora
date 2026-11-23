@@ -358,6 +358,9 @@ type Resource struct {
 
 // FetchedItem represents a single document/content item fetched from external source
 type FetchedItem struct {
+	// ExportSnapshotProof is an in-process, provider-issued immutable revision
+	// observation. JSON and historical metadata cannot supply this authority.
+	ExportSnapshotProof any `json:"-"`
 	// AutoRecovered is set only after live-snapshot recovery has a durable receipt.
 	AutoRecovered bool `json:"-"`
 	// CurrentSnapshot is issued only by the live connector. It cannot be supplied

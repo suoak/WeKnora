@@ -19,6 +19,7 @@ type xlsxXMLStream struct {
 	columnStart  int64
 	snapshot     bool
 	links        map[string]string
+	nonceRole    string
 }
 
 func (s *xlsxXMLStream) next() (xml.Token, error) {
@@ -71,6 +72,9 @@ func (s *xlsxXMLStream) attrs(t xml.StartElement) ([]xml.Attr, error) {
 		} else if isLink {
 			return nil, ErrInvalidXLSXPackage
 		}
+	}
+	if s.nonceRole != "" {
+		return revisionBoundXLSXAttrs(t.Name, attrs, s.nonceRole)
 	}
 	return attrs, nil
 }
@@ -204,6 +208,10 @@ func streamXLSXXML(r io.Reader, w io.Writer, required xml.Name) error {
 
 func streamSnapshotXLSXXML(r io.Reader, w io.Writer, required xml.Name, snapshot bool, links map[string]string) error {
 	s := &xlsxXMLStream{d: xml.NewDecoder(r), w: w, snapshot: snapshot, links: links}
+	return s.document(required)
+}
+
+func (s *xlsxXMLStream) document(required xml.Name) error {
 	root, declaration := false, false
 	for {
 		v, err := s.next()

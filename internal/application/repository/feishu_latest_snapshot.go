@@ -5,6 +5,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
@@ -77,6 +78,10 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 			return legacyFence("latest_source_binding_changed")
 		}
 	}
+	revisionBound := original.ExportSnapshotProof != nil || current.ExportSnapshotProof != nil
+	if revisionBound && !core.SameImmutableSheetRevision(original, current) {
+		return legacyFence("latest_source_snapshot_changed")
+	}
 	if LegacySourceHash(
 		original.Content,
 		original.FileName,
@@ -123,6 +128,19 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 			}
 			if left == right {
 				return nil
+			}
+			if kind == "sheet" && revisionBound {
+				left, _, leftErr = feishudocx.CanonicalRevisionBoundXLSXSnapshotDigest(original.Content)
+				right, _, rightErr = feishudocx.CanonicalRevisionBoundXLSXSnapshotDigest(current.Content)
+				if leftErr != nil {
+					return leftErr
+				}
+				if rightErr != nil {
+					return rightErr
+				}
+				if left == right {
+					return nil
+				}
 			}
 		}
 		return legacyFence("latest_source_snapshot_changed")
