@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"time"
 
@@ -13,12 +11,7 @@ import (
 )
 
 func connectionID(parts ...string) string {
-	h := sha256.New()
-	for _, p := range parts {
-		h.Write([]byte(p))
-		h.Write([]byte{0})
-	}
-	return hex.EncodeToString(h.Sum(nil))
+	return types.FeishuConnectionReferenceID(parts...)
 }
 
 // ResolveCredentialReference loads only the current user's grant. No request

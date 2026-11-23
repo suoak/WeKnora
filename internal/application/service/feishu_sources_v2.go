@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/types"
@@ -54,6 +54,12 @@ func (s *FeishuPersonalService) EnableImportSource(
 	if m.Status == "paused" || m.Status == "hold" || m.Status == "revoked" {
 		return nil, access.ErrForbidden
 	}
+	var exact int64
+	if err = s.db.WithContext(ctx).Model(&types.TaskPendingOp{}).
+		Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope, m.KnowledgeID).
+		Count(&exact).Error; err != nil {
+		return nil, err
+	}
 	var existing types.DataSource
 	existingErr := s.db.WithContext(ctx).Where("id = ?", m.ID).First(&existing).Error
 	if existingErr == nil {
@@ -65,6 +71,20 @@ func (s *FeishuPersonalService) EnableImportSource(
 		}
 		if m.Status == "source_managed" {
 			return &existing, nil // Never auto-resume an existing paused/held source.
+		}
+		if exact > 0 && existing.LegacyAccessState != "hold" && existing.LegacyAccessState != "revoked" &&
+			(existing.Status == types.DataSourceStatusActive || existing.Status == types.DataSourceStatusPaused) {
+			proof, e := repository.FindPersonalExactSourceHandoff(s.db.WithContext(ctx), &existing,
+				m.ResourceType+":"+m.DocumentToken, false)
+			if e != nil {
+				return nil, e
+			}
+			if proof == nil {
+				return nil, errors.New("source_publication_changed")
+			}
+			// Enrollment retry cannot undo an administrator's later pause. An
+			// existing paused source requires the normal explicit resume action.
+			return &existing, nil
 		}
 		if existing.LegacyAccessState == "hold" || existing.LegacyAccessState == "revoked" ||
 			existing.Status != types.DataSourceStatusPaused {
@@ -138,25 +158,22 @@ func (s *FeishuPersonalService) EnableImportSource(
 			return nil, err
 		}
 	}
-	var k types.Knowledge
-	if err = s.db.
-		WithContext(ctx).
-		Where("id = ? AND knowledge_base_id = ?",
-			m.KnowledgeID,
-			kbID).
-		First(&k).Error; err != nil {
-		return nil, err
+	if exact > 0 {
+		proof, e := repository.FindPersonalExactSourceHandoff(s.db.WithContext(ctx), ds,
+			m.ResourceType+":"+m.DocumentToken, false)
+		if e != nil {
+			return nil, e
+		}
+		if proof == nil {
+			return nil, errors.New("source_publication_changed")
+		}
+		// Keep the old Knowledge, exact receipt, generation and ownership intact
+		// until the ordinary source publisher commits a verified replacement.
+		if e = s.dataSources.ResumeDataSource(ctx, ds.ID); e != nil {
+			return nil, e
+		}
+		return s.dataSources.GetDataSource(ctx, ds.ID)
 	}
-	var metadata map[string]any
-	if json.Unmarshal(k.Metadata, &metadata) != nil || metadata["feishu_imported_by"] != user ||
-		metadata["external_id"] != m.ResourceType+":"+m.DocumentToken {
-		return nil, access.ErrForbidden
-	}
-	if old := metadata["datasource_id"]; old != "personal:"+m.ID && old != m.ID {
-		return nil, errors.New("source_binding_conflict")
-	}
-	metadata["datasource_id"] = m.ID
-	updated, _ := json.Marshal(metadata)
 	if err = s.recovery.repo.
 		HandoffSource(ctx,
 			m.ID,
@@ -164,7 +181,7 @@ func (s *FeishuPersonalService) EnableImportSource(
 			func(tx *gorm.DB,
 				current *types.FeishuPersonalImport,
 			) error {
-				if current.KnowledgeID != k.ID || current.SourceModified != m.SourceModified {
+				if current.KnowledgeID != m.KnowledgeID || current.SourceModified != m.SourceModified {
 					return errors.New("source_revision_changed")
 				}
 				// "synced" is a computed view; the persisted first-create state is
@@ -181,27 +198,7 @@ func (s *FeishuPersonalService) EnableImportSource(
 				if verified[0].IndexStatus != "verified" || verified[0].Status != "synced" {
 					return errors.New("indexed_import_required")
 				}
-				metadataMatch := "metadata = ?"
-				if tx.Name() == "postgres" {
-					// Both historical json and current jsonb columns must support
-					// the compare-and-swap; PostgreSQL json has no equality operator.
-					metadataMatch = "CAST(metadata AS jsonb) = CAST(? AS jsonb)"
-				}
-				change := tx.
-					Model(&types.Knowledge{}).
-					Where("id = ? AND file_hash = ?",
-						k.ID,
-						k.FileHash).
-					Where(metadataMatch, string(k.Metadata)).
-					Update("metadata",
-						types.JSON(updated))
-				if change.Error != nil {
-					return change.Error
-				}
-				if change.RowsAffected != 1 {
-					return errors.New("source_binding_changed")
-				}
-				return nil
+				return bindFirstImportSourceMetadata(tx, kb.TenantID, kbID, user, current)
 			}); err != nil {
 		return nil, err
 	}

@@ -308,6 +308,10 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 		// second KID on retry. The source execution row is already locked.
 		e := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(r, "id = ?", id).Error
 		if errors.Is(e, gorm.ErrRecordNotFound) {
+			handoff, handoffErr := FindPersonalExactSourceHandoff(tx, ds, item.ExternalID, true)
+			if handoffErr != nil {
+				return handoffErr
+			}
 			var old []types.Knowledge
 			e = tx.Where("tenant_id=? AND knowledge_base_id=? AND metadata->>'datasource_id'=? AND "+
 				"metadata->>'external_id'=?", ds.TenantID, ds.KnowledgeBaseID, ds.ID, item.ExternalID).
@@ -316,6 +320,21 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 				Error
 			if e != nil {
 				return e
+			}
+			if handoff != nil {
+				if e = handoff.checkRevision(item.UpdatedAt); e != nil {
+					return e
+				}
+				if len(old) != 0 {
+					return legacyFence("personal_handoff_binding_ambiguous")
+				}
+				if e = tx.Where("id=? AND tenant_id=? AND knowledge_base_id=?", handoff.KnowledgeID(),
+					ds.TenantID, ds.KnowledgeBaseID).Find(&old).Error; e != nil {
+					return e
+				}
+				if len(old) != 1 {
+					return legacyFence("personal_handoff_knowledge_missing")
+				}
 			}
 			if len(old) > 1 {
 				return legacyFence("source_identity_ambiguous")
@@ -508,6 +527,18 @@ func (s *FeishuLegacyStore) beginWithSourceIdentity(
 			}
 		}
 
+		handoff, handoffErr := FindPersonalExactSourceHandoff(tx, ds, r.ExternalID, true)
+		if handoffErr != nil {
+			return handoffErr
+		}
+		if handoff != nil && handoff.KnowledgeID() != r.KnowledgeID {
+			return legacyFence("personal_handoff_binding_changed")
+		}
+		if handoff != nil {
+			if e = handoff.checkRevision(item.UpdatedAt); e != nil {
+				return e
+			}
+		}
 		var old types.Knowledge
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&old, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).
@@ -884,6 +915,22 @@ func (s *FeishuLegacyStore) Publish(
 		if e = validateLegacyAssets(tx, r, a, &m, true); e != nil {
 			return e
 		}
+		handoff, handoffErr := FindPersonalExactSourceHandoff(tx, ds, r.ExternalID, true)
+		if handoffErr != nil {
+			return handoffErr
+		}
+		if handoff != nil && handoff.KnowledgeID() != r.KnowledgeID {
+			return legacyFence("personal_handoff_binding_changed")
+		}
+		if handoff != nil {
+			publishedRevision, parseErr := time.Parse(time.RFC3339Nano, a.Revision)
+			if parseErr != nil {
+				return legacyFence("invalid_source_revision")
+			}
+			if e = handoff.checkRevision(publishedRevision); e != nil {
+				return e
+			}
+		}
 		e = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 			First(&old, "id=? AND tenant_id=?", r.KnowledgeID, r.TenantID).
 			Error
@@ -1091,6 +1138,9 @@ content,dimension,embedding,is_enabled)
 		if e = tx.Model(r).
 			Updates(map[string]any{"active_attempt": a.ID, "state": "active", "updated_at": receipt.PublishedAt}).
 			Error; e != nil {
+			return e
+		}
+		if e = completeExactSourceHandoff(tx, handoff); e != nil {
 			return e
 		}
 		if e = completeSourceDocumentReparse(ctx, tx, ds, r, a.ID); e != nil {

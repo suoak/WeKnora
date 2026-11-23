@@ -6,6 +6,11 @@ import "encoding/json"
 // queue operation. It must survive queue drains, task retries and rollback.
 const PersonalExactReceiptScope = "personal_exact_receipt_v1"
 
+// PersonalExactSourceHistoryScope retains the former serving receipt after a
+// fenced source publisher replaces it atomically with its own verified output.
+// It is audit history, never a runnable task or an independent serving grant.
+const PersonalExactSourceHistoryScope = "personal_exact_source_history_v1"
+
 // PersonalExactReceipt binds source identity and verified published output manifests.
 type PersonalExactReceipt struct {
 	Version             int     `json:"version"`

@@ -184,6 +184,9 @@ type nativeResumeFormatOptions struct {
 	SkipAdditionalReadMatrix bool
 	AssertClosed             func(*personalRecoveryFixture, *types.FeishuPersonalAttempt, *atomic.Int64)
 	AssertPublished          func(*personalRecoveryFixture, *personalExactDocument, types.PersonalExactReceipt)
+	ConfigureFixture         func(*personalRecoveryFixture)
+	ReturnAfterPublication   bool
+	UserOAuthImport          bool
 }
 
 func exerciseNativeResumeWithFormat(
@@ -193,6 +196,9 @@ func exerciseNativeResumeWithFormat(
 	t.Setenv("SYNC_EXECUTION_POSTGRES_PUBLIC_EXTENSIONS", "1")
 	t.Setenv("FEISHU_PERSONAL_EXACT_RECOVERY", "1")
 	f := newMVPFixture(t)
+	if options.ConfigureFixture != nil {
+		options.ConfigureFixture(f)
+	}
 	f.p.lease = 2 * time.Minute
 	if data == nil {
 		data = resumeNativeDOCX(t)
@@ -269,7 +275,15 @@ func exerciseNativeResumeWithFormat(
 		cfg.BaseURL = server.URL
 		return core.NewClient(cfg)
 	}
-	imported := f.prepare("https://tenant.feishu.cn/file/real")
+	var imported *types.FeishuPersonalImport
+	if options.UserOAuthImport {
+		var importErr error
+		imported, importErr = f.s.ImportWithIdentity(f.ctx, "kb", "https://tenant.feishu.cn/file/real",
+			types.FeishuUserOAuth)
+		require.NoError(t, importErr)
+	} else {
+		imported = f.prepare("https://tenant.feishu.cn/file/real")
+	}
 	require.NoError(t, f.p.Process(f.ctx, f.payload(imported.AttemptID)))
 	knowledge, op, payload := mvpPublicTask(t, f, imported)
 	retired, err := os.ReadFile("../../../migrations/versioned/000033_add_video_info_to_chunks.up.sql")
@@ -407,6 +421,9 @@ func exerciseNativeResumeWithFormat(
 	require.NoError(t, f.p.verifyExactPublishedDatabase(context.Background(), published))
 	if options.AssertPublished != nil {
 		options.AssertPublished(f, proof, published)
+	}
+	if options.ReturnAfterPublication {
+		return
 	}
 	assertExactPublicationHistory(t, f, imported.ID)
 	var retained []string
