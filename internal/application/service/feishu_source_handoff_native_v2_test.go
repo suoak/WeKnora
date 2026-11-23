@@ -69,6 +69,8 @@ func TestFeishuV2NativeHandoffRecoversWithoutReset(t *testing.T) {
 		TenantID: 1, TaskType: "knowledge:index_receipt", Scope: personalIndexReceiptScope,
 		ScopeID: m.LogicalKnowledgeID, DedupKey: "index-" + m.AttemptID, Op: "verified",
 	}).Error)
+	// Production installs both guards; handoff must only read protocol metadata.
+	f.db = types.EnableLegacyReadGuards(f.db)
 	sources := &v2HandoffSources{db: f.db, failCreate: true}
 	f.s.dataSources = sources
 	_, err = f.s.EnableImportSource(f.ctx, "kb", m.ID, "")
@@ -89,8 +91,9 @@ func TestFeishuV2NativeHandoffRecoversWithoutReset(t *testing.T) {
 	require.NoError(t, f.db.Where("id = ?", m.ID).First(&current).Error)
 	require.Equal(t, "source_managed", current.Status)
 	require.Equal(t, m.LogicalKnowledgeID, current.KnowledgeID)
-	var knowledge types.Knowledge
-	require.NoError(t, f.db.WithContext(f.ctx).Where("id = ?", current.KnowledgeID).First(&knowledge).Error)
+	var knowledge struct{ Metadata types.JSON }
+	require.NoError(t, f.db.WithContext(f.ctx).Table("knowledges").Select("metadata").
+		Where("id = ?", current.KnowledgeID).Take(&knowledge).Error)
 	var metadata map[string]any
 	require.NoError(t, json.Unmarshal(knowledge.Metadata, &metadata))
 	require.Equal(t, m.ID, metadata["datasource_id"])

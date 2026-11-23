@@ -2,11 +2,23 @@ package types
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 
 	"gorm.io/gorm"
 )
+
+// FeishuConnectionReferenceID binds a source to one admitted account and epoch.
+func FeishuConnectionReferenceID(parts ...string) string {
+	h := sha256.New()
+	for _, part := range parts {
+		h.Write([]byte(part))
+		h.Write([]byte{0})
+	}
+	return hex.EncodeToString(h.Sum(nil))
+}
 
 // FeishuSourceReference persists an owned identity reference without tokens.
 type FeishuSourceReference struct {
