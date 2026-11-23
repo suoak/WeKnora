@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -53,7 +55,7 @@ func (p *largeDocumentPager) ListReadableTextPage(
 	return rows, 1007, nil
 }
 
-func documentPageRPC(t *testing.T, s *PersonalServer, ctx context.Context, offset, limit int) mcp.CallToolResult {
+func documentPageRPC(ctx context.Context, t *testing.T, s *PersonalServer, offset, limit int) mcp.CallToolResult {
 	t.Helper()
 	payload, err := json.Marshal(map[string]any{
 		"jsonrpc": "2.0", "id": 1, "method": "tools/call",
@@ -82,7 +84,7 @@ func TestPersonalDocumentPagesRead1007ChunksWithinLiveSelectedScope(t *testing.T
 	s.knowledge.Chunks = pager
 	seen := map[string]bool{}
 	for offset := 0; offset < 1007; offset += 100 {
-		result := documentPageRPC(t, s, ctx, offset, 100)
+		result := documentPageRPC(ctx, t, s, offset, 100)
 		require.False(t, result.IsError)
 		var page struct {
 			Total  int `json:"total"`
@@ -121,12 +123,47 @@ func TestPersonalDocumentPageDiscardsRevokedOrChangedOutput(t *testing.T) {
 				}
 			}}
 			s.knowledge.Chunks = pager
-			result := documentPageRPC(t, s, ctx, 0, 100)
+			result := documentPageRPC(ctx, t, s, 0, 100)
 			require.True(t, result.IsError)
 			raw, err := json.Marshal(result)
 			require.NoError(t, err)
 			require.NotContains(t, string(raw), "paragraph")
 			require.Zero(t, store.unrelatedReads)
 		})
+	}
+}
+
+func TestPersonalDocumentDeniedReadKeepsNeutralRPCWithoutHandler(t *testing.T) {
+	for _, revoked := range []bool{false, true} {
+		s, underlying, ctx := selectedMCPFixture()
+		store := &protocolOnlyStore{selectedMCPStore: underlying}
+		if revoked {
+			store.err = errors.New("revoked")
+		}
+		s.knowledge.Resolver.Store = store
+		called := false
+		s.externalHandler = http.HandlerFunc(func(http.ResponseWriter, *http.Request) { called = true })
+		body := []byte(`{"jsonrpc":"2.0","id":7,"method":"tools/call",` +
+			`"params":{"name":"read_document","arguments":{"knowledge_id":"private-or-missing"}}}`)
+		r := httptest.NewRequest("POST", personalPath, bytes.NewReader(body)).WithContext(ctx)
+		r.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		s.Handler().ServeHTTP(w, r)
+		require.False(t, called, "a protocol grant never admits a document handler")
+		require.Equal(t, 1, store.calls)
+		if revoked {
+			require.Equal(t, http.StatusForbidden, w.Code)
+		} else {
+			require.Equal(t, http.StatusOK, w.Code)
+			var envelope struct {
+				ID     int                `json:"id"`
+				Result mcp.CallToolResult `json:"result"`
+			}
+			require.NoError(t, json.Unmarshal(w.Body.Bytes(), &envelope))
+			require.Equal(t, 7, envelope.ID)
+			require.True(t, envelope.Result.IsError)
+			require.Contains(t, w.Body.String(), "resource denied or unavailable")
+			require.NotContains(t, w.Body.String(), "private-or-missing")
+		}
 	}
 }

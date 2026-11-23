@@ -76,7 +76,8 @@ func normalizeDisjointValidations(root *node) error {
 			}
 			r := validationRectangle{left, right, top, bottom, len(parts)}
 			for _, old := range ranges {
-				if old.rule != r.rule && r.left <= old.right && old.left <= r.right && r.top <= old.bottom && old.top <= r.bottom {
+				if old.rule != r.rule && r.left <= old.right && old.left <= r.right &&
+					r.top <= old.bottom && old.top <= r.bottom {
 					return ErrInvalidXLSXPackage
 				}
 			}

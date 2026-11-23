@@ -182,6 +182,7 @@ func (s *PersonalServer) Handler() http.Handler {
 			}
 			defer workRelease()
 		}
+		documentProtocolAllowed := false
 		authorize := func() error {
 			if protocolOnly {
 				return s.knowledge.Resolver.AuthorizeProtocol(r.Context())
@@ -190,6 +191,9 @@ func (s *PersonalServer) Handler() http.Handler {
 			var err error
 			if toolName == "read_document" {
 				resolved, err = s.knowledge.ResolveDocument(r.Context(), documentID)
+				if errors.Is(err, access.ErrForbidden) {
+					documentProtocolAllowed = s.knowledge.Resolver.AuthorizeProtocol(r.Context()) == nil
+				}
 			} else {
 				resolved, err = s.knowledge.Resolve(r.Context(), targets)
 			}
@@ -225,6 +229,17 @@ func (s *PersonalServer) Handler() http.Handler {
 				return
 			}
 		} else if err := authorize(); err != nil {
+			if documentProtocolAllowed && errors.Is(err, access.ErrForbidden) {
+				// Keep the existing neutral tool denial for an authenticated Key.
+				// No handler runs without a live grant for the selected document.
+				w.Header().Set("Cache-Control", "private, no-store")
+				w.Header().Set("Content-Type", "application/json")
+				_ = json.NewEncoder(w).Encode(map[string]any{
+					"jsonrpc": "2.0", "id": requestID,
+					"result": mcp.NewToolResultError("resource denied or unavailable"),
+				})
+				return
+			}
 			writePersonalScopeError(w, r, err)
 			return
 		}
