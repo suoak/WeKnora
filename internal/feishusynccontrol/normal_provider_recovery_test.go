@@ -101,7 +101,9 @@ func TestNormalProviderRecoveryRetainsManualUnknownAndUnhealthyStops(t *testing.
 				require.NoError(t, err)
 				require.NoError(t, f.r.XAdd(ctx, &redis.XAddArgs{
 					Stream: f.c.prefix + "audit",
-					Values: map[string]any{"event": "trip", "reason": "embedding_http_403", "http_evidence": string(badEvidence)},
+					Values: map[string]any{
+						"event": "trip", "reason": "embedding_http_403", "http_evidence": string(badEvidence),
+					},
 				}).Err())
 			case "missing_consumer":
 				f.c.Consumers = func(context.Context) ([]string, error) { return nil, nil }

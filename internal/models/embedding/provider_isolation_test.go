@@ -19,7 +19,8 @@ func TestNormalProviderErrorDoesNotRelatchAtProtocolBoundary(t *testing.T) {
 		model.inner = invalidResultEmbedder{err: &api.HTTPError{StatusCode: status, Body: "PRIVATE_PROVIDER_BODY"}}
 		ctx := feishusafety.WithScope(context.Background(), "affected-source")
 		vectors, err := model.BatchEmbed(ctx, []string{"one"})
-		if vectors != nil || !errors.Is(err, feishusafety.ErrProviderFailure) || strings.Contains(err.Error(), "PRIVATE_") {
+		if vectors != nil || !errors.Is(err, feishusafety.ErrProviderFailure) ||
+			strings.Contains(err.Error(), "PRIVATE_") {
 			t.Fatal("provider failure leaked output or lost classification", err)
 		}
 		var response *feishusafety.ProviderResponseError
@@ -30,7 +31,9 @@ func TestNormalProviderErrorDoesNotRelatchAtProtocolBoundary(t *testing.T) {
 			t.Fatal("protocol wrapper closed unrelated sources")
 		}
 		model.inner = original
-		vectors, err = model.BatchEmbed(feishusafety.WithScope(context.Background(), "healthy-source"), []string{"1:text"})
+		vectors, err = model.BatchEmbed(
+			feishusafety.WithScope(context.Background(), "healthy-source"), []string{"1:text"},
+		)
 		if err != nil || len(vectors) != 1 {
 			t.Fatal("healthy source could not embed", err)
 		}

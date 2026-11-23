@@ -27,14 +27,16 @@ func (e *ProviderResponseError) Error() string {
 }
 func (e *ProviderResponseError) Unwrap() []error { return []error{ErrProviderFailure, e.Cause} }
 
-// Only the automatic controller sets this after verifying the current signed
-// normal-service authorization. It does not grant an outbound permit.
+// SetProviderFailureIsolation is called by the automatic controller only after
+// verifying signed normal-service authorization. It grants no outbound permit.
 func (g *Guard) SetProviderFailureIsolation(enabled bool) { g.providerFailureIsolation.Store(enabled) }
 
+// ProviderFailuresIsolated reports the verified normal service's failure policy.
 func (g *Guard) ProviderFailuresIsolated() bool {
 	return g != nil && g.providerFailureIsolation.Load() && !g.localClosed.Load()
 }
 
+// ProviderFailuresIsolated applies normal-service isolation only to marked work.
 func ProviderFailuresIsolated(ctx context.Context) bool {
 	return Scoped(ctx) && Default().ProviderFailuresIsolated()
 }
@@ -67,7 +69,7 @@ func providerRetryFailure(ctx context.Context, g *Guard, reason string) error {
 	return ErrClosed
 }
 
-// Migration accepts only an old, evidenced HTTP provider stop. Unknown stops,
+// RecoverableProviderStop accepts only an old, evidenced HTTP provider stop. Unknown stops,
 // caller-side validation/accounting failures and explicit operator stops do not
 // acquire automatic recovery semantics.
 func (g *Guard) RecoverableProviderStop(reason, raw string) bool {
