@@ -509,6 +509,15 @@ func fetchViaExport(
 	baseMeta map[string]string,
 	region core.Region,
 ) (*types.FetchedItem, error) {
+	return client.WithSheetSnapshotProof(ctx, node.ObjToken, node.ObjType, func() (*types.FetchedItem, error) {
+		return fetchViaExportUnbound(ctx, client, node, resourceID, editTime, baseMeta, region)
+	})
+}
+
+func fetchViaExportUnbound(
+	ctx context.Context, client *core.Client, node core.WikiNode, resourceID string,
+	editTime time.Time, baseMeta map[string]string, region core.Region,
+) (*types.FetchedItem, error) {
 	// Export as a file via the async export API
 	data, fileName, err := client.ExportAndDownload(ctx, node.ObjToken, node.ObjType)
 	if err != nil {

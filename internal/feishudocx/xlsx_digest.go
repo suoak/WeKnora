@@ -45,10 +45,25 @@ func CanonicalXLSXSnapshotDigest(content []byte) (string, string, error) {
 	return canonicalXLSXDigest(content, true)
 }
 
+// CanonicalRevisionBoundXLSXSnapshotDigest handles provider-generated drawing
+// descriptions and comment identifiers. Callers MUST first validate live,
+// byte-bound proofs for the same immutable spreadsheet revision. It must never
+// replace stored v1 identities or the ordinary v2 complete-package comparison.
+func CanonicalRevisionBoundXLSXSnapshotDigest(content []byte) (string, string, error) {
+	return canonicalXLSXDigestWithRevision(content, true, true)
+}
+
 func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) {
+	return canonicalXLSXDigestWithRevision(content, snapshot, false)
+}
+
+func canonicalXLSXDigestWithRevision(content []byte, snapshot, revisionBound bool) (string, string, error) {
 	algorithm := "feishu-xlsx-package-v1"
 	if snapshot {
 		algorithm = "feishu-xlsx-snapshot-v2"
+	}
+	if revisionBound {
+		algorithm = "feishu-xlsx-revision-bound-snapshot-v3"
 	}
 	if len(content) > maxArchive {
 		return "", "", ErrInvalidXLSXPackage
@@ -115,7 +130,11 @@ func canonicalXLSXDigest(content []byte, snapshot bool) (string, string, error) 
 			case "xl/workbook.xml":
 				required = xml.Name{Space: spreadsheetNS, Local: "workbook"}
 			}
-			if snapshot && strings.HasPrefix(name, "xl/worksheets/") && !strings.Contains(name, "/_rels/") {
+			if revisionBound && sheetDrawingPart.MatchString(name) {
+				readErr = streamRevisionBoundXLSXXML(bounded, hash, "drawing")
+			} else if revisionBound && sheetCommentPart.MatchString(name) {
+				readErr = streamRevisionBoundXLSXXML(bounded, hash, "comments")
+			} else if snapshot && strings.HasPrefix(name, "xl/worksheets/") && !strings.Contains(name, "/_rels/") {
 				required = xml.Name{Space: spreadsheetNS, Local: "worksheet"}
 				readErr = streamSnapshotXLSXXML(bounded, hash, required, true, linkOwners[name])
 			} else {

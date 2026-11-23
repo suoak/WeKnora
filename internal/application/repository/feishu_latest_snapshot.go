@@ -77,6 +77,13 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 			return legacyFence("latest_source_binding_changed")
 		}
 	}
+	revisionBound := original.ExportSnapshotProof != nil || current.ExportSnapshotProof != nil
+	proof, ok := original.ExportSnapshotProof.(interface {
+		MatchesImmutableSheetRevision(*types.FetchedItem, *types.FetchedItem) bool
+	})
+	if revisionBound && (!ok || !proof.MatchesImmutableSheetRevision(original, current)) {
+		return legacyFence("latest_source_snapshot_changed")
+	}
 	if LegacySourceHash(
 		original.Content,
 		original.FileName,
@@ -123,6 +130,19 @@ func MatchLatestFetchedSnapshot(original, current *types.FetchedItem) error {
 			}
 			if left == right {
 				return nil
+			}
+			if kind == "sheet" && revisionBound {
+				left, _, leftErr = feishudocx.CanonicalRevisionBoundXLSXSnapshotDigest(original.Content)
+				right, _, rightErr = feishudocx.CanonicalRevisionBoundXLSXSnapshotDigest(current.Content)
+				if leftErr != nil {
+					return leftErr
+				}
+				if rightErr != nil {
+					return rightErr
+				}
+				if left == right {
+					return nil
+				}
 			}
 		}
 		return legacyFence("latest_source_snapshot_changed")
