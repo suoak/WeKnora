@@ -1,5 +1,8 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import { RouterLink } from 'vue-router';
+import { useI18n } from 'vue-i18n';
+import { personalDocumentRecoveryLabel } from '@/i18n/personalDocumentPresentation';
 import { feishuSourceId } from '../sourceReparse';
 
 interface KnowledgeItem {
@@ -43,6 +46,8 @@ const isParseInFlight = computed(() =>
 
 const fileName = computed(() => props.item.file_name || props.item.title || props.item.id);
 const sourceManaged = computed(() => Boolean(feishuSourceId(props.item)));
+const personalImport = computed(() => props.item.channel === 'feishu_personal');
+const { locale } = useI18n();
 </script>
 
 <template>
@@ -69,13 +74,18 @@ const sourceManaged = computed(() => Boolean(feishuSourceId(props.item)));
   </div>
 
   <!-- 重建知识 (in-flight: no popconfirm, just emits) -->
-  <div v-if="canMutateKnowledge && isParseInFlight && !sourceManaged" class="doc-action-menu-item" @click.stop="emit('reparse')">
+  <RouterLink v-if="canMutateKnowledge && personalImport" to="/platform/feishu/imports"
+    class="doc-action-menu-item" :title="$t('knowledgeStages.stall.personalHint')" @click.stop>
+    <t-icon class="icon" name="history" />
+    <span>{{ personalDocumentRecoveryLabel(locale) }}</span>
+  </RouterLink>
+  <div v-else-if="canMutateKnowledge && isParseInFlight && !sourceManaged" class="doc-action-menu-item" @click.stop="emit('reparse')">
     <t-icon class="icon" name="refresh" />
     <span>{{ $t('knowledgeBase.rebuildDocument') }}</span>
   </div>
 
   <!-- 重建知识 (normal: with popconfirm) -->
-  <t-popconfirm v-else-if="canMutateKnowledge" theme="warning"
+  <t-popconfirm v-else-if="canMutateKnowledge && !personalImport" theme="warning"
     :content="sourceManaged ? $t('knowledgeBase.sourceDocumentReparseConfirm') : $t('knowledgeBase.rebuildConfirm', { fileName })"
     :confirm-btn="{ content: $t('common.confirm'), theme: 'primary' }"
     :cancel-btn="{ content: $t('common.cancel') }" placement="left"

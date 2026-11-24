@@ -607,6 +607,11 @@ const awaitBatchReparseReflection = async (ids: string[]) => {
 const confirmBatchReparse = async () => {
   if (batchReparsing.value || batchDeleting.value || batchDownloading.value || selectedIds.value.size === 0) return;
   const allIds = Array.from(selectedIds.value);
+  // Refuse the entire mixed selection before submitting any source requests.
+  if (allIds.some(id => cardList.value.find(item => item.id === id)?.channel === 'feishu_personal')) {
+    MessagePlugin.info(t('knowledgeStages.stall.personalHint'));
+    return;
+  }
   const sourceItems = allIds.map(id => cardList.value.find(c => c.id === id)).filter(item => item && feishuSourceId(item));
   const sourceIds = new Set(sourceItems.map(item => item!.id));
   const ids = allIds.filter((id) => {
@@ -1898,6 +1903,11 @@ const confirmRebuildKnowledge = async (index: number, item: KnowledgeCard) => {
     MessagePlugin.warning(t('knowledgeEditor.messages.missingId'));
     return;
   }
+  if (item.channel === 'feishu_personal') {
+    closeCardMoreMenu(index);
+    await router.push('/platform/feishu/imports');
+    return;
+  }
   const source = feishuSourceId(item);
   if (source) {
     closeCardMoreMenu(index);
@@ -2711,6 +2721,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
               </div>
               <div class="doc-batch-bar-anchor" v-show="batchMode || selectedIds.size > 0">
                 <DocumentBatchBar :count="selectedIds.size" :delete-loading="batchDeleting"
+                  :can-reparse="!Array.from(selectedIds).some(id => cardList.find(item => item.id === id)?.channel === 'feishu_personal')"
                   :source-reparse-only="selectedIds.size > 0 && Array.from(selectedIds).every(id => { const item = cardList.find(c => c.id === id); return item && feishuSourceId(item); })"
                   :reparse-loading="batchReparsing" :tag-loading="batchTagging" :download-loading="batchDownloading"
                   :can-download="canDownloadKnowledge" :can-mutate="canMutateKnowledge" :can-delete="canDeleteKnowledge"
