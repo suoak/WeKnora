@@ -35,7 +35,7 @@ func TestPortalMetadataManyKnowledgeBasesUseBoundedQueries(t *testing.T) {
 	}
 	require.NoError(t, f.DB.CreateInBatches(kbs, 50).Error)
 	counter := &metadataSQLCounter{Interface: logger.Discard}
-	f.DB.Config.Logger = counter
+	f.DB.Logger = counter
 	s := publishedServiceM7(t, f)
 	ctx := types.WithLocalSourceContentRead(fixture.Key("A", 1, 1, true))
 	all, err := s.Resolve(ctx, nil)
@@ -88,7 +88,7 @@ func TestPortalMetadataPaginationSQLWorkReduction(t *testing.T) {
 	}
 	require.NoError(t, f.DB.CreateInBatches(documents, 100).Error)
 	counter := &metadataSQLCounter{Interface: logger.Discard}
-	f.DB.Config.Logger = counter
+	f.DB.Logger = counter
 	s := publishedServiceM7(t, f)
 	ctx := types.WithLocalSourceContentRead(fixture.Key("A", 1, 1, true))
 	started := time.Now()

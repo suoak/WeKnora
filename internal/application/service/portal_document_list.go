@@ -135,9 +135,9 @@ func (s *PortalMCPKnowledge) ListDocumentsPage(
 		if err != nil {
 			return nil, err
 		}
-		copy := *row
-		copy.Title = title
-		hit := portalHit(target, &copy, nil)
+		projected := *row
+		projected.Title = title
+		hit := portalHit(target, &projected, nil)
 		hits = append(hits, hit)
 		out.Documents = append(out.Documents, PortalMCPListedDocument{
 			PortalMCPHit: hit,
