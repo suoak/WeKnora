@@ -93,7 +93,7 @@ function failure(code:string) {
   if(code==='parse_failed') return '文档解析失败，请重新尝试或联系管理员。'
   if(code==='index_failed') return '文档索引失败，请重新尝试或联系管理员。'
   const labels:Record<string,string>={storage_permission_denied:'文件暂存目录不可写，请联系管理员。',storage_unavailable:'文件暂存服务不可用，请联系管理员。',authorization_revalidation_failed:'授权检查未通过，请重新连接飞书并检查文档权限。',candidate_content_incomplete:'文档读取不完整，请检查导出权限。',source_version_changed:'文档版本已变化，需要重新检查。',temporary_failure:'服务暂时不可用，系统将有限重试。',retry_exhausted:'自动重试次数已用完，请重新尝试或联系管理员。',parse_or_index_failed:'解析或索引失败，请重新尝试或联系管理员。',candidate_requires_review:'文档处理未完成，请联系管理员查看详情。'}
-  return labels[code] || '导入未完成，请重新尝试或联系管理员。'
+  return labels[code] || '导入未完成，请核查失败原因；如需帮助请联系管理员。'
 }
 function simpleStatus(state:string) {
   if (state==='succeeded') return '导入成功'

@@ -29,3 +29,10 @@ test('terminal parser and index errors never promise an unavailable retry', () =
   }
   assert.equal(feishuImportRecoveryHint(item({error_category: 'source_copy_denied'})), '')
 })
+
+test('unsupported media explains the actual failure and does not promise recovery by retry', () => {
+  const message = feishuImportRecoveryHint(item({error_category: 'candidate_media_not_supported', can_retry: false}))
+  assert.match(message, /不支持的媒体或附件/)
+  assert.match(message, /已有内容已保留/)
+  assert.doesNotMatch(message, /点击重新尝试/)
+})

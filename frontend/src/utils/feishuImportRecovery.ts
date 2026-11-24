@@ -10,6 +10,9 @@ export function feishuImportNeedsReconnect(item: FeishuBatchItem): boolean {
 }
 
 export function feishuImportRecoveryHint(item: FeishuBatchItem): string {
+	if (item.error_category === 'candidate_media_not_supported') {
+		return '文档包含当前不支持的媒体或附件，原文件和已有内容已保留。请调整文档或联系管理员；重复导入不能解决。'
+	}
   if (item.error_category === 'exact_document_execution_requires_review') {
     return item.can_retry === true
       ? '处理已停止，原文件和中间结果已保留。可点击重新尝试，系统会检查当前授权并继续原任务。'
