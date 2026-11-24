@@ -1,0 +1,4 @@
+
+> knowledage-base@0.8.2 type-check
+> vue-tsc --build
+

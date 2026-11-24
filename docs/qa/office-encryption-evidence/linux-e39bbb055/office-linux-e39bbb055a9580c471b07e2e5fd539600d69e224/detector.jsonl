@@ -1,0 +1,192 @@
+{"Time":"2026-11-24T17:52:10.112356603Z","Action":"start","Package":"github.com/Tencent/WeKnora/internal/officeguard"}
+{"Time":"2026-11-24T17:52:10.114397791Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures"}
+{"Time":"2026-11-24T17:52:10.114411284Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures","Output":"=== RUN   TestFixtures\n"}
+{"Time":"2026-11-24T17:52:10.114511744Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.docx"}
+{"Time":"2026-11-24T17:52:10.114517877Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.docx","Output":"=== RUN   TestFixtures/normal.docx\n"}
+{"Time":"2026-11-24T17:52:10.114822499Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.docx","Output":"--- PASS: TestFixtures/normal.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.11484298Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114848615Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.docx"}
+{"Time":"2026-11-24T17:52:10.114851724Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.docx","Output":"=== RUN   TestFixtures/encrypted.docx\n"}
+{"Time":"2026-11-24T17:52:10.114855019Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.docx","Output":"--- PASS: TestFixtures/encrypted.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114859498Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114862456Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsx"}
+{"Time":"2026-11-24T17:52:10.114864321Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsx","Output":"=== RUN   TestFixtures/normal.xlsx\n"}
+{"Time":"2026-11-24T17:52:10.114866722Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsx","Output":"--- PASS: TestFixtures/normal.xlsx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114868482Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114870847Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsx"}
+{"Time":"2026-11-24T17:52:10.114872705Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsx","Output":"=== RUN   TestFixtures/encrypted.xlsx\n"}
+{"Time":"2026-11-24T17:52:10.114878058Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsx","Output":"--- PASS: TestFixtures/encrypted.xlsx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114880284Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114883841Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsm"}
+{"Time":"2026-11-24T17:52:10.114885434Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsm","Output":"=== RUN   TestFixtures/normal.xlsm\n"}
+{"Time":"2026-11-24T17:52:10.114887824Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsm","Output":"--- PASS: TestFixtures/normal.xlsm (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114889549Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xlsm","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114891428Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsm"}
+{"Time":"2026-11-24T17:52:10.114893109Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsm","Output":"=== RUN   TestFixtures/encrypted.xlsm\n"}
+{"Time":"2026-11-24T17:52:10.114895319Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsm","Output":"--- PASS: TestFixtures/encrypted.xlsm (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114897393Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xlsm","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114899276Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.pptx"}
+{"Time":"2026-11-24T17:52:10.114901196Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.pptx","Output":"=== RUN   TestFixtures/normal.pptx\n"}
+{"Time":"2026-11-24T17:52:10.11490353Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.pptx","Output":"--- PASS: TestFixtures/normal.pptx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114906981Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.pptx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114908887Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.pptx"}
+{"Time":"2026-11-24T17:52:10.114910427Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.pptx","Output":"=== RUN   TestFixtures/encrypted.pptx\n"}
+{"Time":"2026-11-24T17:52:10.114912702Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.pptx","Output":"--- PASS: TestFixtures/encrypted.pptx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114914496Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.pptx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11491605Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.docx"}
+{"Time":"2026-11-24T17:52:10.114917644Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.docx","Output":"=== RUN   TestFixtures/modify-protected.docx\n"}
+{"Time":"2026-11-24T17:52:10.114923012Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.docx","Output":"--- PASS: TestFixtures/modify-protected.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114926706Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114928572Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xlsx"}
+{"Time":"2026-11-24T17:52:10.114929989Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xlsx","Output":"=== RUN   TestFixtures/sheet-protected.xlsx\n"}
+{"Time":"2026-11-24T17:52:10.114932026Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xlsx","Output":"--- PASS: TestFixtures/sheet-protected.xlsx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114933837Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xlsx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114935738Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.doc"}
+{"Time":"2026-11-24T17:52:10.11493727Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.doc","Output":"=== RUN   TestFixtures/normal.doc\n"}
+{"Time":"2026-11-24T17:52:10.114941346Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.doc","Output":"--- PASS: TestFixtures/normal.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114943481Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114945181Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.doc"}
+{"Time":"2026-11-24T17:52:10.114947045Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.doc","Output":"=== RUN   TestFixtures/encrypted.doc\n"}
+{"Time":"2026-11-24T17:52:10.114949075Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.doc","Output":"--- PASS: TestFixtures/encrypted.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114951233Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114952944Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.doc"}
+{"Time":"2026-11-24T17:52:10.114954774Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.doc","Output":"=== RUN   TestFixtures/modify-protected.doc\n"}
+{"Time":"2026-11-24T17:52:10.114959185Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.doc","Output":"--- PASS: TestFixtures/modify-protected.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114961121Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/modify-protected.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114963136Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/xor.doc"}
+{"Time":"2026-11-24T17:52:10.114964859Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/xor.doc","Output":"=== RUN   TestFixtures/xor.doc\n"}
+{"Time":"2026-11-24T17:52:10.114967659Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/xor.doc","Output":"--- PASS: TestFixtures/xor.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.114969733Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/xor.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.114972207Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xls"}
+{"Time":"2026-11-24T17:52:10.114973668Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xls","Output":"=== RUN   TestFixtures/normal.xls\n"}
+{"Time":"2026-11-24T17:52:10.114999547Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xls","Output":"--- PASS: TestFixtures/normal.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115001872Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115004294Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xls"}
+{"Time":"2026-11-24T17:52:10.115005936Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xls","Output":"=== RUN   TestFixtures/encrypted.xls\n"}
+{"Time":"2026-11-24T17:52:10.115038665Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xls","Output":"--- PASS: TestFixtures/encrypted.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115055282Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115067391Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xls"}
+{"Time":"2026-11-24T17:52:10.115070512Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xls","Output":"=== RUN   TestFixtures/sheet-protected.xls\n"}
+{"Time":"2026-11-24T17:52:10.1151106Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xls","Output":"--- PASS: TestFixtures/sheet-protected.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115133116Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/sheet-protected.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115153984Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.ppt"}
+{"Time":"2026-11-24T17:52:10.115157742Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.ppt","Output":"=== RUN   TestFixtures/normal.ppt\n"}
+{"Time":"2026-11-24T17:52:10.11519272Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.ppt","Output":"--- PASS: TestFixtures/normal.ppt (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115196108Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/normal.ppt","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115198193Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.ppt"}
+{"Time":"2026-11-24T17:52:10.115199919Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.ppt","Output":"=== RUN   TestFixtures/encrypted.ppt\n"}
+{"Time":"2026-11-24T17:52:10.1152028Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.ppt","Output":"--- PASS: TestFixtures/encrypted.ppt (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115208669Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/encrypted.ppt","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115210377Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/disguised.txt"}
+{"Time":"2026-11-24T17:52:10.115212643Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/disguised.txt","Output":"=== RUN   TestFixtures/disguised.txt\n"}
+{"Time":"2026-11-24T17:52:10.115255332Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/disguised.txt","Output":"--- PASS: TestFixtures/disguised.txt (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115268396Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/disguised.txt","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115279026Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/wps-ooxml.docx"}
+{"Time":"2026-11-24T17:52:10.1152817Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/wps-ooxml.docx","Output":"=== RUN   TestFixtures/wps-ooxml.docx\n"}
+{"Time":"2026-11-24T17:52:10.11532419Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/wps-ooxml.docx","Output":"--- PASS: TestFixtures/wps-ooxml.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115336414Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/wps-ooxml.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115345995Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown.wps"}
+{"Time":"2026-11-24T17:52:10.115347712Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown.wps","Output":"=== RUN   TestFixtures/unknown.wps\n"}
+{"Time":"2026-11-24T17:52:10.115372944Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown.wps","Output":"--- PASS: TestFixtures/unknown.wps (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115382921Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown.wps","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115392406Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/broken.docx"}
+{"Time":"2026-11-24T17:52:10.115394144Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/broken.docx","Output":"=== RUN   TestFixtures/broken.docx\n"}
+{"Time":"2026-11-24T17:52:10.115473287Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/broken.docx","Output":"--- PASS: TestFixtures/broken.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115485448Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/broken.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115489158Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/header-only.xls"}
+{"Time":"2026-11-24T17:52:10.115491001Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/header-only.xls","Output":"=== RUN   TestFixtures/header-only.xls\n"}
+{"Time":"2026-11-24T17:52:10.115493349Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/header-only.xls","Output":"--- PASS: TestFixtures/header-only.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115495167Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/header-only.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115496879Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown-ole.doc"}
+{"Time":"2026-11-24T17:52:10.115498278Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown-ole.doc","Output":"=== RUN   TestFixtures/unknown-ole.doc\n"}
+{"Time":"2026-11-24T17:52:10.115500253Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown-ole.doc","Output":"--- PASS: TestFixtures/unknown-ole.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115503495Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/unknown-ole.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115508567Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/cycle.doc"}
+{"Time":"2026-11-24T17:52:10.115510279Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/cycle.doc","Output":"=== RUN   TestFixtures/cycle.doc\n"}
+{"Time":"2026-11-24T17:52:10.115512611Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/cycle.doc","Output":"--- PASS: TestFixtures/cycle.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115514568Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/cycle.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115516383Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/spoof-names.docx"}
+{"Time":"2026-11-24T17:52:10.115517879Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/spoof-names.docx","Output":"=== RUN   TestFixtures/spoof-names.docx\n"}
+{"Time":"2026-11-24T17:52:10.115520793Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/spoof-names.docx","Output":"--- PASS: TestFixtures/spoof-names.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115522705Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures/spoof-names.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115525016Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures","Output":"--- PASS: TestFixtures (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115532047Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestFixtures","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115533897Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures"}
+{"Time":"2026-11-24T17:52:10.115536193Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures","Output":"=== RUN   TestVendorFixtures\n"}
+{"Time":"2026-11-24T17:52:10.115601659Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx"}
+{"Time":"2026-11-24T17:52:10.115631038Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx","Output":"=== RUN   TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx\n"}
+{"Time":"2026-11-24T17:52:10.115643412Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx","Output":"--- PASS: TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115651162Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376agile_sha1_password.xlsx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115656632Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376standard_password.docx"}
+{"Time":"2026-11-24T17:52:10.115663598Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376standard_password.docx","Output":"=== RUN   TestVendorFixtures/vendor/ecma376standard_password.docx\n"}
+{"Time":"2026-11-24T17:52:10.115673246Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376standard_password.docx","Output":"--- PASS: TestVendorFixtures/vendor/ecma376standard_password.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115678398Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/ecma376standard_password.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115683171Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.docx"}
+{"Time":"2026-11-24T17:52:10.115688002Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.docx","Output":"=== RUN   TestVendorFixtures/vendor/example_password.docx\n"}
+{"Time":"2026-11-24T17:52:10.115710725Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.docx","Output":"--- PASS: TestVendorFixtures/vendor/example_password.docx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115719619Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.docx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115727861Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.xlsx"}
+{"Time":"2026-11-24T17:52:10.115735021Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.xlsx","Output":"=== RUN   TestVendorFixtures/vendor/example_password.xlsx\n"}
+{"Time":"2026-11-24T17:52:10.115744504Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.xlsx","Output":"--- PASS: TestVendorFixtures/vendor/example_password.xlsx (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115753394Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/example_password.xlsx","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115761527Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.doc"}
+{"Time":"2026-11-24T17:52:10.115766906Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.doc","Output":"=== RUN   TestVendorFixtures/vendor/plain.doc\n"}
+{"Time":"2026-11-24T17:52:10.115791078Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.doc","Output":"--- PASS: TestVendorFixtures/vendor/plain.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115806841Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11581299Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.ppt"}
+{"Time":"2026-11-24T17:52:10.115820471Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.ppt","Output":"=== RUN   TestVendorFixtures/vendor/plain.ppt\n"}
+{"Time":"2026-11-24T17:52:10.115864225Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.ppt","Output":"--- PASS: TestVendorFixtures/vendor/plain.ppt (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115867947Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.ppt","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115869798Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.xls"}
+{"Time":"2026-11-24T17:52:10.115871641Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.xls","Output":"=== RUN   TestVendorFixtures/vendor/plain.xls\n"}
+{"Time":"2026-11-24T17:52:10.115940187Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.xls","Output":"--- PASS: TestVendorFixtures/vendor/plain.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.115960179Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/plain.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.115971652Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.doc"}
+{"Time":"2026-11-24T17:52:10.11597447Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.doc","Output":"=== RUN   TestVendorFixtures/vendor/rc4cryptoapi_password.doc\n"}
+{"Time":"2026-11-24T17:52:10.116017572Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.doc","Output":"--- PASS: TestVendorFixtures/vendor/rc4cryptoapi_password.doc (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116028492Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.doc","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11603857Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.ppt"}
+{"Time":"2026-11-24T17:52:10.116041929Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.ppt","Output":"=== RUN   TestVendorFixtures/vendor/rc4cryptoapi_password.ppt\n"}
+{"Time":"2026-11-24T17:52:10.116095191Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.ppt","Output":"--- PASS: TestVendorFixtures/vendor/rc4cryptoapi_password.ppt (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116105298Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.ppt","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116117662Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.xls"}
+{"Time":"2026-11-24T17:52:10.116121401Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.xls","Output":"=== RUN   TestVendorFixtures/vendor/rc4cryptoapi_password.xls\n"}
+{"Time":"2026-11-24T17:52:10.116237504Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.xls","Output":"--- PASS: TestVendorFixtures/vendor/rc4cryptoapi_password.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116260953Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/rc4cryptoapi_password.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116279046Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/xor_password_123456789012345.xls"}
+{"Time":"2026-11-24T17:52:10.116746712Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/xor_password_123456789012345.xls","Output":"=== RUN   TestVendorFixtures/vendor/xor_password_123456789012345.xls\n"}
+{"Time":"2026-11-24T17:52:10.116755712Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/xor_password_123456789012345.xls","Output":"--- PASS: TestVendorFixtures/vendor/xor_password_123456789012345.xls (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116758359Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures/vendor/xor_password_123456789012345.xls","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116761527Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures","Output":"--- PASS: TestVendorFixtures (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116764182Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestVendorFixtures","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116766096Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestCanceled"}
+{"Time":"2026-11-24T17:52:10.116768115Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestCanceled","Output":"=== RUN   TestCanceled\n"}
+{"Time":"2026-11-24T17:52:10.11677165Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestCanceled","Output":"--- PASS: TestCanceled (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116773703Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestCanceled","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11677581Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestBudgets"}
+{"Time":"2026-11-24T17:52:10.116779281Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestBudgets","Output":"=== RUN   TestBudgets\n"}
+{"Time":"2026-11-24T17:52:10.116781455Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestBudgets","Output":"--- PASS: TestBudgets (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116784027Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"TestBudgets","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116786365Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect"}
+{"Time":"2026-11-24T17:52:10.116788746Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect","Output":"=== RUN   FuzzDetect\n"}
+{"Time":"2026-11-24T17:52:10.116790713Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#0"}
+{"Time":"2026-11-24T17:52:10.116792536Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#0","Output":"=== RUN   FuzzDetect/seed#0\n"}
+{"Time":"2026-11-24T17:52:10.116797682Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#0","Output":"--- PASS: FuzzDetect/seed#0 (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116799993Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#0","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116801661Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#1"}
+{"Time":"2026-11-24T17:52:10.11680335Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#1","Output":"=== RUN   FuzzDetect/seed#1\n"}
+{"Time":"2026-11-24T17:52:10.116806038Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#1","Output":"--- PASS: FuzzDetect/seed#1 (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116808098Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#1","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116809816Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#2"}
+{"Time":"2026-11-24T17:52:10.116811998Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#2","Output":"=== RUN   FuzzDetect/seed#2\n"}
+{"Time":"2026-11-24T17:52:10.11681623Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#2","Output":"--- PASS: FuzzDetect/seed#2 (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.116817955Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#2","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.116820243Z","Action":"run","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#3"}
+{"Time":"2026-11-24T17:52:10.116821984Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#3","Output":"=== RUN   FuzzDetect/seed#3\n"}
+{"Time":"2026-11-24T17:52:10.116824931Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#3","Output":"--- PASS: FuzzDetect/seed#3 (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.11682772Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect/seed#3","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11683Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect","Output":"--- PASS: FuzzDetect (0.00s)\n"}
+{"Time":"2026-11-24T17:52:10.11683218Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Test":"FuzzDetect","Elapsed":0}
+{"Time":"2026-11-24T17:52:10.11683413Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Output":"PASS\n"}
+{"Time":"2026-11-24T17:52:10.117205421Z","Action":"output","Package":"github.com/Tencent/WeKnora/internal/officeguard","Output":"ok  \tgithub.com/Tencent/WeKnora/internal/officeguard\t0.005s\n"}
+{"Time":"2026-11-24T17:52:10.117213538Z","Action":"pass","Package":"github.com/Tencent/WeKnora/internal/officeguard","Elapsed":0.005}

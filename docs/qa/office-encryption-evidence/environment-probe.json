@@ -1,0 +1,26 @@
+{
+  "observed_utc": "2026-11-24T17:07:14.667211+00:00",
+  "http": [
+    {
+      "url": "http://172.30.232.42/",
+      "status": 200
+    },
+    {
+      "url": "http://172.30.232.42/health",
+      "status": 200
+    },
+    {
+      "url": "http://172.30.232.42/api/v1/health",
+      "status": 401
+    }
+  ],
+  "isolation_verified": false,
+  "writes_performed": false,
+  "acceptance": "NOT_RUN",
+  "ssh": {
+    "target": "aqyfzx@172.30.232.42",
+    "exit_code": 255,
+    "authenticated": false,
+    "permission_denied": true
+  }
+}
