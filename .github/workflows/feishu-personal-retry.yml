@@ -1,0 +1,56 @@
+name: Feishu Personal Retry
+on:
+  pull_request:
+    paths:
+      - 'internal/application/**/feishu_personal*.go'
+      - 'internal/application/service/feishu_batch*.go'
+      - 'frontend/src/utils/feishuImportRecovery*'
+      - 'frontend/src/views/knowledge/FeishuImportManagement.vue'
+      - '.github/workflows/feishu-personal-retry.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'internal/application/**/feishu_personal*.go'
+      - 'internal/application/service/feishu_batch*.go'
+      - '.github/workflows/feishu-personal-retry.yml'
+permissions:
+  contents: read
+concurrency:
+  group: personal-retry-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  consent-and-resume:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-personal-retry
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      GOMAXPROCS: '2'
+      CGO_ENABLED: '1'
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-personal-retry@localhost:5432/feishu_atomic_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-personal-retry@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.9'
+          cache: true
+      - name: Explicit owner consent and original protocol race regressions
+        run: >-
+          go test -race -p 2 -tags sqlite_fts5 ./internal/application/service
+          -run '^TestPersonalExactExplicit|^TestFeishuV2PostgresBatchRetryUsesFreshSameAccountConsent$|^TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim$|^TestFeishuBatchRetryPolicy|^TestFeishuV2PostgresRetryRejectsNoop$'
+          -count=1 -timeout=12m
+      - name: Vet retry and persistence packages
+        run: >-
+          go vet -p 2 -tags sqlite_fts5
+          ./internal/application/repository ./internal/application/service

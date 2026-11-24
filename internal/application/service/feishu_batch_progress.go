@@ -88,6 +88,7 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	}
 	if a.Status == "needs_attention" || m.Status == "needs_attention" {
 		item.Status, item.Stage = "failed", "needs_attention"
+		item.CanRetry = s.recovery.canResumePersonalExact(&a)
 	}
 	if m.KnowledgeID != "" {
 		// Progress is protocol metadata, not a document read. The owner and KB

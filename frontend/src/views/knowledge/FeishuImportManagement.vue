@@ -16,7 +16,7 @@
         <article v-for="item in batch.items" :key="item.id" class="item">
           <p><strong>{{ item.document_name || `第 ${item.ordinal + 1} 篇文档` }}</strong><t-tag size="small" variant="light">{{ item.resource_type || '文档' }}</t-tag><span>{{ itemStatus(item) }}</span></p>
           <p v-if="item.stalled" class="warning" role="status">处理时间较长，请稍后查看或联系管理员。</p>
-          <p v-if="item.error_category" class="warning">{{ feishuProviderFailure(item) || failure(item.error_category) }}</p>
+          <p v-if="item.error_category" class="warning">{{ feishuProviderFailure(item) || feishuImportRecoveryHint(item) || failure(item.error_category) }}</p>
           <details v-if="item.error_category === 'source_copy_only_requires_policy'" class="permission-help">
             <summary>排查建议（供参考）</summary>
             <p>请先用导入所用的同一飞书账号，检查能否在飞书网页中导出原文。</p>
@@ -24,7 +24,7 @@
             <p>网页也不能导出：请文档所有者检查「分享 → 权限设置 → 谁可以创建副本、打印和下载」。限制解除前，重复导入不会解决此问题。</p>
           </details>
           <a v-if="originalDocumentURL(item.url)" :href="originalDocumentURL(item.url)" target="_blank" rel="noopener noreferrer">打开飞书原文（第 {{ item.ordinal + 1 }} 篇）</a>
-          <t-button v-if="['user_scope_missing','reconnect_required','authorization_expired'].includes(item.error_category || '')" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
+          <t-button v-if="feishuImportNeedsReconnect(item)" variant="text" :loading="authorizationBusy" @click="connect('')">补充飞书授权</t-button>
           <router-link v-if="item.index_verified && item.knowledge_id" :to="{path:'/platform/knowledge-bases/'+batch.batch.kb_id,query:{knowledge_id:item.knowledge_id}}">在知识库中查看</router-link>
         </article>
         <t-button v-if="batch.items.some(item => item.can_retry === true)" variant="outline" :loading="retryBusy" @click="retry">重新尝试</t-button>
@@ -41,6 +41,7 @@ import {feishuStatus,authorizeFeishu,listFeishuBatches,listMyFeishuBatches,getFe
 import {saveFeishuDraft,takeFeishuDraft} from '@/utils/feishuOAuthFlow'
 import {originalDocumentURL} from '@/utils/feishuImportPermissions'
 import {feishuProviderFailure} from '@/utils/feishuProviderFailure'
+import {feishuImportNeedsReconnect,feishuImportRecoveryHint} from '@/utils/feishuImportRecovery'
 const route=useRoute(), kb=typeof route.query.kb === 'string' ? route.query.kb : '', status=ref<FeishuStatus>()
 const history=ref<FeishuBatchHistory[]>([]), batch=ref<FeishuBatch>(), more=ref(false), message=ref('')
 const router=useRouter(), details=ref<HTMLElement>()

@@ -12,17 +12,25 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
 
-func (p *PersonalRecovery) prepareExactPersonalResume(
-	ctx context.Context, observed *types.FeishuPersonalAttempt,
-) error {
+func (p *PersonalRecovery) canResumePersonalExact(observed *types.FeishuPersonalAttempt) bool {
 	if observed == nil || !p.firstCreateOnly || !exactPersonalRecoveryEnabled() ||
 		(os.Getenv("FEISHU_PERSONAL_EXACT_RECOVERY_AUTOMATIC") != "1" &&
 			!exactPersonalRecoveryAllows(observed.LogicalKnowledgeID)) ||
 		observed.AuthMode != types.FeishuUserOAuth ||
-		observed.Status != "needs_attention" ||
+		observed.Status != "needs_attention" || observed.OwnerNonce != "" || observed.LeaseUntil != nil ||
+		observed.ExpectedActiveVersion != "" ||
 		observed.RetryCount >= repository.PersonalExactResumeBudget(observed.LogicalKnowledgeID, observed.RetryCount) ||
 		!repository.PersonalExactResumeCategoryAllowed(observed) ||
 		!exactPersonalFormatEnabled(exactPersonalFileFormat(observed.ManifestName)) {
+		return false
+	}
+	return true
+}
+
+func (p *PersonalRecovery) prepareExactPersonalResume(
+	ctx context.Context, observed *types.FeishuPersonalAttempt,
+) error {
+	if !p.canResumePersonalExact(observed) {
 		return nil
 	}
 	if observed.RetryCount > 0 {
