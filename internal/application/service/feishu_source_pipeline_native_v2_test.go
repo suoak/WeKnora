@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"sync/atomic"
 	"testing"
@@ -79,6 +80,9 @@ func (s *v2PipelineModel) GetEmbeddingModel(ctx context.Context, id string) (emb
 func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	t.Helper()
 	encryptedBody := []byte(officeFixture(t, "encrypted.docx"))
+	if os.Getenv("OFFICE_NATIVE_SAFETY") == "1" {
+		t.Setenv("FEISHU_SYNC_SAFETY_ENABLED", "true")
+	}
 	dsn := feishulegacy.PrivateDSN(t)
 	root, err := filepath.Abs("../../..")
 	require.NoError(t, err)
@@ -315,6 +319,9 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		Status: types.SyncLogStatusRunning, ExecutionGeneration: 1, ExecutionClaimed: true,
 	}
 	require.NoError(t, db.Create(log).Error)
+	if os.Getenv("OFFICE_NATIVE_SAFETY") == "1" {
+		officeNativeSafety(t, db, ds.ID, remote.URL)
+	}
 	ctx = types.WithSyncExecution(
 		ctx,
 		types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
