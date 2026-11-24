@@ -51,3 +51,23 @@ func TestSchedulerUsesConfiguredSourceTimeout(t *testing.T) {
 		})
 	}
 }
+
+func TestSchedulerCatchUpUsesConfiguredSourceTimeout(t *testing.T) {
+	t.Setenv("DATASOURCE_SYNC_TIMEOUT_OVERRIDES_JSON", `{"source":"6h"}`)
+	now := time.Now().UTC()
+	repo := &catchUpSourceRepo{fakeDataSourceRepo: newFakeDataSourceRepo()}
+	require.NoError(t, repo.Create(context.Background(), &types.DataSource{
+		ID: "source", TenantID: 1, Type: "gitlab", Status: types.DataSourceStatusActive,
+		SyncSchedule: "0 */30 * * * *", CreatedAt: now.Add(-3 * time.Hour),
+	}))
+	queue := &timeoutCapturingEnqueuer{}
+	logs := &catchUpLogRepo{fakeSyncLogRepo: newFakeSyncLogRepo()}
+	scheduler := NewScheduler(repo, logs, queue)
+	require.NoError(t, scheduler.catchUpMissed(context.Background(), now))
+	require.NotNil(t, queue.task, "missed schedule was not admitted")
+	require.Equal(t, 6*time.Hour, queue.timeout)
+	var payload types.DataSourceSyncPayload
+	require.NoError(t, json.Unmarshal(queue.task.Payload(), &payload))
+	require.Equal(t, "schedule", payload.Trigger)
+	require.False(t, payload.ForceFull)
+}
