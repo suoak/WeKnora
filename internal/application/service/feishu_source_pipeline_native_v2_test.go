@@ -391,6 +391,10 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	calls = modelCalls.Load()
 	revision.Add(60)
 	encryptedSource.Store(true)
+	// Bind the new revision through the normal authorization path. The previous
+	// context deliberately pins the old revision and must reject changed metadata.
+	bound, err = ingest.bindFeishuSource(types.WithLegacyReceiptSet(ctx), ds)
+	require.NoError(t, err)
 	client := s.client(&core.Config{AppID: "cli_test", AppSecret: "synthetic-only"})
 	resource, parseErr := core.ParsePersonalResourceURL(link)
 	require.NoError(t, parseErr)

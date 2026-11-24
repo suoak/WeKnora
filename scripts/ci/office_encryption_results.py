@@ -5,6 +5,7 @@ import sys
 events = [json.loads(line) for line in open(sys.argv[1], encoding='utf-8') if line.startswith('{')]
 failures = [event for event in events if event.get('Action') == 'fail']
 required = {
+    'TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge',
     'TestOfficeCreateRejectsBeforeStorageDatabaseAndQueue',
     'TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation',
     'TestOfficeMCPErrorUsesControlledCodeAndMessage',

@@ -35,6 +35,7 @@ jobs:
       SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:office-disposable-only@localhost:5432/feishu_atomic_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
       FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+      FEISHU_DISPATCH_REDIS_ADDR: knowhub-p1-dispatch-redis-20261018:6379
       FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
     steps:
       - uses: actions/checkout@v6
@@ -42,6 +43,8 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
+      - name: Resolve isolated dispatch test Redis
+        run: echo "127.0.0.1 knowhub-p1-dispatch-redis-20261018" | sudo tee -a /etc/hosts
       - name: Check format
         run: |
           mkdir -p evidence
