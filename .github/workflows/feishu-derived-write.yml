@@ -1,0 +1,65 @@
+name: Feishu Derived Writeback
+on:
+  pull_request:
+    paths:
+      - 'internal/application/**/knowledge*.go'
+      - 'internal/container/feishu_personal_recovery.go'
+      - 'internal/types/task.go'
+      - 'internal/database/**'
+      - 'migrations/**'
+      - '.github/workflows/feishu-derived-write.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'internal/application/**/knowledge*.go'
+      - 'internal/container/feishu_personal_recovery.go'
+      - 'internal/types/task.go'
+      - 'internal/database/**'
+      - 'migrations/**'
+      - '.github/workflows/feishu-derived-write.yml'
+permissions:
+  contents: read
+concurrency:
+  group: derived-write-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  postgres-and-sqlite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-derived-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      GOMAXPROCS: '2'
+      CGO_ENABLED: '1'
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:isolated-derived-only@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.9'
+          cache: true
+      - name: Derived write, publication and summary race regressions
+        run: >-
+          go test -race -p 2 -tags sqlite_fts5
+          ./internal/application/repository ./internal/application/service
+          -run 'TestKnowledgeDerivedWritePostgres|TestFeishuLegacyAtomicPostgres|TestFeishuDerivedSummary|TestFeishuTaskResult|TestSummary|TestRegenerateKnowledgeSummary'
+          -count=1 -timeout=12m
+      - name: Migration governance and real SQLite upgrades
+        run: >-
+          go test -p 2 ./internal/database
+          -run 'TestMigrationGovernanceManifest|TestMigrationNumbers|TestSQLiteMigrations|TestSQLiteMigrationGovernance|TestSQLiteEnterprisePublicationRealRunnerUpgradeDownUp'
+          -count=1 -timeout=5m
+      - name: Vet changed Go packages
+        run: >-
+          go vet -p 2 -tags sqlite_fts5
+          ./internal/application/repository ./internal/application/service
+          ./internal/database ./internal/container
