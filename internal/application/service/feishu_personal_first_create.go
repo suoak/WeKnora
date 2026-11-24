@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
@@ -90,6 +91,9 @@ func (p *PersonalRecovery) bridgeFirstCreate(
 	}
 	data, err := os.ReadFile(filepath.Join(private, "content"))
 	if err != nil {
+		return err
+	}
+	if err := officeguard.ValidateBytes(remote, data, manifest.Name); err != nil {
 		return err
 	}
 	form, f, err := feishuFile(data, manifest.Name)
@@ -390,6 +394,9 @@ func (p *PersonalRecovery) firstCreateDispatchable(
 		return err == nil, err
 	}
 	_, err = p.authorize(ctx, m, a)
+	if err == nil {
+		_, err = p.store.read(a) // includes password validation before ordinary replay/publication
+	}
 	return err == nil, err
 }
 

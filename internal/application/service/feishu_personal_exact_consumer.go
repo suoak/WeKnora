@@ -15,6 +15,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 	"gorm.io/gorm"
@@ -253,6 +254,9 @@ func (c *exactPersonalConsumer) convert(
 		payload.URL != "" || payload.FileURL != "" || len(payload.Passages) != 0 ||
 		!exactPersonalFormatEnabled(format) || strings.TrimPrefix(strings.ToLower(payload.FileType), ".") != format {
 		return nil, fmt.Errorf("exact_document_task_binding_unverified: %w", errPersonalExactDocument)
+	}
+	if err := officeguard.ValidateBytes(ctx, proof.file, proof.filename); err != nil {
+		return nil, err
 	}
 	parsed, err := c.recovery.parseExactPersonalDocument(ctx, proof)
 	if err != nil {

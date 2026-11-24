@@ -8,6 +8,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/feishudocx"
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser/anydoc"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -17,6 +18,9 @@ func feishuDocumentFailureCode(ds *types.DataSource, item *types.FetchedItem, er
 	}
 	if errors.Is(err, ErrInvalidFileType) {
 		return "unsupported_file_type"
+	}
+	if officeguard.IsEncryptedError(err) {
+		return "office_encrypted"
 	}
 	if errors.Is(err, feishusafety.ErrProviderFailure) {
 		if errors.Is(err, feishusafety.ErrClosed) || errors.Is(err, types.ErrStaleSyncExecution) {

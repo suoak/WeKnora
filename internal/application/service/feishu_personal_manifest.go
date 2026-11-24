@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 )
@@ -99,6 +101,9 @@ func (s *personalManifestStore) read(a *types.FeishuPersonalAttempt) (*personalM
 	if personalManifestDigest(data, m.Assets) != m.Hash || int64(len(data)) != m.Size || m.Size == 0 {
 		return nil, errors.New("personal manifest content mismatch")
 	}
+	if err := officeguard.ValidateBytes(context.Background(), data, m.Name); err != nil {
+		return nil, err
+	}
 	for _, asset := range m.Assets {
 		if len(asset.SHA256) != 64 {
 			return nil, errors.New("personal asset identity invalid")
@@ -113,6 +118,9 @@ func (s *personalManifestStore) read(a *types.FeishuPersonalAttempt) (*personalM
 		h := sha256.Sum256(b)
 		if int64(len(b)) != asset.Size || hex.EncodeToString(h[:]) != asset.SHA256 {
 			return nil, errors.New("personal manifest asset mismatch")
+		}
+		if err := officeguard.ValidateBytes(context.Background(), b, asset.Name); err != nil {
+			return nil, err
 		}
 	}
 	return &m, nil
@@ -151,6 +159,14 @@ func (s *personalManifestStore) put(
 ) (*personalManifest, error) {
 	if len(data) == 0 {
 		return nil, errors.New("empty personal candidate")
+	}
+	if err := officeguard.ValidateBytes(context.Background(), data, name); err != nil {
+		return nil, err
+	}
+	for _, asset := range assets {
+		if err := officeguard.ValidateBytes(context.Background(), asset.Data, asset.Name); err != nil {
+			return nil, err
+		}
 	}
 	if m, err := s.read(a); err == nil {
 		return m, nil

@@ -42,6 +42,7 @@ type personalRecoveryFixture struct {
 	revision  atomic.Int64
 	downloads atomic.Int32
 	block     func()
+	content   []byte // optional source bytes; default fixtures retain their original PDF
 }
 
 func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
@@ -154,7 +155,11 @@ func newPersonalRecoveryFixture(t *testing.T) *personalRecoveryFixture {
 			if f.block != nil {
 				f.block()
 			}
-			_, _ = io.WriteString(w, "%PDF-1.7 synthetic candidate")
+			if f.content != nil {
+				_, _ = w.Write(f.content)
+			} else {
+				_, _ = io.WriteString(w, "%PDF-1.7 synthetic candidate")
+			}
 		default:
 			w.WriteHeader(404)
 		}

@@ -19,6 +19,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -1420,6 +1421,23 @@ func (s *DataSourceService) applyFetchedItem(
 				item.ExternalID,
 			)
 			result.Skipped++
+		case officeguard.IsEncryptedError(err):
+			result.Failed++
+			recordSyncError(result, types.SyncItemError{
+				Title: item.Title, Code: "office_encrypted", Message: officeguard.Message,
+			})
+			if local := feishuDocumentFailureCode(ds, item, err); local != "" {
+				if retainErr := s.retainVerifiedFeishuItem(ctx, ds, item); retainErr != nil {
+					return &dataSourceIngestError{cause: retainErr}
+				}
+				if fenceErr := s.checkSyncExecution(ctx); fenceErr != nil {
+					return fenceErr
+				}
+				return &datasource.DocumentFailureError{Code: local, Cause: err}
+			}
+			// Non-streaming and ordinary connectors count a local rejection and
+			// continue siblings; do not translate it into a deletion or a sweep.
+			return nil
 		case item.Metadata["embedded_image"] == "true":
 			// An image extracted from a document for OCR is a best-effort
 			// enrichment, not the document itself. If the KB cannot ingest it
@@ -1920,6 +1938,11 @@ func (s *DataSourceService) ingestItem(
 		return false, e
 	} else if ref != nil && !safeLegacyIncrementalEnabled() {
 		return false, ErrFeishuStagingRequired
+	}
+	// A rejected new body is still a present source, never a deletion. Inspect
+	// before any legacy staging, old-version deletion or subtree reconciliation.
+	if err := officeguard.ValidateBytes(ctx, item.Content, item.FileName); err != nil {
+		return false, err
 	}
 	if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 		writer, ok := s.knowledgeService.(interface {

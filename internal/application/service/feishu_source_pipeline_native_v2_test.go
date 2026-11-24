@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -20,8 +21,10 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
 	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/database"
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -75,6 +78,7 @@ func (s *v2PipelineModel) GetEmbeddingModel(ctx context.Context, id string) (emb
 
 func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	t.Helper()
+	encryptedBody := []byte(officeFixture(t, "encrypted.docx"))
 	dsn := feishulegacy.PrivateDSN(t)
 	root, err := filepath.Abs("../../..")
 	require.NoError(t, err)
@@ -97,6 +101,7 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	var revision atomic.Int64
 	var modelCalls atomic.Int32
 	var rejectModel atomic.Bool
+	var encryptedSource atomic.Bool
 	revision.Store(1792800000)
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/v1/embeddings" && r.Header.Get("Authorization") != "Bearer synthetic-user-token" {
@@ -108,6 +113,10 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 			_, _ = fmt.Fprintf(w, `{"code":0,"data":{"metas":[{"doc_type":"file",`+
 				`"doc_token":"real","title":"controlled.md","latest_modify_time":"%d"}]}}`, revision.Load())
 		case "/open-apis/drive/v1/files/real/download":
+			if encryptedSource.Load() {
+				_, _ = w.Write(encryptedBody)
+				return
+			}
 			_, _ = fmt.Fprintf(w, "# Controlled source\n\nv2canary source revision %d.", revision.Load())
 		case "/v1/embeddings":
 			modelCalls.Add(1)
@@ -360,6 +369,41 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		return out
 	}
 	before := snapshot()
+	var retainedPath string
+	require.NoError(t, db.WithContext(ctx).Table("knowledges").Select("file_path").Where("id=?", id).Scan(&retainedPath).Error)
+	readOriginal := func() []byte {
+		t.Helper()
+		r, e := ks.resolveFileService(bound, kb).GetFile(bound, retainedPath)
+		require.NoError(t, e)
+		b, e := io.ReadAll(r)
+		require.NoError(t, e)
+		require.NoError(t, r.Close())
+		return b
+	}
+	retainedBytes := readOriginal()
+	calls = modelCalls.Load()
+	revision.Add(60)
+	encryptedSource.Store(true)
+	bound, item = cycle() // the unchanged authenticated source adapter obtains the bytes
+	_, err = ingest.ingestItem(bound, ds, item, nil)
+	require.True(t, officeguard.IsEncryptedError(err))
+	_, err = ks.StageFeishuLegacyItem(bound, ds, item, nil) // direct entry cannot bypass admission
+	require.True(t, officeguard.IsEncryptedError(err))
+	require.JSONEq(t, before, snapshot(), "encrypted updates retain Knowledge, Chunk, vectors and BM25 rows")
+	require.Equal(t, retainedBytes, readOriginal())
+	require.Equal(t, calls, modelCalls.Load())
+	result := &types.SyncResult{}
+	handler := newStreamHandler(ingest, ds, result, log)
+	var local *datasource.DocumentFailureError
+	require.ErrorAs(t, handler.Emit(bound, *item), &local)
+	require.Equal(t, "office_encrypted", local.Code)
+	require.Nil(t, handler.ingestErr)
+	encryptedSource.Store(false)
+	bound, item = cycle()
+	require.NoError(t, handler.Emit(bound, *item))
+	require.Equal(t, 1, result.Failed)
+	require.Equal(t, 1, result.Updated)
+	before = snapshot()
 	revision.Add(60)
 	bound, item = cycle()
 	rejectModel.Store(true)
