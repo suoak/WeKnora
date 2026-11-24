@@ -77,19 +77,36 @@ const (
 	keyPrefix = "weknora:modelsem:"
 )
 
-// acquireScript atomically prunes expired leases, counts live holders, and
-// admits the caller (adding its token scored by lease expiry) only while the
-// live count is below the limit. Returns 1 on admission, 0 when full.
+// acquireScript reserves available capacity for the oldest waiting calls, so
+// a continuously re-entering workflow cannot starve an older image/OCR call.
+// Both holders and waiters have leases; crashed waiters cannot block capacity
+// indefinitely. Returns 1 on admission, 0 while waiting.
 //
-//	KEYS[1] = semaphore ZSET key
+//	KEYS = holders, waiting order, waiting leases, sequence
 //	ARGV[1] = now (unix ms)
 //	ARGV[2] = limit
 //	ARGV[3] = caller token
 //	ARGV[4] = lease TTL (ms)
 var acquireScript = redis.NewScript(`
 redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', ARGV[1])
-local count = redis.call('ZCARD', KEYS[1])
-if count < tonumber(ARGV[2]) then
+local expired = redis.call('ZRANGEBYSCORE', KEYS[3], '-inf', ARGV[1])
+for _, token in ipairs(expired) do
+    redis.call('ZREM', KEYS[2], token)
+    redis.call('ZREM', KEYS[3], token)
+end
+if not redis.call('ZSCORE', KEYS[2], ARGV[3]) then
+    local sequence = redis.call('INCR', KEYS[4])
+    redis.call('ZADD', KEYS[2], sequence, ARGV[3])
+end
+redis.call('ZADD', KEYS[3], ARGV[1] + ARGV[4], ARGV[3])
+for index = 2, 4 do
+    redis.call('PEXPIRE', KEYS[index], ARGV[4] * 2)
+end
+local free = tonumber(ARGV[2]) - redis.call('ZCARD', KEYS[1])
+local rank = redis.call('ZRANK', KEYS[2], ARGV[3])
+if rank < free then
+    redis.call('ZREM', KEYS[2], ARGV[3])
+    redis.call('ZREM', KEYS[3], ARGV[3])
     redis.call('ZADD', KEYS[1], ARGV[1] + ARGV[4], ARGV[3])
     redis.call('PEXPIRE', KEYS[1], ARGV[4] * 2)
     return 1
@@ -120,6 +137,8 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 	}
 
 	zkey := keyPrefix + key
+	orderKey, waitingLeaseKey := zkey+":waiting", zkey+":waiting-leases"
+	keys := []string{zkey, orderKey, waitingLeaseKey, zkey + ":sequence"}
 	entry, _ := l.tracked.LoadOrStore(key, &trackedSemaphore{})
 	tracked := entry.(*trackedSemaphore)
 	tracked.limit.Store(int64(limit))
@@ -127,6 +146,19 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 	defer tracked.waiting.Add(-1)
 	token := uuid.NewString()
 	ttlMs := l.ttl.Milliseconds()
+	queued := false
+	defer func() {
+		if queued {
+			// Remove only this caller's waiting reservation. A crashed caller
+			// or Redis outage falls back to the bounded waiting-lease expiry.
+			cleanup, cancel := context.WithTimeout(context.Background(), time.Second)
+			defer cancel()
+			pipe := l.rdb.Pipeline()
+			pipe.ZRem(cleanup, orderKey, token)
+			pipe.ZRem(cleanup, waitingLeaseKey, token)
+			_, _ = pipe.Exec(cleanup)
+		}
+	}()
 
 	// Reuse a single timer across poll iterations rather than allocating a new
 	// one via time.After each loop: under sustained contention a waiter can
@@ -140,7 +172,7 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 
 	for {
 		now := time.Now().UnixMilli()
-		res, err := acquireScript.Run(ctx, l.rdb, []string{zkey},
+		res, err := acquireScript.Run(ctx, l.rdb, keys,
 			now, limit, token, ttlMs).Int()
 		if err != nil {
 			// Fail open: a limiter outage must never block model traffic.
@@ -148,8 +180,10 @@ func (l *redisLimiter) Acquire(ctx context.Context, key string, limit int) (func
 			return noop, nil
 		}
 		if res == 1 {
+			queued = false
 			return l.hold(zkey, token), nil
 		}
+		queued = true
 
 		timer.Reset(l.pollInterval)
 		select {
