@@ -327,7 +327,10 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
 	)
 	ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenant)
-	ingest := &DataSourceService{knowledgeService: ks, feishuIdentity: s}
+	ingest := &DataSourceService{
+		knowledgeService: ks, feishuIdentity: s,
+		dsRepo: repository.NewDataSourceRepository(db), syncLogRepo: repository.NewSyncLogRepository(db),
+	}
 	cycle := func() (context.Context, *types.FetchedItem) {
 		t.Helper()
 		bound, e := ingest.bindFeishuSource(types.WithLegacyReceiptSet(ctx), ds)
