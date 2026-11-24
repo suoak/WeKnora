@@ -64,11 +64,13 @@ jobs:
           -timeout 25m | tee evidence/business.jsonl
           python3 scripts/ci/office_encryption_results.py evidence/business.jsonl
       - name: Complete permission and MCP isolation regression
+        if: ${{ !cancelled() }}
         run: |
           go test -json -tags sqlite_fts5 -p 2 -count=1 \
             ./internal/application/access ./internal/middleware ./internal/mcpserver \
             -timeout 15m | tee evidence/permissions.jsonl
       - name: Race regression
+        if: ${{ !cancelled() }}
         run: |
           go test -json -race -tags sqlite_fts5 -p 2 -count=1 \
           ./internal/officeguard ./internal/application/service ./internal/mcpserver \
