@@ -233,6 +233,9 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	}
 	require.Equal(t, "knowhub-p1-dispatch-redis-20261018:6379", addr)
 	f := newMVPFixture(t)
+	// The guarded partial-output check queries both chunks and embeddings before
+	// placing the attempt in attention. Keep that check against actual SQL rows.
+	require.NoError(t, f.db.Exec("CREATE TABLE embeddings (knowledge_id varchar(36))").Error)
 	rdb := redis.NewClient(&redis.Options{Addr: addr})
 	defer func(cleanup func() error) { _ = cleanup() }(rdb.Close)
 	require.NoError(t, rdb.FlushDB(f.ctx).Err())
