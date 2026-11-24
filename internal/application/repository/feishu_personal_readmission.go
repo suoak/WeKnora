@@ -51,7 +51,8 @@ func (r *PersonalRecoveryRepository) QueuePersonalReadmission(
 		}
 		var batch types.FeishuBatch
 		if err := tx.Where("id=? AND owner_id=? AND tenant_id=? AND kb_id=? AND auth_mode=?",
-			batchID, user, attempt.CallerTenantID, imported.KBID, types.FeishuUserOAuth).Take(&batch).Error; err != nil {
+			batchID, user, attempt.CallerTenantID, imported.KBID, types.FeishuUserOAuth).
+			Take(&batch).Error; err != nil {
 			return ErrPersonalIdentity
 		}
 		var item types.FeishuBatchItem
@@ -113,7 +114,8 @@ func (r *PersonalRecoveryRepository) QueuePersonalReadmission(
 		if json.Unmarshal(op.Payload, &intent) != nil || intent.PayloadVersion != 2 ||
 			op.TaskType != types.TypeDocumentProcess || op.TenantID != attempt.CallerTenantID ||
 			intent.AttemptID != attempt.ID || intent.SourceID != imported.ID ||
-			intent.Revision != attempt.Revision || intent.ExternalID != imported.ResourceType+":"+imported.DocumentToken ||
+			intent.Revision != attempt.Revision ||
+			intent.ExternalID != imported.ResourceType+":"+imported.DocumentToken ||
 			intent.Task.PersonalAttemptID != attempt.ID || intent.Task.KnowledgeBaseID != imported.KBID ||
 			intent.Task.KnowledgeID != attempt.CandidateVersionID ||
 			intent.Task.CandidateVersionID != attempt.CandidateVersionID ||
