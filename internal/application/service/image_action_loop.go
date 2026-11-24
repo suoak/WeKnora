@@ -80,13 +80,13 @@ func (s *ImageMultimodalService) executeActionRound(
 	imageInfo *types.ImageInfo,
 	out types.JSONMap,
 	round ActionRound,
-) {
+) error {
 	if round.Contains(types.ActionObservation) {
 		raw, capErr := model.Predict(ctx, [][]byte{imgBytes}, buildImageAttrsPrompt(ctx, vlmCfg))
 		if capErr != nil {
 			logger.Warnf(ctx, "[ImageMultimodal] Describe and observe failed for %s: %v", payload.ImageURL, capErr)
 			out["caption_error"] = capErr.Error()
-			return
+			return capErr
 		}
 		obs, ok := types.ParseImageAttrsResponse(raw)
 		applyImageObservation(imageInfo, obs.Attrs, obs.Description, out, payload.EnableCaption)
@@ -103,22 +103,23 @@ func (s *ImageMultimodalService) executeActionRound(
 		if !ok {
 			out["caption_missing"] = true
 		}
-		return
+		return nil
 	}
 	if round.Contains(types.ActionCaption) {
 		raw, capErr := model.Predict(ctx, [][]byte{imgBytes}, buildVLMCaptionPrompt(ctx, vlmCfg))
 		if capErr != nil {
 			out["caption_error"] = capErr.Error()
-			return
+			return capErr
 		}
 		if text := strings.TrimSpace(raw); text != "" {
 			imageInfo.Caption = text
 			out["caption_chars"] = len([]rune(text))
 			out["caption_preview"] = previewText(text, 200)
 		}
-		return
+		return nil
 	}
 	if round.Contains(types.ActionOCR) {
-		s.runImageOCR(ctx, payload, model, imgBytes, imageInfo, out, vlmCfg)
+		return s.runImageOCR(ctx, payload, model, imgBytes, imageInfo, out, vlmCfg)
 	}
+	return nil
 }

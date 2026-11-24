@@ -169,10 +169,9 @@ func (s *knowledgeService) enrichLegacyImages(ctx context.Context, ds *types.Dat
 				if err := store.Renew(ctx, ds, attempt); err != nil {
 					return nil, err
 				}
-				call, cancel := legacyImageRoundContext(ctx)
-				processor.executeActionRound(call, payload, model, data, eff.VLMConfig, &info, out, plan[i])
-				roundErr := call.Err()
-				cancel()
+				// The shared VLM layer starts its configured model budget after
+				// admission. Do not charge queue waiting against a shorter action timer.
+				roundErr := processor.executeActionRound(ctx, payload, model, data, eff.VLMConfig, &info, out, plan[i])
 				if out["caption_error"] != nil || out["ocr_error"] != nil {
 					return nil, legacyImageRoundError(ctx, roundErr)
 				}

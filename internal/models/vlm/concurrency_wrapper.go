@@ -24,7 +24,14 @@ func (w *concurrencyVLM) GetModelID() string   { return w.inner.GetModelID() }
 func (w *concurrencyVLM) Predict(ctx context.Context, imgBytes [][]byte, prompt string) (string, error) {
 	release := limiter.GateNamedN(ctx, w.inner.GetModelID(), w.inner.GetModelName(), w.limit)
 	defer release()
-	return w.inner.Predict(ctx, imgBytes, prompt)
+	// Start the model budget after waiting for background capacity. The parent
+	// task deadline still bounds the wait and all image actions together.
+	call, cancel := context.WithTimeout(ctx, RequestTimeout())
+	defer cancel()
+	if err := call.Err(); err != nil {
+		return "", err
+	}
+	return w.inner.Predict(call, imgBytes, prompt)
 }
 
 // wrapVLMConcurrency installs the background concurrency governor as the
