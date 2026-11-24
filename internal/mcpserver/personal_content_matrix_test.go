@@ -11,6 +11,8 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	werrors "github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/mark3labs/mcp-go/mcp"
 	"github.com/stretchr/testify/require"
@@ -55,6 +57,7 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 			{"permission", access.ErrForbidden, "permission_denied"},
 			{"database", errors.New("database failed"), "execution_error"},
 			{"arguments", service.ErrPersonalContentArguments, "invalid_arguments"},
+			{"office_password", &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: "private path"}, "invalid_arguments"},
 			{"timeout", context.DeadlineExceeded, "timeout"},
 			{"cancel", context.Canceled, "canceled"},
 		} {
@@ -88,6 +91,9 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 				require.Equal(t, tc.cause != nil, result.IsError)
 				require.Equal(t, tc.cause == nil, sink.reports[0].Success)
 				require.Equal(t, tc.code, sink.reports[0].ErrorCode)
+				if tc.label == "office_password" {
+					require.Equal(t, map[string]any{"error": map[string]any{"code": 2400, "message": officeguard.Message}}, result.StructuredContent)
+				}
 			})
 		}
 	}
