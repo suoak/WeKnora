@@ -60,10 +60,10 @@ func TestPersonalContentUsesSeparateRegistryAndAdmissionSlots(t *testing.T) {
 		}
 		return names
 	}
-	require.Len(t, list(true, true), 9)
+	require.Len(t, list(true, true), 10)
 	require.NotContains(t, list(true, true), "add_document")
-	require.Len(t, list(false, false), 9)
-	require.Len(t, list(false, true), 13)
+	require.Len(t, list(false, false), 10)
+	require.Len(t, list(false, true), 14)
 	for name, tool := range schemas[true] {
 		require.Equal(t, tool, schemas[false][name], "shared read schema: %s", name)
 	}

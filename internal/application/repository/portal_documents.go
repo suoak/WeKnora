@@ -10,6 +10,27 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// LoadPortalDocumentMetadata reads a bounded, explicit set of authorized
+// identities. No content, storage paths, source URLs or credentials are loaded.
+func (r *knowledgeRepository) LoadPortalDocumentMetadata(
+	ctx context.Context, tenant uint64, kb string, ids []string, titlesOnly bool,
+) ([]*types.Knowledge, error) {
+	rows := []*types.Knowledge{}
+	if len(ids) == 0 {
+		return rows, nil
+	}
+	if len(ids) > 500 {
+		return nil, access.ErrForbidden
+	}
+	columns := "id,tenant_id,knowledge_base_id,title"
+	if !titlesOnly {
+		columns += ",file_name,file_type,type,parse_status,created_at,updated_at"
+	}
+	err := r.db.WithContext(ctx).Model(&types.Knowledge{}).Select(columns).
+		Where("tenant_id=? AND knowledge_base_id=? AND id IN ?", tenant, kb, ids).Find(&rows).Error
+	return rows, err
+}
+
 // SearchPortalDocumentMetadata reads only metadata from an explicit authorized
 // ID set. The coordinator verifies each selected document again before output.
 func (r *knowledgeRepository) SearchPortalDocumentMetadata(

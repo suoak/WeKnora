@@ -197,7 +197,7 @@ func (s *PersonalServer) Handler() http.Handler {
 			} else {
 				resolved, err = s.knowledge.Resolve(r.Context(), targets)
 			}
-			if err == nil && toolName == "list_knowledge_bases" {
+			if err == nil && personalProjectsTargets(toolName) {
 				r = r.WithContext(context.WithValue(r.Context(), personalCatalogAdmissionKey{}, resolved))
 			}
 			return err
@@ -306,7 +306,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		}
 		ctx, diagnostics := access.WithPortalDiagnostics(ctx)
 		switch r.Params.Name {
-		case "list_knowledge_bases",
+		case "list_knowledge_bases", "get_knowledge_base",
 			"search_knowledge",
 			"grep_chunks",
 			"list_documents",
@@ -328,7 +328,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 		for attempt := 0; attempt < 2; attempt++ {
 			var targets []*access.PortalKBTarget
 			var reused bool
-			if r.Params.Name == "list_knowledge_bases" && attempt == 0 {
+			if personalProjectsTargets(r.Params.Name) && attempt == 0 {
 				targets, reused = revalidatedCatalogTargets(ctx)
 			}
 			if !reused {
@@ -342,7 +342,7 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 				return mcp.NewToolResultError("authorization denied"), nil
 			}
 			callCtx := ctx
-			if r.Params.Name == "list_knowledge_bases" {
+			if personalProjectsTargets(r.Params.Name) {
 				// The handler serializes precisely the scope this guard will
 				// revalidate after execution, rather than resolving a third scope.
 				callCtx = context.WithValue(ctx, personalCatalogResultKey{}, targets)
@@ -408,31 +408,38 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		return mcp.NewToolResultError("resource denied or unavailable"), nil
 	}
 	switch r.Params.Name {
-	case "list_knowledge_bases":
+	case "list_knowledge_bases", "get_knowledge_base":
 		ts, present := ctx.Value(personalCatalogResultKey{}).([]*access.PortalKBTarget)
 		if !present {
-			var err error
-			ts, err = s.knowledge.Resolve(ctx, nil)
+			ids, err := personalOperationTargets(r.Params.Name, r.GetArguments())
+			if err != nil {
+				return fail()
+			}
+			ts, err = s.knowledge.Resolve(ctx, ids)
 			if err != nil {
 				return fail()
 			}
 		}
-		rows := []map[string]any{}
+		if r.Params.Name == "get_knowledge_base" &&
+			(len(ts) != 1 || ts[0].Descriptor().ID != r.GetString("knowledge_base_id", "")) {
+			return fail()
+		}
+		metadata, err := s.knowledge.KnowledgeBaseMetadata(ctx, ts)
+		if err != nil {
+			return fail()
+		}
+		rows := []personalKnowledgeBaseSummary{}
 		for _, t := range ts {
 			d := t.Descriptor()
 			caps := d.SearchCapabilities()
-			rows = append(
-				rows,
-				map[string]any{
-					"id":           d.ID,
-					"tenant_id":    d.TenantID,
-					"name":         d.Name,
-					"space":        d.SpaceName,
-					"public":       t.Public(),
-					"capabilities": caps,
-					"searchable":   len(caps) > 0,
-				},
-			)
+			rows = append(rows, personalKnowledgeBaseSummary{
+				ID: d.ID, TenantID: d.TenantID, Name: d.Name, Space: d.SpaceName,
+				Public: t.Public(), Capabilities: caps, Searchable: len(caps) > 0,
+				PortalKBMetadata: metadata[d.ID],
+			})
+		}
+		if r.Params.Name == "get_knowledge_base" {
+			return personalJSON(ctx, rows[0])
 		}
 		return personalJSON(ctx, rows)
 	case "search_documents":
@@ -446,33 +453,24 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 		}
 		return personalJSON(ctx, rows)
 	case "list_documents":
-		rows, e := s.knowledge.ListDocuments(ctx, r.GetString("knowledge_base_id", ""))
-		if e != nil {
-			return fail()
-		}
-		if keyword := strings.ToLower(r.GetString("keyword", "")); keyword != "" {
-			filtered := []service.PortalMCPHit{}
-			for _, row := range rows {
-				if strings.Contains(strings.ToLower(row.Title), keyword) {
-					filtered = append(filtered, row)
-				}
+		targets, present := ctx.Value(personalCatalogResultKey{}).([]*access.PortalKBTarget)
+		if !present {
+			ids, err := personalOperationTargets(r.Params.Name, r.GetArguments())
+			if err != nil {
+				return fail()
 			}
-			rows = filtered
+			targets, err = s.knowledge.Resolve(ctx, ids)
+			if err != nil {
+				return fail()
+			}
 		}
-		size := r.GetInt("page_size", 20)
-		page := r.GetInt("page", 1)
-		if page < 1 || page > 10000 || size < 1 || size > 100 {
+		rows, err := s.knowledge.ListDocumentsPage(
+			ctx, targets, r.GetString("keyword", ""), r.GetInt("page", 1), r.GetInt("page_size", 20),
+		)
+		if err != nil {
 			return fail()
 		}
-		start := (page - 1) * size
-		if start > len(rows) {
-			start = len(rows)
-		}
-		end := start + size
-		if end > len(rows) {
-			end = len(rows)
-		}
-		return personalJSON(ctx, map[string]any{"total": len(rows), "documents": rows[start:end]})
+		return personalJSON(ctx, rows)
 	case "read_document":
 		if r.GetString("query", "") == "" {
 			rows, total, e := s.knowledge.ReadDocumentPage(ctx, r.GetString("knowledge_id", ""),
@@ -572,7 +570,8 @@ func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.
 
 func (s *PersonalServer) readTools() []mcp.Tool {
 	tools := []mcp.Tool{
-		listKnowledgeBasesTool(),
+		personalListKnowledgeBasesTool(),
+		personalGetKnowledgeBaseTool(),
 		searchKnowledgeTool(),
 		grepChunksTool(),
 		listDocumentsTool(),

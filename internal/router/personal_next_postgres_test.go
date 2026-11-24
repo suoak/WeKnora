@@ -249,6 +249,7 @@ func TestV1NextPostgresAuthenticatedEightToolsDynamicAndHold(t *testing.T) {
 	for _, name := range []string{"wiki_search", "wiki_read_page", "wiki_index", "search_knowledge", "read_document", "list_documents", "grep_chunks", "list_knowledge_bases"} {
 		require.Contains(t, catalogBody, `"name":"`+name+`"`)
 	}
+	t.Run("metadata_contract", func(t *testing.T) { verifyPersonalMetadataProtocol(t, db, g, a.Token) })
 	// Actual PG/ParadeDB BM25, vectors, hybrid and grep serve uploaded content
 	// under platform permissions even when the upstream source is held.
 	require.NoError(t, db.Exec(`INSERT INTO data_sources(id,tenant_id,knowledge_base_id,name,type,config,status,legacy_access_state)VALUES('held',99,'public-kb','synthetic held','feishu','{}','active','hold')`).Error)

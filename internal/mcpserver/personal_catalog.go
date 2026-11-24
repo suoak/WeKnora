@@ -4,7 +4,7 @@ package mcpserver
 var personalToolCatalog = [...]string{
 	"list_knowledge_bases", "search_knowledge", "grep_chunks", "list_documents",
 	"read_document", "wiki_search", "wiki_read_page", "wiki_index",
-	"search_documents",
+	"search_documents", "get_knowledge_base",
 	"list_writable_knowledge_bases", "add_document", "upload_document", "get_document_processing_status",
 }
 
