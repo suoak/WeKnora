@@ -24,6 +24,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/wiki"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
 	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
@@ -327,9 +328,12 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 		types.SyncExecution{DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 1},
 	)
 	ctx = context.WithValue(ctx, types.TenantInfoContextKey, tenant)
+	registry := datasource.NewConnectorRegistry()
+	require.NoError(t, registry.Register(wiki.NewConnector(core.RegionFeishu)))
 	ingest := &DataSourceService{
 		knowledgeService: ks, feishuIdentity: s,
 		dsRepo: repository.NewDataSourceRepository(db), syncLogRepo: repository.NewSyncLogRepository(db),
+		kbService: ks.kbService, connectorRegistry: registry,
 	}
 	cycle := func() (context.Context, *types.FetchedItem) {
 		t.Helper()
@@ -417,6 +421,7 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	require.Equal(t, calls, modelCalls.Load())
 	result := &types.SyncResult{}
 	handler := newStreamHandler(ingest, ds, result, log)
+	handler.config = cfg
 	var local *datasource.DocumentFailureError
 	require.ErrorAs(t, handler.Emit(bound, *item), &local)
 	require.Equal(t, "office_encrypted", local.Code)
