@@ -287,7 +287,9 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 		},
 	)
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(types.TypeDocumentProcess, func(ctx context.Context, task *asynq.Task) error {
+	// mvpPublicTask verifies the identity-specific task type. Application-grant
+	// imports use TypeFeishuApplicationProcess, registered by the real router too.
+	mux.HandleFunc(op.TaskType, func(ctx context.Context, task *asynq.Task) error {
 		var actual types.DocumentProcessPayload
 		if err := json.Unmarshal(task.Payload(), &actual); err != nil {
 			return err
