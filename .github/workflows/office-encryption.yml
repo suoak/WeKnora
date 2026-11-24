@@ -5,6 +5,12 @@ on:
     branches: [ci/office-encryption-validation]
 permissions:
   contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: office-encryption-${{ github.ref }}
+  cancel-in-progress: true
 jobs:
   linux:
     runs-on: ubuntu-24.04
@@ -52,6 +58,7 @@ jobs:
           ./internal/mcpserver ./internal/handler ./internal/handler/session \
           -run 'TestOffice|TestPersonalContent|TestPersonalFile|TestClamdScanner|TestCreateKnowledgeFromFile|TestReplaceKnowledgeFile|TestIsolatedPersonal|TestTemporaryDocument|TestAttachment|TestIngestItem|TestFeishuDocument|TestDataSource|TestFeishuPersonalRecoveryPostgres|TestMVPFirstCreate' \
           -timeout 25m | tee evidence/business.jsonl
+          python3 scripts/ci/office_encryption_results.py evidence/business.jsonl
       - name: Race regression
         run: |
           go test -json -race -tags sqlite_fts5 -p 2 -count=1 \
