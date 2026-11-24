@@ -48,6 +48,7 @@ func TestV1NextEightToolProtocolRegistration(t *testing.T) {
 	require.Equal(
 		t,
 		[]string{
+			"get_knowledge_base",
 			"grep_chunks",
 			"list_documents",
 			"list_knowledge_bases",

@@ -13,7 +13,7 @@ var errPersonalTargets = errors.New("invalid personal MCP knowledge base selecti
 // Otherwise an unrelated KB's changing content can reject a bounded read.
 func personalOperationTargets(name string, arguments map[string]any) ([]string, error) {
 	switch name {
-	case "list_documents", "wiki_index", "wiki_read_page":
+	case "get_knowledge_base", "list_documents", "wiki_index", "wiki_read_page":
 		if name == "wiki_read_page" {
 			if _, present := arguments["knowledge_base_id"]; !present {
 				return nil, nil

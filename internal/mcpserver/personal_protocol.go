@@ -180,6 +180,8 @@ func validatePersonalRPC(b []byte) error {
 			fields = "query mode limit knowledge_base_ids"
 		case "search_documents":
 			fields = "query limit knowledge_base_ids"
+		case "get_knowledge_base":
+			fields = "knowledge_base_id"
 		case "list_documents":
 			fields = "knowledge_base_id keyword page page_size"
 		case "read_document":

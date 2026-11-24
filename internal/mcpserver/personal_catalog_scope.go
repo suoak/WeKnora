@@ -26,3 +26,12 @@ func revalidatedCatalogTargets(ctx context.Context) ([]*access.PortalKBTarget, b
 	}
 	return targets, true
 }
+
+// These metadata projections use the exact scope admitted for this HTTP request.
+func personalProjectsTargets(name string) bool {
+	switch name {
+	case "list_knowledge_bases", "get_knowledge_base", "list_documents":
+		return true
+	}
+	return false
+}

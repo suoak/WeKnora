@@ -709,13 +709,7 @@ func enrichKBCreatorNames(ctx context.Context, userSvc interfaces.UserService, k
 // if present (it's required at registration), Email as a fallback. Used by
 // both KB and Agent list enrichment so the badge text stays consistent.
 func pickUserDisplayName(u *types.User) string {
-	if u == nil {
-		return ""
-	}
-	if u.Username != "" {
-		return u.Username
-	}
-	return u.Email
+	return types.UserDisplayName(u)
 }
 
 // TogglePinKnowledgeBase godoc
