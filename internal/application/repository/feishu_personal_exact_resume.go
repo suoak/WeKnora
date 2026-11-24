@@ -89,6 +89,32 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 	source types.PersonalExactReceipt,
 	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
 ) error {
+	return r.queueExactResume(ctx, observed, source, validate, "")
+}
+
+// QueueExactResumeWithConsent uses the existing resume protocol after an explicit
+// owner request. The new epoch must belong to the same current app/account;
+// neither a task payload nor the caller can nominate another source identity.
+func (r *PersonalRecoveryRepository) QueueExactResumeWithConsent(
+	ctx context.Context, observed *types.FeishuPersonalAttempt,
+	source types.PersonalExactReceipt,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+	epoch string,
+) error {
+	principal, ok := types.PrincipalFromContext(ctx)
+	user, hasUser := types.UserIDFromContext(ctx)
+	if !ok || !hasUser || principal.Type != types.PrincipalWebUser || principal.ID != user || epoch == "" {
+		return ErrPersonalIdentity
+	}
+	return r.queueExactResume(ctx, observed, source, validate, epoch)
+}
+
+func (r *PersonalRecoveryRepository) queueExactResume(
+	ctx context.Context, observed *types.FeishuPersonalAttempt,
+	source types.PersonalExactReceipt,
+	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error,
+	consentEpoch string,
+) error {
 	if !r.FirstCreateOnly || observed == nil || validate == nil ||
 		observed.Status != "needs_attention" || observed.OwnerNonce != "" ||
 		observed.LeaseUntil != nil || observed.RetryCount >= PersonalExactResumeBudget(
@@ -120,7 +146,17 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			imported.KBID != source.KnowledgeBaseID || attempt.CallerTenantID != source.TenantID {
 			return ErrPersonalIdentity
 		}
-		if err := r.lockPrincipal(tx, &imported, attempt); err != nil {
+		authority := *attempt
+		if consentEpoch != "" {
+			user, _ := types.UserIDFromContext(ctx)
+			if imported.UserID != user || types.CallerFromContext(ctx).TenantID != attempt.CallerTenantID ||
+				attempt.AuthMode != types.FeishuUserOAuth || imported.AuthMode != types.FeishuUserOAuth ||
+				source.GrantEpoch != consentEpoch {
+				return ErrPersonalIdentity
+			}
+			authority.GrantEpoch = consentEpoch
+		}
+		if err := r.lockPrincipal(tx, &imported, &authority); err != nil {
 			return err
 		}
 		if err := validate(tx, attempt); err != nil {
@@ -200,6 +236,12 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			// A worker lost before activation wrote no new derived output.
 			previous.Generation = source.Generation
 		}
+		if consentEpoch != "" && consentEpoch != observed.GrantEpoch {
+			if previous.GrantEpoch != observed.GrantEpoch {
+				return ErrPersonalIdentity
+			}
+			previous.GrantEpoch = consentEpoch
+		}
 		if previous != source {
 			return ErrPersonalIdentity
 		}
@@ -234,6 +276,9 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 			"attempt": attempt, "resource": resource, "receipt": receipt, "dispatch": dispatch,
 			"receipt_missing_before_resume": missingReceipt,
 			"reviewed_extra_attempt":        attempt.RetryCount >= PersonalExactResumeMaxAttempts,
+			"explicit_owner_consent":        consentEpoch != "",
+			"previous_grant_epoch":          observed.GrantEpoch,
+			"resume_grant_epoch":            authority.GrantEpoch,
 			"reviewed_counter_baseline":     attempt.RetryCount,
 			"reviewed_cumulative_limit":     PersonalExactResumeBudget(attempt.LogicalKnowledgeID, attempt.RetryCount),
 		})
@@ -253,6 +298,7 @@ func (r *PersonalRecoveryRepository) QueueExactResume(
 		}).Error; err != nil {
 			return err
 		}
+		attempt.GrantEpoch = authority.GrantEpoch
 		attempt.Fence = resource.Generation
 		attempt.Status, attempt.LastErrorCategory = "index_pending", "exact_document_resume_prepared"
 		attempt.RetryCount++
@@ -305,11 +351,14 @@ hashtextextended('personal-exact-resume-admission',0))`).Error; err != nil {
 	return nil
 }
 
+// A terminal parser error may mark the retained private row failed. The same
+// immutable source/receipt and disabled-output proof is still required; this
+// accepts no enabled, published, summarized or unrelated output.
 func exactResumeEmptyDerived(tx *gorm.DB, source types.PersonalExactReceipt) error {
 	var safe bool
 	err := tx.Raw(`SELECT EXISTS(SELECT 1 FROM knowledges k
 WHERE k.id=? AND k.tenant_id=? AND k.knowledge_base_id=? AND k.deleted_at IS NULL
-AND k.channel='feishu_personal' AND k.parse_status IN ('pending','processing')
+AND k.channel='feishu_personal' AND k.parse_status IN ('pending','processing','failed')
 AND k.enable_status='disabled' AND COALESCE(k.description,'')=''
 AND (k.profile IS NULL OR k.profile::text='null')
 AND (k.custom_metadata IS NULL OR k.custom_metadata::text IN ('{}','null'))

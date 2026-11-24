@@ -187,6 +187,7 @@ type nativeResumeFormatOptions struct {
 	ConfigureFixture         func(*personalRecoveryFixture)
 	ReturnAfterPublication   bool
 	UserOAuthImport          bool
+	ExplicitOwnerRetry       bool
 }
 
 func exerciseNativeResumeWithFormat(
@@ -400,18 +401,41 @@ func exerciseNativeResumeWithFormat(
 	var grant types.FeishuPersonalGrantEpoch
 	require.NoError(t, f.db.Where("user_id='A'").Take(&connection).Error)
 	require.NoError(t, f.db.Where("user_id='A'").Take(&grant).Error)
-	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuConnection{}).Error)
-	require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuPersonalGrantEpoch{}).Error)
+	if !options.ExplicitOwnerRetry {
+		require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuConnection{}).Error)
+		require.NoError(t, f.db.Where("user_id='A'").Delete(&types.FeishuPersonalGrantEpoch{}).Error)
+	}
 	if options.AssertClosed != nil {
 		options.AssertClosed(f, observed, modelCalls)
 		return
 	}
-	require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
+	if options.ExplicitOwnerRetry {
+		renewed := uuid.NewString()
+		grantRow := f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id='A'")
+		require.NoError(t, grantRow.Update("epoch", renewed).Error)
+		m, _, _, err := f.p.repo.Load(f.ctx, observed.ID)
+		require.NoError(t, err)
+		ref := types.FeishuCredentialRef{
+			Version: 1, Kind: types.FeishuUserOAuth, OwnerID: m.UserID, AppID: m.AppID,
+			OpenID: m.OpenID, GrantEpoch: renewed, ConfigVersion: observed.AppConfigVersion,
+		}
+		ref.ConnectionID = connectionID(ref.Kind, ref.OwnerID, ref.AppID, ref.OpenID, ref.GrantEpoch)
+		batch := &types.FeishuBatch{
+			ID: "native-owner-retry", OwnerID: m.UserID, TenantID: observed.CallerTenantID,
+			KBID: m.KBID, AuthMode: types.FeishuUserOAuth,
+			ConnectionID: ref.ConnectionID, ConfigVersion: ref.ConfigVersion,
+		}
+		require.NoError(t, f.s.retryExactBatchItem(f.ctx, batch, &types.FeishuBatchItem{ImportID: m.ID}, ref))
+	} else {
+		require.NoError(t, f.p.prepareExactPersonalResume(context.Background(), observed))
+	}
 	require.NoError(t, f.p.processFirstCreateDocument(context.Background(), payload))
 	require.Equal(t, requestsBeforeProcessing, sourceRequests.Load(),
 		"processing and publishing an imported copy must never revisit its source")
-	require.NoError(t, f.db.Create(&connection).Error)
-	require.NoError(t, f.db.Create(&grant).Error)
+	if !options.ExplicitOwnerRetry {
+		require.NoError(t, f.db.Create(&connection).Error)
+		require.NoError(t, f.db.Create(&grant).Error)
+	}
 	var receipt types.TaskPendingOp
 	require.NoError(t, f.db.Where("scope=? AND scope_id=?", types.PersonalExactReceiptScope,
 		knowledge.ID).Take(&receipt).Error)
@@ -507,4 +531,12 @@ func exerciseNativeResumeWithFormat(
 	require.NoError(t, f.s.Disconnect(f.ctx))
 	_, err = f.p.exactPublishedReadContext(web, knowledge.ID)
 	require.NoError(t, err, "disconnect must preserve the published local snapshot")
+}
+
+// Native parser, actual PostgreSQL indexing/publication and full read matrix
+// run after explicit owner consent rotation; the provider is an isolated test server.
+func TestPersonalExactExplicitOwnerRetryNativePublication(t *testing.T) {
+	exerciseNativeResumeWithFormat(t, false, false, nil, nativeResumeFormatOptions{
+		Format: "docx", UserOAuthImport: true, ExplicitOwnerRetry: true,
+	})
 }

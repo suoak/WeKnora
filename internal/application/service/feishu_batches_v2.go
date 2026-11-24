@@ -374,7 +374,10 @@ func (s *FeishuPersonalService) Batch(ctx context.Context, id string) (*FeishuBa
 		if err := s.batchItemProgress(ctx, item, current, view.Batch.CreatedAt, queue); err != nil {
 			return nil, err
 		}
-		item.CanRetry = canRetryFeishuBatchItem(*item)
+		item.CanRetry = item.CanRetry || canRetryFeishuBatchItem(*item)
+		if current != nil && (current.Status == "source_managed" || current.DataSourceID != "") {
+			item.CanRetry = false // Source retries use their own current publication/SyncLog protocol.
+		}
 		view.Counts[item.Status]++
 		if item.Status == "blocked" && item.ErrorCategory == "sharing_approval_required" &&
 			item.ImportID == "" && item.SharingApprovalID == nil && item.RetryCount < 3 &&
@@ -398,13 +401,33 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	if err != nil {
 		return err
 	}
+	if err := retryBatchWebOwner(ctx, view.Batch.OwnerID); err != nil {
+		return err
+	}
 	if err := s.requireImportWriter(s.db.
 		WithContext(ctx), view.Batch.OwnerID, view.Batch.KBID, view.Batch.TenantID); err != nil {
 		return err
 	}
-	_, _, _, err = s.ResolveCredentialReference(ctx, view.Batch.AuthMode, view.Batch.ConnectionID)
+	_, _, ref, err := s.ResolveCredentialReference(ctx, view.Batch.AuthMode, "")
 	if err != nil {
 		return err
+	}
+	if err := s.bindBatchRetryConsent(ctx, &view.Batch, ref); err != nil {
+		return err
+	}
+	resumed := false
+	var resumeErr error
+	for i := range view.Items {
+		item := &view.Items[i]
+		if item.CanRetry && item.ImportID != "" && !canRetryFeishuBatchItem(*item) {
+			if e := s.retryPersonalBatchItem(ctx, &view.Batch, item, ref); e != nil {
+				if resumeErr == nil {
+					resumeErr = e
+				}
+			} else {
+				resumed = true
+			}
+		}
 	}
 	// Explicit retry re-enters live preflight; it never resets a source cursor,
 	// attempts, fences, or a partially published document requiring review.
@@ -435,7 +458,10 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	if result.Error != nil {
 		return result.Error
 	}
-	if result.RowsAffected == 0 {
+	if result.RowsAffected == 0 && !resumed {
+		if resumeErr != nil {
+			return resumeErr
+		}
 		return ErrFeishuBatchNotRetryable
 	}
 	return nil

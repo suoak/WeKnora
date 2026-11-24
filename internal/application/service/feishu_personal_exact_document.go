@@ -66,10 +66,11 @@ func (p *PersonalRecovery) prepareExactPersonalSource(
 }
 
 type personalExactPreflight struct {
-	observed *types.FeishuPersonalAttempt
-	validate func(*gorm.DB, *types.FeishuPersonalAttempt) error
-	closed   bool
-	source   *personalExactDocument
+	observed     *types.FeishuPersonalAttempt
+	validate     func(*gorm.DB, *types.FeishuPersonalAttempt) error
+	closed       bool
+	renewedEpoch string // server-resolved same-account consent; closed preflight only
+	source       *personalExactDocument
 }
 
 // Preflight reuses every source check without creating an execution/serving
@@ -167,8 +168,15 @@ func (p *PersonalRecovery) checkExactPersonalSource(
 		r.ActiveVersionID != a.CandidateVersionID || a.CandidateVersionID != owner.CandidateVersionID) {
 		return nil, errPersonalExactDocument
 	}
+	authorization := *a
+	if preflight && check.renewedEpoch != "" {
+		if !closed {
+			return nil, errPersonalExactDocument
+		}
+		authorization.GrantEpoch = check.renewedEpoch
+	}
 	mark("local_authority")
-	remote, err := p.authorize(ctx, m, a)
+	remote, err := p.authorize(ctx, m, &authorization)
 	if err != nil {
 		return nil, err
 	}
@@ -386,7 +394,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 			knowledge: m.KnowledgeID, kb: m.KBID, tenant: a.CallerTenantID,
 			importID: m.ID, attempt: a.ID, candidate: a.CandidateVersionID,
 			expectedActive: a.ExpectedActiveVersion, resource: file.ID, resourceHandle: handle,
-			manifestSHA256: manifest.Hash, fileSHA256: fileHash, grantEpoch: a.GrantEpoch,
+			manifestSHA256: manifest.Hash, fileSHA256: fileHash, grantEpoch: authorization.GrantEpoch,
 			appVersion: a.AppConfigVersion, connectionIdentity: m.AppID + ":" + m.OpenID,
 			revision: a.Revision, generation: owner.Fence, nonce: owner.OwnerNonce,
 			leaseUntil: leaseUntil, file: data,
@@ -439,7 +447,7 @@ AND (SELECT count(*) FROM resource_bindings all_b WHERE all_b.resource_id=f.id)=
 		// Detect local revocation during remote/file inspection as a preflight
 		// refusal. Claim repeats the locked authority checks transactionally.
 		mark("authority_recheck")
-		if _, err = p.authorize(ctx, m, a); err != nil {
+		if _, err = p.authorize(ctx, m, &authorization); err != nil {
 			return nil, err
 		}
 		check.validate = verify
