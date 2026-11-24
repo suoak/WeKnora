@@ -79,7 +79,7 @@ func (r *knowledgeRepository) BeginKnowledgeDerivedWrite(
 	if !managed {
 		return ctx, false, nil
 	}
-	if r.db.Dialector.Name() != "postgres" {
+	if r.db.Name() != "postgres" {
 		return ctx, true, ErrDerivedWriteRejected
 	}
 	if expectedVersion == "" || expectedVersion != version {
