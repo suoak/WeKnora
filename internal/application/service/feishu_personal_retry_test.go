@@ -107,7 +107,8 @@ func TestPersonalExactExplicitConsentRetainsProtocolAndConsumesNewClaim(t *testi
 
 func TestPersonalExactExplicitConsentRefusesIdentityRevocationAndTampering(t *testing.T) {
 	for _, change := range []string{
-		"other-user", "other-tenant", "machine", "account", "revoked-epoch", "receipt", "live-publication", "membership",
+		"other-user", "other-tenant", "machine", "account",
+		"revoked-epoch", "receipt", "live-publication", "membership",
 	} {
 		t.Run(change, func(t *testing.T) {
 			f, observed := closedExactResumeFixture(t)
@@ -216,7 +217,8 @@ func TestPersonalExactExplicitBatchItemUsesCurrentAuthorization(t *testing.T) {
 	m, _, _, err := f.p.repo.Load(context.Background(), observed.ID)
 	require.NoError(t, err)
 	ctx := personalRetryOwnerContext(m.UserID, observed.CallerTenantID)
-	require.NoError(t, f.db.Exec("UPDATE knowledges SET parse_status='failed' WHERE id=?", observed.LogicalKnowledgeID).Error)
+	failedRow := f.db.Exec("UPDATE knowledges SET parse_status='failed' WHERE id=?", observed.LogicalKnowledgeID)
+	require.NoError(t, failedRow.Error)
 	require.NoError(
 		t,
 		f.db.Exec(

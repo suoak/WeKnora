@@ -411,7 +411,8 @@ func exerciseNativeResumeWithFormat(
 	}
 	if options.ExplicitOwnerRetry {
 		renewed := uuid.NewString()
-		require.NoError(t, f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id='A'").Update("epoch", renewed).Error)
+		grantRow := f.db.Model(&types.FeishuPersonalGrantEpoch{}).Where("user_id='A'")
+		require.NoError(t, grantRow.Update("epoch", renewed).Error)
 		m, _, _, err := f.p.repo.Load(f.ctx, observed.ID)
 		require.NoError(t, err)
 		ref := types.FeishuCredentialRef{
@@ -421,7 +422,8 @@ func exerciseNativeResumeWithFormat(
 		ref.ConnectionID = connectionID(ref.Kind, ref.OwnerID, ref.AppID, ref.OpenID, ref.GrantEpoch)
 		batch := &types.FeishuBatch{
 			ID: "native-owner-retry", OwnerID: m.UserID, TenantID: observed.CallerTenantID,
-			KBID: m.KBID, AuthMode: types.FeishuUserOAuth, ConnectionID: ref.ConnectionID, ConfigVersion: ref.ConfigVersion,
+			KBID: m.KBID, AuthMode: types.FeishuUserOAuth,
+			ConnectionID: ref.ConnectionID, ConfigVersion: ref.ConfigVersion,
 		}
 		require.NoError(t, f.s.retryExactBatchItem(f.ctx, batch, &types.FeishuBatchItem{ImportID: m.ID}, ref))
 	} else {
