@@ -10,7 +10,6 @@ import (
 	"io"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
@@ -170,14 +169,12 @@ func (s *knowledgeService) enrichLegacyImages(ctx context.Context, ds *types.Dat
 				if err := store.Renew(ctx, ds, attempt); err != nil {
 					return nil, err
 				}
-				call, cancel := context.WithTimeout(ctx, 90*time.Second)
+				call, cancel := legacyImageRoundContext(ctx)
 				processor.executeActionRound(call, payload, model, data, eff.VLMConfig, &info, out, plan[i])
+				roundErr := call.Err()
 				cancel()
 				if out["caption_error"] != nil || out["ocr_error"] != nil {
-					if err := ctx.Err(); err != nil {
-						return nil, err
-					}
-					return nil, &feishuStagingRefusal{reason: "image_enrichment_failed"}
+					return nil, legacyImageRoundError(ctx, roundErr)
 				}
 				if err := store.Renew(ctx, ds, attempt); err != nil {
 					return nil, err

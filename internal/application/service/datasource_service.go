@@ -1465,6 +1465,10 @@ func (s *DataSourceService) applyFetchedItem(
 				code = local
 			}
 			message := "Ingest failed; see server logs"
+			if local == "safe_staging_image_enrichment_timeout" {
+				message = "Image processing exceeded the configured model request timeout; " +
+					"retry after checking model capacity"
+			}
 			if local == "safe_staging_empty_parsed_content" {
 				message = "No extractable text; add text or use a parser that supports this document's content"
 			}
