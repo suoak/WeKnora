@@ -1278,6 +1278,11 @@ func (s *DataSourceService) applyFetchedItem(
 	ctx context.Context, ds *types.DataSource, item *types.FetchedItem,
 	tagIDs []string, result *types.SyncResult,
 ) error {
+	if item.Metadata["failure_stage"] == "fetch_document" &&
+		item.Metadata["feishu_error_category"] == "content_refused" &&
+		item.Metadata["error_reason_code"] == "office_encrypted" {
+		return s.rejectEncryptedSyncItem(ctx, ds, item, result, officeguard.NewEncryptedError())
+	}
 	if item.IsDeleted {
 		if safeLegacyIncrementalEnabled() && legacyWikiDrive(ds.Type) {
 			result.Failed++
@@ -1422,22 +1427,7 @@ func (s *DataSourceService) applyFetchedItem(
 			)
 			result.Skipped++
 		case officeguard.IsEncryptedError(err):
-			result.Failed++
-			recordSyncError(result, types.SyncItemError{
-				Title: item.Title, Code: "office_encrypted", Message: officeguard.Message,
-			})
-			if local := feishuDocumentFailureCode(ds, item, err); local != "" {
-				if retainErr := s.retainVerifiedFeishuItem(ctx, ds, item); retainErr != nil {
-					return &dataSourceIngestError{cause: retainErr}
-				}
-				if fenceErr := s.checkSyncExecution(ctx); fenceErr != nil {
-					return fenceErr
-				}
-				return &datasource.DocumentFailureError{Code: local, Cause: err}
-			}
-			// Non-streaming and ordinary connectors count a local rejection and
-			// continue siblings; do not translate it into a deletion or a sweep.
-			return nil
+			return s.rejectEncryptedSyncItem(ctx, ds, item, result, err)
 		case item.Metadata["embedded_image"] == "true":
 			// An image extracted from a document for OCR is a best-effort
 			// enrichment, not the document itself. If the KB cannot ingest it

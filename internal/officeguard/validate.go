@@ -12,6 +12,10 @@ import (
 
 const Message = "该 Office 文件设置了打开密码，无法上传。请在 Office 或 WPS 中移除打开密码后重试。"
 
+func NewEncryptedError() *werrors.AppError {
+	return &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: Message, HTTPCode: http.StatusBadRequest}
+}
+
 func IsEncryptedError(err error) bool {
 	var app *werrors.AppError
 	return errors.As(err, &app) && app.Code == werrors.ErrOfficeEncrypted
@@ -23,7 +27,7 @@ func ValidateBytes(ctx context.Context, data []byte, name string) error {
 
 func Validate(ctx context.Context, r io.ReaderAt, size int64, name string) error {
 	if Detect(ctx, r, size, name) == Encrypted {
-		return &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: Message, HTTPCode: http.StatusBadRequest}
+		return NewEncryptedError()
 	}
 	return ctx.Err()
 }

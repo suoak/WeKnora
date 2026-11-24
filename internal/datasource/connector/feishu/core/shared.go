@@ -17,6 +17,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 )
 
@@ -92,6 +93,9 @@ func feishuErrorCode(raw string) string {
 // Airbyte/Fivetran/Onyx warn against. Transient errors are retried next sync
 // (the cursor is retained); auth/permission errors point at the fix instead.
 func feishuFailure(err error) (code, codeValue, fallback string) {
+	if officeguard.IsEncryptedError(err) {
+		return "office_encrypted", "2400", officeguard.Message
+	}
 	if err == nil {
 		return "sync_failed", "", "Sync failed; will retry on the next sync"
 	}
@@ -171,6 +175,9 @@ func FeishuErrorItemMeta(err error, extra map[string]string) map[string]string {
 		m["feishu_error_category"] = string(classified.Category)
 	} else {
 		m["feishu_error_category"] = "unclassified"
+	}
+	if officeguard.IsEncryptedError(err) {
+		m["feishu_error_category"] = "content_refused"
 	}
 	return m
 }

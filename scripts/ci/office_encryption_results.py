@@ -8,6 +8,7 @@ required = {
     'TestOfficeCreateRejectsBeforeStorageDatabaseAndQueue',
     'TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation',
     'TestOfficeMCPErrorUsesControlledCodeAndMessage',
+    'TestOfficeHTTPMultipartBypassReturns400And2400',
     'TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch',
     'TestOfficePersonalPostgresFirstImportRejectsBeforeManifestOrKnowledge',
     'TestOfficePersonalPostgresEncryptedUpdatePreservesExistingPolicyAndVersion',

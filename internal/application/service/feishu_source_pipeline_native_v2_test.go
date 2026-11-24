@@ -391,7 +391,16 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	calls = modelCalls.Load()
 	revision.Add(60)
 	encryptedSource.Store(true)
-	bound, item = cycle() // the unchanged authenticated source adapter obtains the bytes
+	client := s.client(&core.Config{AppID: "cli_test", AppSecret: "synthetic-only"})
+	resource, parseErr := core.ParsePersonalResourceURL(link)
+	require.NoError(t, parseErr)
+	resource, parseErr = client.ResolveBoundResource(bound, resource)
+	require.NoError(t, parseErr)
+	_, fetchErr := (core.ReferenceLinkOps{}).Fetch(bound, client, resource, "links", false)
+	require.True(t, officeguard.IsEncryptedError(fetchErr), "authorized download rejects before format validation: %v", fetchErr)
+	rejected := *item // also cover a pre-existing queued byte payload independently of the adapter
+	rejected.Content = encryptedBody
+	item = &rejected
 	_, err = ingest.ingestItem(bound, ds, item, nil)
 	require.True(t, officeguard.IsEncryptedError(err))
 	_, err = ks.StageFeishuLegacyItem(bound, ds, item, nil) // direct entry cannot bypass admission
@@ -405,10 +414,15 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	require.ErrorAs(t, handler.Emit(bound, *item), &local)
 	require.Equal(t, "office_encrypted", local.Code)
 	require.Nil(t, handler.ingestErr)
+	refused := types.FetchedItem{ExternalID: item.ExternalID, SourceResourceID: "links", Title: item.Title,
+		Metadata: core.FeishuErrorItemMeta(fetchErr, map[string]string{"failure_stage": "fetch_document"})}
+	require.ErrorAs(t, handler.Emit(bound, refused), &local)
+	require.Equal(t, "office_encrypted", local.Code)
+	require.JSONEq(t, before, snapshot(), "adapter refusals cannot quarantine or delete the old publication")
 	encryptedSource.Store(false)
 	bound, item = cycle()
 	require.NoError(t, handler.Emit(bound, *item))
-	require.Equal(t, 1, result.Failed)
+	require.Equal(t, 2, result.Failed)
 	require.Equal(t, 1, result.Updated)
 	before = snapshot()
 	revision.Add(60)

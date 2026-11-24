@@ -56,9 +56,15 @@ jobs:
           go test -json -tags sqlite_fts5 -p 2 -count=1 \
           ./internal/application/access ./internal/application/service \
           ./internal/mcpserver ./internal/handler ./internal/handler/session \
+          ./internal/datasource/connector/feishu/core \
           -run 'TestOffice|TestPersonalContent|TestPersonalFile|TestClamdScanner|TestCreateKnowledgeFromFile|TestReplaceKnowledgeFile|TestIsolatedPersonal|TestTemporaryDocument|TestAttachment|TestIngestItem|TestFeishuDocument|TestDataSource|TestFeishuPersonalRecoveryPostgres|TestMVPFirstCreate' \
           -timeout 25m | tee evidence/business.jsonl
           python3 scripts/ci/office_encryption_results.py evidence/business.jsonl
+      - name: Complete permission and MCP isolation regression
+        run: |
+          go test -json -tags sqlite_fts5 -p 2 -count=1 \
+            ./internal/application/access ./internal/middleware ./internal/mcpserver \
+            -timeout 15m | tee evidence/permissions.jsonl
       - name: Race regression
         run: |
           go test -json -race -tags sqlite_fts5 -p 2 -count=1 \

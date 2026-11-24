@@ -31,8 +31,10 @@ func (officeHTTPKB) GetKnowledgeBaseByID(context.Context, string) (*types.Knowle
 // controlled incoming identity; this is not deployed JWT/provider acceptance.
 func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	on := true
+	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &on}}
 	kb := officeHTTPKB{}
-	ks, err := service.NewKnowledgeService(&config.Config{}, nil, nil, kb,
+	ks, err := service.NewKnowledgeService(cfg, nil, nil, kb,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	h := &KnowledgeHandler{kgService: ks, kbService: kb}
@@ -54,7 +56,15 @@ func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 		c.Request = c.Request.WithContext(ctx)
 		c.Next()
 	})
-	router.POST("/api/v1/knowledge-bases/:id/knowledge/file", h.CreateKnowledgeFromFile)
+	// Use the production route's ownership and explicit write-grant guards;
+	// a read-only handler resolution must never mint a write grant.
+	router.POST("/api/v1/knowledge-bases/:id/knowledge/file",
+		middleware.RequireOwnershipOrRole(types.TenantRoleAdmin, func(c *gin.Context) (string, error) {
+			row, err := kb.GetKnowledgeBaseByID(c.Request.Context(), c.Param("id"))
+			return row.CreatorID, err
+		}, cfg),
+		middleware.RequireKBAccess(middleware.KBIDFromParam("id"), types.OrgRoleEditor, kb, nil, nil, cfg),
+		h.CreateKnowledgeFromFile)
 	for _, name := range []string{"encrypted.docx", "encrypted.xlsx", "encrypted.pptx", "encrypted.xlsm", "encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt"} {
 		t.Run(name, func(t *testing.T) {
 			data, e := os.ReadFile("../officeguard/testdata/" + name)

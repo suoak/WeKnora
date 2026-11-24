@@ -9,6 +9,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	files "github.com/Tencent/WeKnora/internal/application/service/file"
+	"github.com/Tencent/WeKnora/internal/datasource"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
@@ -58,6 +59,12 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 		require.Equal(t, oldBytes, got)
 	}
 	require.Equal(t, 7, result.Failed)
+	// A download adapter's content refusal cannot be reinterpreted as a tombstone.
+	refused := &types.FetchedItem{ExternalID: "parent#office", IsDeleted: true,
+		Metadata: core.FeishuErrorItemMeta(officeguard.NewEncryptedError(), map[string]string{"failure_stage": "fetch_document"})}
+	require.NoError(t, svc.applyFetchedItem(ctx, ds, refused, nil, result))
+	require.Equal(t, 8, result.Failed)
+	require.JSONEq(t, before, snapshot())
 	require.Zero(t, result.Deleted)
 	require.Zero(t, queue.calls)
 	for _, e := range result.Errors {
@@ -71,6 +78,17 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 	var retrievable int64
 	require.NoError(t, db.Raw(`SELECT count(*) FROM office_retained_index WHERE is_enabled AND to_tsvector('simple',content) @@ plainto_tsquery('simple','retainedcanary')`).Scan(&retrievable).Error)
 	require.EqualValues(t, 1, retrievable)
+	// The same adapter verdict remains document-local on the Feishu streaming
+	// path, without calling the source access-loss/quarantine mechanism.
+	t.Setenv("FEISHU_SAFE_INCREMENTAL_ENABLED", "true")
+	feishuDS := *ds
+	feishuDS.Type = "feishu"
+	refused.IsDeleted = false
+	refused.SourceResourceID = "links"
+	var local *datasource.DocumentFailureError
+	require.ErrorAs(t, svc.applyFetchedItem(ctx, &feishuDS, refused, nil, result), &local)
+	require.Equal(t, "office_encrypted", local.Code)
+	require.JSONEq(t, before, snapshot())
 }
 
 func TestOfficePersonalPostgresFirstImportRejectsBeforeManifestOrKnowledge(t *testing.T) {
