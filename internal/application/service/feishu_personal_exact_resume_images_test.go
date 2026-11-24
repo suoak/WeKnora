@@ -7,6 +7,7 @@ import (
 	"io"
 	"testing"
 
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -102,7 +103,7 @@ VALUES ('ordered-image-chunk',?,?,?,'text',0,?)`,
 }
 
 func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing.T) {
-	for _, change := range []string{"valid", "retained_chunk", "retained_vector", "stale_owner"} {
+	for _, change := range []string{"valid", "retained_chunk", "retained_vector", "stale_owner", "encrypted"} {
 		t.Run(change, func(t *testing.T) {
 			f, a, intent := pendingExactFixture(t)
 			renameExactProtocolFixture(t, f, a, &intent, "image.docx", "docx")
@@ -126,7 +127,13 @@ func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing
 			}
 			files := &exactResumeImageFiles{FileService: f.ks.fileSvc, consumer: consumer}
 			data := []byte("checked image")
+			if change == "encrypted" {
+				data = []byte(officeFixture(t, "encrypted.docx"))
+			}
 			url, err := files.SaveBytes(work, data, 1, "fresh.png", false)
+			if change == "encrypted" {
+				require.True(t, officeguard.IsEncryptedError(err))
+			}
 			if change != "valid" {
 				require.Error(t, err)
 				require.Empty(t, url)
@@ -141,4 +148,14 @@ func TestPersonalExactResumeEmptyImagesRequireCurrentProofAndNoOutput(t *testing
 			require.Equal(t, data, actual)
 		})
 	}
+}
+
+func TestOfficeExactRetainedImageRejectsDisguisedEncryptedBytes(t *testing.T) {
+	files := &exactResumeImageFiles{consumer: &exactPersonalConsumer{
+		source: &personalExactDocument{tenant: 1}, resuming: true,
+	}}
+	// Nil storage/repository dependencies prove no file or resource is adopted.
+	url, err := files.SaveBytes(context.Background(), []byte(officeFixture(t, "encrypted.xlsx")), 1, "image.png", false)
+	require.True(t, officeguard.IsEncryptedError(err))
+	require.Empty(t, url)
 }

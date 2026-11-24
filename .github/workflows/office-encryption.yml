@@ -60,7 +60,7 @@ jobs:
           ./internal/application/access ./internal/application/service \
           ./internal/mcpserver ./internal/handler ./internal/handler/session \
           ./internal/datasource/connector/feishu/core \
-          -run 'TestOffice|TestPersonalContent|TestPersonalFile|TestClamdScanner|TestCreateKnowledgeFromFile|TestReplaceKnowledgeFile|TestIsolatedPersonal|TestTemporaryDocument|TestAttachment|TestIngestItem|TestFeishuDocument|TestDataSource|TestFeishuPersonalRecoveryPostgres|TestMVPFirstCreate' \
+          -run 'TestOffice|TestPersonalContent|TestPersonalFile|TestClamdScanner|TestCreateKnowledgeFromFile|TestReplaceKnowledgeFile|TestIsolatedPersonal|TestTemporaryDocument|TestAttachment|TestIngestItem|TestFeishuDocument|TestDataSource|TestFeishuPersonalRecoveryPostgres|TestMVPFirstCreate|TestPersonalExactResume' \
           -timeout 25m | tee evidence/business.jsonl
           python3 scripts/ci/office_encryption_results.py evidence/business.jsonl
       - name: Complete permission and MCP isolation regression

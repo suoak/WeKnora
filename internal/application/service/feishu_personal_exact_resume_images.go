@@ -9,6 +9,7 @@ import (
 	"io"
 	"sort"
 
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 )
@@ -43,7 +44,13 @@ func (f *exactResumeImageFiles) SaveBytes(
 		if _, err := f.consumer.recovery.revalidateExactPersonalDocument(ctx, f.consumer.source); err != nil {
 			return "", err
 		}
+		if err := officeguard.ValidateBytes(ctx, data, name); err != nil {
+			return "", err
+		}
 		return f.FileService.SaveBytes(ctx, data, tenant, name, false)
+	}
+	if err := officeguard.ValidateBytes(ctx, data, name); err != nil {
+		return "", err
 	}
 	proof := f.consumer.source
 	digest := sha256.Sum256(data)
