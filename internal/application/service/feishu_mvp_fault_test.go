@@ -276,6 +276,10 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	f.ks.redisClient = rdb
 	restarted := restartKnowledgeServiceForTest(t, f.ks)
 	require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
+	queued, err := inspector.GetTaskInfo(types.QueueDefault, op.DedupKey)
+	require.NoError(t, err, "recovery must leave the original durable task in the actual queue")
+	require.Equal(t, op.TaskType, queued.Type)
+	t.Logf("recovered queue=%s task=%s state=%s next=%s", queued.Queue, queued.ID, queued.State, queued.NextProcessAt)
 	var received atomic.Bool
 	server := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: addr},
