@@ -643,6 +643,9 @@ func (r *knowledgeRepository) UpdateKnowledgeColumn(
 	if _, _, _, scoped := types.ExactDocumentIdentity(ctx); scoped {
 		return r.UpdateKnowledgeColumns(ctx, id, map[string]interface{}{column: value})
 	}
+	if handled, err := r.writeKnowledgeDerived(ctx, id, map[string]interface{}{column: value}); handled {
+		return err
+	}
 	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Update(column, value).Error
 }
 
@@ -680,6 +683,10 @@ func (r *knowledgeRepository) UpdateKnowledgeColumns(
 				Where("id = ? AND tenant_id = ? AND knowledge_base_id = ?", id, tenant, kb).Updates(values).Error
 		})
 	}
+	if handled, err := r.writeKnowledgeDerived(ctx, id, values); handled {
+		return err
+	}
+
 	return r.db.WithContext(ctx).Model(&types.Knowledge{}).Where("id = ?", id).Updates(values).Error
 }
 

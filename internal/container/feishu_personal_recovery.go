@@ -27,6 +27,7 @@ func configurePersonalRecovery(
 ) error {
 	if ds, ok := dataSources.(*service.DataSourceService); ok {
 		ds.SetFeishuIdentityService(personal)
+		service.ConfigureFeishuDerivedWrites(knowledge, ds)
 		if err := housekeeping.SetSourceDocumentReparseRecovery(ds.RecoverSourceDocumentReparses); err != nil {
 			return err
 		}

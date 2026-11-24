@@ -425,6 +425,8 @@ type QuestionGenerationPayload struct {
 
 // SummaryGenerationPayload represents the summary generation task payload
 type SummaryGenerationPayload struct {
+	// SourceVersion binds managed-source jobs to the publication observed at enqueue.
+	SourceVersion string `json:"source_version,omitempty"`
 	TracingContext
 	TenantID        uint64 `json:"tenant_id"`
 	KnowledgeBaseID string `json:"knowledge_base_id"`

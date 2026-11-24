@@ -156,6 +156,11 @@ func enqueueSummaryRefresh(
 		tracker = noopSpanTracker{}
 	}
 	language := types.LanguageFromContextOrDefault(ctx)
+	version, managed, versionErr := knowledgeDerivedVersion(ctx, repo, knowledge.ID)
+	if versionErr != nil {
+		return versionErr
+	}
+
 	payload := types.SummaryGenerationPayload{
 		TenantID:        knowledge.TenantID,
 		KnowledgeBaseID: knowledge.KnowledgeBaseID,
@@ -163,6 +168,7 @@ func enqueueSummaryRefresh(
 		Language:        language,
 		Attempt:         tracker.LatestAttempt(ctx, knowledge.ID),
 		Refresh:         true,
+		SourceVersion:   version,
 	}
 	langfuse.InjectTracing(ctx, &payload)
 	payloadBytes, err := json.Marshal(payload)
@@ -172,7 +178,9 @@ func enqueueSummaryRefresh(
 	}
 	task := asynq.NewTask(types.TypeSummaryGeneration, payloadBytes,
 		asynq.Queue(types.QueueSummary), asynq.MaxRetry(3), asynq.Timeout(30*time.Minute))
-	_ = repo.UpdateKnowledgeColumn(ctx, knowledge.ID, "summary_status", types.SummaryStatusPending)
+	if !managed {
+		_ = repo.UpdateKnowledgeColumn(ctx, knowledge.ID, "summary_status", types.SummaryStatusPending)
+	}
 	if _, err = taskEnqueuer.Enqueue(task); err != nil {
 		markFailed()
 		return err
@@ -187,6 +195,10 @@ func (s *knowledgeService) RequestKnowledgeSummaryRefresh(
 ) error {
 	tenantID := types.MustTenantIDFromContext(ctx)
 	knowledge, err := s.repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
+	if err != nil {
+		return err
+	}
+	ctx, _, err = s.beginDerivedSummary(ctx, knowledge.ID, knowledge.TenantID)
 	if err != nil {
 		return err
 	}
