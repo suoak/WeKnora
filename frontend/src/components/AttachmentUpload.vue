@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { inspectOffice, officeEncryptedMessage } from '@/utils/officeEncryption';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { useI18n } from 'vue-i18n';
 import { MAX_FILE_SIZE_MB } from '@/utils';
@@ -114,6 +115,11 @@ const addFiles = async (files: File[]) => {
       continue;
     }
     
+    if (await inspectOffice(file) === 'encrypted') {
+      MessagePlugin.error(`${file.name}：${officeEncryptedMessage}`);
+      continue;
+    }
+    if (disposed) return;
     const attachment: AttachmentFile = {
       file,
       id: `${Date.now()}-${Math.random()}`,

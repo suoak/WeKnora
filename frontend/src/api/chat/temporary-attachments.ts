@@ -1,4 +1,5 @@
 import { del, get, getDown, postUpload } from '@/utils/request';
+import { assertOfficeUploadable } from '@/utils/officeEncryption';
 
 export type TemporaryAttachmentStatus = 'uploaded' | 'processing' | 'ready' | 'failed';
 
@@ -22,7 +23,7 @@ interface AttachmentResponse {
   data: TemporaryAttachment;
 }
 
-export function uploadTemporaryAttachment(
+export async function uploadTemporaryAttachment(
   sessionId: string,
   file: File,
   agentId?: string,
@@ -30,6 +31,7 @@ export function uploadTemporaryAttachment(
   parserEngine?: string,
   onProgress?: (percent: number) => void,
 ): Promise<AttachmentResponse> {
+  await assertOfficeUploadable(file);
   const form = new FormData();
   form.append('file', file);
   if (agentId) form.append('agent_id', agentId);

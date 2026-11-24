@@ -1,0 +1,53 @@
+name: Office encryption validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  linux:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Check format
+        run: git diff --check
+      - name: Detector regression and fuzz
+        run: |
+          go test -count=1 ./internal/officeguard
+          go test ./internal/officeguard -fuzz FuzzDetect -fuzztime 15s -parallel 2
+      - name: Upload admission and security regression
+        run: >-
+          go test -tags sqlite_fts5 -p 2 -count=1
+          ./internal/application/access ./internal/application/service
+          ./internal/mcpserver ./internal/handler ./internal/handler/session
+          -run 'TestOffice|TestPersonalContent|TestPersonalFile|TestClamdScanner|TestCreateKnowledgeFromFile|TestReplaceKnowledgeFile|TestIsolatedPersonal|TestTemporaryDocument|TestAttachment'
+      - name: Race regression
+        run: >-
+          go test -race -tags sqlite_fts5 -p 2 -count=1
+          ./internal/officeguard ./internal/application/service ./internal/mcpserver
+          -run 'TestOffice|TestPersonalContent|TestFixtures|TestVendorFixtures'
+      - name: Frontend dependencies
+        working-directory: frontend
+        run: npm ci
+      - name: Browser dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+      - name: Frontend and browser regression
+        working-directory: frontend
+        run: |
+          node node_modules/tsx/dist/cli.mjs --test src/utils/officeEncryption.test.ts src/stores/uploadQueue.test.ts src/views/knowledge/components/UploadConfirmDialog.test.ts
+          node tests/office-encryption/browser.mjs
+          npm run type-check
+          npm run build

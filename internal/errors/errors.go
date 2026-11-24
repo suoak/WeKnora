@@ -49,6 +49,9 @@ const (
 	// parsing the backwards-compatible English error message.
 	ErrModelInUse ErrorCode = 2300
 
+	// Office opening-password encryption; HTTP and MCP share this stable code.
+	ErrOfficeEncrypted ErrorCode = 2400
+
 	// Add more error codes here
 )
 

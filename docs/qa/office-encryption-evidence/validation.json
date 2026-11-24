@@ -1,0 +1,20 @@
+{
+  "status": "development_candidate_not_accepted",
+  "fork_main": "50f82ae496d78238c0af7332739e7a9d3a49dbb1",
+  "upstream_main": "71c32af9273482e0dad013d0e3bea2f4d719516c",
+  "go_version": "go1.26.11 windows/amd64",
+  "node_version": "v22.22.1",
+  "frontend_tests": { "command": "node node_modules/tsx/dist/cli.mjs --test src/utils/officeEncryption.test.ts src/stores/uploadQueue.test.ts src/views/knowledge/components/UploadConfirmDialog.test.ts", "exit_code": 0, "passed": 58, "failed": 0 },
+  "detector_tests": { "command": "go test ./internal/officeguard -v -bench BenchmarkDetect -benchmem", "exit_code": 0 },
+  "local_fuzz": { "command": "go test ./internal/officeguard -fuzz FuzzDetect -fuzztime 10s -parallel 2", "exit_code": 0, "executions": 132173, "workers": 2 },
+  "browser": { "command": "node tests/office-encryption/browser.mjs", "exit_code": 0, "network": "API calls intercepted; no deployed backend or external writes" },
+  "typecheck": { "command": "node node_modules/vue-tsc/bin/vue-tsc.js --noEmit -p tsconfig.app.json", "exit_code": 0, "stdout": "empty" },
+  "frontend_build": { "command": "node node_modules/vite/bin/vite.js build", "exit_code": 0, "duration": "2m 58s", "warnings": "large chunks" },
+  "native_business_tests": { "status": "not_passed", "initial_error": "MinGW/DuckDB: cannot find -lrstrtmgr", "retry": "Local SDK linker-path retry did not complete; stopped. No business test pass claimed." },
+  "full_test_environment_acceptance": "not_run_environment_not_identified",
+  "real_wps_acceptance": "not_run",
+  "sync_lifecycle_review": "pending",
+  "pr": "not_created",
+  "main_merge": "not_performed",
+  "production_deployment": "not_performed"
+}

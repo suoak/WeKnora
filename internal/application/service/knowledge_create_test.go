@@ -370,5 +370,6 @@ func newMultipartFileHeader(t *testing.T, filename string, content string) *mult
 	req := httptest.NewRequest("POST", "/", &body)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
 	require.NoError(t, req.ParseMultipartForm(1024))
+	t.Cleanup(func() { _ = req.MultipartForm.RemoveAll() })
 	return req.MultipartForm.File["file"][0]
 }

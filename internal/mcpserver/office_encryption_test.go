@@ -1,0 +1,19 @@
+package mcpserver
+
+import (
+	"context"
+	werrors "github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/officeguard"
+	"github.com/mark3labs/mcp-go/mcp"
+	"github.com/stretchr/testify/require"
+	"testing"
+)
+
+func TestOfficeMCPErrorUsesControlledCodeAndMessage(t *testing.T) {
+	result := contentFailure(context.Background(), &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: "private path must not leak"}, "generic")
+	require.True(t, result.IsError)
+	require.Len(t, result.Content, 1)
+	msg := result.Content[0].(mcp.TextContent).Text
+	require.Equal(t, "OFFICE_ENCRYPTED (2400): "+officeguard.Message, msg)
+	require.Equal(t, map[string]any{"error": map[string]any{"code": 2400, "message": officeguard.Message}}, result.StructuredContent)
+}

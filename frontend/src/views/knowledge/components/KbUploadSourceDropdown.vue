@@ -71,6 +71,7 @@ import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import { AddIcon, FileAddIcon, UploadIcon, FolderAddIcon, LinkIcon, EditIcon } from 'tdesign-icons-vue-next'
 import { MAX_FILE_SIZE_MB } from '@/utils/uploadLimits'
+import { preflightOfficeFiles, officeEncryptedMessage } from '@/utils/officeEncryption'
 import { isFeishuDocumentURL } from '@/api/feishuPersonal'
 import { feishuMessages } from '@/i18n/feishuPersonal'
 import {
@@ -193,7 +194,7 @@ const notifyFilterResult = (result: ReturnType<typeof filterUploadFiles>) => {
   return validFiles.length > 0
 }
 
-const handleFilesChange = (event: Event, fromFolder: boolean) => {
+const handleFilesChange = async (event: Event, fromFolder: boolean) => {
   const input = event.target as HTMLInputElement
   const files = input.files
   if (!files || files.length === 0) return
@@ -208,8 +209,10 @@ const handleFilesChange = (event: Event, fromFolder: boolean) => {
     return
   }
 
-  emit('files', result.validFiles)
   input.value = ''
+  const checked = await preflightOfficeFiles(result.validFiles)
+  if (checked.rejected.length) MessagePlugin.error(`已跳过 ${checked.rejected.length} 个加密文件（${checked.rejected.slice(0, 3).map(f => f.name).join('、')}）。${officeEncryptedMessage}`)
+  if (checked.accepted.length) emit('files', checked.accepted)
 }
 
 const handleUrlDialogConfirm = () => {

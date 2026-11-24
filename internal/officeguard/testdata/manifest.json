@@ -1,0 +1,137 @@
+[
+  {
+    "name": "normal.docx",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.docx",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "normal.xlsx",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.xlsx",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "normal.xlsm",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.xlsm",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "normal.pptx",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.pptx",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "modify-protected.docx",
+    "state": "protected",
+    "frontend": "protected"
+  },
+  {
+    "name": "sheet-protected.xlsx",
+    "state": "protected",
+    "frontend": "protected"
+  },
+  {
+    "name": "normal.doc",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.doc",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "modify-protected.doc",
+    "state": "protected",
+    "frontend": "protected"
+  },
+  {
+    "name": "xor.doc",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "normal.xls",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.xls",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "sheet-protected.xls",
+    "state": "protected",
+    "frontend": "protected"
+  },
+  {
+    "name": "normal.ppt",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "encrypted.ppt",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "disguised.txt",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "wps-ooxml.docx",
+    "state": "encrypted",
+    "frontend": "encrypted"
+  },
+  {
+    "name": "unknown.wps",
+    "state": "unknown",
+    "frontend": "unknown"
+  },
+  {
+    "name": "broken.docx",
+    "state": "invalid",
+    "frontend": "invalid"
+  },
+  {
+    "name": "header-only.xls",
+    "state": "invalid",
+    "frontend": "invalid"
+  },
+  {
+    "name": "unknown-ole.doc",
+    "state": "unknown",
+    "frontend": "unknown"
+  },
+  {
+    "name": "cycle.doc",
+    "state": "invalid",
+    "frontend": "invalid"
+  },
+  {
+    "name": "spoof-names.docx",
+    "state": "unknown",
+    "frontend": "unknown"
+  }
+]

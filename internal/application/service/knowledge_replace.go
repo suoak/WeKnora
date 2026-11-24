@@ -9,6 +9,7 @@ import (
 
 	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -103,6 +104,9 @@ func (s *knowledgeService) ReplaceKnowledgeFile(ctx context.Context,
 
 	if err := ValidateJSONUploadContent(safeFileName, file); err != nil {
 		logger.Errorf(ctx, "Invalid JSON replacement content for knowledge %s: %v", existing.ID, err)
+		return nil, err
+	}
+	if err := officeguard.ValidateFile(ctx, file); err != nil {
 		return nil, err
 	}
 

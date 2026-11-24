@@ -12,6 +12,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/common"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -82,6 +83,9 @@ func (p *AttachmentProcessor) ProcessAttachment(
 	}
 
 	uniqueFileName := fmt.Sprintf("attachment_%s%s", uuid.New().String()[:12], ext)
+	if err := officeguard.Validate(ctx, bytes.NewReader(data), int64(len(data)), baseName); err != nil {
+		return nil, err
+	}
 
 	storageURL, err := p.fileService.SaveBytes(ctx, data, tenantID, uniqueFileName, false)
 	if err != nil {

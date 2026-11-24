@@ -6,6 +6,8 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	werrors "github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/mark3labs/mcp-go/mcp"
 )
 
@@ -16,6 +18,14 @@ type (
 
 // Classify the original cause without retaining sensitive business error text.
 func contentFailure(ctx context.Context, cause error, message string) *mcp.CallToolResult {
+	var appErr *werrors.AppError
+	if errors.As(cause, &appErr) && appErr.Code == werrors.ErrOfficeEncrypted {
+		result := usageFailure(ctx, "invalid_arguments", "OFFICE_ENCRYPTED (2400): "+officeguard.Message)
+		result.StructuredContent = map[string]any{"error": map[string]any{
+			"code": int(werrors.ErrOfficeEncrypted), "message": officeguard.Message,
+		}}
+		return result
+	}
 	code := "execution_error"
 	var timeout interface{ Timeout() bool }
 	switch {

@@ -17,6 +17,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -110,6 +111,12 @@ func (s *knowledgeService) CreateKnowledgeFromFile(
 	// deleted the previous knowledge for this external_id, and IM swallows
 	// create errors — an early 400 would drop the document with no failed row.
 
+	// Keep password detection after authorization and before hashing, storage,
+	// duplicate-row updates, creation or task admission. Sync lifecycle changes
+	// need the separate review in docs/qa/office-encryption-sync-review.md.
+	if err := officeguard.ValidateFile(ctx, file); err != nil {
+		return nil, err
+	}
 	// Calculate file hash for deduplication
 	logger.Info(ctx, "Calculating file hash")
 	hash, err := calculateFileHash(file)
