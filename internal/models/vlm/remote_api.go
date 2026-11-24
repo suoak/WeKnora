@@ -42,6 +42,10 @@ func vlmHTTPTimeout() time.Duration {
 	return defaultTimeout
 }
 
+// RequestTimeout returns the configured VLM request budget. Callers can share
+// this finite budget without silently shortening the provider's own timeout.
+func RequestTimeout() time.Duration { return vlmHTTPTimeout() }
+
 // RemoteAPIVLM implements VLM on top of the catalog-driven chat client: a
 // vision call is a chat call whose user turn carries images, so the vendor
 // dialect (max_tokens field, sampling restrictions, protocol) is resolved

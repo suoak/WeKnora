@@ -346,7 +346,7 @@ func (s *ImageMultimodalService) processImage(
 	plan := selectImageActionRounds(payload)
 	for i := 0; i < len(plan); i++ {
 		round := plan[i]
-		s.executeActionRound(ctx, payload, vlmModel, imgBytes, vlmCfg, &imageInfo, out, round)
+		_ = s.executeActionRound(ctx, payload, vlmModel, imgBytes, vlmCfg, &imageInfo, out, round)
 		// Result processor: only an observation round feeds the OCR decision.
 		if round.Contains(types.ActionObservation) {
 			ocrWanted := payload.EnableOCR && DecideOCR(imageInfo.Attrs, payload.ImageActions)
@@ -496,7 +496,7 @@ func (s *ImageMultimodalService) runImageOCR(
 	imageInfo *types.ImageInfo,
 	out types.JSONMap,
 	vlmCfg types.VLMConfig,
-) {
+) error {
 	// The OCR prompt is system-owned: knowledge base custom instructions must
 	// never reach it, or free-form business rules compete with the "No text
 	// content" contract and poison image_ocr chunks. buildVLMOCRPrompt picks
@@ -513,7 +513,7 @@ func (s *ImageMultimodalService) runImageOCR(
 	if ocrErr != nil {
 		logger.Warnf(ctx, "[ImageMultimodal] OCR failed for %s: %v", payload.ImageURL, ocrErr)
 		out["ocr_error"] = ocrErr.Error()
-		return
+		return ocrErr
 	}
 	ocrText = sanitizeOCRText(ocrText)
 	if ocrText != "" {
@@ -525,6 +525,7 @@ func (s *ImageMultimodalService) runImageOCR(
 		out["ocr_chars"] = 0
 		out["ocr_skipped"] = "empty_or_invalid"
 	}
+	return nil
 }
 
 // shouldDropOrphanedMultimodal reports whether the task should exit without
