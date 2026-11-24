@@ -143,6 +143,7 @@ func TestFeishuV2PostgresPersonalAcquisitionReadmissionRejectsUnsafeOutput(t *te
 			case "historical_output":
 				prior := *attempt
 				prior.ID = "historical-attempt"
+				prior.Revision = "historical-revision"
 				prior.Status = "obsolete"
 				prior.LogicalKnowledgeID = "historical-output"
 				prior.CandidateVersionID = "historical-candidate"
