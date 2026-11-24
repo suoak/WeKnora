@@ -72,6 +72,11 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	failureTenant = a.CallerTenantID
 	value := a.UpdatedAt
 	item.LastActivityAt = &value
+	if item.Status == "pending" && item.RetryCount > 0 && s.recovery.firstCreateOnly &&
+		canRetryPersonalAcquisition(m, &a) {
+		item.Stage, item.ErrorCategory, item.CanRetry = "retry_wait", "", false
+		return nil
+	}
 	item.LeaseActive = item.LeaseActive || a.LeaseUntil != nil && a.LeaseUntil.After(time.Now())
 	item.Stage = "preparing"
 	if a.Status == "processing" {
@@ -88,7 +93,8 @@ func (s *FeishuPersonalService) batchItemProgress(ctx context.Context, item *typ
 	}
 	if a.Status == "needs_attention" || m.Status == "needs_attention" {
 		item.Status, item.Stage = "failed", "needs_attention"
-		item.CanRetry = s.recovery.canResumePersonalExact(&a)
+		item.CanRetry = s.recovery.canResumePersonalExact(&a) ||
+			(s.recovery.firstCreateOnly && item.RetryCount < 3 && canRetryPersonalAcquisition(m, &a))
 	}
 	if m.KnowledgeID != "" {
 		// Progress is protocol metadata, not a document read. The owner and KB

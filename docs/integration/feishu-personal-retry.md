@@ -7,6 +7,12 @@ The history page's existing batch retry endpoint handles two distinct actions:
   an explicit owner request can update the old batch's credential reference.
   Existing imports must still match the owner, app, account and destination;
   missing import records or concurrent batch changes reject the transition.
+  A source-acquisition failure before document creation can re-enter the same
+  preflight/Prepare path only after proving there are no knowledge rows, chunks,
+  vectors, file bindings, legacy enrollments or publication receipts. Its original
+  source-acquisition intent must match exactly. Only the batch admission is queued;
+  attempts, counters and grants are not reset by this action. Pending readmission
+  is displayed as queued rather than as an unhandled terminal failure.
 - Eligible retained personal executions use the existing exact resume protocol:
   original attempt, knowledge, file, receipt and dispatch identities; cumulative
   execution budget; current source/file proof; a new consumer SQL Claim; and

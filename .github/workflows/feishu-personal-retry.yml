@@ -48,7 +48,7 @@ jobs:
       - name: Explicit owner consent and original protocol race regressions
         run: >-
           go test -race -p 2 -tags sqlite_fts5 ./internal/application/service
-          -run '^TestPersonalExactExplicit|^TestFeishuV2PostgresBatchRetryUsesFreshSameAccountConsent$|^TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim$|^TestFeishuBatchRetryPolicy|^TestFeishuV2PostgresRetryRejectsNoop$'
+          -run '^TestPersonalExactExplicit|^TestFeishuV2PostgresPersonalAcquisitionReadmission|^TestFeishuV2PostgresBatchRetryUsesFreshSameAccountConsent$|^TestPersonalExactResumeRetainsOriginalIdentityAndConsumesNewClaim$|^TestFeishuBatchRetryPolicy|^TestFeishuV2PostgresRetryRejectsNoop$'
           -count=1 -timeout=12m
       - name: Vet retry and persistence packages
         run: >-

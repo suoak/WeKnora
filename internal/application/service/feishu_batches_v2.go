@@ -420,7 +420,7 @@ func (s *FeishuPersonalService) RetryBatch(ctx context.Context, id string) error
 	for i := range view.Items {
 		item := &view.Items[i]
 		if item.CanRetry && item.ImportID != "" && !canRetryFeishuBatchItem(*item) {
-			if e := s.retryExactBatchItem(ctx, &view.Batch, item, ref); e != nil {
+			if e := s.retryPersonalBatchItem(ctx, &view.Batch, item, ref); e != nil {
 				if resumeErr == nil {
 					resumeErr = e
 				}
