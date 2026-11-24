@@ -53,5 +53,8 @@ func (t Transport) tripHTTP(g *Guard, req *http.Request, resp *http.Response) {
 	})
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	_ = g.tripUsingEvidence(ctx, g.client, fmt.Sprintf("%s_http_%d", family, resp.StatusCode), string(evidence))
+	reason := fmt.Sprintf("%s_http_%d", family, resp.StatusCode)
+	if !g.recordProviderFailure(ctx, reason, string(evidence)) {
+		_ = g.tripUsingEvidence(ctx, g.client, reason, string(evidence))
+	}
 }

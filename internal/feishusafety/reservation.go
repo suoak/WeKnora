@@ -69,7 +69,9 @@ func EmbeddingResultFailed(ctx context.Context, reason string) {
 	if g == nil || g.localClosed.Load() {
 		return
 	}
-	trip(g, reason)
+	if !g.recordProviderFailure(ctx, reason, "") {
+		trip(g, reason)
+	}
 }
 
 // ReserveEmbedding waits BEFORE the SDK/http.Client request timeout begins.
@@ -206,8 +208,7 @@ func WaitEmbeddingRetry(ctx context.Context, retryAfter string, attempt int, wai
 		return err
 	}
 	if attempt >= 2 {
-		trip(g, "embedding_429_retries_exhausted")
-		return ErrClosed
+		return providerRetryFailure(ctx, g, "embedding_429_retries_exhausted")
 	}
 	delay := (time.Second << attempt) + time.Duration(rand.Int64N(int64(100*time.Millisecond)))
 	if retryAfter != "" {
@@ -221,21 +222,19 @@ func WaitEmbeddingRetry(ctx context.Context, retryAfter string, attempt int, wai
 		} else if date, err := http.ParseTime(retryAfter); err == nil {
 			after = time.Until(date)
 		} else {
-			trip(g, "embedding_retry_after_unknown")
-			return ErrClosed
+			return providerRetryFailure(ctx, g, "embedding_retry_after_unknown")
 		}
 		if after > delay {
 			delay = after
 		}
 	}
 	if *waited+delay > 30*time.Second {
-		trip(g, "embedding_retry_wait_exceeded")
-		return ErrClosed
+		return providerRetryFailure(ctx, g, "embedding_retry_wait_exceeded")
 	}
 	*waited += delay
 	if err := waitPermit(ctx, g, delay); err != nil {
 		if ctx.Err() == nil && !errors.Is(err, ErrSourceAdmissionChanged) {
-			trip(g, "embedding_retry_state_unavailable")
+			_ = providerRetryFailure(ctx, g, "embedding_retry_state_unavailable")
 		}
 		return err
 	}
