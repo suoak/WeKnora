@@ -285,7 +285,7 @@ func (s *Scheduler) triggerSyncContext(ctx context.Context, dataSourceID string,
 	_, err = s.taskEnqueuer.Enqueue(task,
 		asynq.Queue(queueName),
 		asynq.MaxRetry(5),
-		asynq.Timeout(2*time.Hour),
+		asynq.Timeout(SyncTaskTimeout(dataSourceID)),
 		asynq.TaskID(taskID),
 	)
 	if err != nil {
