@@ -1,0 +1,95 @@
+name: Office production Bookworm native release
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/office-production-4257]
+    paths: [.github/workflows/office-bookworm.yml]
+permissions:
+  contents: read
+env:
+  SOURCE_SHA: 4257ca6c5507ea8ad5f5cae1a1740baf5b93ac22
+jobs:
+  bookworm:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: office-disposable-only
+          POSTGRES_DB: office_release_check
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd 'pg_isready -U postgres -d office_release_check'
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Assert main source and original production recipe
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p package
+          git rev-parse HEAD > package/source-sha.txt
+          sha256sum docker/Dockerfile.app.knowhub-release > package/recipe.sha256
+      - uses: docker/setup-buildx-action@v4
+      - name: Build native binary in the production Bookworm toolchain
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.app.knowhub-release
+          platforms: linux/amd64
+          target: builder
+          push: false
+          load: true
+          tags: knowhub-office-bookworm-builder:4257ca6c5507
+          build-args: |
+            WITH_ANYDOC=1
+            VERSION_ARG=office-guard-production
+            COMMIT_ID_ARG=${{ env.SOURCE_SHA }}
+            REVISION_ARG=${{ env.SOURCE_SHA }}
+            GO_VERSION_ARG=1.26.7
+            APT_MIRROR_ARG=deb.debian.org
+            GOPROXY_ARG=https://proxy.golang.org,direct
+          cache-from: type=gha,scope=resilience-anydoc-app-amd64
+          cache-to: type=gha,scope=office-production-bookworm,mode=max
+      - name: Verify native runtime and repeat admission and SQL regression
+        run: |
+          set -euo pipefail
+          docker run --rm --network host --add-host knowhub-p1-dispatch-redis-20261018:127.0.0.1 \
+            -v "$PWD/package:/evidence" \
+            -e CGO_ENABLED=1 -e GOMAXPROCS=2 \
+            -e SYNC_EXECUTION_POSTGRES_DSN='postgres://postgres:office-disposable-only@127.0.0.1:5432/office_release_check?sslmode=disable' \
+            -e REQUIRE_SYNC_EXECUTION_POSTGRES=1 \
+            -e FEISHU_P0_REDIS_ADDR=127.0.0.1:6379 \
+            -e FEISHU_DISPATCH_REDIS_ADDR=knowhub-p1-dispatch-redis-20261018:6379 \
+            --entrypoint bash knowhub-office-bookworm-builder:4257ca6c5507 -c '
+              set -euo pipefail
+              go version > /evidence/toolchain.txt
+              rustc --version >> /evidence/toolchain.txt
+              ldd --version >> /evidence/toolchain.txt
+              ldd /app/WeKnora | tee /evidence/linkage.txt
+              ! grep "not found" /evidence/linkage.txt
+              go version -m /app/WeKnora > /evidence/binary-build-info.txt
+              cp /app/WeKnora /evidence/WeKnora
+              sha256sum /app/WeKnora > /evidence/binary.sha256
+              sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a > /evidence/native.sha256
+              go test -json -count=1 -tags anydoc,sqlite_fts5 -p 2 \
+                ./internal/officeguard ./internal/infrastructure/docparser/anydoc \
+                ./internal/application/service ./internal/handler ./internal/mcpserver \
+                -run "TestOffice|TestFixtures|TestVendorFixtures|TestConvert" -timeout 25m | tee /evidence/tests.jsonl
+              python3 scripts/ci/office_encryption_results.py /evidence/tests.jsonl
+            '
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-bookworm-4257ca6c5507
+          path: package/
+          compression-level: 0
+          retention-days: 14
