@@ -117,7 +117,8 @@ func (m *RecoveryManager) refreshFrozenRecovery(
 	state, _ := json.Marshal(recoveryMode{
 		ObservationPlanSHA256: old.ObservationPlanSHA256,
 		ObservationRootSHA256: old.ObservationRootSHA256,
-		QueueName:             q.name, Version: 1, RuntimeSHA: p.AppSHA, WorkerID: p.WorkerID, Incarnation: p.Incarnation,
+		QueueName:             q.name, Version: 1, RuntimeSHA: p.AppSHA,
+		WorkerID: p.WorkerID, Incarnation: p.Incarnation,
 		ControllerFingerprint: p.ControllerFingerprint, MembershipRevision: p.MembershipRevision,
 		PlanID: p.PlanID, PlanSHA256: hash, SourceID: facts.SourceID, ConfigSHA256: facts.ConfigSHA256,
 		FactsSHA256: facts.FactsSHA256, Phase: "frozen", ExpiresMS: p.ExpiresMS,

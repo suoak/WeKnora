@@ -44,14 +44,16 @@ func TestObservationPostgresRevocationSurvivesReloadAndRedisFailure(t *testing.T
 			require.NoError(t, json.Unmarshal(setting.Value, &persisted))
 			require.False(t, persisted.Active)
 			var histories int64
-			require.NoError(t, db.Model(&types.SystemSetting{}).Where("key LIKE ?", NormalServiceSetting+".history.%").Count(&histories).Error)
+			require.NoError(t, db.Model(&types.SystemSetting{}).
+				Where("key LIKE ?", NormalServiceSetting+".history.%").Count(&histories).Error)
 			require.EqualValues(t, 1, histories)
 			if failure {
 				client := redis.NewClient(f.r.Options())
 				t.Cleanup(func() { _ = client.Close() })
 				f.c.Client = client
 			}
-			reloaded, err := NewRecoveryManager(f.c, ed25519.NewKeyFromSeed(f.key).Public().(ed25519.PublicKey), f.m.facts)
+			public := ed25519.NewKeyFromSeed(f.key).Public().(ed25519.PublicKey)
+			reloaded, err := NewRecoveryManager(f.c, public, f.m.facts)
 			require.NoError(t, err)
 			require.NoError(t, reloaded.ConfigureNormalService(f.load, store, &persisted))
 			active, err := reloaded.NormalServiceActive(ctx)

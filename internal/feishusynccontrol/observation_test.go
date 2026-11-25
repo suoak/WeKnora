@@ -89,7 +89,10 @@ func TestObservationCanaryRequiresSecondSignatureAndKeepsOtherSourcesClosed(t *t
 }
 
 func TestObservationStateLossAndRootChangesFailClosed(t *testing.T) {
-	for _, fault := range []string{"marker_missing", "mode_missing", "mode_invalid", "mode_wrong_type", "unknown_phase", "marker_wrong_type", "marker_changed", "root_missing", "root_reactivated", "root_wrong_type", "canceled"} {
+	for _, fault := range []string{
+		"marker_missing", "mode_missing", "mode_invalid", "mode_wrong_type", "unknown_phase",
+		"marker_wrong_type", "marker_changed", "root_missing", "root_reactivated", "root_wrong_type", "canceled",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			f := observationFixture(t)
 			ctx := context.Background()
@@ -166,7 +169,8 @@ func TestObservationRejectsNonemptyDedicatedLaneWithoutRemovingTasks(t *testing.
 	trip := f.r.Get(ctx, f.c.prefix+"trip").Val()
 	_, err := f.m.Plan(ctx, f.ids[0], "operator")
 	require.Error(t, err)
-	require.Equal(t, []string{"retained-historical-task"}, f.r.LRange(ctx, "asynq:{approved_sync}:pending", 0, -1).Val())
+	pending := f.r.LRange(ctx, "asynq:{approved_sync}:pending", 0, -1).Val()
+	require.Equal(t, []string{"retained-historical-task"}, pending)
 	require.Equal(t, trip, f.r.Get(ctx, f.c.prefix+"trip").Val())
 	require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
 }

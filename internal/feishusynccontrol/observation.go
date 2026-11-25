@@ -21,7 +21,8 @@ func (m *RecoveryManager) observationBarrier(ctx context.Context) (bool, error) 
 	values, err := readObservation.Run(ctx, m.controller.Client, []string{
 		m.controller.prefix + "observation_required",
 		m.controller.prefix + "recovery",
-		m.controller.prefix + "recovery_required"}).Slice()
+		m.controller.prefix + "recovery_required",
+	}).Slice()
 	if err != nil {
 		return true, err
 	}
@@ -44,7 +45,8 @@ func (m *RecoveryManager) observationBarrier(ctx context.Context) (bool, error) 
 		return true, ErrRecoveryRejected
 	}
 	validPhase := state.Version == 1 && state.Steady == nil &&
-		(state.Phase == "frozen" || state.Phase == "admit" || state.Phase == "running" || state.Phase == "awaiting_review")
+		(state.Phase == "frozen" || state.Phase == "admit" ||
+			state.Phase == "running" || state.Phase == "awaiting_review")
 	validPhase = validPhase || (state.Version == 2 && state.Steady != nil && state.Phase == "approved_sources")
 	if !validPhase || !recoverySHA.MatchString(state.ObservationRootSHA256) {
 		return true, ErrRecoveryRejected
