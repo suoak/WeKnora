@@ -13,12 +13,12 @@ permissions:
   actions: read
 env:
   SOURCE_SHA: 8e0242c4dc4de826dbba09aaf43496370d2fb3eb
-  DOCREADER_SHA: bb3e85d1214a3b390b360742d48c3c5f7e75b439
+  DOCREADER_SHA: 6047feab2f09db44eea25425b9138973416d340e
 jobs:
   full-app:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
-    timeout-minutes: 75
+    timeout-minutes: 90
     env:
       QUALIFICATION_ROOT: ${{ runner.temp }}/knowhub-pr267-${{ github.run_id }}
     steps:
@@ -51,7 +51,7 @@ jobs:
           run=os.environ['NATIVE_RUN'];assert run.isdigit()
           req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+run,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
           with urllib.request.urlopen(req,timeout=30) as response:meta=json.load(response)
-          assert meta['conclusion']=='success' and meta['path']=='.github/workflows/consumer-native-build.yml'
+          assert meta['path']=='.github/workflows/consumer-native-build.yml' and (meta['status']!='completed' or meta['conclusion']=='success')
           mem={k:int(v.split()[0]) for k,v in (x.split(':',1) for x in pathlib.Path('/proc/meminfo').read_text().splitlines())}
           stat=os.statvfs(os.environ['RUNNER_TEMP']);assert stat.f_bavail*stat.f_frsize>20*1024**3
           assert mem['MemAvailable']>5*1024**2
@@ -59,6 +59,41 @@ jobs:
           PY
           sudo apt-get update -qq
           sudo apt-get install -y python3-cryptography
+      - uses: docker/setup-buildx-action@v4
+      - name: Build real DocReader and pull isolated dependencies
+        run: |
+          set -euo pipefail
+          docker pull paradedb/paradedb@sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
+          docker pull redis:7.0.15
+          docker pull clamav/clamav:stable
+          test "$(git -C docreader-source rev-parse HEAD)" = "$DOCREADER_SHA"
+          docker buildx build --load --platform linux/amd64 \
+            -f docreader-source/docker/Dockerfile.docreader \
+            --label org.opencontainers.image.revision="$DOCREADER_SHA" \
+            --cache-from type=gha,scope=consumer-native-docreader \
+            --cache-to type=gha,scope=consumer-native-docreader,mode=max \
+            -t "knowhub-pr267-docreader:$DOCREADER_SHA" docreader-source
+          docker buildx stop
+      - name: Wait for successful final native artifact
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NATIVE_RUN: ${{ inputs.native_run_id }}
+        run: |
+          python3 - <<'PY'
+          import os,json,pathlib,urllib.request,time
+          deadline=time.monotonic()+1800
+          while time.monotonic()<deadline:
+            request=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+os.environ['NATIVE_RUN'],headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+            with urllib.request.urlopen(request,timeout=30) as response:meta=json.load(response)
+            assert meta['path']=='.github/workflows/consumer-native-build.yml'
+            if meta['status']=='completed':
+              assert meta['conclusion']=='success','Final native build did not pass'
+              pathlib.Path('evidence/native-upstream.json').write_text(json.dumps({'run_id':meta['id'],'workflow_sha':meta['head_sha'],'conclusion':meta['conclusion'],'source_sha':os.environ['SOURCE_SHA']}))
+              break
+            print(json.dumps({'native_upstream_status':meta['status'],'source_sha':os.environ['SOURCE_SHA']}),flush=True)
+            time.sleep(30)
+          else:raise RuntimeError('Final native artifact not ready within bounded wait')
+          PY
       - uses: actions/download-artifact@v5
         with:
           name: consumer-native-${{ env.SOURCE_SHA }}
@@ -78,21 +113,6 @@ jobs:
           image="$(cat native/image-id.txt)"
           test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$SOURCE_SHA"
           rm native/app-image.tar.gz
-      - uses: docker/setup-buildx-action@v4
-      - name: Build real DocReader and pull isolated dependencies
-        run: |
-          set -euo pipefail
-          docker pull paradedb/paradedb@sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
-          docker pull redis:7.0.15
-          docker pull clamav/clamav:stable
-          test "$(git -C docreader-source rev-parse HEAD)" = "$DOCREADER_SHA"
-          docker buildx build --load --platform linux/amd64 \
-            -f docreader-source/docker/Dockerfile.docreader \
-            --label org.opencontainers.image.revision="$DOCREADER_SHA" \
-            --cache-from type=gha,scope=consumer-native-docreader \
-            --cache-to type=gha,scope=consumer-native-docreader,mode=max \
-            -t "knowhub-pr267-docreader:$DOCREADER_SHA" docreader-source
-          docker buildx stop
       - name: Prepare fresh identities and isolated complete stack
         run: |
           set -euo pipefail
@@ -127,7 +147,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pr267-full-app-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          name: pr267-full-app-${{ env.SOURCE_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
             evidence/full-app-report.json
             evidence/full-app-failure.json
