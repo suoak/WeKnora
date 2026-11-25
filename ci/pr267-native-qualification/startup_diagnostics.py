@@ -1,5 +1,7 @@
 """Export bounded startup classifications, never complete container logs or Env."""
 import hashlib,json,os,pathlib,re,subprocess
+from denial_classifier import classify,self_test
+self_test()
 root=pathlib.Path(os.environ['QUALIFICATION_ROOT']);project='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];out=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';out.mkdir(exist_ok=True)
 report={'source_sha':os.environ['SOURCE_SHA'],'scope':'disposable_own_project','raw_logs_exported':False}
 try:
@@ -19,15 +21,9 @@ try:
   classes=[]
   for label,terms in {'recovery_manager_configuration_rejected':['recovery approval configuration invalid'],'invalid_feishu_safety_configuration':['invalid_feishu_safety_configuration'],'approved_lane_startup_refused':['approved sync lane','panic'],'filesystem_permission_denied':['permission denied'],'database_authentication_failed':['password authentication failed'],'native_dictionary_asset_error':['jieba','no such file'],'memory_allocation_failure':['out of memory']}.items():
    if any(all(v.lower() in line.lower() for v in terms) for line in text.splitlines()):classes.append(label)
-  denied=[line for line in text.splitlines() if 'permission denied' in line.lower()]
-  known_api_denials={
-   'knowledge_base_access_denied':'permission denied to access this knowledge base',
-   'knowledge_access_denied':'permission denied to access this knowledge',
-  }
-  denial_counts={name:sum(phrase in line.lower() for line in denied) for name,phrase in known_api_denials.items()}
-  unknown=[line for line in denied if not any(phrase in line.lower() for phrase in known_api_denials.values())]
-  if denied and not unknown:classes.remove('filesystem_permission_denied')
-  report['permission_denial_classification']={'known_api_denial_counts':denial_counts,'unknown_denial_count':len(unknown),'unknown_line_sha256':[hashlib.sha256(line.encode()).hexdigest() for line in unknown[:4]],'free_text_exported':False}
+  denials=classify(text)
+  if denials['permission_total'] and denials['api_expected_denial']==denials['permission_total']:classes.remove('filesystem_permission_denied')
+  report['permission_denial_classification']=denials
   report['startup_classes']=classes
   report['panic_present']='panic:' in text
   report['stack_source_frames']=re.findall(r'github.com/Tencent/WeKnora/[A-Za-z0-9_./*(){}-]+',text)[-12:]
