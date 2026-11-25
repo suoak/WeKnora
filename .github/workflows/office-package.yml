@@ -1,0 +1,127 @@
+name: Office isolated test images
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/office-guard-package-runner]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+env:
+  CANDIDATE_SHA: 4ffd7442da82675bba2b63f3f0dfe31995712070
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 65
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ci/office-guard-package-source
+      - run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.11'
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            third_party/anydoc-go/target
+            third_party/anydoc-go/patched-anydoc
+          key: feishu-v2-native-v1-${{ runner.os }}-${{ runner.arch }}-rust1.99.1-audit0.22.2-${{ hashFiles('third_party/anydoc-go/Cargo.lock', 'third_party/anydoc-go/Cargo.toml', 'third_party/anydoc-go/build.rs', 'third_party/anydoc-go/src/**', 'third_party/anydoc-go/include/**', 'scripts/build-anydoc-lib.sh') }}
+      - name: Build exact candidate with native parser
+        run: |
+          mkdir -p package/runtime
+          git rev-parse HEAD | tee package/source-sha.txt
+          go mod verify | tee package/go-mod-verify.txt
+          bash scripts/build-anydoc-lib.sh 2>&1 | tee package/native-build.txt
+          sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a | tee package/native.sha256
+          export VERSION=office-guard-isolated-test COMMIT_ID="$CANDIDATE_SHA"
+          export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" GO_VERSION="$(go version)"
+          make build-prod GO_BUILD_TAGS=anydoc,sqlite_fts5 2>&1 | tee package/app-build.txt
+          go version -m WeKnora | tee package/binary-build-info.txt
+          sha256sum WeKnora | tee package/binary.sha256
+          cp WeKnora package/runtime/
+          cp -a config scripts migrations dataset package/runtime/
+      - name: Package compatible runtime and verify linkage
+        run: |
+          docker pull debian:trixie-slim
+          BASE="$(docker image inspect debian:trixie-slim --format '{{index .RepoDigests 0}}')"
+          printf '%s\n' "$BASE" > package/runtime-base.txt
+          cat > package/runtime/Dockerfile <<EOF
+          FROM $BASE
+          RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates tzdata libstdc++6 libgomp1 libsqlite3-0 curl bash gosu passwd python3 postgresql-client && rm -rf /var/lib/apt/lists/*
+          RUN groupadd -g 1000 appuser && useradd -u 1000 -g appuser -m -s /bin/bash appuser && mkdir -p /data/files /data/feishu-staging && chown -R appuser:appuser /data
+          WORKDIR /app
+          COPY WeKnora /app/WeKnora
+          COPY config /app/config
+          COPY scripts /app/scripts
+          COPY migrations /app/migrations
+          COPY dataset /app/dataset
+          RUN chmod +x /app/WeKnora /app/scripts/docker-entrypoint.sh
+          LABEL org.opencontainers.image.revision="$CANDIDATE_SHA" knowhub.environment="isolated-office-test"
+          ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
+          CMD ["/app/WeKnora"]
+          EOF
+          IMAGE="knowhub-office-guard-test/app:$CANDIDATE_SHA"
+          docker build -t "$IMAGE" package/runtime 2>&1 | tee package/image-build.txt
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'ldd /app/WeKnora && ! ldd /app/WeKnora | grep "not found"' | tee package/linkage.txt
+          docker image inspect "$IMAGE" --format '{{.Id}}' > package/image-id.txt
+          docker save "$IMAGE" | gzip -1 > package/app-image.tar.gz
+          sha256sum package/app-image.tar.gz > package/app-image.tar.gz.sha256
+          rm -rf package/runtime
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-app-4ffd7442d
+          path: package/
+          retention-days: 14
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ci/office-guard-package-source
+      - name: Build exact frontend from pinned repository Dockerfile
+        run: |
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          mkdir -p package
+          git rev-parse HEAD > package/source-sha.txt
+          sha256sum frontend/Dockerfile > package/dockerfile.sha256
+          IMAGE="knowhub-office-guard-test/frontend:$CANDIDATE_SHA"
+          docker build --build-arg VITE_FRONTEND_COMMIT="$CANDIDATE_SHA" -t "$IMAGE" frontend 2>&1 | tee package/image-build.txt
+          docker image inspect "$IMAGE" --format '{{.Id}}' > package/image-id.txt
+          docker save "$IMAGE" | gzip -1 > package/frontend-image.tar.gz
+          sha256sum package/frontend-image.tar.gz > package/frontend-image.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-frontend-4ffd7442d
+          path: package/
+          retention-days: 14
+  scanner:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Pin and package real antivirus service
+        run: |
+          mkdir -p package
+          docker pull clamav/clamav:stable 2>&1 | tee package/pull.txt
+          docker image inspect clamav/clamav:stable --format '{{.Id}}' > package/image-id.txt
+          docker image inspect clamav/clamav:stable --format '{{json .RepoDigests}}' > package/repo-digests.json
+          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:4ffd7442d
+          docker save knowhub-office-guard-test/scanner:4ffd7442d | gzip -1 > package/scanner-image.tar.gz
+          sha256sum package/scanner-image.tar.gz > package/scanner-image.tar.gz.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-scanner-4ffd7442d
+          path: package/
+          retention-days: 14
