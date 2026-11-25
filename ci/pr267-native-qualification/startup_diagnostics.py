@@ -16,7 +16,7 @@ try:
   logs=subprocess.run(['docker','logs','--tail','300',app['Id']],capture_output=True,timeout=15);text=(logs.stdout+logs.stderr).decode(errors='replace')[-1000000:]
   classes=[]
   for label,terms in {'recovery_manager_configuration_rejected':['recovery approval configuration invalid'],'invalid_feishu_safety_configuration':['invalid_feishu_safety_configuration'],'approved_lane_startup_refused':['approved sync lane','panic'],'filesystem_permission_denied':['permission denied'],'database_authentication_failed':['password authentication failed'],'native_dictionary_asset_error':['jieba','no such file'],'memory_allocation_failure':['out of memory']}.items():
-   if all(v.lower() in text.lower() for v in terms):classes.append(label)
+   if any(all(v.lower() in line.lower() for v in terms) for line in text.splitlines()):classes.append(label)
   report['startup_classes']=classes
   report['panic_present']='panic:' in text
   report['stack_source_frames']=re.findall(r'github.com/Tencent/WeKnora/[A-Za-z0-9_./*(){}-]+',text)[-12:]
