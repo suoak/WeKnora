@@ -108,6 +108,10 @@ jobs:
           root=pathlib.Path('native');assert (root/'source-sha.txt').read_text().strip()==os.environ['SOURCE_SHA']
           digest=hashlib.file_digest((root/'app-image.tar.gz').open('rb'),'sha256').hexdigest()
           assert digest==(root/'archive.sha256').read_text().split()[0]
+          import json
+          evidence=pathlib.Path('evidence/native-upstream.json');record=json.loads(evidence.read_text())
+          record.update({'app_archive_sha256':digest,'app_image_id':(root/'image-id.txt').read_text().strip(),'source_tree':(root/'source-tree.txt').read_text().strip()})
+          evidence.write_text(json.dumps(record))
           PY
           docker load -i native/app-image.tar.gz
           image="$(cat native/image-id.txt)"
