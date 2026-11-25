@@ -1,0 +1,130 @@
+name: PR267 full native APP isolated qualification
+on:
+  push:
+    branches: [ci/consumer-wiki-native-release-20261125]
+    paths: [.github/workflows/consumer-native-app.yml, ci/pr267-native-qualification/**]
+  workflow_dispatch:
+    inputs:
+      native_run_id:
+        description: Successful exact-source Consumer Wiki Bookworm native qualification run
+        required: true
+permissions:
+  contents: read
+  actions: read
+env:
+  SOURCE_SHA: e866d539adf3acaf52a7a1b5e81289f32df30613
+jobs:
+  full-app:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    env:
+      QUALIFICATION_ROOT: ${{ runner.temp }}/knowhub-pr267-${{ github.run_id }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+          path: source
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+          sparse-checkout: ci/pr267-native-qualification
+          path: qualification
+      - name: Validate upstream run and runner resources
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NATIVE_RUN: ${{ inputs.native_run_id }}
+        run: |
+          set -euo pipefail
+          test "$(git -C source rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir evidence
+          python3 - <<'PY'
+          import os,json,pathlib,urllib.request
+          run=os.environ['NATIVE_RUN'];assert run.isdigit()
+          req=urllib.request.Request('https://api.github.com/repos/'+os.environ['GITHUB_REPOSITORY']+'/actions/runs/'+run,headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json'})
+          with urllib.request.urlopen(req,timeout=30) as response:meta=json.load(response)
+          assert meta['conclusion']=='success' and meta['path']=='.github/workflows/consumer-native-build.yml'
+          mem={k:int(v.split()[0]) for k,v in (x.split(':',1) for x in pathlib.Path('/proc/meminfo').read_text().splitlines())}
+          stat=os.statvfs(os.environ['RUNNER_TEMP']);assert stat.f_bavail*stat.f_frsize>20*1024**3
+          assert mem['MemAvailable']>5*1024**2
+          pathlib.Path('evidence/native-upstream.json').write_text(json.dumps({'run_id':int(run),'workflow_sha':meta['head_sha'],'conclusion':meta['conclusion'],'source_sha':os.environ['SOURCE_SHA'],'available_memory_kib':mem['MemAvailable'],'available_disk_bytes':stat.f_bavail*stat.f_frsize}))
+          PY
+          sudo apt-get update -qq
+          sudo apt-get install -y python3-cryptography
+      - uses: actions/download-artifact@v5
+        with:
+          name: consumer-native-${{ env.SOURCE_SHA }}
+          path: native
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ inputs.native_run_id }}
+      - name: Load and verify exact native APP image
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import pathlib,hashlib,os
+          root=pathlib.Path('native');assert (root/'source-sha.txt').read_text().strip()==os.environ['SOURCE_SHA']
+          digest=hashlib.file_digest((root/'app-image.tar.gz').open('rb'),'sha256').hexdigest()
+          assert digest==(root/'archive.sha256').read_text().split()[0]
+          PY
+          docker load -i native/app-image.tar.gz
+          image="$(cat native/image-id.txt)"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$SOURCE_SHA"
+      - uses: docker/setup-buildx-action@v4
+      - name: Build real DocReader and pull isolated dependencies
+        run: |
+          set -euo pipefail
+          docker pull paradedb/paradedb@sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
+          docker pull redis:7.0.15
+          docker pull clamav/clamav:stable
+          docker buildx build --load --platform linux/amd64 \
+            -f source/docker/Dockerfile.docreader \
+            --label org.opencontainers.image.revision="$SOURCE_SHA" \
+            --cache-from type=gha,scope=consumer-native-docreader \
+            --cache-to type=gha,scope=consumer-native-docreader,mode=max \
+            -t "knowhub-pr267-docreader:$SOURCE_SHA" source
+          docker buildx stop
+      - name: Prepare fresh identities and isolated complete stack
+        run: |
+          set -euo pipefail
+          python3 qualification/ci/pr267-native-qualification/prepare.py "$(cat native/image-id.txt)"
+          cp qualification/ci/pr267-native-qualification/model-fixture.py "$QUALIFICATION_ROOT/model-fixture.py"
+          chmod 644 "$QUALIFICATION_ROOT/model-fixture.py"
+          python3 - <<'PY'
+          import pathlib,os,zipfile
+          root=pathlib.Path(os.environ['QUALIFICATION_ROOT'])
+          with zipfile.ZipFile(root/'normal.docx','w',zipfile.ZIP_DEFLATED) as z:
+            z.writestr('[Content_Types].xml','<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>')
+            z.writestr('_rels/.rels','<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>')
+            z.writestr('word/document.xml','<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>Nativecanary qualification. Real native Office parsing preserves isolated worker safety and indexed source retrieval.</w:t></w:r></w:p></w:body></w:document>')
+          PY
+          docker compose -p "knowhub-pr267-$GITHUB_RUN_ID" -f "$QUALIFICATION_ROOT/compose.json" config --quiet
+          docker compose -p "knowhub-pr267-$GITHUB_RUN_ID" -f "$QUALIFICATION_ROOT/compose.json" up -d --no-build --pull never --wait --wait-timeout 300
+      - name: Real authenticated APP MCP Wiki and worker qualification
+        run: |
+          set -euo pipefail
+          python3 qualification/ci/pr267-native-qualification/acceptance.py
+          python3 qualification/ci/pr267-native-qualification/probe.py
+      - name: Whitelist safe evidence only
+        if: always()
+        env:
+          FINAL_JOB_STATUS: ${{ job.status }}
+        run: |
+          python3 - <<'PY'
+          import json,pathlib,os
+          out=pathlib.Path('evidence');out.mkdir(exist_ok=True)
+          (out/'workflow-result.json').write_text(json.dumps({'source_sha':os.environ['SOURCE_SHA'],'status_before_evidence':os.environ['FINAL_JOB_STATUS'],'production_changes':False,'private_config_or_accounts_uploaded':False,'signed_recovery_success':'NOT_RUN'}))
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: pr267-full-app-${{ env.SOURCE_SHA }}-${{ github.run_id }}
+          path: |
+            evidence/full-app-report.json
+            evidence/full-app-failure.json
+            evidence/dependency-images.json
+            evidence/native-upstream.json
+            evidence/workflow-result.json
+          if-no-files-found: error
+          retention-days: 14
