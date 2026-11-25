@@ -293,8 +293,19 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	loggedMapPar := 0
 	loggedReducePar := 0
 	loggedMaxInflight := 0
+	// Fixed stage timings contain no model input, SQL or document data.
+	// These observations never change scheduling or error handling.
+	stage := "prepare"
+	stageStarted := taskStartedAt
+	stageTimes := make(map[string]time.Duration, 7)
+	advanceStage := func(next string) {
+		now := time.Now()
+		stageTimes[stage] += now.Sub(stageStarted)
+		stage, stageStarted = next, now
+	}
 
 	defer func() {
+		advanceStage("done")
 		if retErr != nil && exitStatus == "success" {
 			exitStatus = "failed"
 		}
@@ -304,7 +315,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 				"elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) "+
 				"ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) "+
 				"followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,"+
-				"max_inflight=%d) preview=%s",
+				"max_inflight=%d) stages_ms(prepare=%d,map=%d,taxonomy=%d,reduce=%d,postprocess=%d,settle=%d,followup=%d) preview=%s",
 			payload.KnowledgeBaseID,
 			payload.TenantID,
 			retryCount,
@@ -324,6 +335,13 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 			loggedMapPar,
 			loggedReducePar,
 			loggedMaxInflight,
+			stageTimes["prepare"].Milliseconds(),
+			stageTimes["map"].Milliseconds(),
+			stageTimes["taxonomy"].Milliseconds(),
+			stageTimes["reduce"].Milliseconds(),
+			stageTimes["postprocess"].Milliseconds(),
+			stageTimes["settle"].Milliseconds(),
+			stageTimes["followup"].Milliseconds(),
 			previewStringSlice(docPreview, 6),
 		)
 	}()
@@ -628,6 +646,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	}
 	batchCtx := s.newWikiBatchContext(payload.KnowledgeBaseID, wikiConfig)
 
+	advanceStage("map")
 	// 1. MAP PHASE (Parallel extraction and generation of updates)
 	var mapMu sync.Mutex
 	var failedOps []WikiPendingOp
@@ -801,6 +820,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		})
 	}
 	_ = eg.Wait()
+	advanceStage("taxonomy")
 
 	// Re-read identity claims after every map worker has chosen a slug so
 	// concurrent romanizations of the same title collapse before taxonomy
@@ -815,6 +835,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	batchCtx.PlannedFolderID = s.resolvePlannedFolders(ctx, kb,
 		s.planBatchTaxonomy(ctx, chatModel, kb, slugUpdates, lang))
 
+	advanceStage("reduce")
 	// 2. REDUCE PHASE (Parallel upserting grouped by Slug)
 	egReduce, reduceCtx := errgroup.WithContext(ctx)
 	egReduce.SetLimit(reduceParallel) // Reduce phase limit (LLM + DB concurrent connections, configurable)
@@ -947,6 +968,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		})
 	}
 	_ = egReduce.Wait()
+	advanceStage("postprocess")
 
 	tailCtx, tailCancel := wikiIngestPostProcessContext(ctx, len(allPagesAffected))
 	defer tailCancel()
@@ -1159,6 +1181,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 			failedIDSet[op.dbID] = struct{}{}
 		}
 	}
+	advanceStage("settle")
 	trimIDs := make([]int64, 0, len(peekedIDs))
 	for _, id := range peekedIDs {
 		if _, fail := failedIDSet[id]; fail {
@@ -1195,6 +1218,7 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 		len(allPagesAffected),
 	)
 
+	advanceStage("followup")
 	// Pace the follow-up: on a rate-limit trip, back off so the per-minute
 	// window can reset instead of retrying the failed docs immediately.
 	followUpDelay := wikiFollowUpDelay

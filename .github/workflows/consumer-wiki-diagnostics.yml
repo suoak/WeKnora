@@ -8,6 +8,7 @@ on:
     paths:
       - internal/feishusynccontrol/**
       - internal/application/service/wiki_ownership*
+      - internal/application/service/wiki_small_batch_claim_test.go
       - internal/application/service/wiki_ingest_batch.go
       - internal/container/feishu_sync_control.go
       - .github/workflows/consumer-wiki-diagnostics.yml
@@ -40,6 +41,7 @@ jobs:
       FEISHU_RECOVERY_REAL_REDIS_ADDR: knowhub-recovery-redis-abcdef123456:6379
       SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:disposable-diagnostics-only@localhost:5432/diagnostics_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+      WIKI_BATCH_TEST_REDIS_ADDR: localhost:6379
     defaults:
       run:
         shell: bash
