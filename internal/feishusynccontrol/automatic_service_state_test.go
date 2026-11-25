@@ -38,7 +38,10 @@ func TestSystemServiceStableIdentityWindow(t *testing.T) {
 }
 
 func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
-	for _, fault := range []string{"none", "membership", "metadata", "lease", "trip", "old-work", "audit", "incarnation"} {
+	for _, fault := range []string{
+		"none", "membership", "metadata", "lease", "trip", "old-work", "audit", "incarnation",
+		"operator-stop", "unknown-stop", "consumer-lost-stop",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()
 			server := miniredis.RunT(t)
@@ -50,20 +53,32 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 				"asynq:servers", prefix + "trip", prefix + "system_service", prefix + "normal_service",
 				prefix + "recovery", prefix + "observation", prefix + "inflight",
 				"asynq:{approved_sync}:active", "asynq:{sync}:active", prefix + "system_journal",
+				prefix + "audit", prefix + "control_audit", prefix + "recovery_required", prefix + "permit",
 			}
-			metadataKey := "asynq:servers:{test:1:disposable}"
+			serverID := uuid.NewString()
+			metadataKey := "asynq:servers:{test:1:" + serverID + "}"
+			workerValue := "0123456789012345678901234567890123456789012345678901234567890123:" + uuid.NewString()
 			now, err := client.Time(ctx).Result()
 			require.NoError(t, err)
-			require.NoError(t, client.HSet(ctx, keys[0], "test:1", "fp:inc").Err())
+			require.NoError(t, client.HSet(ctx, keys[0], "test:1", workerValue).Err())
 			require.NoError(t, client.ZAdd(ctx, keys[1], redis.Z{Member: "test:1", Score: float64(now.Add(time.Second).UnixMilli())}).Err())
 			require.NoError(t, client.Set(ctx, keys[2], "7", 0).Err())
 			require.NoError(t, client.Set(ctx, metadataKey, "private-protobuf-not-exported", 10*time.Second).Err())
 			require.NoError(t, client.ZAdd(ctx, keys[4], redis.Z{Member: metadataKey, Score: float64(now.Add(10 * time.Second).Unix())}).Err())
 			reason := "automatic_asynq_consumer_consumer_absent"
+			switch fault {
+			case "operator-stop":
+				reason = "operator_emergency_stop"
+			case "unknown-stop":
+				reason = "unknown_new_failure"
+			case "consumer-lost-stop":
+				reason = "automatic_permit_consumer_lost"
+			}
 			require.NoError(t, client.Set(ctx, keys[5], reason, 0).Err())
 			proof := systemHealthProof{
-				WorkerID: "test:1", WorkerValue: "fp:inc", MembershipRevision: "7",
-				Metadata: map[string]string{metadataKey: redisCASDigest("private-protobuf-not-exported")},
+				WorkerID: "test:1", WorkerValue: workerValue, MembershipRevision: "7",
+				ConsumerServerIDs: []string{serverID},
+				Metadata:          map[string]string{metadataKey: redisCASDigest("private-protobuf-not-exported")},
 			}
 			args, err := systemProofArgs(proof)
 			require.NoError(t, err)
@@ -74,7 +89,8 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 			}
 			raw, err := json.Marshal(state)
 			require.NoError(t, err)
-			args = append(args, reason, "", "", "", "", string(raw), "sql-receipt-digest", `{"original_audit_id":"retained"}`)
+			args = append(args, reason, "", "", "", "", string(raw), "sql-receipt-digest",
+				`{"original_audit_id":"retained"}`, "", "", "")
 			switch fault {
 			case "membership":
 				require.NoError(t, client.Set(ctx, keys[2], "8", 0).Err())

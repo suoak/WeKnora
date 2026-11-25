@@ -72,6 +72,7 @@ type Guard struct {
 	dependencySuspended      atomic.Bool
 	providerFailureIsolation atomic.Bool
 	recoveryRequired         atomic.Bool
+	automaticServiceRequired atomic.Bool
 	approvedSourceValidator  atomic.Pointer[approvedSourceValidator]
 }
 
@@ -134,8 +135,9 @@ end
 local raw=redis.call('GET',KEYS[3])
 local required=redis.call('GET',KEYS[4])
 local normal=false
+` + automaticServiceGateLua(8, 9, 10, 11, 12, 2, 3, 4, 5, 6, 8, 9) + `
 local normalraw=redis.call('GET',KEYS[6])
-if normalraw then
+if normalraw and not normal then
  local n=cjson.decode(normalraw)
  local registered=redis.call('HGET',KEYS[7],ARGV[2])
  if n.active==true and n.authorization.id==ARGV[3] and n.authorization.guard_fingerprint==ARGV[1] and
@@ -216,10 +218,15 @@ func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
 			g.key("steady_health"),
 			g.key("normal_service"),
 			g.key("normal_sources"),
+			g.key("system_service"),
+			g.key("system_sources"),
+			g.key("workers"),
+			g.key("leases"),
+			g.key("membership_revision"),
 		},
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
-		g.recoveryRequired.Load(), validated).Err(); err != nil {
+		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load()).Err(); err != nil {
 		return fmt.Errorf("%w: %v", ErrClosed, err)
 	}
 	return nil
@@ -319,8 +326,9 @@ end
 local raw=redis.call('GET',KEYS[5])
 local required=redis.call('GET',KEYS[6])
 local normal=false
+` + automaticServiceGateLua(10, 11, 12, 13, 14, 8, 9, 10, 11, 12, 14, 15) + `
 local normalraw=redis.call('GET',KEYS[8])
-if normalraw then
+if normalraw and not normal then
  local n=cjson.decode(normalraw)
  local registered=redis.call('HGET',KEYS[9],ARGV[8])
  if n.active==true and n.authorization.id==ARGV[9] and n.authorization.guard_fingerprint==ARGV[1] and
@@ -401,6 +409,11 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 			g.key("steady_health"),
 			g.key("normal_service"),
 			g.key("normal_sources"),
+			g.key("system_service"),
+			g.key("system_sources"),
+			g.key("workers"),
+			g.key("leases"),
+			g.key("membership_revision"),
 		},
 		g.fingerprint,
 		g.config.InFlight,
@@ -414,7 +427,7 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 		identity.Config,
 		identity.Run,
 		identity.Generation,
-		g.recoveryRequired.Load(), validated,
+		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load(),
 	).
 		Err()
 	if err != nil {

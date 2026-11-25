@@ -77,6 +77,7 @@ func (g *Guard) Fresh() (*Guard, error) {
 	fresh, err := New(g.client, g.config)
 	if err == nil {
 		fresh.approvedSourceValidator.Store(g.approvedSourceValidator.Load())
+		fresh.automaticServiceRequired.Store(g.automaticServiceRequired.Load())
 	}
 	return fresh, err
 }

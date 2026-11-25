@@ -7,6 +7,8 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,6 +27,7 @@ type systemServiceState struct {
 	WorkerID           string `json:"worker_id"`
 	WorkerValue        string `json:"worker_value"`
 	MembershipRevision string `json:"membership_revision"`
+	ConsumerServerID   string `json:"consumer_server_id"`
 	GuardFingerprint   string `json:"guard_fingerprint"`
 	Phase              string `json:"phase"`
 	CanarySourceID     string `json:"canary_source_id"`
@@ -90,8 +93,8 @@ func redisCASDigest(raw string) string {
 func automaticServiceRecoverableTrip(reason string) bool {
 	switch reason {
 	case "automatic_asynq_consumer_consumer_absent",
-		"automatic_redis_ping_redis_error", "automatic_redis_ping_deadline",
-		"automatic_asynq_inspection_redis_error", "automatic_asynq_inspection_deadline":
+		"automatic_redis_ping_redis_timeout", "automatic_redis_ping_context_deadline",
+		"automatic_asynq_inspection_redis_timeout", "automatic_asynq_inspection_context_deadline":
 		return true
 	default:
 		return false
@@ -124,6 +127,10 @@ if count<1 or count>32 then return redis.error_reply('SYSTEM_CONSUMER_PROOF_INVA
 // original trip evidence and previous policy fingerprints are retained in an
 // UNTRIMMED journal; existing incident records are not rewritten or deleted.
 var migrateSystemService = redis.NewScript(systemHealthLua + `
+local recoverable={automatic_asynq_consumer_consumer_absent=true,
+ automatic_redis_ping_redis_timeout=true,automatic_redis_ping_context_deadline=true,
+ automatic_asynq_inspection_redis_timeout=true,automatic_asynq_inspection_context_deadline=true}
+if ARGV[5]~='' and not recoverable[ARGV[5]] then return redis.error_reply('SYSTEM_STOP_NOT_RECOVERABLE') end
 if (redis.call('GET',KEYS[6]) or '')~=ARGV[5] or
  (redis.call('GET',KEYS[7]) or '')~=ARGV[6] or
  (redis.call('GET',KEYS[8]) or '')~=ARGV[7] or
@@ -131,7 +138,13 @@ if (redis.call('GET',KEYS[6]) or '')~=ARGV[5] or
  (redis.call('GET',KEYS[10]) or '')~=ARGV[9] then
  return redis.error_reply('SYSTEM_MIGRATION_SNAPSHOT_CHANGED') end
 if redis.call('HLEN',KEYS[11])~=0 or redis.call('LLEN',KEYS[12])~=0 or
- redis.call('LLEN',KEYS[13])~=0 then return redis.error_reply('SYSTEM_OLD_WORK_NOT_QUIESCENT') end
+ redis.call('LLEN',KEYS[13])~=0 or redis.call('EXISTS',KEYS[18])~=0 then
+ return redis.error_reply('SYSTEM_OLD_WORK_NOT_QUIESCENT') end
+local guard=redis.call('XREVRANGE',KEYS[15],'+','-','COUNT',1)
+local control=redis.call('XREVRANGE',KEYS[16],'+','-','COUNT',1)
+if (#guard==0 and ARGV[13]~='') or (#guard>0 and guard[1][1]~=ARGV[13]) or
+ (#control==0 and ARGV[14]~='') or (#control>0 and control[1][1]~=ARGV[14]) then
+ return redis.error_reply('SYSTEM_INCIDENT_EVIDENCE_CHANGED') end
 local state=cjson.decode(ARGV[10])
 if state.version~=1 or state.phase~='canary' or state.worker_id~=ARGV[1] or
  state.worker_value~=ARGV[2] or state.membership_revision~=ARGV[3] then
@@ -141,11 +154,28 @@ redis.call('XADD',KEYS[14],'*','event','automatic_service_migrated','epoch',stat
  'legacy_normal_sha1',redis.sha1hex(ARGV[7]),'legacy_recovery_sha1',redis.sha1hex(ARGV[8]),
  'legacy_observation_sha1',redis.sha1hex(ARGV[9]),'previous_system_state',ARGV[6])
 redis.call('SET',KEYS[7],ARGV[10])
+if ARGV[15]~='' then redis.call('SET',KEYS[8],ARGV[15]) end
+redis.call('SET',KEYS[17],'system-service-v1:'..state.epoch)
 if ARGV[5]~='' then redis.call('DEL',KEYS[6]) end
 return 1`)
 
 func systemProofArgs(proof systemHealthProof) ([]any, error) {
-	if proof.WorkerID == "" || len(proof.Metadata) < 1 || len(proof.Metadata) > 32 {
+	fingerprint, incarnation, separated := strings.Cut(proof.WorkerValue, ":")
+	id, incarnationErr := uuid.Parse(incarnation)
+	_, revisionErr := strconv.ParseUint(proof.MembershipRevision, 10, 64)
+	if proof.WorkerID == "" || !separated || !recoverySHA.MatchString(fingerprint) ||
+		incarnationErr != nil || id.String() != incarnation || revisionErr != nil ||
+		len(proof.Metadata) != 1 || len(proof.ConsumerServerIDs) != 1 {
+		return nil, ErrNotReady
+	}
+	serverID, err := uuid.Parse(proof.ConsumerServerIDs[0])
+	if err != nil || serverID.String() != proof.ConsumerServerIDs[0] {
+		return nil, ErrNotReady
+	}
+	key := "asynq:servers:{" + proof.WorkerID + ":" + serverID.String() + "}"
+	digest, ok := proof.Metadata[key]
+	decoded, digestErr := hex.DecodeString(digest)
+	if !ok || digestErr != nil || len(decoded) != sha1.Size {
 		return nil, ErrNotReady
 	}
 	metadata, err := json.Marshal(proof.Metadata)
