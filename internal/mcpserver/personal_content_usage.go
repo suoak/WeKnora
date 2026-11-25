@@ -20,9 +20,15 @@ type (
 func contentFailure(ctx context.Context, cause error, message string) *mcp.CallToolResult {
 	var appErr *werrors.AppError
 	if errors.As(cause, &appErr) && appErr.Code == werrors.ErrOfficeEncrypted {
-		result := usageFailure(ctx, "invalid_arguments", "OFFICE_ENCRYPTED (2400): "+officeguard.Message)
+		// Only allow known constant messages. Business errors can contain paths or
+		// source details; never forward arbitrary error text into the MCP result.
+		message := officeguard.Message
+		if appErr.Message == officeguard.DRMMessage {
+			message = officeguard.DRMMessage
+		}
+		result := usageFailure(ctx, "invalid_arguments", "OFFICE_ENCRYPTED (2400): "+message)
 		result.StructuredContent = map[string]any{"error": map[string]any{
-			"code": int(werrors.ErrOfficeEncrypted), "message": officeguard.Message,
+			"code": int(werrors.ErrOfficeEncrypted), "message": message,
 		}}
 		return result
 	}
