@@ -61,7 +61,8 @@ func syncConsumersForQueues(
 					return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}
 				}
 				ids = append(ids, fmt.Sprintf("%s:%d", server.Host, server.PID))
-				if id, e := uuid.Parse(server.ID); e == nil && id.String() == server.ID && len(evidence.ConsumerServerIDs) < consumerEvidenceLimit {
+				if id, e := uuid.Parse(server.ID); e == nil && id.String() == server.ID &&
+					len(evidence.ConsumerServerIDs) < consumerEvidenceLimit {
 					evidence.ConsumerServerIDs = append(evidence.ConsumerServerIDs, server.ID)
 				}
 			}

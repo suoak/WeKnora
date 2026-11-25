@@ -61,7 +61,12 @@ type consumerServerEvidence struct {
 }
 
 func newConsumerEvidence(ctx context.Context, client redis.UniversalClient, approved bool) *consumerEvidence {
-	d := &consumerEvidence{client: client, started: time.Now(), ExpectedQueues: []string{"sync"}, reads: map[string]*consumerServerEvidence{}}
+	d := &consumerEvidence{
+		client:         client,
+		started:        time.Now(),
+		ExpectedQueues: []string{"sync"},
+		reads:          map[string]*consumerServerEvidence{},
+	}
 	if approved {
 		d.ExpectedQueues = append(d.ExpectedQueues, ApprovedSyncQueue)
 	}
@@ -86,7 +91,9 @@ func consumerReadClass(err error) string {
 	if err == nil {
 		return "ok"
 	}
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) || errors.Is(err, errConsumerAbsent) || errors.Is(err, errConsumerInactive) {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
+		errors.Is(err, errConsumerAbsent) ||
+		errors.Is(err, errConsumerInactive) {
 		return failureClass(err)
 	}
 	var timeout net.Error
@@ -202,7 +209,7 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 		opts.PoolSize = 1
 		opts.MinIdleConns = 0
 		bounded := redis.NewClient(&opts)
-		defer bounded.Close()
+		defer func() { _ = bounded.Close() }()
 		client = bounded
 	default:
 		d.ReadClass = "unsupported_bounded_client"
@@ -238,8 +245,13 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 			continue
 		}
 		seen[evidenceServerID(key)] = true
-		if _, exists := d.reads[key]; !exists && len(d.reads) < consumerEvidenceLimit && evidenceServerID(key) != "invalid" {
-			s := &consumerServerEvidence{ServerID: evidenceServerID(key), MetadataClass: "not_in_original_gets", TTLMS: -3}
+		if _, exists := d.reads[key]; !exists && len(d.reads) < consumerEvidenceLimit &&
+			evidenceServerID(key) != "invalid" {
+			s := &consumerServerEvidence{
+				ServerID:      evidenceServerID(key),
+				MetadataClass: "not_in_original_gets",
+				TTLMS:         -3,
+			}
 			d.reads[key] = s
 			d.Servers = append(d.Servers, s)
 		}
@@ -306,7 +318,8 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 	if admitted.Err() == nil {
 		d.AdmittedIncarnation = incarnation(admitted.Val())
 	}
-	d.IncarnationMatches = d.ExpectedIncarnation == d.ObservedIncarnation && d.ExpectedIncarnation == d.AdmittedIncarnation
+	d.IncarnationMatches = d.ExpectedIncarnation == d.ObservedIncarnation &&
+		d.ExpectedIncarnation == d.AdmittedIncarnation
 	if revision.Err() == nil {
 		if _, err := strconv.ParseUint(revision.Val(), 10, 64); err == nil {
 			d.PostFailureMembershipRevision = revision.Val()

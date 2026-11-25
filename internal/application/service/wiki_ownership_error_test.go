@@ -24,7 +24,15 @@ func TestWikiOwnershipErrorClassificationAndRedaction(t *testing.T) {
 	for _, tc := range []struct {
 		err   error
 		class string
-	}{{context.Canceled, "context_canceled"}, {context.DeadlineExceeded, "deadline_exceeded"}, {gorm.ErrRecordNotFound, "not_found"}, {repository.ErrKnowledgeNotFound, "not_found"}, {driver.ErrBadConn, "database_connection"}, {&pgconn.PgError{Code: "08006", Message: "secret SQL body"}, "database_connection"}, {errors.New("secret token SQL body"), "query_error"}} {
+	}{
+		{context.Canceled, "context_canceled"},
+		{context.DeadlineExceeded, "deadline_exceeded"},
+		{gorm.ErrRecordNotFound, "not_found"},
+		{repository.ErrKnowledgeNotFound, "not_found"},
+		{driver.ErrBadConn, "database_connection"},
+		{&pgconn.PgError{Code: "08006", Message: "secret SQL body"}, "database_connection"},
+		{errors.New("secret token SQL body"), "query_error"},
+	} {
 		t.Run(tc.class, func(t *testing.T) {
 			var output bytes.Buffer
 			log := logrus.New()
@@ -67,13 +75,32 @@ func TestWikiOwnershipSQLFailurePreservesOperationAndFinalizingSlot(t *testing.T
 		t.Run(dialect, func(t *testing.T) {
 			db := syncdb.Open(t, dialect)
 			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
-			require.NoError(t, db.Exec("CREATE TABLE knowledges(id text PRIMARY KEY,channel text,metadata text,parse_status text,pending_subtasks_count integer,deleted_at timestamp)").Error)
+			require.NoError(
+				t,
+				db.Exec(
+					"CREATE TABLE knowledges(id text PRIMARY KEY,channel text,metadata text,"+
+						"parse_status text,pending_subtasks_count integer,deleted_at timestamp)",
+				).Error,
+			)
 			require.NoError(t, db.Exec("INSERT INTO knowledges VALUES('doc','web','{}','finalizing',1,NULL)").Error)
 			stamp := time.Now().UTC().Truncate(time.Microsecond)
-			op := types.TaskPendingOp{TenantID: 1, Scope: "knowledge_base", ScopeID: "kb", TaskType: "wiki:ingest", Op: "ingest", DedupKey: "doc", Payload: []byte(`{"knowledge_id":"doc","attempt":1}`), ClaimedAt: &stamp}
+			op := types.TaskPendingOp{
+				TenantID:  1,
+				Scope:     "knowledge_base",
+				ScopeID:   "kb",
+				TaskType:  "wiki:ingest",
+				Op:        "ingest",
+				DedupKey:  "doc",
+				Payload:   []byte(`{"knowledge_id":"doc","attempt":1}`),
+				ClaimedAt: &stamp,
+			}
 			require.NoError(t, db.Create(&op).Error)
 			s := &wikiIngestService{knowledgeSvc: &ownershipReadKnowledge{db: db, cause: driver.ErrBadConn}}
-			first, err := s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "doc", dbID: op.ID})
+			first, err := s.firstAddOwnership(
+				context.Background(),
+				"kb",
+				WikiPendingOp{KnowledgeID: "doc", dbID: op.ID},
+			)
 			require.False(t, first)
 			var diagnosed *wikiOwnershipReadError
 			require.ErrorAs(t, err, &diagnosed)
@@ -87,7 +114,10 @@ func TestWikiOwnershipSQLFailurePreservesOperationAndFinalizingSlot(t *testing.T
 			_, err = s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "missing", dbID: op.ID})
 			require.Contains(t, err.Error(), "not_found")
 			// Exercise a real query failure, in this test-owned schema only.
-			require.NoError(t, db.Exec("ALTER TABLE knowledges RENAME COLUMN deleted_at TO unavailable_deleted_at").Error)
+			require.NoError(
+				t,
+				db.Exec("ALTER TABLE knowledges RENAME COLUMN deleted_at TO unavailable_deleted_at").Error,
+			)
 			_, err = s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "doc", dbID: op.ID})
 			require.Contains(t, err.Error(), "query_error")
 			require.NotContains(t, err.Error(), "unavailable_deleted_at")

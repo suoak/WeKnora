@@ -34,7 +34,9 @@ func wikiOwnershipErrorClass(err error) string {
 		return "context_canceled"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "deadline_exceeded"
-	case errors.Is(err, gorm.ErrRecordNotFound), errors.Is(err, sql.ErrNoRows), errors.Is(err, repository.ErrKnowledgeNotFound):
+	case errors.Is(err, gorm.ErrRecordNotFound),
+		errors.Is(err, sql.ErrNoRows),
+		errors.Is(err, repository.ErrKnowledgeNotFound):
 		return "not_found"
 	case errors.Is(err, driver.ErrBadConn), errors.Is(err, sql.ErrConnDone):
 		return "database_connection"
@@ -48,7 +50,9 @@ func wikiOwnershipErrorClass(err error) string {
 		return "database_connection"
 	}
 	var state interface{ SQLState() string }
-	if errors.As(err, &state) && (strings.HasPrefix(state.SQLState(), "08") || state.SQLState() == "57P01" || state.SQLState() == "57P02" || state.SQLState() == "57P03") {
+	if errors.As(err, &state) &&
+		(strings.HasPrefix(state.SQLState(), "08") || state.SQLState() == "57P01" ||
+			state.SQLState() == "57P02" || state.SQLState() == "57P03") {
 		return "database_connection"
 	}
 	return "query_error"
@@ -63,7 +67,14 @@ func wikiDiagnosticID(id string) string {
 
 func wikiOwnershipFailure(ctx context.Context, kb string, op WikiPendingOp, cause error) error {
 	class := wikiOwnershipErrorClass(cause)
-	logger.Errorf(ctx, "[WikiOwnership] stage=first_add_postprocess operation_id=%d kb=%s knowledge=%s class=%s", op.dbID, wikiDiagnosticID(kb), wikiDiagnosticID(op.KnowledgeID), class)
+	logger.Errorf(
+		ctx,
+		"[WikiOwnership] stage=first_add_postprocess operation_id=%d kb=%s knowledge=%s class=%s",
+		op.dbID,
+		wikiDiagnosticID(kb),
+		wikiDiagnosticID(op.KnowledgeID),
+		class,
+	)
 	return &wikiOwnershipReadError{cause: cause, class: class}
 }
 
