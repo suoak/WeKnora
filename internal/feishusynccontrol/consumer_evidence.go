@@ -77,7 +77,7 @@ func newConsumerEvidence(ctx context.Context, client redis.UniversalClient, appr
 }
 
 func evidenceServerID(key string) string {
-	if !strings.HasPrefix(key, "asynq:servers:{") || !strings.HasSuffix(key, "}") {
+	if len(key) > 256 || !strings.HasPrefix(key, "asynq:servers:{") || !strings.HasSuffix(key, "}") {
 		return "invalid"
 	}
 	id := strings.TrimSuffix(key[strings.LastIndex(key, ":")+1:], "}")
@@ -90,6 +90,9 @@ func evidenceServerID(key string) string {
 func consumerReadClass(err error) string {
 	if err == nil {
 		return "ok"
+	}
+	if errors.Is(err, ErrNotReady) {
+		return "expected_queue_not_subscribed"
 	}
 	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) ||
 		errors.Is(err, errConsumerAbsent) ||
@@ -109,6 +112,10 @@ func consumerReadClass(err error) string {
 
 func (d *consumerEvidence) read(key, raw string, err error) {
 	if !strings.HasPrefix(key, "asynq:servers:{") {
+		return
+	}
+	if len(key) > 256 {
+		d.Truncated = true
 		return
 	}
 	if len(d.reads) >= consumerEvidenceLimit {

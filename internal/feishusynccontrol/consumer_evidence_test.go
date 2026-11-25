@@ -163,7 +163,7 @@ func TestConsumerEvidenceHeartbeatAndRealConsumerExit(t *testing.T) {
 }
 
 func TestConsumerEvidenceUnsubscribedQueueAndMetadataIdentity(t *testing.T) {
-	for _, mode := range []string{"queue", "identity"} {
+	for _, mode := range []string{"queue", "approved_queue", "identity"} {
 		t.Run(mode, func(t *testing.T) {
 			c, r, _, key, raw := evidenceFixture(t)
 			ctx := context.Background()
@@ -173,6 +173,9 @@ func TestConsumerEvidenceUnsubscribedQueueAndMetadataIdentity(t *testing.T) {
 			require.NoError(t, proto.Unmarshal([]byte(raw), msg))
 			if mode == "queue" {
 				msg.Clear(msg.Descriptor().Fields().ByName("queues"))
+			} else if mode == "approved_queue" {
+				queues := msg.Mutable(msg.Descriptor().Fields().ByName("queues")).Map()
+				queues.Clear(protoreflect.ValueOfString(ApprovedSyncQueue).MapKey())
 			} else {
 				msg.Set(msg.Descriptor().Fields().ByName("host"), protoreflect.ValueOfString("different-host"))
 			}
@@ -181,10 +184,13 @@ func TestConsumerEvidenceUnsubscribedQueueAndMetadataIdentity(t *testing.T) {
 			require.NoError(t, r.Set(ctx, key, data, 10*time.Second).Err())
 			require.Error(t, c.Step(ctx))
 			d := retainedConsumerEvidence(t, c, r)
-			if mode == "queue" {
+			if mode == "queue" || mode == "approved_queue" {
 				require.Equal(t, "expected_queue_not_subscribed", d.Servers[0].MetadataClass)
 			} else {
 				require.Equal(t, "metadata_identity_mismatch", d.Servers[0].MetadataClass)
+			}
+			if mode == "approved_queue" {
+				require.Equal(t, "expected_queue_not_subscribed", d.ProbeClass)
 			}
 			require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
 		})
