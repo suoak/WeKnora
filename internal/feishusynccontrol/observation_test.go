@@ -174,3 +174,37 @@ func TestObservationRejectsNonemptyDedicatedLaneWithoutRemovingTasks(t *testing.
 	require.Equal(t, trip, f.r.Get(ctx, f.c.prefix+"trip").Val())
 	require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
 }
+
+func TestObservationExistingSteadyContextStopsWithoutControllerTick(t *testing.T) {
+	for _, fault := range []string{"marker_missing", "marker_changed", "marker_wrong_type", "mode_missing"} {
+		t.Run(fault, func(t *testing.T) {
+			f := observationFixture(t)
+			ctx := context.Background()
+			observationCanary(t, f)
+			p, err := f.m.PlanSteady(ctx, "operator", f.ids[:1], 7)
+			require.NoError(t, err)
+			require.NoError(t, f.m.ActivateSteady(ctx, p, f.sign(t, p), "operator"))
+			require.NoError(t, f.c.Step(ctx))
+			work, approved, err := BindApprovedSource(ctx, f.ids[0], f.facts[f.ids[0]].ConfigSHA256)
+			require.NoError(t, err)
+			require.True(t, approved)
+			work = feishusafety.WithScope(work, f.ids[0])
+			require.NoError(t, f.c.Guard.Check(work))
+			marker := f.c.prefix + "observation_required"
+			switch fault {
+			case "marker_missing":
+				require.NoError(t, f.r.Del(ctx, marker).Err())
+			case "marker_changed":
+				require.NoError(t, f.r.Set(ctx, marker, "mismatch", 0).Err())
+			case "marker_wrong_type":
+				require.NoError(t, f.r.Del(ctx, marker).Err())
+				require.NoError(t, f.r.HSet(ctx, marker, "not", "a-marker").Err())
+			case "mode_missing":
+				require.NoError(t, f.r.Del(ctx, f.c.prefix+"recovery").Err())
+			}
+			// Deliberately do not Step/renew/freeze: every request must reject
+			// using its retained context while the old health/permit still live.
+			require.Error(t, f.c.Guard.Check(work))
+		})
+	}
+}

@@ -405,6 +405,9 @@ func (m *RecoveryManager) checkNormalSource(
 		if err != nil {
 			return ctx, false, fmt.Errorf("normal_service_record: %w", err)
 		}
+		if _, err := m.observationBarrier(ctx); err != nil {
+			return ctx, false, err
+		}
 		return ctx, false, nil
 	}
 	identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
