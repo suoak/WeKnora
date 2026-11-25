@@ -19,9 +19,9 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-24.04
     timeout-minutes: 90
-    env:
-      QUALIFICATION_ROOT: ${{ runner.temp }}/knowhub-pr267-${{ github.run_id }}
     steps:
+      - name: Define disposable test root
+        run: echo "QUALIFICATION_ROOT=$RUNNER_TEMP/knowhub-pr267-$GITHUB_RUN_ID" >> "$GITHUB_ENV"
       - uses: actions/checkout@v6
         with:
           ref: ${{ env.SOURCE_SHA }}
