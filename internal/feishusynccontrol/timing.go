@@ -71,6 +71,8 @@ func (c *Controller) stage(ctx context.Context, name string) {
 }
 
 func (c *Controller) beginTiming(ctx context.Context) {
+	c.consumerDiagnostic = nil
+	c.consumerRevision = ""
 	c.timings = StepTiming{
 		ID: uuid.NewString(), WorkerID: c.Config.WorkerID,
 		Incarnation: c.incarnation, Started: time.Now().UTC(),

@@ -1,0 +1,160 @@
+package feishusynccontrol
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"os"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
+	"github.com/redis/go-redis/v9"
+	"github.com/stretchr/testify/require"
+)
+
+func evidenceFixture(t *testing.T) (*Controller, *redis.Client, *asynq.Server, string, string) {
+	t.Helper()
+	f := newRecoveryFixture(t)
+	host, err := os.Hostname()
+	require.NoError(t, err)
+	g, err := feishusafety.New(f.r, feishusafety.Config{Namespace: "evidence-" + uuid.NewString(), EndpointHost: "gateway.invalid", InFlight: 1, RPM: 30, RPS: 1, TPM: 30000, WaitBudgetDuration: time.Second, TokenBoundVerified: true})
+	require.NoError(t, err)
+	c, err := New(f.r, g, Config{Automatic: true, DedicatedSyncLane: true, WorkerID: fmt.Sprintf("%s:%d", host, os.Getpid()), SourceSHA: strings.Repeat("a", 40), Scope: "all", Maintenance: 4}, func(context.Context) error { return nil }, func(Event) error { return nil })
+	require.NoError(t, err)
+	server := asynq.NewServer(asynq.RedisClientOpt{Addr: f.r.Options().Addr}, asynq.Config{Concurrency: 1, Queues: map[string]int{"sync": 1, ApprovedSyncQueue: 1}, ShutdownTimeout: time.Second})
+	require.NoError(t, server.Start(asynq.NewServeMux()))
+	t.Cleanup(server.Shutdown)
+	ctx := context.Background()
+	require.Eventually(t, func() bool { return f.r.ZCard(ctx, "asynq:servers").Val() == 1 }, time.Second, time.Millisecond)
+	key := f.r.ZRange(ctx, "asynq:servers", 0, -1).Val()[0]
+	var raw string
+	require.Eventually(t, func() bool { raw = f.r.Get(ctx, key).Val(); return raw != "" }, time.Second, time.Millisecond)
+	c.Consumers = ApprovedConsumers(f.r)
+	require.NoError(t, c.Step(ctx))
+	return c, f.r, server, key, raw
+}
+
+func retainedConsumerEvidence(t *testing.T, c *Controller, r *redis.Client) consumerEvidence {
+	t.Helper()
+	rows, err := r.XRange(context.Background(), c.prefix+"control_audit", "-", "+").Result()
+	require.NoError(t, err)
+	for _, row := range rows {
+		if s, ok := row.Values["consumer_diagnostic"].(string); ok && s != "" {
+			var d consumerEvidence
+			require.NoError(t, json.Unmarshal([]byte(s), &d))
+			return d
+		}
+	}
+	t.Fatal("first failure evidence missing")
+	return consumerEvidence{}
+}
+
+func TestConsumerEvidenceTransientMissingMetadataRemainsLatched(t *testing.T) {
+	c, r, _, key, raw := evidenceFixture(t)
+	ctx := context.Background()
+	require.NoError(t, r.Del(ctx, key).Err())
+	require.Error(t, c.Step(ctx))
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "metadata_get_missing", d.Servers[0].MetadataClass)
+	require.EqualValues(t, -2, d.Servers[0].TTLMS)
+	require.True(t, d.IncarnationMatches)
+	start := time.Now()
+	time.Sleep(600 * time.Millisecond)
+	require.NoError(t, r.Set(ctx, key, raw, 10*time.Second).Err())
+	_, err := ApprovedConsumers(r)(ctx)
+	require.NoError(t, err)
+	t.Logf("consumer visible after %.3fs; synthetic missing-key window, not proof of production cause", time.Since(start).Seconds())
+	require.Error(t, c.Step(ctx))
+	require.True(t, r.Exists(ctx, c.prefix+"trip").Val() == 1)
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	rows := r.XRange(ctx, c.prefix+"control_audit", "-", "+").Val()
+	count := 0
+	for _, row := range rows {
+		if row.Values["consumer_diagnostic"] != "" {
+			count++
+		}
+	}
+	require.Equal(t, 1, count)
+}
+
+func TestConsumerEvidenceCorruptMetadataAndNoSensitivePayload(t *testing.T) {
+	c, r, _, key, _ := evidenceFixture(t)
+	ctx := context.Background()
+	require.NoError(t, r.Set(ctx, key, "\xffsecret-token SQL body", 10*time.Second).Err())
+	require.Error(t, c.Step(ctx))
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "metadata_decode_failed", d.Servers[0].MetadataClass)
+	b, err := json.Marshal(d)
+	require.NoError(t, err)
+	require.NotContains(t, string(b), "secret-token")
+	require.NotContains(t, string(b), "SQL body")
+}
+
+func TestConsumerEvidenceHeartbeatAndRealConsumerExit(t *testing.T) {
+	c, r, server, _, _ := evidenceFixture(t)
+	ctx := context.Background()
+	// Cross the real Asynq heartbeat update boundary while repeatedly reading.
+	until := time.Now().Add(6 * time.Second)
+	for time.Now().Before(until) {
+		require.NoError(t, c.Step(ctx))
+		time.Sleep(40 * time.Millisecond)
+	}
+	server.Shutdown()
+	require.Error(t, c.Step(ctx))
+	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "registry_members_absent", d.RegistryClass)
+}
+
+func TestConsumerEvidenceBoundsReadOnlySnapshotAndExpiry(t *testing.T) {
+	c, r, _, key, _ := evidenceFixture(t)
+	ctx := context.Background()
+	d := newConsumerEvidence(ctx, r, true)
+	d.read(key, "", redis.Nil)
+	require.NoError(t, r.ZAdd(ctx, "asynq:servers", redis.Z{Score: float64(time.Now().Unix() - 10), Member: key}).Err())
+	require.NoError(t, r.Del(ctx, key).Err())
+	before := r.ZRangeWithScores(ctx, "asynq:servers", 0, -1).Val()
+	text := d.snapshot(ctx, c, "synthetic_expiry")
+	require.Contains(t, text, "metadata_missing_expired_registry_score")
+	require.Equal(t, before, r.ZRangeWithScores(ctx, "asynq:servers", 0, -1).Val(), "diagnostic must not clean expired registry entries")
+	for i := 0; i < 100; i++ {
+		d.read("asynq:servers:{host:1:"+uuid.NewString()+"}", "sensitive", nil)
+	}
+	require.LessOrEqual(t, len(d.Servers), consumerEvidenceLimit)
+	require.True(t, d.Truncated)
+}
+
+func TestConsumerEvidenceCanceledAndSlowRedis(t *testing.T) {
+	c, r, _, _, _ := evidenceFixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	var d *consumerEvidence
+	_, err := ApprovedConsumers(r)(context.WithValue(ctx, consumerEvidenceKey{}, &d))
+	require.ErrorIs(t, err, context.Canceled)
+	require.Equal(t, "context_canceled", d.ProbeClass)
+	// Hook injects a bounded transport stall, not a longer probe timeout.
+	r.AddHook(consumerReadFailureHook{cause: context.DeadlineExceeded})
+	start := time.Now()
+	require.Error(t, c.Step(context.Background()))
+	require.Less(t, time.Since(start), time.Second)
+	diag := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "context_deadline", diag.ProbeClass)
+}
+
+func TestConsumerEvidenceIncarnationAndRevision(t *testing.T) {
+	c, r, _, _, _ := evidenceFixture(t)
+	ctx := context.Background()
+	other := uuid.NewString()
+	require.NoError(t, r.HSet(ctx, c.prefix+"admitted", c.Config.WorkerID, c.fingerprint+":"+other).Err())
+	require.NoError(t, r.Incr(ctx, c.prefix+"membership_revision").Err())
+	require.Error(t, c.Step(ctx))
+	d := retainedConsumerEvidence(t, c, r)
+	require.False(t, d.IncarnationMatches)
+	require.Equal(t, other, d.AdmittedIncarnation)
+	require.NotEmpty(t, d.MembershipRevision)
+}

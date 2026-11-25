@@ -78,6 +78,8 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, automaticFailureReason("membership_probe", err), true)
 	}
 	c.stage(ctx, "consumer_probe")
+	c.consumerRevision = revision
+	ctx = context.WithValue(ctx, consumerEvidenceKey{}, &c.consumerDiagnostic)
 	ids, err := c.Consumers(ctx)
 	stage := "consumer_probe"
 	if err == nil {

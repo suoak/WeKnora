@@ -27,13 +27,18 @@ func syncConsumersForQueues(
 	client redis.UniversalClient,
 	approved bool,
 ) func(context.Context) ([]string, error) {
-	return func(ctx context.Context) ([]string, error) {
+	return func(ctx context.Context) (resultIDs []string, probeErr error) {
 		ctx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
 		defer cancel()
+		evidence := newConsumerEvidence(ctx, client, approved)
+		defer func() {
+			evidence.ElapsedMS = time.Since(evidence.started).Milliseconds()
+			evidence.ProbeClass = consumerReadClass(probeErr)
+		}()
 		if err := client.Ping(ctx).Err(); err != nil {
 			return nil, &probeFailure{stage: "redis_ping", cause: err}
 		}
-		probe := &consumerProbeRedis{UniversalClient: client, ctx: ctx}
+		probe := &consumerProbeRedis{UniversalClient: client, ctx: ctx, evidence: evidence}
 		inspector := asynq.NewInspectorFromRedisClient(probe)
 		servers, err := inspector.Servers()
 		if err == nil {
@@ -70,8 +75,9 @@ func syncConsumersForQueues(
 // Remember skipped read errors so an incomplete registry is never attested.
 type consumerProbeRedis struct {
 	redis.UniversalClient
-	ctx     context.Context
-	failure error
+	ctx      context.Context
+	failure  error
+	evidence *consumerEvidence
 }
 
 func (c *consumerProbeRedis) remember(err error) {
@@ -82,6 +88,9 @@ func (c *consumerProbeRedis) remember(err error) {
 
 func (c *consumerProbeRedis) Get(_ context.Context, key string) *redis.StringCmd {
 	result := c.UniversalClient.Get(c.ctx, key)
+	if c.evidence != nil {
+		c.evidence.read(key, result.Val(), result.Err())
+	}
 	c.remember(result.Err())
 	return result
 }

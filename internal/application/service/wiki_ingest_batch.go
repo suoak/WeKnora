@@ -1061,9 +1061,9 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 	failedAdditionSlugCount := len(failedAdditionSlugs)
 	if firstAddPostErrors.hasFailure() {
 		for _, op := range pendingOps {
-			first, lookupErr := s.isMVPWikiKnowledge(tailCtx, op.KnowledgeID)
+			first, lookupErr := s.firstAddOwnership(tailCtx, payload.KnowledgeBaseID, op)
 			if lookupErr != nil {
-				return errors.New("wiki first-add post-processing ownership read failed")
+				return lookupErr
 			}
 			if first {
 				unappliedSlugKIDs[op.KnowledgeID] = struct{}{}
