@@ -2,6 +2,7 @@
 import datetime,json,os,pathlib,socket,subprocess,time,uuid,zipfile,hashlib
 ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT']);SHA=os.environ['SOURCE_SHA'];assert len(SHA)==40 and all(c in '0123456789abcdef' for c in SHA)
 PROJECT='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ['SOURCE_SHA']==SHA
+PHASE='runtime'
 C=['docker','compose','-p',PROJECT,'-f',str(ROOT/'compose.json')]
 OUT=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';OUT.mkdir(exist_ok=True)
 class Redis:
@@ -72,18 +73,23 @@ def snapshot():
  finally:r.close()
 
 def main():
+ global PHASE
  state=runtime();assert len(state)==6 and all(x['running'] and not x['oom'] and x['restarts']==0 and x['health'] not in ['unhealthy','starting'] for x in state)
+ PHASE="database_schema_and_rows"
  query="SELECT json_build_object('schema',(SELECT version FROM schema_migrations LIMIT 1),'dirty',(SELECT dirty FROM schema_migrations LIMIT 1),'sources',(SELECT count(*) FROM data_sources),'sync_logs',(SELECT count(*) FROM sync_logs),'active_chunks',(SELECT count(*) FROM chunks WHERE deleted_at IS NULL),'embeddings',(SELECT count(*) FROM embeddings))"
  proc=subprocess.run(C+['exec','-T','postgres','psql','-XqAt','-U','postgres','-d','consumer_native_test','-v','ON_ERROR_STOP=1'],input=('BEGIN READ ONLY;'+query+';ROLLBACK;').encode(),capture_output=True,timeout=20)
  assert proc.returncode==0
  database=json.loads(proc.stdout);assert database['schema']==3051 and not database['dirty'] and database['sources']==database['sync_logs']==0 and database['active_chunks']>0 and database['embeddings']>0
+ PHASE="consumer_heartbeat_lease_and_identity"
  first=snapshot();time.sleep(12);second=snapshot()
  assert len(first['workers'])==len(second['workers'])==1 and first['workers']==second['workers']
  assert first['membership_revision']==second['membership_revision']
  worker=next(iter(first['workers']));assert first['leases'][worker]>first['now_ms'] and second['leases'][worker]>second['now_ms'] and second['leases'][worker]>first['leases'][worker]
  a=next(x for x in first['servers'] if 'sync' in x['queues'] and 'approved_sync' in x['queues']);b=next(x for x in second['servers'] if x['server_id']==a['server_id'])
  assert a['worker_id']==worker and b['worker_id']==worker and a['identity_tokens_match'] and b['identity_tokens_match'] and a['ttl_ms']>0 and b['ttl_ms']>0 and b['registry_score']>a['registry_score']
+ PHASE='retained_stop_without_permit'
  assert first['trip_present'] and second['trip_present'] and not first['permit_present'] and not second['permit_present'] and not second['observation_present']
+ PHASE='acceptance_cases_and_whitelist'
  acceptance=json.loads((ROOT/'acceptance-final.json').read_text());assert len(acceptance['results'])==16 and all(x['result']=='PASS' for x in acceptance['results'])
  report={'source_sha':SHA,'project':PROJECT,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cases':acceptance['results'],'runtime':state,'database':database,'worker_probe':{'result':'PASS','worker_id':worker,'consumer_server_id':a['server_id'],'sync_and_approved_sync':True,'lease_renewed':True,'metadata_heartbeat_advanced':True,'membership_stable':True,'stopped_without_permit':True},'signature_success_path':{'result':'NOT_RUN','reason':'No legitimate non-production offline signer/remote source; no production credentials copied'},'observation_semantic_success':{'result':'NOT_RUN','reason':'HTTP cases prove non-admin denial; signed observation controller paths are separately SQL/Redis/race qualified'},'model_semantic_quality':{'result':'NOT_RUN','reason':'Deterministic fixture; no real LLM performance claim'},'production_changes':False}
  (OUT/'full-app-report.json').write_text(json.dumps(report,indent=2))
@@ -94,4 +100,5 @@ def main():
 if __name__=='__main__':
  try:main()
  except Exception as e:
-  (OUT/'full-app-failure.json').write_text(json.dumps({'source_sha':SHA,'error_class':type(e).__name__,'phase':'read_only_worker_probe_or_acceptance'}));print(json.dumps({'phase':'worker_probe','error_class':type(e).__name__}));raise SystemExit(1)
+  cases=json.loads((ROOT/'acceptance-final.json').read_text()).get('results',[]) if (ROOT/'acceptance-final.json').exists() else []
+  (OUT/'full-app-failure.json').write_text(json.dumps({'source_sha':SHA,'error_class':type(e).__name__,'phase':PHASE,'cases':cases}));print(json.dumps({'phase':PHASE,'error_class':type(e).__name__}));raise SystemExit(1)
