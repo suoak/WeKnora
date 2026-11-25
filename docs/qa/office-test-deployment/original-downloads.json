@@ -1,0 +1,34 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "executed_utc": "2026-11-25T02:26:49.722480+00:00",
+  "result": "PASS",
+  "originals": [
+    {
+      "filename": "normal.docx",
+      "knowledge_id": "3d18f36d-99bf-4593-8bac-eef71cc19f38",
+      "http_status": 200,
+      "bytes": 36648,
+      "sha256": "2c102f022ff28a0a66d170e67bd9e901a468a0f074f6d752ff9307f732815e63",
+      "source_sha256": "2c102f022ff28a0a66d170e67bd9e901a468a0f074f6d752ff9307f732815e63",
+      "matches_original": true
+    },
+    {
+      "filename": "normal.xlsx",
+      "knowledge_id": "387de533-c418-4e37-8404-e8549784f045",
+      "http_status": 200,
+      "bytes": 4842,
+      "sha256": "f32afce4b5cc765ab193fe0e060d8bcc5c663408c8d28932e4deb7ed2f4bc699",
+      "source_sha256": "f32afce4b5cc765ab193fe0e060d8bcc5c663408c8d28932e4deb7ed2f4bc699",
+      "matches_original": true
+    },
+    {
+      "filename": "normal.pptx",
+      "knowledge_id": "830d7846-08c7-4d7a-a09b-68061d9c5590",
+      "http_status": 200,
+      "bytes": 28280,
+      "sha256": "1ea33ff6e8e7f599f003da946d83e2dbb3f2de43961301dd00fff3ad6ab071f7",
+      "source_sha256": "1ea33ff6e8e7f599f003da946d83e2dbb3f2de43961301dd00fff3ad6ab071f7",
+      "matches_original": true
+    }
+  ]
+}

@@ -1,0 +1,394 @@
+{
+  "executed_utc": "2026-11-25T02:27:32.740015+00:00",
+  "host": "aqyfzx10",
+  "ssh_user_uid": 1000,
+  "project": "knowhub-office-guard-test",
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "containers": [
+    {
+      "name": "/knowhub-office-guard-test-app-1",
+      "image": "sha256:7af8f3d50631fad66a9947cd349817ed840897986c60f6b0933df39d1931bf0a",
+      "state": "running",
+      "health": "healthy",
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {
+        "8080/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "39780"
+          }
+        ]
+      },
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/jieba-dict",
+          "destination": "/app/jieba-dict"
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/files",
+          "destination": "/data/files"
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/staging",
+          "destination": "/data/feishu-staging"
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/docreader-tmp",
+          "destination": "/tmp/docreader"
+        },
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/config.yaml",
+          "destination": "/app/config/config.yaml"
+        }
+      ],
+      "memory_limit": 2147483648,
+      "cpu_limit_nanos": 2000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-docreader-1",
+      "image": "sha256:7ddcecd6854e3002d93a8643c689eeaa653173d2e44389bb44216c968398209d",
+      "state": "running",
+      "health": null,
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {},
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/docreader-tmp",
+          "destination": "/tmp/docreader"
+        }
+      ],
+      "memory_limit": 805306368,
+      "cpu_limit_nanos": 2000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-frontend-1",
+      "image": "sha256:0497f445be12edc79fbde45cacd487e458878b87ff12c197694ea79075466ba5",
+      "state": "running",
+      "health": null,
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {
+        "80/tcp": [
+          {
+            "HostIp": "127.0.0.1",
+            "HostPort": "39781"
+          }
+        ]
+      },
+      "networks": [
+        "knowhub-office-guard-test-preview",
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [],
+      "memory_limit": 134217728,
+      "cpu_limit_nanos": 1000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-model-fixture-1",
+      "image": "sha256:8f4555f1af927bbe00ac99da22278360321bafe8ea17dacf96157aa2046093b9",
+      "state": "running",
+      "health": null,
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {},
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/model-fixture.py",
+          "destination": "/fixture.py"
+        }
+      ],
+      "memory_limit": 134217728,
+      "cpu_limit_nanos": 1000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-postgres-1",
+      "image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+      "state": "running",
+      "health": "healthy",
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {},
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [
+        {
+          "type": "volume",
+          "source": "/mnt/sata0/lib/docker/volumes/knowhub-office-guard-test-postgres/_data",
+          "destination": "/var/lib/postgresql/data"
+        }
+      ],
+      "memory_limit": 1073741824,
+      "cpu_limit_nanos": 2000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-redis-1",
+      "image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+      "state": "running",
+      "health": null,
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {},
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [
+        {
+          "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/redis.conf",
+          "destination": "/usr/local/etc/redis/redis.conf"
+        },
+        {
+          "type": "volume",
+          "source": "/mnt/sata0/lib/docker/volumes/knowhub-office-guard-test-redis/_data",
+          "destination": "/data"
+        }
+      ],
+      "memory_limit": 268435456,
+      "cpu_limit_nanos": 1000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    },
+    {
+      "name": "/knowhub-office-guard-test-scanner-1",
+      "image": "sha256:cf8299376c95c9749ac399976c67d79d51e3bd5a5433ad21779f4545e7bbfb0d",
+      "state": "running",
+      "health": "healthy",
+      "oom_killed": false,
+      "restart_count": 0,
+      "privileged": false,
+      "ports": {},
+      "networks": [
+        "knowhub-office-guard-test-private"
+      ],
+      "mounts": [],
+      "memory_limit": 2147483648,
+      "cpu_limit_nanos": 2000000000,
+      "log_config": {
+        "Type": "json-file",
+        "Config": {
+          "max-file": "3",
+          "max-size": "10m"
+        }
+      }
+    }
+  ],
+  "http_checks": [
+    {
+      "target": "office_preview",
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "target": "office_api",
+      "status": 401
+    },
+    {
+      "target": "existing_frontend",
+      "error": "URLError"
+    },
+    {
+      "target": "existing_api_health",
+      "status": 200,
+      "content_type": "application/json; charset=utf-8"
+    }
+  ],
+  "docker_root": "/mnt/sata0/lib/docker",
+  "disks": "Filesystem                        Type  Size  Used Avail Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv ext4  489G  314G  150G  68% /\n/dev/mapper/data--vg-data--lov0   ext4  3.1T  2.9T  136G  96% /mnt/sata0\n",
+  "memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 14345252864   688582656 12012650496 18593681408  6780321792\nSwap:    8589930496  8589930496           0\n",
+  "cpu": "16",
+  "new_project_networks": [
+    {
+      "Name": "knowhub-office-guard-test-private",
+      "Id": "8a391a13d84162bb132560a8ba323bc869f01fcf7a3cd68c678b14248c1feeef",
+      "Created": "2026-11-25T01:36:37.325601522Z",
+      "Scope": "local",
+      "Driver": "bridge",
+      "EnableIPv6": false,
+      "IPAM": {
+        "Driver": "default",
+        "Options": null,
+        "Config": [
+          {
+            "Subnet": "10.254.222.0/28"
+          }
+        ]
+      },
+      "Internal": true,
+      "Attachable": false,
+      "Ingress": false,
+      "ConfigFrom": {
+        "Network": ""
+      },
+      "ConfigOnly": false,
+      "Containers": {
+        "128795d97d64bc42a351594cb42dfb0970056b105736af5c06843fab36958235": {
+          "Name": "knowhub-office-guard-test-model-fixture-1",
+          "EndpointID": "08a290de659c112e5b6333a7a9e1df2fb08b6b71bf3ce4f9420b5a712a67b713",
+          "MacAddress": "02:42:0a:fe:de:06",
+          "IPv4Address": "10.254.222.6/28",
+          "IPv6Address": ""
+        },
+        "18538f65a50181a952282613b5e83192fa7b5833cdda91e06d44c0d5263f3e29": {
+          "Name": "knowhub-office-guard-test-app-1",
+          "EndpointID": "7ac4fcf901bc858ea0b6cd06b47d4305fc11c46ebaaf8a2d42d97d7e82309f7f",
+          "MacAddress": "02:42:0a:fe:de:07",
+          "IPv4Address": "10.254.222.7/28",
+          "IPv6Address": ""
+        },
+        "90c4fd71d586e6943699f03ecab20abd73ad3e9e51e6e98552480ed3d19a4099": {
+          "Name": "knowhub-office-guard-test-docreader-1",
+          "EndpointID": "0234f9bfe863124af5f080247c532441136bdc230d3785d3316f6e77e9c52f5e",
+          "MacAddress": "02:42:0a:fe:de:04",
+          "IPv4Address": "10.254.222.4/28",
+          "IPv6Address": ""
+        },
+        "924aa3ee7937ab993ee7baf898656d89818b252b9c0601efd079b69d3499ee0b": {
+          "Name": "knowhub-office-guard-test-postgres-1",
+          "EndpointID": "ade8f4ad1459bb183a6b8b8acfcdbcd0e6d644321fadef3c89ad0e56c761f81d",
+          "MacAddress": "02:42:0a:fe:de:05",
+          "IPv4Address": "10.254.222.5/28",
+          "IPv6Address": ""
+        },
+        "9524f94ccaf429fe04fe2adcd11493608daee6654eae743737b49d88520f7765": {
+          "Name": "knowhub-office-guard-test-redis-1",
+          "EndpointID": "953c7b5c3e01de18c6f121d331e83a55ca3de2d42dc8beda7e43793bf46cd4e7",
+          "MacAddress": "02:42:0a:fe:de:03",
+          "IPv4Address": "10.254.222.3/28",
+          "IPv6Address": ""
+        },
+        "baa7cc6f32b77264670de3b13db0076ddac308e64d24eab174ed5f3adbd6433c": {
+          "Name": "knowhub-office-guard-test-scanner-1",
+          "EndpointID": "5e4f3e197f3e0cdfe23c2bcfa551c53fdbaa565dcb41e73d645f86a883e270e9",
+          "MacAddress": "02:42:0a:fe:de:02",
+          "IPv4Address": "10.254.222.2/28",
+          "IPv6Address": ""
+        },
+        "feeb8170112c56e47fcbbb1bcb4d05200cc71072d93c5d0115a34e3086e260b2": {
+          "Name": "knowhub-office-guard-test-frontend-1",
+          "EndpointID": "0f53db366b0216cbd2285e76801d751e39bac92787b09442605d9956e7e37949",
+          "MacAddress": "02:42:0a:fe:de:08",
+          "IPv4Address": "10.254.222.8/28",
+          "IPv6Address": ""
+        }
+      },
+      "Options": {},
+      "Labels": {
+        "com.docker.compose.config-hash": "482a4560105d643b034044956eaca89b5aea88be5cd09474474f4dd9ad6a0d94",
+        "com.docker.compose.network": "private",
+        "com.docker.compose.project": "knowhub-office-guard-test",
+        "com.docker.compose.version": "5.4.0"
+      }
+    },
+    {
+      "Name": "knowhub-office-guard-test-preview",
+      "Id": "6099dfb737c0615bfaf86c4f8fd47fdd857876c3a6eda37e342e77c4ad68b00a",
+      "Created": "2026-11-25T01:49:03.037900964Z",
+      "Scope": "local",
+      "Driver": "bridge",
+      "EnableIPv6": false,
+      "IPAM": {
+        "Driver": "default",
+        "Options": null,
+        "Config": [
+          {
+            "Subnet": "10.254.222.16/28"
+          }
+        ]
+      },
+      "Internal": false,
+      "Attachable": false,
+      "Ingress": false,
+      "ConfigFrom": {
+        "Network": ""
+      },
+      "ConfigOnly": false,
+      "Containers": {
+        "feeb8170112c56e47fcbbb1bcb4d05200cc71072d93c5d0115a34e3086e260b2": {
+          "Name": "knowhub-office-guard-test-frontend-1",
+          "EndpointID": "0d7dba5e559a9220c6b32484db60f1a22489d1b3d6a90549979ce2c20d625894",
+          "MacAddress": "02:42:0a:fe:de:12",
+          "IPv4Address": "10.254.222.18/28",
+          "IPv6Address": ""
+        }
+      },
+      "Options": {},
+      "Labels": {
+        "com.docker.compose.config-hash": "8b6e55304b3e983403f346a6794c2dfebb4ef02658a7fcd845d17d51d8ceba96",
+        "com.docker.compose.network": "preview",
+        "com.docker.compose.project": "knowhub-office-guard-test",
+        "com.docker.compose.version": "5.4.0"
+      }
+    }
+  ],
+  "source_and_oauth_tables": {
+    "data_sources": "0",
+    "mcp_oauth_clients": "0",
+    "mcp_oauth_tokens": "0",
+    "feishu_oauth_states": "0"
+  }
+}

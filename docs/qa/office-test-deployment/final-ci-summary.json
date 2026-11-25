@@ -1,0 +1,38 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "linux_run": 45530472812,
+  "native_run": 45530472495,
+  "image_run": 45530538647,
+  "linux": {
+    "business.jsonl": {
+      "pass": 225,
+      "fail": 0,
+      "skip": 0
+    },
+    "detector.jsonl": {
+      "pass": 51,
+      "fail": 0,
+      "skip": 0
+    },
+    "permissions.jsonl": {
+      "pass": 523,
+      "fail": 0,
+      "skip": 0
+    },
+    "race.jsonl": {
+      "pass": 97,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "native": {
+    "native-tests.jsonl": {
+      "pass": 1,
+      "fail": 0,
+      "skip": 0
+    }
+  },
+  "full_logs": "private/ci-45530472812 and private/ci-45530472495; retained locally, not committed",
+  "sha_note": "These are test PASS events including named parent/subtest events, not a claim of independent scenarios.",
+  "frontend_totals": "ℹ tests 1720\nℹ suites 0\nℹ pass 1719\nℹ fail 0\nℹ cancelled 0\nℹ skipped 1\nℹ todo 0\nℹ duration_ms 45076.056104\n"
+}

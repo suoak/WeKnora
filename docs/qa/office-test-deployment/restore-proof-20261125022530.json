@@ -1,0 +1,24 @@
+{
+  "result": "PASS",
+  "project": "knowhub-office-guard-test",
+  "backup": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/office-only-20261125022530.dump",
+  "bytes": 589273,
+  "sha256": "6dab3f8f502bf2fa718fd076900c0d6e0f7098258afde024ed72a2fcdd5f96ca",
+  "restore_database": "office_guard_restore_20261125022530",
+  "counts": {
+    "chunks": {
+      "live": 120,
+      "restored": 120
+    },
+    "embeddings": {
+      "live": 112,
+      "restored": 112
+    },
+    "knowledges": {
+      "live": 98,
+      "restored": 98
+    }
+  },
+  "existing_databases_modified": false,
+  "retention": "Retain this test recovery point and predecessor image until acceptance/review completes; no historic backups deleted."
+}

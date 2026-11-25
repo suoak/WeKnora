@@ -1,0 +1,42 @@
+[
+  {
+    "case": "browser_password_no_request",
+    "result": "PASS",
+    "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+    "executed_utc": "2026-11-25T02:16:31.803Z",
+    "upload_requests": [],
+    "notice_observed": true
+  },
+  {
+    "case": "browser_drm_no_request",
+    "result": "PASS",
+    "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+    "executed_utc": "2026-11-25T02:16:33.708Z",
+    "upload_requests": [],
+    "notice_observed": true
+  },
+  {
+    "case": "browser_real_user_drm_no_request",
+    "result": "PASS",
+    "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+    "executed_utc": "2026-11-25T02:16:35.598Z",
+    "upload_requests": [],
+    "notice_observed": true
+  },
+  {
+    "case": "browser_mixed_batch",
+    "result": "PASS",
+    "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+    "executed_utc": "2026-11-25T02:16:46.345Z",
+    "upload_requests": [
+      {
+        "method": "POST",
+        "path": "/api/v1/knowledge-bases/32090121-3591-4749-9b5c-88bb6cdd0b81/knowledge/file"
+      },
+      {
+        "method": "POST",
+        "path": "/api/v1/knowledge-bases/32090121-3591-4749-9b5c-88bb6cdd0b81/knowledge/file"
+      }
+    ]
+  }
+]

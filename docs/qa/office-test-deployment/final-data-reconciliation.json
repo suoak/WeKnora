@@ -1,0 +1,285 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "executed_utc": "2026-11-25T02:23:07.084343+00:00",
+  "kb_id": "32090121-3591-4749-9b5c-88bb6cdd0b81",
+  "records": [
+    {
+      "id": "1ac6bf65-108f-4f7a-a0e8-2220042aef36",
+      "file_name": "apache-simple.doc",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://Olgx_MpJWyaUAVmZkWcqSQ"
+    },
+    {
+      "id": "c5c17d1b-2fc7-464e-afa0-4bf03931c74f",
+      "file_name": "broken.docx",
+      "parse_status": "processing",
+      "enable_status": "disabled",
+      "error_message": "",
+      "chunk_count": 0,
+      "index_count": 0,
+      "file_path": "resource://tztZv2a1ehv7aZoTT94vYQ"
+    },
+    {
+      "id": "136e4b55-3b5f-44bc-a0e1-8cb2397825ff",
+      "file_name": "browser-normal.docx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 3,
+      "file_path": "resource://YRBuJTYap0lhekwL8dHIdw"
+    },
+    {
+      "id": "7b065082-0870-42a9-8ef9-5b07cee032cb",
+      "file_name": "browser-protected.xlsx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 4,
+      "index_count": 5,
+      "file_path": "resource://gLKDyavz8UIKphIz65mOIA"
+    },
+    {
+      "id": "b364f874-7b2a-5947-b66d-44a2208ea25c",
+      "file_name": "clean.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://4dro6dcK37VEpRu6pgbM7Q"
+    },
+    {
+      "id": "d2ab1655-1bd3-4d86-9efc-ca0bd1cc9c3e",
+      "file_name": "concurrent-11.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://RpUNVkxzh8HERu3ABN17qQ"
+    },
+    {
+      "id": "ad8fa065-3862-4560-ac97-d37096122812",
+      "file_name": "concurrent-13.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://MfKAGpp-W2GIbgG1Jenifg"
+    },
+    {
+      "id": "8653fa69-5196-44c1-a56e-7373a59b9deb",
+      "file_name": "concurrent-15.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://b8y4vpAWDVOOAW0TnAG1Ow"
+    },
+    {
+      "id": "5aaf33c2-04c6-4b59-b06d-e6481c514ebc",
+      "file_name": "concurrent-17.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://A4BcR3MPloX8qxgWroe2Dw"
+    },
+    {
+      "id": "b4af52dc-86c9-4729-9b1c-52334b3dca11",
+      "file_name": "concurrent-1.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://iXIpazn6kzN86W11dw8AEw"
+    },
+    {
+      "id": "c3a1fdac-d9ef-4c40-b0fc-b00eeb941808",
+      "file_name": "concurrent-3.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://C1zZRWftf74GYQM0osiDfA"
+    },
+    {
+      "id": "c606bb4f-9f44-458b-a662-ad619e337d48",
+      "file_name": "concurrent-5.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://VdrNvCKhiyBF7Nki3LfSsw"
+    },
+    {
+      "id": "01297840-8e2f-440c-a07e-fbed832598ac",
+      "file_name": "concurrent-7.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://OAluayk00OSBuomljddaJw"
+    },
+    {
+      "id": "7bed9a7f-8010-4587-bc9c-031dd81c1987",
+      "file_name": "concurrent-9.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://WzVhoEUHCMbdyLtVeWxeJQ"
+    },
+    {
+      "id": "a225fcf8-89cc-4bac-a51e-6f9152b87894",
+      "file_name": "cycle.doc",
+      "parse_status": "processing",
+      "enable_status": "disabled",
+      "error_message": "",
+      "chunk_count": 0,
+      "index_count": 0,
+      "file_path": "resource://rFGm_CtsIbJloeO3yZIYLA"
+    },
+    {
+      "id": "670a1a44-9624-49cf-af05-f8165eaca6b5",
+      "file_name": "header-only.xls",
+      "parse_status": "processing",
+      "enable_status": "disabled",
+      "error_message": "",
+      "chunk_count": 0,
+      "index_count": 0,
+      "file_path": "resource://q0963cTysfinYetOch-VjA"
+    },
+    {
+      "id": "d2a84716-1052-4652-81a5-0e7d6fcf4803",
+      "file_name": "modify-protected.docx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://qtbPXzodCFnkzY5NQ8HwsA"
+    },
+    {
+      "id": "3d18f36d-99bf-4593-8bac-eef71cc19f38",
+      "file_name": "normal.docx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://iMpF5Mtu8nIKbt5OhpREkQ"
+    },
+    {
+      "id": "830d7846-08c7-4d7a-a09b-68061d9c5590",
+      "file_name": "normal.pptx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://yvZSg2vLNhIBrZTdON_9eg"
+    },
+    {
+      "id": "387de533-c418-4e37-8404-e8549784f045",
+      "file_name": "normal.xlsx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 4,
+      "index_count": 2,
+      "file_path": "resource://MHADQbYOfqSld9kn4QX48A"
+    },
+    {
+      "id": "9fc8106d-f24d-4166-acd5-c48657dd01cf",
+      "file_name": "plain.doc",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 0,
+      "index_count": 0,
+      "file_path": "resource://jtKpWDZT-4K8viuC0SPYJw"
+    },
+    {
+      "id": "87279368-2f93-4aba-9498-5c7bf3ff9e1e",
+      "file_name": "plain.ppt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://FZv__UzrTvo4S8SqJh3dGA"
+    },
+    {
+      "id": "b27f56d4-8590-49b8-a751-0b719106bb9c",
+      "file_name": "plain.xls",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://ELXAA5TH7Qajkp71NWjtbQ"
+    },
+    {
+      "id": "03c6402d-87fe-47a9-8374-906d959abcd8",
+      "file_name": "shared-editor.txt",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 2,
+      "index_count": 2,
+      "file_path": "resource://1OFFDtW6oga1viAEk6mwDA"
+    },
+    {
+      "id": "b46b6291-e894-45b4-857a-ef48aa4975f3",
+      "file_name": "sheet-protected.xlsx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 4,
+      "index_count": 2,
+      "file_path": "resource://PGARnIgkyp4byEOQzc2skg"
+    },
+    {
+      "id": "4cecc83d-2b52-4b19-a695-c98fefba4d02",
+      "file_name": "unknown-ole.doc",
+      "parse_status": "processing",
+      "enable_status": "disabled",
+      "error_message": "",
+      "chunk_count": 0,
+      "index_count": 0,
+      "file_path": "resource://5adMr8gazGb5RpnmaGeFbQ"
+    },
+    {
+      "id": "ad235760-fbed-4e50-a776-b6fee0eed7ea",
+      "file_name": "WPS_Spout_test.xlsx",
+      "parse_status": "completed",
+      "enable_status": "enabled",
+      "error_message": "",
+      "chunk_count": 7,
+      "index_count": 4,
+      "file_path": "resource://c93FF1KUqtR2Q8NK0G_hyg"
+    }
+  ],
+  "normal_document_count": 9,
+  "normal_parse_index_pass": false,
+  "browser_document_count": 2,
+  "browser_parse_index_pass": true,
+  "normal_core_parse_index_pass": true,
+  "legacy_doc_empty_control": "plain.doc has FIB ccpText=1 and fcMin=2048/fcMac=2049 (paragraph terminator only); zero chunks/indices are expected. See separate nonempty Apache POI control.",
+  "rejected_documents_absent": true,
+  "sql_mutations": false
+}

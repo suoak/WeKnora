@@ -1,22 +1,24 @@
 # KnowHub Office 加密上传拦截测试报告
 
-更新时间：2026-11-25（北京时间）。工作分支 feature/office-encryption-guard，独立工作树 E:/code/WeKnora-office-guard。基于候选 6ee2f2f93 继续开发，没有覆盖原工作区的其他改动。
+更新时间：2026-11-25（北京时间）。工作分支 feature/office-encryption-guard。原工作树 E:/code/WeKnora-office-guard 保留运维证据；新增业务修复在独立 E:/code/WeKnora-office-drm 工作树完成，没有覆盖原工作区的其他改动。
 
-**当前结论：同步预检顺序及飞书独立路径已修复。最终 Linux 整轮回归与原生联合回归均已通过，保留前端既有 1 项 SKIP。测试站专项验收未完成，不创建 PR、不合入 main、不部署生产。CI 受控来源与本地测试不能代替测试站或生产验收。**
+**当前结论：668d067ec 已部署至新建隔离测试项目。上传专项 43 个 HTTP/MCP/权限/资源断言、4 个真实浏览器断言及非空旧版 DOC 解析检索对照通过；新增 DRM 分类及独立中文说明。最终 Linux/原生 CI 和镜像构建通过，保留前端既有 1 项 SKIP。12 项总清单仍有 PARTIAL / NOT_RUN，未创建 PR、未合入 main、未部署生产。飞书真实同步按用户本轮指示免测。**
+
+最新部署身份、镜像 ID、12 项逐项状态、真实 Office/WPS 样本、失败和复测、资源、隔离、恢复及回滚证据统一见 [独立测试站验收报告](office-test-deployment/README.md)。下文历史 CI 和基线不代表本轮已重新合并最新 main；运行源码 SHA 为 668d067ec75a2a351ace4f7f0797be77af2b24ae。
 
 ## 基线与上游对比
 
 - suoak/WeKnora main：50f82ae496d78238c0af7332739e7a9d3a49dbb1。
 - Tencent/WeKnora main：71c32af9273482e0dad013d0e3bea2f4d719516c。
 - 已获取两端最新 main；origin/main 为功能分支祖先，无待吸收的 origin 提交。上游 98fb3f91c 的事务式替换和 79298a358 的解析错误返回已纳入对照；保留本仓库既有文件替换补偿、Personal MCP admission、飞书来源身份和隔离安全协议，没有整包覆盖为上游实现。
-- 生产代码检测器及前端预检来自本次候选；本轮业务代码最后变更为 a22d7efce；后续提交为测试装配、队列诊断和 CI 证据完善。各轮实际 SHA 均保存在运行元数据中。
+- 初版最后业务变更为 a22d7efce；本轮追加 ca1c058c0（DRM 独立识别与提示）和 668d067ec（MCP 仅放行安全常量说明），两次均重跑精确源码 CI。部署 668d067ec 的 APP/Frontend 镜像经 SHA/归档哈希/镜像 ID 核对。
 - 为执行 Linux 验证，仅推送 CI 专用引用 ci/office-encryption-validation 和 ci/office-encryption-native-validation；功能分支尚未推送，未创建 PR。
 
 ## 调用链与修改清单
 
 | 范围/文件 | 原因与结果 |
 | --- | --- |
-| internal/officeguard；frontend/src/utils/officeEncryption.ts | 有界 CFB/ZIP 检测、六种分类；仅明确打开密码加密返回 2400 |
+| internal/officeguard；frontend/src/utils/officeEncryption.ts | 有界 CFB/ZIP 检测，新增 DRM 分类；明确打开密码或 IRM 返回 2400、使用不同受控说明；unknown/损坏不冒充加密 |
 | 知识上传选择器、确认框、聊天附件；knowledge-base 与临时附件 API 封装 | 选后预检、批量局部跳过；API 请求前再次断言 |
 | knowledge_create.go、knowledge_replace.go、personal_upload.go、temporary_document.go、旧聊天附件处理器 | 在现有授权之后、业务文件存储/建行/入队或替换旧任务之前独立强制检测 |
 | datasource_service.go、office_sync.go | 已有原文字节在查旧、DeleteKnowledge、HardDeleteKnowledge、创建新版本前检查；单条拒绝继续同批正常项 |
