@@ -453,7 +453,7 @@ func (h *KnowledgeHandler) CreateKnowledgeFromFile(c *gin.Context) {
 			return
 		}
 		if goerrors.Is(err, service.ErrInvalidFileType) {
-			c.Error(errors.NewBadRequestError("不支持的文件类型，请上传系统支持的文件格式。"))
+			_ = c.Error(errors.NewBadRequestError("不支持的文件类型，请上传系统支持的文件格式。"))
 			return
 		}
 		if appErr, ok := errors.IsAppError(err); ok {

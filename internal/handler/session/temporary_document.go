@@ -95,7 +95,7 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 	if err != nil {
 		var appErr *apperrors.AppError
 		if errors.As(err, &appErr) {
-			c.Error(appErr)
+			_ = c.Error(appErr)
 			return
 		}
 		c.Error(apperrors.NewBadRequestError(err.Error()))

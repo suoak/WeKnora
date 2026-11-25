@@ -57,7 +57,9 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 			{"permission", access.ErrForbidden, "permission_denied"},
 			{"database", errors.New("database failed"), "execution_error"},
 			{"arguments", service.ErrPersonalContentArguments, "invalid_arguments"},
-			{"office_password", &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: "private path"}, "invalid_arguments"},
+			{"office_password", &werrors.AppError{
+				Code: werrors.ErrOfficeEncrypted, Message: "private path",
+			}, "invalid_arguments"},
 			{"timeout", context.DeadlineExceeded, "timeout"},
 			{"cancel", context.Canceled, "canceled"},
 		} {
@@ -92,7 +94,9 @@ func TestPersonalContentResultUsageMatrix(t *testing.T) {
 				require.Equal(t, tc.cause == nil, sink.reports[0].Success)
 				require.Equal(t, tc.code, sink.reports[0].ErrorCode)
 				if tc.label == "office_password" {
-					require.Equal(t, map[string]any{"error": map[string]any{"code": 2400, "message": officeguard.Message}}, result.StructuredContent)
+					require.Equal(t,
+						map[string]any{"error": map[string]any{"code": 2400, "message": officeguard.Message}},
+						result.StructuredContent)
 				}
 			})
 		}

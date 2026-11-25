@@ -15,14 +15,33 @@ func officeFixture(t *testing.T, name string) string {
 	require.NoError(t, e)
 	return string(p)
 }
+
 func TestOfficeCreateRejectsBeforeStorageDatabaseAndQueue(t *testing.T) {
-	for _, name := range []string{"encrypted.docx", "encrypted.xlsx", "encrypted.xlsm", "encrypted.pptx", "encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt"} {
+	for _, name := range []string{
+		"encrypted.docx", "encrypted.xlsx", "encrypted.xlsm", "encrypted.pptx",
+		"encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt",
+	} {
 		t.Run(name, func(t *testing.T) {
 			repo := &createKnowledgeFileRepoStub{}
 			files := &createKnowledgeFileServiceStub{}
 			tasks := &createKnowledgeTaskEnqueuerStub{}
-			svc := &knowledgeService{repo: repo, fileSvc: files, task: tasks, kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1"}}}
-			_, err := svc.CreateKnowledgeFromFile(newCreateKnowledgeFileContext(), "kb-1", newMultipartFileHeader(t, name, officeFixture(t, name)), nil, nil, "renamed.txt", nil, "api", nil)
+			svc := &knowledgeService{
+				repo:      repo,
+				fileSvc:   files,
+				task:      tasks,
+				kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1"}},
+			}
+			_, err := svc.CreateKnowledgeFromFile(
+				newCreateKnowledgeFileContext(),
+				"kb-1",
+				newMultipartFileHeader(t, name, officeFixture(t, name)),
+				nil,
+				nil,
+				"renamed.txt",
+				nil,
+				"api",
+				nil,
+			)
 			var app *werrors.AppError
 			require.ErrorAs(t, err, &app)
 			require.Equal(t, werrors.ErrOfficeEncrypted, app.Code)
@@ -32,6 +51,7 @@ func TestOfficeCreateRejectsBeforeStorageDatabaseAndQueue(t *testing.T) {
 		})
 	}
 }
+
 func TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation(t *testing.T) {
 	h := newReplaceFileHarness(t)
 	_, err := h.replace(t, officeFixture(t, "encrypted.docx"), "notes/replaced.txt", nil)

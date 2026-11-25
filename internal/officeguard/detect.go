@@ -14,8 +14,10 @@ import (
 	"unicode/utf16"
 )
 
+// State describes format evidence, not a guarantee that document parsing succeeds.
 type State string
 
+// These states keep opening encryption, rights management and edit protection distinct.
 const (
 	Encrypted State = "encrypted"
 	DRM       State = "drm"
@@ -25,8 +27,12 @@ const (
 	Unknown   State = "unknown"
 	NotOffice State = "not_office"
 )
-const MaxRead = 4 << 20
-const maxSteps = 8192
+
+const (
+	// MaxRead caps bytes read from the input per inspection.
+	MaxRead  = 4 << 20
+	maxSteps = 8192
+)
 
 type budget struct {
 	ctx         context.Context
@@ -47,8 +53,16 @@ func (b *budget) ReadAt(p []byte, off int64) (int, error) {
 		return 0, io.ErrUnexpectedEOF
 	}
 	b.left -= len(p)
-	return b.r.ReadAt(p, off)
+	n, err := b.r.ReadAt(p, off)
+	// ReaderAt cannot be forcibly interrupted. Recheck after it returns so the
+	// final read cannot turn an expired/canceled inspection into a verdict.
+	if b.ctx.Err() != nil || time.Now().After(b.end) {
+		b.limited = true
+		return n, io.ErrNoProgress
+	}
+	return n, err
 }
+
 func (b *budget) read(off int64, n int) ([]byte, error) {
 	p := make([]byte, n)
 	_, err := b.ReadAt(p, off)
@@ -111,6 +125,7 @@ type compound struct {
 func (c *compound) sector(id uint32) ([]byte, error) {
 	return c.b.read((int64(id)+1)*int64(c.ss), c.ss)
 }
+
 func (c *compound) next(id uint32) (uint32, error) {
 	idx := int(id) / (c.ss / 4)
 	if idx >= len(c.fats) {
@@ -122,6 +137,7 @@ func (c *compound) next(id uint32) (uint32, error) {
 	}
 	return u32(p, int(id)%(c.ss/4)*4), nil
 }
+
 func (c *compound) chain(id uint32, limit int) ([]uint32, error) {
 	out := []uint32{}
 	seen := map[uint32]bool{}
@@ -139,6 +155,7 @@ func (c *compound) chain(id uint32, limit int) ([]uint32, error) {
 	}
 	return out, nil
 }
+
 func (c *compound) prefix(e entry, n int) ([]byte, error) {
 	if uint64(n) > e.size {
 		n = int(e.size)
@@ -186,13 +203,15 @@ func (c *compound) prefix(e entry, n int) ([]byte, error) {
 	}
 	return out, nil
 }
+
 func detectCFB(b *budget) State {
 	h, err := b.read(0, 512)
 	if err != nil {
 		return Invalid
 	}
 	ver, shift := u16(h, 26), u16(h, 30)
-	if u16(h, 28) != 0xfffe || !((ver == 3 && shift == 9) || (ver == 4 && shift == 12)) || u16(h, 32) != 6 || u32(h, 56) != 4096 {
+	if u16(h, 28) != 0xfffe || !((ver == 3 && shift == 9) || (ver == 4 && shift == 12)) || u16(h, 32) != 6 ||
+		u32(h, 56) != 4096 {
 		return Invalid
 	}
 	c := &compound{b: b, ss: 1 << shift}
@@ -493,7 +512,8 @@ func detectZIP(b *budget, office bool) State {
 		return NotOffice
 	}
 	for _, f := range zr.File {
-		if f.Name != "word/settings.xml" && f.Name != "xl/workbook.xml" && !(strings.HasPrefix(f.Name, "xl/worksheets/") && strings.HasSuffix(f.Name, ".xml")) {
+		if f.Name != "word/settings.xml" && f.Name != "xl/workbook.xml" &&
+			!(strings.HasPrefix(f.Name, "xl/worksheets/") && strings.HasSuffix(f.Name, ".xml")) {
 			continue
 		}
 		if f.UncompressedSize64 > 256<<10 || f.CompressedSize64 > 256<<10 {
@@ -508,11 +528,14 @@ func detectZIP(b *budget, office bool) State {
 			return Invalid
 		}
 		p, e := io.ReadAll(io.LimitReader(r, 256<<10+1))
-		r.Close()
+		_ = r.Close()
 		if e != nil || len(p) > 256<<10 {
 			return Unknown
 		}
-		if strings.Contains(string(p), "documentProtection") || strings.Contains(string(p), "writeProtection") || strings.Contains(string(p), "sheetProtection") || strings.Contains(string(p), "workbookProtection") || strings.Contains(string(p), "fileSharing") {
+		if strings.Contains(string(p), "documentProtection") || strings.Contains(string(p), "writeProtection") ||
+			strings.Contains(string(p), "sheetProtection") ||
+			strings.Contains(string(p), "workbookProtection") ||
+			strings.Contains(string(p), "fileSharing") {
 			protection = true
 		}
 		if b.ctx.Err() != nil || time.Now().After(b.end) {

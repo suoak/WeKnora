@@ -426,8 +426,10 @@ func runV2NativeReferencePipeline(t *testing.T, firstCreate bool) {
 	require.ErrorAs(t, handler.Emit(bound, *item), &local)
 	require.Equal(t, "office_encrypted", local.Code)
 	require.Nil(t, handler.ingestErr)
-	refused := types.FetchedItem{ExternalID: item.ExternalID, SourceResourceID: "links", Title: item.Title,
-		Metadata: core.FeishuErrorItemMeta(fetchErr, map[string]string{"failure_stage": "fetch_document"})}
+	refused := types.FetchedItem{
+		ExternalID: item.ExternalID, SourceResourceID: "links", Title: item.Title,
+		Metadata: core.FeishuErrorItemMeta(fetchErr, map[string]string{"failure_stage": "fetch_document"}),
+	}
 	require.ErrorAs(t, handler.Emit(bound, refused), &local)
 	require.Equal(t, "office_encrypted", local.Code)
 	require.JSONEq(t, before, snapshot(), "adapter refusals cannot quarantine or delete the old publication")

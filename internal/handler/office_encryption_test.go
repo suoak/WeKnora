@@ -24,7 +24,12 @@ type officeHTTPKB struct {
 }
 
 func (officeHTTPKB) GetKnowledgeBaseByID(context.Context, string) (*types.KnowledgeBase, error) {
-	return &types.KnowledgeBase{ID: "kb-office-http", TenantID: 1, CreatorID: "owner", Type: types.KnowledgeBaseTypeDocument}, nil
+	return &types.KnowledgeBase{
+		ID:        "kb-office-http",
+		TenantID:  1,
+		CreatorID: "owner",
+		Type:      types.KnowledgeBaseTypeDocument,
+	}, nil
 }
 
 // Real handler, error middleware and knowledge service. Authentication is a
@@ -35,8 +40,35 @@ func officeHTTPRouter(t *testing.T) *gin.Engine {
 	on := true
 	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &on}}
 	kb := officeHTTPKB{}
-	ks, err := service.NewKnowledgeService(cfg, nil, nil, kb,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	ks, err := service.NewKnowledgeService(
+		cfg,
+		nil,
+		nil,
+		kb,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+		nil,
+	)
 	require.NoError(t, err)
 	h := &KnowledgeHandler{kgService: ks, kbService: kb}
 	router := gin.New()
@@ -50,7 +82,11 @@ func officeHTTPRouter(t *testing.T) *gin.Engine {
 		ctx := types.WithCaller(c.Request.Context(), caller)
 		ctx = types.WithPrincipal(ctx, types.Principal{Type: types.PrincipalWebUser, ID: user})
 		ctx = context.WithValue(ctx, types.TenantIDContextKey, uint64(1))
-		ctx = context.WithValue(ctx, types.TenantInfoContextKey, &types.Tenant{ID: 1, StorageEngineConfig: &types.StorageEngineConfig{DefaultProvider: "local"}})
+		ctx = context.WithValue(
+			ctx,
+			types.TenantInfoContextKey,
+			&types.Tenant{ID: 1, StorageEngineConfig: &types.StorageEngineConfig{DefaultProvider: "local"}},
+		)
 		c.Set(types.TenantIDContextKey.String(), uint64(1))
 		c.Set(types.UserIDContextKey.String(), user)
 		c.Set(types.TenantRoleContextKey.String(), role)
@@ -71,7 +107,10 @@ func officeHTTPRouter(t *testing.T) *gin.Engine {
 
 func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 	router := officeHTTPRouter(t)
-	for _, name := range []string{"encrypted.docx", "encrypted.xlsx", "encrypted.pptx", "encrypted.xlsm", "encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt"} {
+	for _, name := range []string{
+		"encrypted.docx", "encrypted.xlsx", "encrypted.pptx", "encrypted.xlsm",
+		"encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt",
+	} {
 		t.Run(name, func(t *testing.T) {
 			data, e := os.ReadFile("../officeguard/testdata/" + name)
 			require.NoError(t, e)
@@ -85,7 +124,11 @@ func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 			require.NoError(t, form.WriteField("channel", "confluence"))
 			require.NoError(t, form.Close())
 			for _, denied := range []bool{false, true} {
-				req := httptest.NewRequest(http.MethodPost, "/api/v1/knowledge-bases/kb-office-http/knowledge/file", bytes.NewReader(body.Bytes()))
+				req := httptest.NewRequest(
+					http.MethodPost,
+					"/api/v1/knowledge-bases/kb-office-http/knowledge/file",
+					bytes.NewReader(body.Bytes()),
+				)
 				req.Header.Set("Content-Type", form.FormDataContentType())
 				if denied {
 					req.Header.Set("X-Synthetic-Denied", "1")
@@ -117,7 +160,11 @@ func TestOfficeHTTPUnsupportedWPSReturns400WithoutEncryptionCode(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, form.Close())
 			for _, denied := range []bool{false, true} {
-				req := httptest.NewRequest(http.MethodPost, "/api/v1/knowledge-bases/kb-office-http/knowledge/file", bytes.NewReader(body.Bytes()))
+				req := httptest.NewRequest(
+					http.MethodPost,
+					"/api/v1/knowledge-bases/kb-office-http/knowledge/file",
+					bytes.NewReader(body.Bytes()),
+				)
 				req.Header.Set("Content-Type", form.FormDataContentType())
 				if denied {
 					req.Header.Set("X-Synthetic-Denied", "1")

@@ -26,7 +26,10 @@ func TestOfficeAuthorizedDownloadRetainsTypedRefusal(t *testing.T) {
 	}))
 	defer server.Close()
 	client := NewClient(&Config{AppID: "office-test", BaseURL: server.URL})
-	ctx := WithUserIdentity(context.Background(), func(context.Context) (string, error) { return "synthetic-office-user", nil })
+	ctx := WithUserIdentity(
+		context.Background(),
+		func(context.Context) (string, error) { return "synthetic-office-user", nil },
+	)
 	for _, name := range []string{"password.docx", "password.xlsx", "password.pptx", "disguised.pdf"} {
 		_, _, err = client.DownloadPersonalResource(ctx, PersonalResource{Type: "file", Token: "office", Title: name})
 		require.True(t, officeguard.IsEncryptedError(err), "actual verdict: %v", err)
@@ -40,7 +43,12 @@ func TestOfficeAuthorizedDownloadRetainsTypedRefusal(t *testing.T) {
 
 type officeRejectedOps struct{ deferralTestOps }
 
-func (o *officeRejectedOps) Fetch(ctx context.Context, c *Client, node, root string, b bool) ([]*types.FetchedItem, error) {
+func (o *officeRejectedOps) Fetch(
+	ctx context.Context,
+	c *Client,
+	node, root string,
+	b bool,
+) ([]*types.FetchedItem, error) {
 	if node == "bad" {
 		return nil, officeguard.NewEncryptedError()
 	}
@@ -59,6 +67,7 @@ func (h *officeRejectedHandler) Emit(ctx context.Context, item types.FetchedItem
 	}
 	return h.deferralTestHandler.Emit(ctx, item)
 }
+
 func TestOfficeRefusalKeepsCursorIdentityAndRetriesWithoutTombstone(t *testing.T) {
 	ops := &officeRejectedOps{deferralTestOps{nodes: []string{"bad", "good"}}}
 	h := &officeRejectedHandler{}
@@ -72,7 +81,15 @@ func TestOfficeRefusalKeepsCursorIdentityAndRetriesWithoutTombstone(t *testing.T
 	require.Equal(t, "old", ops.DecodeCursorTimes(next.ConnectorCursor)["root"]["bad"])
 	require.Contains(t, next.ConnectorCursor, failedDocumentCursorKey)
 	normal := &deferralTestOps{nodes: []string{"bad", "good"}}
-	completed, err := runSync(context.Background(), &Client{}, &types.DataSourceConfig{}, []string{"root"}, next, &deferralTestHandler{}, normal)
+	completed, err := runSync(
+		context.Background(),
+		&Client{},
+		&types.DataSourceConfig{},
+		[]string{"root"},
+		next,
+		&deferralTestHandler{},
+		normal,
+	)
 	require.NoError(t, err)
 	require.Equal(t, []string{"bad"}, normal.fetched)
 	require.NotContains(t, completed.ConnectorCursor, failedDocumentCursorKey)

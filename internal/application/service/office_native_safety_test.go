@@ -48,16 +48,34 @@ func officeNativeSafety(t *testing.T, db *gorm.DB, sourceID, endpoint string) {
 	controller, err := feishusynccontrol.New(client, guard, feishusynccontrol.Config{
 		WorkerID: "office-native-worker", ExpectedWorkers: []string{"office-native-worker"},
 		SourceSHA: sourceSHA, Scope: sourceID, Maintenance: 1,
-	}, func(stop context.Context) error { _, e := repository.FenceLegacySyncExecutions(stop, db); return e }, func(feishusynccontrol.Event) error { return nil })
+	}, func(stop context.Context) error {
+		_, err := repository.FenceLegacySyncExecutions(stop, db)
+		return err
+	}, func(feishusynccontrol.Event) error { return nil })
 	require.NoError(t, err)
-	require.Error(t, guard.Check(feishusafety.WithScope(ctx, sourceID)), "closed until controller validates inventory and health")
+	require.Error(
+		t,
+		guard.Check(feishusafety.WithScope(ctx, sourceID)),
+		"closed until controller validates inventory and health",
+	)
 	refresh := func() error {
 		now, e := client.Time(ctx).Result()
 		if e != nil {
 			return e
 		}
 		yes, no, zero := true, false, 0
-		data, e := json.Marshal(feishusynccontrol.Metrics{ObservedUnixMS: now.UnixMilli(), GatewayBudgetKnown: &yes, GatewayHealthy: &yes, ConsumerHealthy: &yes, OnlineHealthy: &yes, ScopeViolations: &zero, QuotaExceeded: &no, OnlineP95Ratio: 1})
+		data, e := json.Marshal(
+			feishusynccontrol.Metrics{
+				ObservedUnixMS:     now.UnixMilli(),
+				GatewayBudgetKnown: &yes,
+				GatewayHealthy:     &yes,
+				ConsumerHealthy:    &yes,
+				OnlineHealthy:      &yes,
+				ScopeViolations:    &zero,
+				QuotaExceeded:      &no,
+				OnlineP95Ratio:     1,
+			},
+		)
 		if e != nil {
 			return e
 		}
