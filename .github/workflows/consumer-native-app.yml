@@ -12,7 +12,7 @@ permissions:
   contents: read
   actions: read
 env:
-  SOURCE_SHA: e866d539adf3acaf52a7a1b5e81289f32df30613
+  SOURCE_SHA: 8e0242c4dc4de826dbba09aaf43496370d2fb3eb
   DOCREADER_SHA: bb3e85d1214a3b390b360742d48c3c5f7e75b439
 jobs:
   full-app:
