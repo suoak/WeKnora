@@ -1,0 +1,90 @@
+{
+  "http": [
+    {
+      "url": "http://172.30.232.42/",
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "url": "http://172.30.232.42:8080/health",
+      "status": 200,
+      "content_type": "application/json; charset=utf-8"
+    },
+    {
+      "url": "http://127.0.0.1:28480/health",
+      "status": 200,
+      "content_type": "application/json; charset=utf-8"
+    },
+    {
+      "url": "http://127.0.0.1:28481/",
+      "status": 200,
+      "content_type": "text/html"
+    }
+  ],
+  "existing_containers": [
+    {
+      "ID": "ca29fd8f8d77",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-frontend-1",
+      "Image": "knowhub-mcp-access/frontend:c969e95e95c0",
+      "State": "running",
+      "Status": "Up 3 weeks",
+      "Ports": "127.0.0.1:28481->80/tcp"
+    },
+    {
+      "ID": "4fe6a33b007f",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-app-1",
+      "Image": "4a5a8ed78e1a",
+      "State": "running",
+      "Status": "Up 3 weeks (healthy)",
+      "Ports": "127.0.0.1:28480->8080/tcp"
+    },
+    {
+      "ID": "583d837845e6",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-redis-1",
+      "Image": "426f6fb54a1b",
+      "State": "running",
+      "Status": "Up 3 weeks",
+      "Ports": "6379/tcp"
+    },
+    {
+      "ID": "675049d575b3",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-worker2-1",
+      "Image": "4a5a8ed78e1a",
+      "State": "running",
+      "Status": "Up 3 weeks (healthy)",
+      "Ports": "8080/tcp"
+    },
+    {
+      "ID": "a445362262da",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-docreader-1",
+      "Image": "7ddcecd6854e",
+      "State": "running",
+      "Status": "Up 3 weeks (healthy)",
+      "Ports": "50051/tcp"
+    },
+    {
+      "ID": "c78dc14c4750",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-entry-1",
+      "Image": "8e69814e4e46",
+      "State": "running",
+      "Status": "Up 3 weeks",
+      "Ports": "172.30.232.42:80->80/tcp, 172.30.232.42:8080->8080/tcp"
+    },
+    {
+      "ID": "911afa0b5e70",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-entry-preview-1",
+      "Image": "8e69814e4e46",
+      "State": "running",
+      "Status": "Up 4 weeks",
+      "Ports": "127.0.0.1:28580->80/tcp, 127.0.0.1:28581->8080/tcp"
+    },
+    {
+      "ID": "a28745cef55e",
+      "Names": "knowhub-feishu-v2-d6e99d894d3a-postgres-1",
+      "Image": "d6fb8f50e25e",
+      "State": "running",
+      "Status": "Up 4 weeks (healthy)",
+      "Ports": "5432/tcp"
+    }
+  ]
+}

@@ -1,5 +1,5 @@
 {
-  "executed_utc": "2026-11-25T02:27:32.740015+00:00",
+  "executed_utc": "2026-11-25T02:32:35.110282+00:00",
   "host": "aqyfzx10",
   "ssh_user_uid": 1000,
   "project": "knowhub-office-guard-test",
@@ -249,7 +249,13 @@
     },
     {
       "target": "existing_frontend",
-      "error": "URLError"
+      "status": 200,
+      "content_type": "text/html"
+    },
+    {
+      "target": "existing_public_api_health",
+      "status": 200,
+      "content_type": "application/json; charset=utf-8"
     },
     {
       "target": "existing_api_health",
@@ -259,7 +265,7 @@
   ],
   "docker_root": "/mnt/sata0/lib/docker",
   "disks": "Filesystem                        Type  Size  Used Avail Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv ext4  489G  314G  150G  68% /\n/dev/mapper/data--vg-data--lov0   ext4  3.1T  2.9T  136G  96% /mnt/sata0\n",
-  "memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 14345252864   688582656 12012650496 18593681408  6780321792\nSwap:    8589930496  8589930496           0\n",
+  "memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 14337855488   680542208 12012650496 18609119232  6787702784\nSwap:    8589930496  8589930496           0\n",
   "cpu": "16",
   "new_project_networks": [
     {

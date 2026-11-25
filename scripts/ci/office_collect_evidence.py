@@ -33,7 +33,7 @@ for r in containers:
   'mounts':[{'type':m['Type'],'source':m['Source'],'destination':m['Destination']} for m in r['Mounts']],
   'memory_limit':r['HostConfig']['Memory'],'cpu_limit_nanos':r['HostConfig']['NanoCpus'],'log_config':r['HostConfig']['LogConfig']})
 opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
-for label,url in [('office_preview','http://127.0.0.1:39781/'),('office_api','http://127.0.0.1:39781/api/v1/auth/me'),('existing_frontend','http://127.0.0.1/'),('existing_api_health','http://127.0.0.1:28480/health')]:
+for label,url in [('office_preview','http://127.0.0.1:39781/'),('office_api','http://127.0.0.1:39781/api/v1/auth/me'),('existing_frontend','http://172.30.232.42/'),('existing_public_api_health','http://172.30.232.42:8080/health'),('existing_api_health','http://127.0.0.1:28480/health')]:
  try:
   with opener.open(url,timeout=10) as response:evidence['http_checks'].append({'target':label,'status':response.status,'content_type':response.headers.get('Content-Type')})
  except urllib.error.HTTPError as err:evidence['http_checks'].append({'target':label,'status':err.code})

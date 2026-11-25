@@ -6,6 +6,7 @@
 
 - 通过既有 CurrentUser DPAPI 与固定主机密钥连接 `aqyfzx@172.30.232.42:22`，实际主机 `aqyfzx10`、UID 1000。未重试 root、修改 SSH、使用特权容器或宿主根目录/Docker socket 挂载。
 - 新 Compose 项目 `knowhub-office-guard-test`，7 个服务：APP（含既有 Asynq worker）、Frontend、DocReader、PostgreSQL、Redis、ClamAV、受控模型 fixture。未修改现有 KnowHub Compose 项目及 80/8080 入口。
+- 原站 80/8080 实际绑定 `172.30.232.42`，并不绑定 localhost。按实际地址复核首页、公共 API health 和既有 28480/28481，均为 200；旧项目 APP/Worker/DocReader/PostgreSQL 保持 healthy，原容器已连续运行 3–4 周。见 [原站只读检查](existing-entry-check.json)，没有将 localhost:80 的连接失败当成原站故障。
 - 目录 `/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site`。目录名记录最初候选，不代表当前运行 SHA；当前镜像/来源以 [部署证明](deployment-proof.json) 和 [容器隔离及健康证据](isolation-health.json) 为准。
 - PostgreSQL 为新实例/卷 `knowhub-office-guard-test-postgres`，库 `office_guard_test`；Redis 为新实例/卷 `knowhub-office-guard-test-redis`，新密码与队列命名空间；文件、飞书暂存和 DocReader 临时目录均在本任务私有目录。没有复制旧 `.env`、OAuth、生产数据库、模型凭据或队列。
 - `knowhub-office-guard-test-private` 是 internal bridge（`10.254.222.0/28`）；仅 Frontend 另接 preview bridge（`10.254.222.16/28`），发布 `127.0.0.1:39781`。宿主和 73 个既有 Docker 网络/路由核查无冲突后才分配。数据库、Redis 和 APP 保持内部网络。APP 的 internal-only 网络不提供可用宿主发布端口；初始 `39780` 配置不能当作可访问入口。
@@ -65,7 +66,7 @@
 - APP cgroup 生命周期内存峰值 **245,473,280 B（约 234 MiB）**，限额 2 GiB；采样时 214.3 MiB、CPU 6.06%（采样值不是 CPU 峰值）。全部 7 容器无 OOM、重启次数 0。每服务内存/CPU/PID、日志 10m×3 均受限。
 - 根分区实测约 150 GiB 可用（68% 使用），数据盘约 139 GiB 可用；与历史 98% 不同，不将外部容量变化归功于本任务。本轮没有继续删除镜像、缓存、备份或旧目录。Docker 数据、制品、持久化和日志均在数据盘，完整前后值见证明 JSON。
 - 保留失败/复测：默认网络池耗尽→核查所有现有网络及路由后指定新 /28；首版缺 Jieba→使用模块校验后的只读词典及新镜像内置；隔离网络不能发布入口→只给 Frontend 增加专用 preview 网；DuckDB 离线下载失败→预置扩展；只读词典副本导致 CI 清理失败→修正临时副本清理，重新执行最终完整打包；制品资格检查错误使用 root+cap-drop→改为实际 UID 1000 验证；MCP DRM 提示错误→业务修复并完整 CI/部署复测；脚本响应层级/202/引导弹窗造成的断言失败均保存原日志，未当成产品 PASS。
-- 全部 CI/操作/失败/复测原始日志保留在本工作树 `private/`（Git 忽略）；[完整性清单](log-integrity-manifest.json) 记录路径、大小、SHA。原始凭据、账号密码、Key、会话及样本文件不进入 Git。
+- 全部 CI/操作/失败/复测原始日志保留在 `E:/code/WeKnora-office-guard/docs/qa/office-test-deployment/private/`（Git 忽略；不会随 cherry-pick 复制到其他工作树）；[完整性清单](log-integrity-manifest.json) 记录相对路径、大小、SHA。原始凭据、账号密码、Key、会话及样本文件不进入 Git。
 
 ## 数据恢复、PR 与回滚
 
