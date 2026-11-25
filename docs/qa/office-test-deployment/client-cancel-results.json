@@ -1,0 +1,22 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "executed_utc": "2026-11-25T02:34:51.881025+00:00",
+  "results": [
+    {
+      "case": "client_cancel_preview",
+      "result": "PASS",
+      "knowledge_count": 0,
+      "files_unchanged": true,
+      "http_status": "not observed; client intentionally disconnected",
+      "scope": "incomplete multipart cancellation, not a local-disk ReaderAt stall or server timeout"
+    },
+    {
+      "case": "client_cancel_direct_app",
+      "result": "PASS",
+      "knowledge_count": 0,
+      "files_unchanged": true,
+      "http_status": "not observed; client intentionally disconnected",
+      "scope": "incomplete multipart cancellation, not a local-disk ReaderAt stall or server timeout"
+    }
+  ]
+}

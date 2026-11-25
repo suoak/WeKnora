@@ -7,7 +7,7 @@ with connect() as client:
         site=REMOTE_ROOT+'/site'
         for row in sftp.listdir_attr(site):
             name=row.filename
-            if name in ('deployment-proof.json','preparation.json','final-data-reconciliation.json','legacy-doc-control.json','original-downloads.json') or re.fullmatch(r'(acceptance-\d{8}T\d{6}Z|restore-proof-\d{14})\.json',name):
+            if name in ('deployment-proof.json','preparation.json','final-data-reconciliation.json','legacy-doc-control.json','original-downloads.json','client-cancel-results.json') or re.fullmatch(r'(acceptance-\d{8}T\d{6}Z|restore-proof-\d{14})\.json',name):
                 assert stat.S_ISREG(row.st_mode) and row.st_size<8*1024**2
                 sftp.get(site+'/'+name,str(OUT/name))
     code='ROOT='+repr(REMOTE_ROOT)+'\n'+r'''

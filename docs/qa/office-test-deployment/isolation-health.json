@@ -1,5 +1,5 @@
 {
-  "executed_utc": "2026-11-25T02:32:35.110282+00:00",
+  "executed_utc": "2026-11-25T02:36:13.876429+00:00",
   "host": "aqyfzx10",
   "ssh_user_uid": 1000,
   "project": "knowhub-office-guard-test",
@@ -27,6 +27,11 @@
       "mounts": [
         {
           "type": "bind",
+          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/config.yaml",
+          "destination": "/app/config/config.yaml"
+        },
+        {
+          "type": "bind",
           "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/jieba-dict",
           "destination": "/app/jieba-dict"
         },
@@ -44,11 +49,6 @@
           "type": "bind",
           "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/docreader-tmp",
           "destination": "/tmp/docreader"
-        },
-        {
-          "type": "bind",
-          "source": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site/config.yaml",
-          "destination": "/app/config/config.yaml"
         }
       ],
       "memory_limit": 2147483648,
@@ -265,7 +265,7 @@
   ],
   "docker_root": "/mnt/sata0/lib/docker",
   "disks": "Filesystem                        Type  Size  Used Avail Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv ext4  489G  314G  150G  68% /\n/dev/mapper/data--vg-data--lov0   ext4  3.1T  2.9T  136G  96% /mnt/sata0\n",
-  "memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 14337855488   680542208 12012650496 18609119232  6787702784\nSwap:    8589930496  8589930496           0\n",
+  "memory": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 14275440640   693800960 12012654592 18658275328  6850129920\nSwap:    8589930496  8589930496           0\n",
   "cpu": "16",
   "new_project_networks": [
     {

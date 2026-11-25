@@ -340,6 +340,11 @@
     "sha256": "1bb68f043ec71bfaa336f7f96c0e18ffcdc36ae5a8a2197efd9a90c49a8837bf"
   },
   {
+    "path": "private/client-cancel.raw.log",
+    "bytes": 1310,
+    "sha256": "2bf610f77e811de7807fa091561d683dd9ab68757e08daf7946d66b4afdb76ad"
+  },
+  {
     "path": "private/data-reconciliation-final.raw.log",
     "bytes": 14360,
     "sha256": "ecae0afaccdf00298fce0540982b3d4bab72698ee372701fc80bd27ddc77b942"
