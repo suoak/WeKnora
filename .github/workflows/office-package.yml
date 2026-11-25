@@ -3,6 +3,7 @@ on:
   workflow_dispatch:
   push:
     branches: [ci/office-production-4257]
+    paths: [.github/workflows/office-package.yml]
 permissions:
   contents: read
 concurrency:

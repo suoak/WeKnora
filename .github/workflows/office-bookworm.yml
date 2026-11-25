@@ -21,7 +21,7 @@ jobs:
           POSTGRES_DB: office_release_check
         ports: ['5432:5432']
         options: >-
-          --health-cmd 'pg_isready -U postgres -d office_release_check'
+          --health-cmd "pg_isready -U postgres -d office_release_check"
           --health-interval 5s --health-timeout 5s --health-retries 20
       redis:
         image: redis:7-alpine
