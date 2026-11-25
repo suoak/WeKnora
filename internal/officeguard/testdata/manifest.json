@@ -133,5 +133,25 @@
     "name": "spoof-names.docx",
     "state": "unknown",
     "frontend": "unknown"
+  },
+  {
+    "name": "drm.xlsx",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "drm-disguised.txt",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "drm-stale.xlsx",
+    "state": "invalid",
+    "frontend": "invalid"
+  },
+  {
+    "name": "drm-spoof.xlsx",
+    "state": "invalid",
+    "frontend": "invalid"
   }
 ]

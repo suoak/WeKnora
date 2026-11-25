@@ -12,6 +12,8 @@ import (
 
 const Message = "该 Office 文件设置了打开密码，无法上传。请在 Office 或 WPS 中移除打开密码后重试。"
 
+const DRMMessage = "该文件受 DRM 权限管理保护，知识库无法解析。请在有权限的原系统中导出未受保护的副本后再上传。"
+
 func NewEncryptedError() *werrors.AppError {
 	return &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: Message, HTTPCode: http.StatusBadRequest}
 }
@@ -26,7 +28,10 @@ func ValidateBytes(ctx context.Context, data []byte, name string) error {
 }
 
 func Validate(ctx context.Context, r io.ReaderAt, size int64, name string) error {
-	if Detect(ctx, r, size, name) == Encrypted {
+	switch Detect(ctx, r, size, name) {
+	case DRM:
+		return &werrors.AppError{Code: werrors.ErrOfficeEncrypted, Message: DRMMessage, HTTPCode: http.StatusBadRequest}
+	case Encrypted:
 		return NewEncryptedError()
 	}
 	return ctx.Err()

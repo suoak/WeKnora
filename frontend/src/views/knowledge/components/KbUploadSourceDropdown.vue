@@ -71,7 +71,7 @@ import { useI18n } from 'vue-i18n'
 import { MessagePlugin, Icon as TIcon } from 'tdesign-vue-next'
 import { AddIcon, FileAddIcon, UploadIcon, FolderAddIcon, LinkIcon, EditIcon } from 'tdesign-icons-vue-next'
 import { MAX_FILE_SIZE_MB } from '@/utils/uploadLimits'
-import { preflightOfficeFiles, officeEncryptedMessage } from '@/utils/officeEncryption'
+import { preflightOfficeFiles } from '@/utils/officeEncryption'
 import { isFeishuDocumentURL } from '@/api/feishuPersonal'
 import { feishuMessages } from '@/i18n/feishuPersonal'
 import {
@@ -211,7 +211,7 @@ const handleFilesChange = async (event: Event, fromFolder: boolean) => {
 
   input.value = ''
   const checked = await preflightOfficeFiles(result.validFiles)
-  if (checked.rejected.length) MessagePlugin.error(`已跳过 ${checked.rejected.length} 个加密文件（${checked.rejected.slice(0, 3).map(f => f.name).join('、')}）。${officeEncryptedMessage}`)
+  if (checked.rejected.length) MessagePlugin.error(`已跳过 ${checked.rejected.length} 个受限文件（${checked.rejected.slice(0, 3).map(f => f.name).join('、')}）。${checked.rejectionMessage}`)
   if (checked.accepted.length) emit('files', checked.accepted)
 }
 

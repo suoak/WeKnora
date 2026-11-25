@@ -1,7 +1,9 @@
 /** Bounded local preflight. Unknown/invalid never mean password encrypted. */
-export type OfficeState = 'encrypted' | 'readable' | 'protected' | 'invalid' | 'unknown' | 'not_office'
+export type OfficeState = 'encrypted' | 'drm' | 'readable' | 'protected' | 'invalid' | 'unknown' | 'not_office'
 export const OFFICE_ENCRYPTED_CODE = 2400
 export const officeEncryptedMessage = '该 Office 文件设置了打开密码，无法上传。请在 Office 或 WPS 中移除打开密码后重试。'
+export const officeDRMMessage = '该文件受 DRM 权限管理保护，知识库无法解析。请在有权限的原系统中导出未受保护的副本后再上传。'
+export const officeRestrictionMessage = (state: OfficeState) => state === 'drm' ? officeDRMMessage : officeEncryptedMessage
 const cache = new WeakMap<Blob, Promise<OfficeState>>()
 const u16 = (p: Uint8Array, i: number) => new DataView(p.buffer, p.byteOffset, p.byteLength).getUint16(i, true)
 const u32 = (p: Uint8Array, i: number) => new DataView(p.buffer, p.byteOffset, p.byteLength).getUint32(i, true)
@@ -111,6 +113,37 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
         return out
       }
       const info = streams.get('EncryptionInfo'), pkg = streams.get('EncryptedPackage')
+      if (pkg && !info && pkg.size >= 8) {
+        const findPath = (names: string[]): Entry | undefined => {
+          let parent = dirs[0]!
+          for (let i = 0; i < names.length; i++) {
+            const todo = [parent.child], seen = new Set<number>(), matches: Entry[] = []
+            while (todo.length) {
+              const id = todo.pop()!
+              if (id === 0xffffffff) continue
+              const d = dirs[id]
+              if (!d || seen.has(id)) return undefined
+              seen.add(id); todo.push(d.left, d.right)
+              if (d.name === names[i] && d.kind === (i === names.length - 1 ? 2 : 1)) matches.push(d)
+            }
+            if (matches.length !== 1) return undefined
+            parent = matches[0]!
+          }
+          return parent
+        }
+        const definition = findPath(['\x06DataSpaces', 'DataSpaceInfo', 'DRMEncryptedDataSpace'])
+        const primary = findPath(['\x06DataSpaces', 'TransformInfo', 'DRMEncryptedTransform', '\x06Primary'])
+        if (definition && primary && definition.size >= 56) {
+          const p = await prefix(definition, 56), q = await prefix(primary, 512)
+          const text = (v: Uint8Array) => {
+            let s = ''
+            for (let i = 0; i + 1 < v.length; i += 2) s += String.fromCharCode(u16(v, i))
+            return s
+          }
+          if (u32(p, 0) === 8 && u32(p, 4) === 1 && u32(p, 8) === 42 &&
+              text(p.subarray(12, 54)) === 'DRMEncryptedTransform' && text(q).includes('Microsoft.Metadata.DRMTransform')) return 'drm'
+        }
+      }
       if (info && pkg && info.size >= 8 && pkg.size >= 8) {
         const p = await prefix(info, 8)
         return [2, 3, 4].includes(u16(p, 0)) && [2, 3, 4].includes(u16(p, 2)) ? 'encrypted' : 'unknown'
@@ -209,14 +242,21 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
 }
 
 export async function assertOfficeUploadable(file: File): Promise<void> {
-  if (await inspectOffice(file) === 'encrypted') {
-    throw Object.assign(new Error(officeEncryptedMessage), { code: OFFICE_ENCRYPTED_CODE, message: officeEncryptedMessage })
+  const state = await inspectOffice(file)
+  if (state === 'encrypted' || state === 'drm') {
+    const message = officeRestrictionMessage(state)
+    throw Object.assign(new Error(message), { code: OFFICE_ENCRYPTED_CODE, message })
   }
 }
 
 /** Sequential bounded reads also keep large selections from multiplying memory. */
 export async function preflightOfficeFiles(files: File[]) {
   const accepted: File[] = [], rejected: File[] = []
-  for (const file of files) (await inspectOffice(file) === 'encrypted' ? rejected : accepted).push(file)
-  return { accepted, rejected }
+  const messages = new Set<string>()
+  for (const file of files) {
+    const state = await inspectOffice(file)
+    if (state === 'encrypted' || state === 'drm') { rejected.push(file); messages.add(officeRestrictionMessage(state)) }
+    else accepted.push(file)
+  }
+  return { accepted, rejected, rejectionMessage: [...messages].join(' ') }
 }

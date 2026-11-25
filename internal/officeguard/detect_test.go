@@ -35,9 +35,12 @@ func TestFixtures(t *testing.T) {
 			}
 			err = Validate(context.Background(), bytes.NewReader(p), int64(len(p)), tc.Name)
 			var app *werrors.AppError
-			if tc.State == Encrypted {
+			if tc.State == Encrypted || tc.State == DRM {
 				if !errors.As(err, &app) || app.Code != 2400 || app.HTTPCode != 400 {
 					t.Fatalf("expected typed rejection, got %v", err)
+				}
+				if tc.State == DRM && app.Message != DRMMessage {
+					t.Fatalf("DRM must explain rights management, got %q", app.Message)
 				}
 			} else if err != nil {
 				t.Fatal(err)

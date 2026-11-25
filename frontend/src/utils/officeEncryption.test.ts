@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { readFileSync } from 'node:fs'
 import { File } from 'node:buffer'
-import { inspectOffice, preflightOfficeFiles, assertOfficeUploadable } from './officeEncryption.ts'
+import { inspectOffice, preflightOfficeFiles, assertOfficeUploadable, officeDRMMessage } from './officeEncryption.ts'
 const root = new URL('../../../internal/officeguard/testdata/', import.meta.url)
 const cases: { name: string; frontend: string }[] = JSON.parse(readFileSync(new URL('manifest.json', root), 'utf8'))
 const fixture = (name: string) => new File([readFileSync(new URL(name, root))], name) as unknown as globalThis.File
@@ -25,4 +25,12 @@ test('API boundary rejects with stable business code before network admission', 
 test('stalled local read times out', async () => {
   const blob = { name: 'a.docx', size: 512, slice: () => ({ arrayBuffer: () => new Promise(() => {}) }) } as unknown as globalThis.File
   assert.equal(await inspectOffice(blob), 'unknown')
+})
+test('DRM uses a distinct explanation, rejects before HTTP, and skips only restricted siblings', async () => {
+  await assert.rejects(assertOfficeUploadable(fixture('drm.xlsx')), { code: 2400, message: officeDRMMessage })
+  const result = await preflightOfficeFiles(['normal.docx', 'drm.xlsx', 'encrypted.xlsx', 'sheet-protected.xlsx'].map(fixture))
+  assert.deepEqual(result.accepted.map(f => f.name), ['normal.docx', 'sheet-protected.xlsx'])
+  assert.deepEqual(result.rejected.map(f => f.name), ['drm.xlsx', 'encrypted.xlsx'])
+  assert.match(result.rejectionMessage, /DRM/)
+  assert.match(result.rejectionMessage, /打开密码/)
 })

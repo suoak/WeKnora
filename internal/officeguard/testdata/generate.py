@@ -98,4 +98,33 @@ bad = bytearray((ROOT / 'normal.doc').read_bytes())
 struct.pack_into('<I', bad, 512 + 4, 1)
 save('cycle.doc', bad, 'invalid')
 save('spoof-names.docx', cfb([('EncryptionInfo', b'bad info'), ('EncryptedPackage', b'bad package')]), 'unknown')
+# Synthetic IRM hierarchy. It carries no customer document or license payload.
+def drm_fixture():
+    raw = bytearray(cfb([('EncryptedPackage', b'opaque-package'),
+        ('DRMEncryptedDataSpace', struct.pack('<III', 8, 1, 42) + 'DRMEncryptedTransform'.encode('utf-16le') + b'\0\0'),
+        ('\x06Primary', b'\0'*8 + 'Microsoft.Metadata.DRMTransform'.encode('utf-16le'))]))
+    # Eight directory entries require two chained directory sectors. Place the
+    # second at unused sector 26 (three existing 8-sector streams start at 2).
+    raw.extend(bytes(512)); struct.pack_into('<I', raw, 512+4, 26)
+    struct.pack_into('<I', raw, 512+26*4, 0xfffffffe)
+    directory=bytearray(1024)
+    nodes=[('Root Entry',5,0xfffffffe,0,1,0xffffffff),
+        ('EncryptedPackage',2,2,4096,0xffffffff,2),
+        ('\x06DataSpaces',1,0xfffffffe,0,3,0xffffffff),
+        ('DataSpaceInfo',1,0xfffffffe,0,4,5),
+        ('DRMEncryptedDataSpace',2,10,4096,0xffffffff,0xffffffff),
+        ('TransformInfo',1,0xfffffffe,0,6,0xffffffff),
+        ('DRMEncryptedTransform',1,0xfffffffe,0,7,0xffffffff),
+        ('\x06Primary',2,18,4096,0xffffffff,0xffffffff)]
+    for i,(name,kind,start,size,child,right) in enumerate(nodes):
+        pos=i*128; name=(name+'\0').encode('utf-16le');directory[pos:pos+len(name)]=name
+        struct.pack_into('<HBBIII',directory,pos+64,len(name),kind,1,0xffffffff,right,child)
+        struct.pack_into('<IQ',directory,pos+116,start,size)
+    raw[1024:1536]=directory[:512];raw[(26+1)*512:(26+2)*512]=directory[512:]
+    return raw
+drm=drm_fixture();save('drm.xlsx',drm,'drm');save('drm-disguised.txt',drm,'drm')
+stale=bytearray(drm);struct.pack_into('<I',stale,1024+128+72,0xffffffff)
+save('drm-stale.xlsx',stale,'invalid')
+spoof=bytearray(drm);spoof[(10+1)*512+12]^=1
+save('drm-spoof.xlsx',spoof,'invalid')
 (ROOT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

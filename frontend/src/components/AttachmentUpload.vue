@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue';
-import { inspectOffice, officeEncryptedMessage } from '@/utils/officeEncryption';
+import { inspectOffice, officeRestrictionMessage } from '@/utils/officeEncryption';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { useI18n } from 'vue-i18n';
 import { MAX_FILE_SIZE_MB } from '@/utils';
@@ -115,8 +115,9 @@ const addFiles = async (files: File[]) => {
       continue;
     }
     
-    if (await inspectOffice(file) === 'encrypted') {
-      MessagePlugin.error(`${file.name}：${officeEncryptedMessage}`);
+    const officeState = await inspectOffice(file);
+    if (officeState === 'encrypted' || officeState === 'drm') {
+      MessagePlugin.error(`${file.name}：${officeRestrictionMessage(officeState)}`);
       continue;
     }
     if (disposed) return;

@@ -4,6 +4,7 @@ package officeguard
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"encoding/binary"
 	"io"
@@ -17,6 +18,7 @@ type State string
 
 const (
 	Encrypted State = "encrypted"
+	DRM       State = "drm"
 	Readable  State = "readable"
 	Protected State = "protected"
 	Invalid   State = "invalid"
@@ -288,6 +290,9 @@ func detectCFB(b *budget) State {
 	}
 	info, ei := streams["EncryptionInfo"]
 	pkg, ep := streams["EncryptedPackage"]
+	if ep && !ei && pkg.size >= 8 && c.hasDRM() {
+		return DRM
+	}
 	if ei && ep && info.size >= 8 && pkg.size >= 8 {
 		p, e := c.prefix(info, 8)
 		if e != nil {
@@ -361,6 +366,77 @@ func detectCFB(b *budget) State {
 		return Unknown
 	}
 	return Unknown
+}
+
+// hasDRM requires live IRM data-space paths and their transform definition.
+// Names elsewhere, stale entries, and a lone EncryptedPackage are insufficient.
+// MS-OFFCRYPTO 2.2.2 / 2.2.3 define these IRM-specific structures.
+func (c *compound) hasDRM() bool {
+	find := func(parent uint32, name string, kind byte) (uint32, bool) {
+		if int64(parent) >= int64(len(c.dirs)) {
+			return 0, false
+		}
+		todo := []uint32{c.dirs[parent].child}
+		seen := map[uint32]bool{}
+		found, count := uint32(0), 0
+		for len(todo) > 0 {
+			id := todo[len(todo)-1]
+			todo = todo[:len(todo)-1]
+			if id == 0xffffffff {
+				continue
+			}
+			if int64(id) >= int64(len(c.dirs)) || seen[id] {
+				return 0, false
+			}
+			seen[id] = true
+			d := c.dirs[id]
+			todo = append(todo, d.left, d.right)
+			if d.name == name && d.kind == kind {
+				found = id
+				count++
+			}
+		}
+		return found, count == 1
+	}
+	path := func(names []string) (entry, bool) {
+		id := uint32(0)
+		for i, name := range names {
+			kind := byte(1)
+			if i == len(names)-1 {
+				kind = 2
+			}
+			next, ok := find(id, name, kind)
+			if !ok {
+				return entry{}, false
+			}
+			id = next
+		}
+		return c.dirs[id], true
+	}
+	definition, ok := path([]string{"\x06DataSpaces", "DataSpaceInfo", "DRMEncryptedDataSpace"})
+	if !ok || definition.size < 56 {
+		return false
+	}
+	p, err := c.prefix(definition, 56)
+	if err != nil || len(p) < 56 || u32(p, 0) != 8 || u32(p, 4) != 1 || u32(p, 8) != 42 {
+		return false
+	}
+	encoded := func(s string) []byte {
+		out := make([]byte, 0, len(s)*2)
+		for _, v := range utf16.Encode([]rune(s)) {
+			out = append(out, byte(v), byte(v>>8))
+		}
+		return out
+	}
+	if !bytes.Equal(p[12:54], encoded("DRMEncryptedTransform")) {
+		return false
+	}
+	primary, ok := path([]string{"\x06DataSpaces", "TransformInfo", "DRMEncryptedTransform", "\x06Primary"})
+	if !ok {
+		return false
+	}
+	p, err = c.prefix(primary, 512)
+	return err == nil && bytes.Contains(p, encoded("Microsoft.Metadata.DRMTransform"))
 }
 
 func detectZIP(b *budget, office bool) State {

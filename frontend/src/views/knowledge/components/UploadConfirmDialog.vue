@@ -649,7 +649,7 @@ import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
 import { formatFileSize, getFileIcon } from '@/utils/files'
 import { getUploadFileKey } from '../utils/uploadSources'
-import { preflightOfficeFiles, officeEncryptedMessage } from '@/utils/officeEncryption'
+import { preflightOfficeFiles } from '@/utils/officeEncryption'
 import { listKnowledgeTags, mergeImageActions, fetchImageAttrSchema, FALLBACK_IMAGE_ATTR_SCHEMA, type ImageActionsConfig, type ImageAttrSchema } from '@/api/knowledge-base'
 import { imageAttrDisplay, imageAttrConditionDisplay } from '@/utils/imageAttrDisplay'
 import KbUploadSourceDropdown from './KbUploadSourceDropdown.vue'
@@ -789,7 +789,7 @@ watch(localFiles, async (files) => {
   if (generation !== officeCheckGeneration) return
   checkingOffice.value = false
   if (checked.rejected.length) {
-    MessagePlugin.error(`已跳过 ${checked.rejected.length} 个加密文件。${officeEncryptedMessage}`)
+    MessagePlugin.error(`已跳过 ${checked.rejected.length} 个受限文件。${checked.rejectionMessage}`)
     localFiles.value = checked.accepted
   }
 })
