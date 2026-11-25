@@ -51,13 +51,17 @@ func (m *RecoveryManager) planFrozenRecovery(
 	}
 	now := time.Now().UnixMilli()
 	p = RecoveryPlan{
-		ResetMode: "refresh_frozen", ApprovalKeyID: m.keyID, Version: 1, PlanID: uuid.NewString(), ActorID: actor,
+		HoldForReview: previous.ObservationPlanSHA256 != "",
+		ResetMode:     "refresh_frozen", ApprovalKeyID: m.keyID, Version: 1, PlanID: uuid.NewString(), ActorID: actor,
 		Namespace: strings.TrimSuffix(strings.TrimPrefix(c.prefix, "feishu:safety:{"), "}:"),
 		AppSHA:    c.Config.SourceSHA, Trip: "frozen_recovery", IncidentID: previous.PlanID,
 		WorkerID: c.Config.WorkerID, Incarnation: c.incarnation, ControllerFingerprint: c.fingerprint,
 		MembershipRevision: revision, QueueSHA256: q.digest, QueuePendingCount: len(q.ids), QueueName: q.name,
 		PreviousModeSHA256: digestBytes(raw), Facts: facts, CreatedMS: now,
 		ExpiresMS: now + int64((15*time.Minute)/time.Millisecond),
+	}
+	if err := m.bindObservationPlan(ctx, &p); err != nil {
+		return RecoveryPlan{}, err
 	}
 	return p, nil
 }
@@ -91,6 +95,10 @@ func (m *RecoveryManager) refreshFrozenRecovery(
 		old.PlanID != p.IncidentID || old.ConfigSHA256 != facts.ConfigSHA256 {
 		return ErrRecoveryRejected
 	}
+	if p.HoldForReview != (old.ObservationPlanSHA256 != "") ||
+		p.NormalServiceSHA256 != old.ObservationRootSHA256 {
+		return ErrRecoveryRejected
+	}
 	if c.Consumers == nil {
 		return ErrRecoveryRejected
 	}
@@ -107,7 +115,9 @@ func (m *RecoveryManager) refreshFrozenRecovery(
 		return err
 	}
 	state, _ := json.Marshal(recoveryMode{
-		QueueName: q.name, Version: 1, RuntimeSHA: p.AppSHA, WorkerID: p.WorkerID, Incarnation: p.Incarnation,
+		ObservationPlanSHA256: old.ObservationPlanSHA256,
+		ObservationRootSHA256: old.ObservationRootSHA256,
+		QueueName:             q.name, Version: 1, RuntimeSHA: p.AppSHA, WorkerID: p.WorkerID, Incarnation: p.Incarnation,
 		ControllerFingerprint: p.ControllerFingerprint, MembershipRevision: p.MembershipRevision,
 		PlanID: p.PlanID, PlanSHA256: hash, SourceID: facts.SourceID, ConfigSHA256: facts.ConfigSHA256,
 		FactsSHA256: facts.FactsSHA256, Phase: "frozen", ExpiresMS: p.ExpiresMS,

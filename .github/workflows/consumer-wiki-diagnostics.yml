@@ -2,7 +2,7 @@ name: Consumer and Wiki diagnostics
 on:
   workflow_dispatch:
   push:
-    branches: [fix/consumer-wiki-diagnostics-20261125]
+    branches: [fix/consumer-wiki-diagnostics-20261125, fix/feishu-observation-guard-20261125]
   pull_request:
     branches: [main]
     paths:
@@ -60,6 +60,7 @@ jobs:
           git rev-parse HEAD | tee evidence/source-sha.txt
           test -z "$(gofmt -l internal/feishusynccontrol/consumer_evidence*.go internal/feishusynccontrol/consumers.go internal/application/service/wiki_ownership*.go)"
           git diff --check
+          test -z "$(gofmt -l internal/feishusynccontrol/observation*.go)"
       - name: Real Redis Asynq and safety regression
         run: |
           set -o pipefail

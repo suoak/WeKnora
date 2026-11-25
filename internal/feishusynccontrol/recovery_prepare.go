@@ -8,9 +8,10 @@ import (
 // RecoveryPrepareRequest pins a restrictive queue freeze to an observed incident.
 // It neither clears the stop nor replaces the separate signed reset/canary.
 type RecoveryPrepareRequest struct {
-	IncidentID string `json:"incident_id"`
-	RuntimeSHA string `json:"runtime_sha"`
-	Trip       string `json:"trip"`
+	HoldForReview bool   `json:"hold_for_review,omitempty"`
+	IncidentID    string `json:"incident_id"`
+	RuntimeSHA    string `json:"runtime_sha"`
+	Trip          string `json:"trip"`
 }
 
 // Prepare freezes the observed, drained dedicated lane without issuing authority.
@@ -27,16 +28,30 @@ func (m *RecoveryManager) Prepare(
 		expected.IncidentID == "" || expected.Trip == "" {
 		return empty, ErrRecoveryRejected
 	}
+	if expected.HoldForReview {
+		if _, err := m.inactiveNormalRecord(ctx); err != nil {
+			return empty, ErrRecoveryRejected
+		}
+	}
 	facts, err := m.facts(ctx, source)
 	if err != nil || !facts.Eligible || facts.SourceID != source || facts.SelectedResourceCount < 1 ||
 		facts.SelectedResourceCount > 64 || facts.LiveExecutions != 0 || facts.LivePublications != 0 {
 		return empty, ErrRecoveryRejected
 	}
 	record, err := m.normalRecord(ctx)
-	if err != nil || record == nil {
+	if err != nil {
 		return empty, ErrRecoveryRejected
 	}
-	raw, err := json.Marshal(record)
+	var raw []byte
+	if record == nil {
+		inactive, readErr := m.inactiveNormalRecord(ctx)
+		if readErr != nil {
+			return empty, readErr
+		}
+		raw = []byte(inactive)
+	} else {
+		raw, err = json.Marshal(record)
+	}
 	if err != nil {
 		return empty, err
 	}

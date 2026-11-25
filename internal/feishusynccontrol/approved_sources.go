@@ -240,6 +240,9 @@ func (m *RecoveryManager) PlanContinuity(
 	if m == nil || actor == "" || len(sources) < 1 || len(sources) > 4 {
 		return p, ErrRecoveryRejected
 	}
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
+		return p, ErrRecoveryRejected
+	}
 	ids := append([]string(nil), sources...)
 	sort.Strings(ids)
 	c := m.controller
@@ -351,6 +354,9 @@ func (m *RecoveryManager) ApproveSources(
 	actor string,
 ) error {
 	if m == nil {
+		return ErrRecoveryRejected
+	}
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
 		return ErrRecoveryRejected
 	}
 	m.operation.Lock()

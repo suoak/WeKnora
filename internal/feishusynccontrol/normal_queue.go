@@ -27,8 +27,24 @@ func QueueNormalSource(ctx context.Context, source, config string) (bool, error)
 	if cfg == nil || cfg.saved == nil {
 		return false, nil
 	}
-	if !cfg.saved.Active || m.verifyNormalAuthorization(cfg.saved.Authorization, false) != nil {
+	if m.verifyNormalAuthorization(cfg.saved.Authorization, false) != nil {
 		return true, ErrRecoveryRejected
+	}
+	if !cfg.saved.Active {
+		// No installation-wide admission. The caller must independently bind
+		// the exact signed incident/steady-source policy before enqueuing.
+		if observing, err := m.observationBarrier(ctx); err != nil || !observing {
+			return true, ErrRecoveryRejected
+		}
+		return false, nil
+	}
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
+		if err != nil {
+			return true, fmt.Errorf("%w: %w", ErrNormalQueueSafetyUnavailable, err)
+		}
+		// The caller must bind the exact signed incident/source policy before
+		// it can create a SyncLog or enqueue. This grants no normal admission.
+		return false, nil
 	}
 	if _, err := uuid.Parse(source); err != nil || !recoverySHA.MatchString(config) {
 		return true, ErrRecoveryRejected

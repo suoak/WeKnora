@@ -258,6 +258,11 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 			return c.freezeDependency(ctx, "normal_service_authorization", err,
 				"normal_service_authorization_unavailable")
 		}
+		observing, err := c.steadyManager.observationBarrier(ctx)
+		if err != nil {
+			return c.freezeDependency(ctx, "observation_policy", err, "observation_policy_unavailable")
+		}
+		normal = normal && !observing
 	}
 	if c.recoveryEnabled && !normal {
 		if err := c.checkRecoveryPolicy(ctx); err != nil {

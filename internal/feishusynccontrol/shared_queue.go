@@ -148,7 +148,7 @@ func (m *RecoveryManager) PlanSteadyWithSharedQueueRelease(
 	ctx context.Context, actor string, sources, reconcile []string, days int, windows ...time.Duration,
 ) (SteadyPlan, error) {
 	p, err := m.PlanSteadyWithReconciliation(ctx, actor, sources, reconcile, days, windows...)
-	if err != nil || p.ReleaseSharedQueue {
+	if err != nil || p.ReleaseSharedQueue || p.ObservationPlanSHA256 != "" {
 		return p, err
 	}
 	q, err := m.queue(ctx)
