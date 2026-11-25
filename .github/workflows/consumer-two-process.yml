@@ -1,0 +1,42 @@
+name: Exact main real two process qualification
+on:
+  push:
+    branches: [ci/consumer-wiki-native-release-20261125]
+    paths: [.github/workflows/consumer-two-process.yml]
+permissions:
+  contents: read
+jobs:
+  real-process:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+      FEISHU_CONTROL_REAL_REDIS: '1'
+      FEISHU_CONTROL_DISPOSABLE_REDIS: '1'
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 92ff276415346dc27f600f5782260821be067d94
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Real independent consumer loss and socket deadline boundaries
+        run: |
+          set -euo pipefail
+          mkdir evidence
+          git rev-parse HEAD | tee evidence/source-sha.txt
+          test "$(cat evidence/source-sha.txt)" = '92ff276415346dc27f600f5782260821be067d94'
+          go test -json -race -p 1 ./internal/feishusynccontrol -run '^TestAutomaticReal(RedisTwoProcess|ConsumerChild)' -count=1 -timeout=5m | tee evidence/two-process.jsonl
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: two-process-92ff276415346dc27f600f5782260821be067d94
+          path: evidence/
