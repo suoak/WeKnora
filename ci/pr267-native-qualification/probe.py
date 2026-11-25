@@ -47,6 +47,11 @@ def runtime():
  ids=subprocess.check_output(C+['ps','-aq'],text=True).split();rows=json.loads(subprocess.check_output(['docker','inspect',*ids],text=True))
  return [{'service':r['Config']['Labels']['com.docker.compose.service'],'image_id':r['Image'],'running':r['State']['Running'],'health':r['State'].get('Health',{}).get('Status'),'restarts':r['RestartCount'],'oom':r['State']['OOMKilled']} for r in rows]
 
+def trip_class(raw):
+ if raw==b'recovery_policy_expired_or_invalid':return 'recovery_policy_expired_or_invalid'
+ if raw==b'invalid_feishu_safety_configuration':return 'invalid_feishu_safety_configuration'
+ return 'missing' if raw is None else 'other_redacted'
+
 def snapshot():
  r=Redis();prefix='feishu:safety:{native-pr267-'+os.environ['GITHUB_RUN_ID']+'}:'
  try:
@@ -69,7 +74,7 @@ def snapshot():
    assert len(identity)==3
    summaries.append({'server_id':identity[2],'worker_id':identity[0]+':'+identity[1],'identity_tokens_match':identity[0] in strings and identity[2] in strings,'ttl_ms':r.cmd('PTTL',key),'registry_score':float(servers[i+1]),'queues':queues})
   current=r.cmd('TIME');now=int(current[0])*1000+int(current[1])//1000
-  return {'workers':workers,'leases':leases,'membership_revision':(r.cmd('GET',prefix+'membership_revision') or b'').decode(),'servers':summaries,'trip_present':r.cmd('EXISTS',prefix+'trip')==1,'permit_present':r.cmd('EXISTS',prefix+'permit')==1,'observation_present':r.cmd('EXISTS',prefix+'observation_required')==1,'now_ms':now}
+  return {'workers':workers,'leases':leases,'membership_revision':(r.cmd('GET',prefix+'membership_revision') or b'').decode(),'servers':summaries,'trip_reason_class':trip_class(r.cmd('GET',prefix+'trip')),'trip_present':r.cmd('EXISTS',prefix+'trip')==1,'permit_present':r.cmd('EXISTS',prefix+'permit')==1,'observation_present':r.cmd('EXISTS',prefix+'observation_required')==1,'now_ms':now}
  finally:r.close()
 
 def main():
@@ -81,17 +86,29 @@ def main():
  assert proc.returncode==0
  database=json.loads(proc.stdout);assert database['schema']==3051 and not database['dirty'] and database['sources']==database['sync_logs']==0 and database['active_chunks']>0 and database['embeddings']>0
  PHASE="consumer_heartbeat_lease_and_identity"
+ app_id=subprocess.check_output(C+['ps','-q','app'],text=True).strip()
+ log=subprocess.run(['docker','logs','--tail','300',app_id],capture_output=True,timeout=15)
+ logtext=(log.stdout+log.stderr).decode(errors='replace')
+ assert 'recovery approval configuration invalid' not in logtext and 'invalid_feishu_safety_configuration' not in logtext
+ key=ROOT/'approval.pub';cfg=ROOT/'config.yaml'
+ assert key.stat().st_uid==cfg.stat().st_uid==1000 and (key.stat().st_mode&0o777)==(cfg.stat().st_mode&0o777)==0o600
+ proc_uid=subprocess.check_output(C+['exec','-T','app','python3','-c',"print(next(x for x in open('/proc/1/status') if x.startswith('Uid:')).split()[1])"],text=True).strip()
+ assert proc_uid=='1000'
  first=snapshot();time.sleep(12);second=snapshot()
+ incarnation=first['workers'].get(next(iter(first['workers']),''),'').rsplit(':',1)[-1]
+ assert str(uuid.UUID(incarnation))==incarnation
  assert len(first['workers'])==len(second['workers'])==1 and first['workers']==second['workers']
  assert first['membership_revision']==second['membership_revision']
  worker=next(iter(first['workers']));assert first['leases'][worker]>first['now_ms'] and second['leases'][worker]>second['now_ms'] and second['leases'][worker]>first['leases'][worker]
  a=next(x for x in first['servers'] if 'sync' in x['queues'] and 'approved_sync' in x['queues']);b=next(x for x in second['servers'] if x['server_id']==a['server_id'])
  assert a['worker_id']==worker and b['worker_id']==worker and a['identity_tokens_match'] and b['identity_tokens_match'] and a['ttl_ms']>0 and b['ttl_ms']>0 and b['registry_score']>a['registry_score']
  PHASE='retained_stop_without_permit'
+ assert first['trip_reason_class']==second['trip_reason_class']=='recovery_policy_expired_or_invalid'
  assert first['trip_present'] and second['trip_present'] and not first['permit_present'] and not second['permit_present'] and not second['observation_present']
  PHASE='acceptance_cases_and_whitelist'
  acceptance=json.loads((ROOT/'acceptance-final.json').read_text());assert len(acceptance['results'])==16 and all(x['result']=='PASS' for x in acceptance['results'])
- report={'source_sha':SHA,'project':PROJECT,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cases':acceptance['results'],'runtime':state,'database':database,'worker_probe':{'result':'PASS','worker_id':worker,'consumer_server_id':a['server_id'],'sync_and_approved_sync':True,'lease_renewed':True,'metadata_heartbeat_advanced':True,'membership_stable':True,'stopped_without_permit':True},'signature_success_path':{'result':'NOT_RUN','reason':'No legitimate non-production offline signer/remote source; no production credentials copied'},'observation_semantic_success':{'result':'NOT_RUN','reason':'HTTP cases prove non-admin denial; signed observation controller paths are separately SQL/Redis/race qualified'},'model_semantic_quality':{'result':'NOT_RUN','reason':'Deterministic fixture; no real LLM performance claim'},'production_changes':False}
+ report={'source_sha':SHA,'project':PROJECT,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cases':acceptance['results'],'runtime':state,'database':database,'worker_probe':{'result':'PASS','worker_id':worker,'incarnation':incarnation,'membership_revision':first['membership_revision'],'trip_reason':first['trip_reason_class'],'manager_configuration':'installed_expected_unauthorized_policy_gate','app_uid':int(proc_uid),'approval_public_key_mode':'0600_uid1000','config_mode':'0600_uid1000','lease_score_samples':[first['leases'][worker],second['leases'][worker]],'metadata_ttl_ms_samples':[a['ttl_ms'],b['ttl_ms']],'consumer_server_id':a['server_id'],'sync_and_approved_sync':True,'lease_renewed':True,'metadata_heartbeat_advanced':True,'membership_stable':True,'stopped_without_permit':True},'signature_success_path':{'result':'NOT_RUN','reason':'No legitimate non-production offline signer/remote source; no production credentials copied'},'observation_semantic_success':{'result':'NOT_RUN','reason':'HTTP cases prove non-admin denial; signed observation controller paths are separately SQL/Redis/race qualified'},'model_semantic_quality':{'result':'NOT_RUN','reason':'Deterministic fixture; no real LLM performance claim'},'production_changes':False}
+ (OUT/'dictionary-assets.json').write_text((ROOT/'dictionary-assets.json').read_text())
  (OUT/'full-app-report.json').write_text(json.dumps(report,indent=2))
  deps=[]
  for row in state:

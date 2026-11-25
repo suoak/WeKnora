@@ -134,6 +134,9 @@ jobs:
           set -euo pipefail
           python3 qualification/ci/pr267-native-qualification/acceptance.py
           python3 qualification/ci/pr267-native-qualification/probe.py
+      - name: Safe startup classification
+        if: always()
+        run: python3 qualification/ci/pr267-native-qualification/startup_diagnostics.py
       - name: Whitelist safe evidence only
         if: always()
         env:
@@ -153,6 +156,8 @@ jobs:
             evidence/full-app-failure.json
             evidence/acceptance-failure.json
             evidence/dependency-images.json
+            evidence/startup-diagnostics.json
+            evidence/dictionary-assets.json
             evidence/native-upstream.json
             evidence/workflow-result.json
           if-no-files-found: error

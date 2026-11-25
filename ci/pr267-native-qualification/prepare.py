@@ -31,11 +31,11 @@ dbpass=secrets.token_urlsafe(32);redispass=secrets.token_urlsafe(32)
 write('postgres.env',f'POSTGRES_USER=postgres\nPOSTGRES_DB=consumer_native_test\nPOSTGRES_PASSWORD={dbpass}\n')
 write('redis.conf',f'bind 0.0.0.0\nprotected-mode yes\nappendonly yes\nrequirepass {redispass}\n',0o644)
 key=ed25519.Ed25519PrivateKey.generate()
-write('approval.pub',key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo).decode(),0o644)
+write('approval.pub',key.public_key().public_bytes(serialization.Encoding.PEM,serialization.PublicFormat.SubjectPublicKeyInfo).decode(),0o600)
 del key
 env={'DB_DRIVER':'postgres','DB_HOST':'postgres','DB_PORT':'5432','DB_USER':'postgres','DB_NAME':'consumer_native_test','DB_PASSWORD':dbpass,
  'REDIS_ADDR':'redis:6379','REDIS_PASSWORD':redispass,'REDIS_DB':'0','REDIS_PREFIX':'consumer-native-pr267-'+os.environ['GITHUB_RUN_ID'],'WEKNORA_REDIS_NAMESPACE':'consumer-native-pr267-'+os.environ['GITHUB_RUN_ID'],
- 'STORAGE_TYPE':'local','LOCAL_STORAGE_BASE_DIR':'/data/files','AUTO_MIGRATE':'true','GIN_MODE':'release','TZ':'Asia/Shanghai','RETRIEVE_DRIVER':'postgres',
+ 'JIEBA_DICT_DIR':'/app/jieba-dict','STORAGE_TYPE':'local','LOCAL_STORAGE_BASE_DIR':'/data/files','AUTO_MIGRATE':'true','GIN_MODE':'release','TZ':'Asia/Shanghai','RETRIEVE_DRIVER':'postgres',
  'SSRF_WHITELIST':'model-fixture',
  'JWT_SECRET':secrets.token_urlsafe(48),'SYSTEM_AES_KEY':secrets.token_hex(16),'SYSTEM_SIGNING_KEY':secrets.token_urlsafe(48),
  'DOCREADER_ADDR':'docreader:50051','DISABLE_REGISTRATION':'false','WEKNORA_AUTH_COMPLEX_PASSWORD_ENABLED':'true',
@@ -49,14 +49,27 @@ env['WEKNORA_MODEL_MAX_CONCURRENCY']='2';env['WEKNORA_ASYNQ_MAINTENANCE_CONCURRE
 write('app.env',''.join(k+'='+v+'\n' for k,v in env.items()))
 # Read current candidate's built-in config; never copy an existing site's secrets.
 cid=run('docker','create','--network','none',image)
-try:subprocess.run(['docker','cp',cid+':/app/config/config.yaml',str(ROOT/'config.yaml')],check=True,timeout=30)
+try:
+ subprocess.run(['docker','cp',cid+':/app/config/config.yaml',str(ROOT/'config.yaml')],check=True,timeout=30)
+ subprocess.run(['docker','cp',cid+':/go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict',str(ROOT/'runtime-jieba-dict')],check=True,timeout=30)
+
 finally:subprocess.run(['docker','rm',cid],check=True,stdout=subprocess.DEVNULL,timeout=15)
+dictionary=ROOT/'runtime-jieba-dict';hashes={}
+for item in dictionary.rglob('*'):
+ assert not item.is_symlink()
+ if item.is_dir():item.chmod(0o755)
+ elif item.is_file():
+  item.chmod(0o444);hashes[str(item.relative_to(dictionary))]=hashlib.sha256(item.read_bytes()).hexdigest()
+assert {'jieba.dict.utf8','hmm_model.utf8','user.dict.utf8','idf.utf8','stop_words.utf8'}<=set(hashes)
+assert 1<=len(hashes)<=20 and sum(item.stat().st_size for item in dictionary.rglob('*') if item.is_file())<32*1024**2
+dictionary.chmod(0o755)
+write('dictionary-assets.json',{'source_image_id':image,'source_module':'gojieba@v1.4.7','read_only_target':'/app/jieba-dict','hashes':hashes})
 config=(ROOT/'config.yaml').read_text();assert 'enabled: false' in config
 config=config.replace('personal_mcp:\n  enabled: false','personal_mcp:\n  enabled: true',1)
 import re
 config=re.sub(r'(policy_reference:)\s*"[^"]*"',r'\1 "consumer-native-pr267-isolated"',config,count=1)
 config=re.sub(r'(upload_scanner_address:)\s*"[^"]*"',r'\1 "scanner:3310"',config,count=1)
-(ROOT/'config.yaml').write_text(config);os.chmod(ROOT/'config.yaml',0o644)
+(ROOT/'config.yaml').write_text(config);os.chmod(ROOT/'config.yaml',0o600)
 base={'restart':'no','logging':{'driver':'json-file','options':{'max-size':'10m','max-file':'2'}},'pids_limit':512,'networks':['private'],'pull_policy':'never','labels':{'knowhub.source-sha':SHA,'knowhub.environment':'isolated-native-qualification'}}
 def service(**kw):return {**base,**kw}
 services={
@@ -65,11 +78,11 @@ services={
  'scanner':service(image=run('docker','image','inspect','--format','{{.Id}}','clamav/clamav:stable'),environment={'CLAMAV_NO_FRESHCLAMD':'true'},mem_limit='2g',cpus=2),
  'docreader':service(healthcheck={'test':['CMD','/bin/grpc_health_probe','-addr=127.0.0.1:50051'],'interval':'5s','timeout':'5s','retries':40,'start_period':'30s'},image=run('docker','image','inspect','--format','{{.Id}}','knowhub-pr267-docreader:'+os.environ['DOCREADER_SHA']),mem_limit='768m',cpus=1,volumes=['./docreader-tmp:/tmp/docreader'],environment={'DOCREADER_GRPC_MAX_WORKERS':'2','DOCREADER_MARKITDOWN_MAX_WORKERS':'1','DOCREADER_IMAGE_OUTPUT_DIR':'/tmp/docreader'}),
  'model-fixture':service(image=image,user='1000:1000',entrypoint=['python3','/fixture.py'],volumes=['./model-fixture.py:/fixture.py:ro'],read_only=True,cap_drop=['ALL'],mem_limit='128m',cpus=1),
- 'app':service(image=image,env_file=['app.env'],mem_limit='1536m',cpus=2,volumes=['./files:/data/files','./staging:/data/feishu-staging','./docreader-tmp:/tmp/docreader:ro','./config.yaml:/app/config/config.yaml:ro','./approval.pub:/app/approval.pub:ro'],ports=['127.0.0.1:39881:8080'],depends_on={'postgres':{'condition':'service_healthy'},'redis':{'condition':'service_healthy'},'scanner':{'condition':'service_healthy'},'docreader':{'condition':'service_healthy'}},healthcheck={'test':['CMD','curl','-fsS','http://127.0.0.1:8080/health'],'interval':'10s','timeout':'5s','retries':18,'start_period':'90s'})}
+ 'app':service(image=image,env_file=['app.env'],mem_limit='1536m',cpus=2,volumes=['./files:/data/files','./staging:/data/feishu-staging','./docreader-tmp:/tmp/docreader:ro','./config.yaml:/app/config/config.yaml:ro','./approval.pub:/app/approval.pub:ro','./runtime-jieba-dict:/app/jieba-dict:ro'],ports=['127.0.0.1:39881:8080'],depends_on={'postgres':{'condition':'service_healthy'},'redis':{'condition':'service_healthy'},'scanner':{'condition':'service_healthy'},'docreader':{'condition':'service_healthy'}},healthcheck={'test':['CMD','curl','-fsS','http://127.0.0.1:8080/health'],'interval':'10s','timeout':'5s','retries':18,'start_period':'90s'})}
 compose={'name':PROJECT,'services':services,'networks':{'private':{'name':PROJECT+'-private','internal':True,'ipam':{'config':[{'subnet':subnet}]}}},'volumes':{n:{'name':PROJECT+'-'+n} for n in ['postgres','redis']}}
 write('compose.json',compose)
 # Data paths exist only in this newly created ephemeral runner workspace.
-subprocess.run(['sudo','chown','1000:1000',str(ROOT/'files'),str(ROOT/'staging'),str(ROOT/'docreader-tmp')],check=True)
+subprocess.run(['sudo','chown','1000:1000',str(ROOT/'files'),str(ROOT/'staging'),str(ROOT/'docreader-tmp'),str(ROOT/'config.yaml'),str(ROOT/'approval.pub')],check=True)
 
 write('deployment-proof.json',{'project':PROJECT,'source_sha':SHA,'image_id':image,'subnet':subnet,'created_utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'config_sha256':hashlib.sha256(config.encode()).hexdigest(),'production_resources':False,'approval_private_key_discarded':True})
 print(json.dumps({'prepared':str(ROOT),'project':PROJECT,'subnet':subnet,'image_id':image,'production_connections':False}))
