@@ -1,0 +1,335 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "samples": [
+    {
+      "sample_id": "ddc90320b3254a84321f5936501699cdc9d8002e90f9ac24caacdc6ff38c36bb",
+      "extension": ".pptx",
+      "bytes": 26955071,
+      "producer_metadata": "WWO_wpscloud_20211110120845-f20455e981",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "89e7eaa8379823f9320604eb29f908b2289259dfbd5626a2b1f25cfad17085ec",
+      "extension": ".docx",
+      "bytes": 25492,
+      "producer_metadata": "WPS Office_3.9.3.6359_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "ace320f9f903b67bd877414b567cc61f4e0542a688f9ed5664b1cc6bc08a7dc8",
+      "extension": ".pptx",
+      "bytes": 1145856,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "039f0353e0e95a3c39d28e18a169993bfd866ef693b1745462bb33b8b21a6a02",
+      "extension": ".xlsx",
+      "bytes": 232960,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "5f6b9ff1ba9ca08d6e99055f660078080f7098dc5751a0f55736059dfdbc6f4b",
+      "extension": ".xlsx",
+      "bytes": 203776,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "020a3953f1e8be82488b1de8a7a587da48fb38ade401c7626b466d7a6f6a1ebe",
+      "extension": ".xlsx",
+      "bytes": 2436096,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "5f635167b7821a9076e03be8c45b3cfd16ffd29ce6c073d04667ec4bc8b5fe62",
+      "extension": ".xlsx",
+      "bytes": 1099264,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "556050acc617cacd8d957aaf2a10dea1fb1757487aadb46a6920163430d716d5",
+      "extension": ".xlsx",
+      "bytes": 1084928,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "28b4f55723783e3c87adc8ba2465822f954979418db20288faea2185a0d657a6",
+      "extension": ".xlsx",
+      "bytes": 1068544,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "56cec927591b85082e34454a487ac6211c0c6f75dc39a9dd0dff28889013783c",
+      "extension": ".docx",
+      "bytes": 14971,
+      "producer_metadata": "WPS Office_12.1.0.20305_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "8357a3d790c151d6aebfdabe4a8708d1fed82103038930dcc78e7e3246ad2a65",
+      "extension": ".docx",
+      "bytes": 776192,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "aaf736e479af74a77a9702bc246e4978e0e9e1ea6daa8143885526b8336d034c",
+      "extension": ".docx",
+      "bytes": 2057216,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "a30ab9088e494ca75a3f846f4971a15303081e1cd150a0f3cda32eb8f99e9851",
+      "extension": ".docx",
+      "bytes": 50666,
+      "producer_metadata": "WPS Office_11.1.0.10938_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "a30ab9088e494ca75a3f846f4971a15303081e1cd150a0f3cda32eb8f99e9851",
+      "extension": ".docx",
+      "bytes": 50666,
+      "producer_metadata": "WPS Office_11.1.0.10938_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "3e40fdf00e66dde5d27655566c460fdb6b359846ad9341557d2dfeef3ae0df49",
+      "extension": ".xlsx",
+      "bytes": 191399,
+      "producer_metadata": "WPS Office WWO_feishu_20230531100529-62b4f7f279",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "c2a16de2742673ea2f156bd42a1dd903019af6ed023984989adf692a968a2cee",
+      "extension": ".docx",
+      "bytes": 1771710,
+      "producer_metadata": "WPS Office_11.1.0.11194_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "26c8884c115dd93bafe92b77718eb8b84842bce8631a328a53eaa5d8374fa9b9",
+      "extension": ".pptx",
+      "bytes": 1431180,
+      "producer_metadata": "WPS 演示",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "fd8c546bc93e923f7f9eb973a9cef439cf7f1307d7d939ec4138030c3f77bb2c",
+      "extension": ".pptx",
+      "bytes": 881077,
+      "producer_metadata": "WPS 演示",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "03067747d9a7653b008796ea5b1fdd241f11877e2f3f4478224fc30584f6c480",
+      "extension": ".pptx",
+      "bytes": 26600318,
+      "producer_metadata": "WPS 表格",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "66abba136269420c05c4728aaa108881dd61afd43382d019c54c50e46289cd0a",
+      "extension": ".docx",
+      "bytes": 29093,
+      "producer_metadata": "WPS Office_11.1.0.12358_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "a31a6d17b1017d5ff8044d3184a9cf2916c01ce26162e4f5ead67691ffad0d17",
+      "extension": ".docx",
+      "bytes": 3086012,
+      "producer_metadata": "WPS Office WWO_feishu_20221103183746-e790f0e3e8",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "50b299b64754be1b7dded515296fafc2c5b505fddad01635b180b1457ada99d1",
+      "extension": ".pptx",
+      "bytes": 29011443,
+      "producer_metadata": "WPS 演示",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "58ff88f4eca81a64a0fa36ff31f946f0e3eb5272a2a5bca2eb4ed23e035cbb2d",
+      "extension": ".docx",
+      "bytes": 29837,
+      "producer_metadata": "WPS Office_11.1.0.11115_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "58ff88f4eca81a64a0fa36ff31f946f0e3eb5272a2a5bca2eb4ed23e035cbb2d",
+      "extension": ".docx",
+      "bytes": 29837,
+      "producer_metadata": "WPS Office_11.1.0.11115_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "979d50b9435089eb09bf006cdb4d63ad8ad0e1b409a81f472c8ee0dde1c6e0b2",
+      "extension": ".pptx",
+      "bytes": 8022184,
+      "producer_metadata": "WPS 演示",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "f98a67c3fd17d31390a86c105e70483fab5ceec6ae241cac1de85b4f69aa52eb",
+      "extension": ".docx",
+      "bytes": 564503,
+      "producer_metadata": "WPS Office_11.1.0.10228_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "bda6371e108ba3b3f311baa83e161fd0a613f298e13c79d5f18e7615d43b59cc",
+      "extension": ".docx",
+      "bytes": 1505343,
+      "producer_metadata": "WPS Office_11.1.0.11115_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "58ed60e85c8da1e131ff3b935a62711aef9c77cb6a74ea7df5055f7f52b637bf",
+      "extension": ".pptx",
+      "bytes": 16055792,
+      "producer_metadata": "WPS Office WWO_feishu_20230110121033-3971878c96",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "58ed60e85c8da1e131ff3b935a62711aef9c77cb6a74ea7df5055f7f52b637bf",
+      "extension": ".pptx",
+      "bytes": 16055792,
+      "producer_metadata": "WPS Office WWO_feishu_20230110121033-3971878c96",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "4a0e64880063940015ce6b327d6b8f5e9d36f3a2cf6283717927f4a79ea2bb2f",
+      "extension": ".docx",
+      "bytes": 59085,
+      "producer_metadata": "WPS Office_12.1.0.28043_F1E327BC-269C-435d-A152-05C5408002CA",
+      "expected_family": "OOXML",
+      "backend": "protected",
+      "frontend": "protected",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "c03148410655f7520f4520c838d0a7ac6e42b062dd1365d0e1cc452baaea0deb",
+      "extension": ".pptx",
+      "bytes": 2437632,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "57de08e1b1bc32ed2a5e80769f83f0fc7027e24c2a3906bd0880e150ab918615",
+      "extension": ".pptx",
+      "bytes": 2437632,
+      "producer_metadata": "Not visible without DRM authorization; not claimed as WPS",
+      "expected_family": "DRM",
+      "backend": "drm",
+      "frontend": "drm",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    },
+    {
+      "sample_id": "75aceb2ccc43316be25d55114e398b2abfbdaded5422237d6d44c78ec8a6c785",
+      "extension": ".xlsx",
+      "bytes": 9214,
+      "producer_metadata": "WPS 表格",
+      "expected_family": "OOXML",
+      "backend": "readable",
+      "frontend": "readable",
+      "scope": "Local actual-file format identification only; no cleartext business file uploaded or parser acceptance claimed"
+    }
+  ]
+}

@@ -625,7 +625,7 @@
                 <t-button theme="default" variant="outline" @click="handleCancel">
                   {{ t('uploadConfirm.cancel') }}
                 </t-button>
-                <t-button theme="primary" :disabled="!canConfirm" @click="handleConfirm">
+                <t-button theme="primary" :disabled="!canConfirm" :loading="checkingOffice" @click="handleConfirm">
                   {{ confirmButtonText }}
                 </t-button>
               </footer>
@@ -649,6 +649,7 @@ import { useEditorResourcesStore } from '@/stores/editorResources'
 import { useUIStore } from '@/stores/ui'
 import { formatFileSize, getFileIcon } from '@/utils/files'
 import { getUploadFileKey } from '../utils/uploadSources'
+import { preflightOfficeFiles } from '@/utils/officeEncryption'
 import { listKnowledgeTags, mergeImageActions, fetchImageAttrSchema, FALLBACK_IMAGE_ATTR_SCHEMA, type ImageActionsConfig, type ImageAttrSchema } from '@/api/knowledge-base'
 import { imageAttrDisplay, imageAttrConditionDisplay } from '@/utils/imageAttrDisplay'
 import KbUploadSourceDropdown from './KbUploadSourceDropdown.vue'
@@ -779,6 +780,19 @@ const uiStore = useUIStore()
 
 const allModels = ref<any[]>([])
 const localFiles = ref<File[]>([])
+const checkingOffice = ref(false)
+let officeCheckGeneration = 0
+watch(localFiles, async (files) => {
+  const generation = ++officeCheckGeneration
+  checkingOffice.value = true
+  const checked = await preflightOfficeFiles([...files])
+  if (generation !== officeCheckGeneration) return
+  checkingOffice.value = false
+  if (checked.rejected.length) {
+    MessagePlugin.error(`已跳过 ${checked.rejected.length} 个受限文件。${checked.rejectionMessage}`)
+    localFiles.value = checked.accepted
+  }
+})
 const localUrls = ref<string[]>([])
 const availableTags = ref<Array<{ id: string; name: string }>>([])
 const selectedTagIds = ref<string[]>([])
@@ -1150,6 +1164,7 @@ function getSectionNavStatus(
 }
 
 const canConfirm = computed(() => {
+  if (checkingOffice.value) return false
   if (props.mode === 'file' && batchItemCount.value === 0) return false
   if (props.mode === 'manual' && !props.manualPreview?.content?.trim()) return false
   if (hasImages.value) {
@@ -1567,6 +1582,7 @@ const handleCancel = () => {
 }
 
 const handleConfirm = () => {
+  if (checkingOffice.value) return
   if (props.mode === 'file' && batchItemCount.value === 0) {
     MessagePlugin.warning(t('uploadConfirm.noItems'))
     return

@@ -11,6 +11,7 @@ import (
 	fileService "github.com/Tencent/WeKnora/internal/application/service/file"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
+	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/stretchr/testify/require"
@@ -158,6 +159,23 @@ func TestPersonalContentRealDatabaseIsolationAndIdempotency(t *testing.T) {
 	storage := t.TempDir()
 	t.Setenv("LOCAL_STORAGE_BASE_DIR", storage)
 	files := fileService.NewLocalFileService(storage, "")
+	// Opening-password encryption is rejected independently of browser preflight,
+	// while all existing Personal MCP admission policies remain in force.
+	for _, name := range []string{"encrypted.docx", "encrypted.xlsx", "disguised.txt"} {
+		_, encryptedErr := svc.Upload(a, PersonalUploadRequest{
+			KBID: "A-kb", Filename: name,
+			ContentBase64:  base64.StdEncoding.EncodeToString([]byte(officeFixture(t, name))),
+			IdempotencyKey: "encrypted-" + name,
+		})
+		var appErr *werrors.AppError
+		require.ErrorAs(t, encryptedErr, &appErr)
+		require.Equal(t, werrors.ErrOfficeEncrypted, appErr.Code)
+	}
+	entriesBefore, readErr := os.ReadDir(storage)
+	require.NoError(t, readErr)
+	require.Empty(t, entriesBefore)
+	require.NoError(t, db.Table("knowledges").Count(&count).Error)
+	require.EqualValues(t, 1, count)
 	svc.Knowledge.(*knowledgeService).fileSvc = files
 	svc.Knowledge.(*knowledgeService).task = &createKnowledgeTaskEnqueuerStub{}
 	upload := PersonalUploadRequest{

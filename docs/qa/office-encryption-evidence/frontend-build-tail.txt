@@ -1,0 +1,34 @@
+dist/assets/SandboxSkillsPanel-CGnG_qxe.js                                      41.40 kB │ gzip:    11.99 kB
+dist/assets/ziliao-DdHcx7xC.js                                                  42.48 kB │ gzip:     8.51 kB
+dist/assets/KnowledgeBaseList-CmTa-eA3.js                                       45.74 kB │ gzip:    10.88 kB
+dist/assets/useChatStreamHandler-DL4RVeY0.js                                    57.89 kB │ gzip:    20.23 kB
+dist/assets/MCPAccessKeys-B4AJbVw7.js                                           63.16 kB │ gzip:    21.41 kB
+dist/assets/settings-DCK-tquz.js                                                71.78 kB │ gzip:    19.14 kB
+dist/assets/docx-preview-C2E_9gJ_.js                                            75.43 kB │ gzip:    20.38 kB
+dist/assets/OrganizationList-B2hxcqBF.js                                        76.93 kB │ gzip:    18.27 kB
+dist/assets/embed-_qQTeiNZ.js                                                   88.97 kB │ gzip:    27.05 kB
+dist/assets/hostWorkspace-CSJ4m9TZ.js                                           93.34 kB │ gzip:    28.62 kB
+dist/assets/NotificationBell-WZ4k9HiI.js                                        93.47 kB │ gzip:    31.68 kB
+dist/assets/Toolbox-C2VaVhHj.js                                                102.88 kB │ gzip:    29.68 kB
+dist/assets/Login-BpOf8yYp.js                                                  129.20 kB │ gzip:    38.43 kB
+dist/assets/AgentStreamDisplay-DbWXqKCP.js                                     149.97 kB │ gzip:    41.85 kB
+dist/assets/AgentList-CrfSZHb4.js                                              198.75 kB │ gzip:    44.63 kB
+dist/assets/main-BrB46am2.js                                                   211.96 kB │ gzip:    64.93 kB
+dist/assets/KnowledgeBaseEditorModal-BB401pvW.js                               238.52 kB │ gzip:    70.54 kB
+dist/assets/vendor-markdown-C4YkMO_L.js                                        301.32 kB │ gzip:    90.03 kB
+dist/assets/KnowledgeBase-NvxkX5r0.js                                          459.55 kB │ gzip:   129.58 kB
+(!) Some chunks are larger than 500 kB after minification. Consider:
+- Using dynamic import() to code-split the application
+- Use build.rollupOptions.output.manualChunks to improve chunking: https://rollupjs.org/configuration-options/#output-m
+anualchunks
+- Adjust chunk size limit for this warning via build.chunkSizeWarningLimit.
+
+dist/assets/xlsx-X-X5Jt5r.js                                                   493.82 kB │ gzip:   161.04 kB
+dist/assets/pdf-BvzXhdT2.js                                                    495.65 kB │ gzip:   151.46 kB
+dist/assets/index-BhSSpLQx.js                                                  584.43 kB │ gzip:   164.23 kB
+dist/assets/index-B9nH2BI9.js                                                  671.39 kB │ gzip:   166.90 kB
+dist/assets/vendor-highlight-4YFp646k.js                                     1,095.90 kB │ gzip:   361.74 kB
+dist/assets/index-B3-5nWlm.js                                                1,430.52 kB │ gzip:   459.66 kB
+dist/assets/vendor-mermaid-CcN8C_XT.js                                       2,901.82 kB │ gzip:   793.11 kB
+dist/assets/tdesign-icon-offline-ChrU6IZF.js                                 3,681.88 kB │ gzip: 1,059.01 kB
+✓ built in 2m 58s

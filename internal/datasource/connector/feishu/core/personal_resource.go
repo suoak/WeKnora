@@ -12,6 +12,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/Tencent/WeKnora/internal/officeguard"
 )
 
 var resourceTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{1,256}$`)
@@ -141,6 +143,9 @@ func (c *Client) DownloadPersonalResource(ctx context.Context, r PersonalResourc
 	}
 	data, name, err := c.downloadResource(ctx, r)
 	if err != nil {
+		if officeguard.IsEncryptedError(err) {
+			return nil, "", err
+		}
 		return c.personalBlocksFallback(ctx, r, err)
 	}
 	return data, name, nil
@@ -149,6 +154,9 @@ func (c *Client) DownloadPersonalResource(ctx context.Context, r PersonalResourc
 func (c *Client) downloadResource(ctx context.Context, r PersonalResource) ([]byte, string, error) {
 	if r.Type == "file" {
 		data, err := c.DownloadDriveFile(ctx, r.Token)
+		if err == nil {
+			err = officeguard.ValidateBytes(ctx, data, r.Title)
+		}
 		if err == nil {
 			err = validatePersonalBytes(data, r.Title)
 		}
@@ -168,6 +176,9 @@ func (c *Client) downloadResource(ctx context.Context, r PersonalResource) ([]by
 		return nil, "", err
 	}
 	name := SanitizeFileName(r.Title) + ext
+	if err := officeguard.ValidateBytes(ctx, data, name); err != nil {
+		return nil, "", err
+	}
 	if err := validatePersonalBytes(data, name); err != nil {
 		return nil, "", err
 	}

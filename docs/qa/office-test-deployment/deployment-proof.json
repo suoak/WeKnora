@@ -1,0 +1,54 @@
+{
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "project": "knowhub-office-guard-test",
+  "release_directory": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125/site",
+  "images": {
+    "app": {
+      "id": "sha256:7af8f3d50631fad66a9947cd349817ed840897986c60f6b0933df39d1931bf0a",
+      "archive_sha256": "e0606b7309507a96151b00f27f2673c75c8af12ab06fca760212365e841eb3d8",
+      "bytes": 352195572
+    },
+    "frontend": {
+      "id": "sha256:0497f445be12edc79fbde45cacd487e458878b87ff12c197694ea79075466ba5",
+      "archive_sha256": "44ad77083278c661ea27bae5f95e53a9e9270284ab21c15013256d1850880bfe",
+      "bytes": 35826070
+    },
+    "scanner": {
+      "id": "sha256:cf8299376c95c9749ac399976c67d79d51e3bd5a5433ad21779f4545e7bbfb0d",
+      "archive_sha256": "7b226fbd5a0237b22842f9daeb344da65000ac35d0ee178cb316d5044a0605c9",
+      "bytes": 164053137
+    }
+  },
+  "postgres_image": "sha256:d6fb8f50e25ea880d20e3acad6862931f97cb23abf4efa9c6256d2e112ed8de4",
+  "redis_image": "sha256:426f6fb54a1b82a2254bce70e5f4a72d15c14ecd3cc70d799465b956e7a32548",
+  "docreader_image": "sha256:7ddcecd6854e3002d93a8643c689eeaa653173d2e44389bb44216c968398209d",
+  "backend_port": 39780,
+  "frontend_port": 39781,
+  "created_utc": "2026-11-25T01:34:44.055710+00:00",
+  "production_credentials_copied": false,
+  "network_internal": true,
+  "host_root_or_docker_socket_mount": false,
+  "existing_projects_modified": false,
+  "antivirus": "real ClamAV; isolated signature image, fail-closed upload scanner",
+  "embedding": "deterministic owned fixture, not production semantic-quality validation",
+  "rollback": "Stop only this project with docker compose stop; preserve all new volumes and evidence. Existing project remains unchanged.",
+  "previous_source_sha": "ca1c058c0887b9b2c00899bb6c7da6201761415a",
+  "previous_images": {
+    "app": {
+      "id": "sha256:61bda0359156e7bb25f34ad1ffef3d6b4b36cf7f81acb8cf323191218c49d276",
+      "archive_sha256": "1898dfd52bf37732a5082281126e03cf1a300c0e6b48fa30303360e01004717a",
+      "bytes": 352191724
+    },
+    "frontend": {
+      "id": "sha256:95e41289ac9b0b1371ae4167546de69c6a2bbe07b249aca6ab92808f5e0404ad",
+      "archive_sha256": "304de6aed18e7c474ebc2fc81aec12db80609688ae68f403b43b292c73309e04",
+      "bytes": 35829184
+    },
+    "scanner": {
+      "id": "sha256:cf8299376c95c9749ac399976c67d79d51e3bd5a5433ad21779f4545e7bbfb0d",
+      "archive_sha256": "7b226fbd5a0237b22842f9daeb344da65000ac35d0ee178cb316d5044a0605c9",
+      "bytes": 164053137
+    }
+  },
+  "upgrade_utc": "2026-11-25T02:13:27.085507+00:00"
+}

@@ -1,0 +1,16 @@
+Native business regression is NOT PASSED.
+
+Initial command:
+go test ./internal/application/service ./internal/mcpserver ./internal/handler/session -run 'Test(CreateKnowledgeFromFile|ReplaceKnowledgeFile|PersonalFileValidation|PersonalContent|PersonalUpload|ContentFailure|TemporaryDocument|Attachment)' -count=1
+
+Observed toolchain error excerpt:
+E:/mingw64/.../ld.exe: cannot find -lrstrtmgr
+collect2.exe: error: ld returned 1 exit status
+
+A local retry added the installed Windows SDK import-library search directory
+and -lssp, with GOMAXPROCS=2 and -p 1. It did not complete and was interrupted.
+No source-level workaround, disabled security checks or global toolchain change
+was used to claim success. The manual Ubuntu workflow must execute the added
+business tests, existing admission/authorization tests, and race checks.
+
+This is a record of the observed blocker, not a complete raw compiler transcript.

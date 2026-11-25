@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -81,6 +82,9 @@ func (s *PersonalContent) Upload(ctx context.Context, req PersonalUploadRequest)
 	data, err := base64.StdEncoding.Strict().DecodeString(req.ContentBase64)
 	if err != nil || base64.StdEncoding.EncodeToString(data) != req.ContentBase64 {
 		return nil, ErrPersonalUpload
+	}
+	if err = officeguard.Validate(ctx, bytes.NewReader(data), int64(len(data)), req.Filename); err != nil {
+		return nil, err
 	}
 	if err = validatePersonalFile(req.Filename, data); err != nil {
 		return nil, err

@@ -15,6 +15,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/models/vlm"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/searchutil"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -39,6 +40,9 @@ func (f *legacyAssetFiles) SaveBytes(ctx context.Context, data []byte, tenant ui
 		return "", errors.New("candidate asset ownership invalid")
 	}
 	if err := f.renew(ctx); err != nil {
+		return "", err
+	}
+	if err := officeguard.ValidateBytes(ctx, data, name); err != nil {
 		return "", err
 	}
 	if err := legacyStagingCapacity(ctx, f.FileService, int64(len(data))); err != nil {

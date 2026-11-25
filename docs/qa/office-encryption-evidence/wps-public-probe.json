@@ -1,0 +1,25 @@
+{
+  "observed_date": "2026-11-25 Asia/Shanghai",
+  "source_issue": "https://github.com/box/spout/issues/254",
+  "download_url": "https://github.com/box/spout/files/317609/WPS_Spout_test.xlsx",
+  "origin_claim": "Issue author identifies this attachment as WPS-created; docProps/app.xml Application also contains WPS Office.",
+  "file": "WPS_Spout_test.xlsx",
+  "bytes": 8197,
+  "sha256": "6f30d148bec68721b552710901d58ac27cdaa7ed9170e6ba555e6f298f708511",
+  "go": {
+    "command": "go run ./scripts/officeguard-probe <temporary sample path>",
+    "exit_code": 0,
+    "classification": "readable"
+  },
+  "frontend": {
+    "command": "node --import tsx tests/office-encryption/probe.mjs <temporary sample path>",
+    "exit_code": 0,
+    "classification": "readable"
+  },
+  "redistribution": "No explicit fixture redistribution license established. Source bytes downloaded only to host temporary directory; not committed.",
+  "limits": [
+    "One unencrypted XLSX; no WPS encrypted or proprietary DRM fixtures.",
+    "Detector probe only; no deployed test-site parsing or retrieval acceptance.",
+    "Synthetic wps-ooxml.docx is a separate structural fixture."
+  ]
+}

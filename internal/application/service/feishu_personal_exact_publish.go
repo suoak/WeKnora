@@ -9,6 +9,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/pgvector/pgvector-go"
 	"gorm.io/gorm"
@@ -32,6 +33,9 @@ func (c *exactPersonalConsumer) publish(ctx context.Context) error {
 	}
 	fresh, err := c.recovery.revalidateExactPersonalDocument(ctx, c.source)
 	if err != nil {
+		return err
+	}
+	if err := officeguard.ValidateBytes(ctx, fresh.file, fresh.filename); err != nil {
 		return err
 	}
 	owner := &types.FeishuPersonalAttempt{

@@ -14,6 +14,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -315,6 +316,9 @@ EXISTS(SELECT 1 FROM data_sources WHERE tenant_id=? AND type IN ('feishu','feish
 	md5sum := md5.Sum(data)
 	if hex.EncodeToString(md5sum[:]) != k.FileHash {
 		return nil, errPersonalExactDocument
+	}
+	if err := officeguard.ValidateBytes(remote, data, manifest.Name); err != nil {
+		return nil, err
 	}
 	if preflight && exactPersonalFileFormat(manifest.Name) == "xlsx" && exactPersonalFormatEnabled("xlsx") {
 		mark("standalone_dependency_preflight")

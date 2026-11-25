@@ -1,0 +1,72 @@
+{
+  "repository": "https://github.com/nolze/msoffcrypto-tool",
+  "commit": "bdb71ea5dfbdee2f3cd86f8852e74be7a6f15667",
+  "fixtures": [
+    {
+      "name": "vendor/ecma376agile_sha1_password.xlsx",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "4d6437ede946382c471b681c7721e2874de569f829238c5a6b25321b172f104b"
+    },
+    {
+      "name": "vendor/ecma376standard_password.docx",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "d265dcf02f7d552486229b8c67a627ef3752fe6802b02fd2d2d485fcfbbac5de"
+    },
+    {
+      "name": "vendor/example_password.docx",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "0605624697328060fdc75ca9929ea20b9d63ebed9387ff1a97aaf9979757234a"
+    },
+    {
+      "name": "vendor/example_password.xlsx",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "3f792e3902a615bf0e91771f3f3016b80d59098b8e492efcdc0752748e15b997"
+    },
+    {
+      "name": "vendor/plain.doc",
+      "state": "readable",
+      "frontend": "readable",
+      "sha256": "290f71ddd3f6d940dc3569fc410cf5f167df4cb91b9274f4408d3f1bdaa83736"
+    },
+    {
+      "name": "vendor/plain.ppt",
+      "state": "readable",
+      "frontend": "readable",
+      "sha256": "18555251635eaab62a1fce9886026156d375615bd96f5639df7dc005e2488347"
+    },
+    {
+      "name": "vendor/plain.xls",
+      "state": "readable",
+      "frontend": "readable",
+      "sha256": "0d57ed3cb8f9e09b0986a7d8d76407de6cb2dce84a2f30048eab9103225437f5"
+    },
+    {
+      "name": "vendor/rc4cryptoapi_password.doc",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "9c5217bea80fb1a7811ad7709dd9bb35f6c639bac7154580dd4c99d54e1fc0e0"
+    },
+    {
+      "name": "vendor/rc4cryptoapi_password.ppt",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "17a57bcbe7cb517c088410fed763ccc58b9b10d23258571c1ab67830d2591a49"
+    },
+    {
+      "name": "vendor/rc4cryptoapi_password.xls",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "b804cba40c27ea88f2ea994b6b7d75145661532f9356e7246d2499f63d58abfe"
+    },
+    {
+      "name": "vendor/xor_password_123456789012345.xls",
+      "state": "encrypted",
+      "frontend": "encrypted",
+      "sha256": "c75375186933e2413325c4e64ce76903452d51413816d0df1d5fd677ea4dd76d"
+    }
+  ]
+}

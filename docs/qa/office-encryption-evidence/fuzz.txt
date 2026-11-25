@@ -1,0 +1,8 @@
+fuzz: elapsed: 0s, gathering baseline coverage: 0/4 completed
+fuzz: elapsed: 0s, gathering baseline coverage: 4/4 completed, now fuzzing with 2 workers
+fuzz: elapsed: 3s, execs: 68 (23/sec), new interesting: 0 (total: 4)
+fuzz: elapsed: 6s, execs: 68 (0/sec), new interesting: 0 (total: 4)
+fuzz: elapsed: 9s, execs: 132173 (44036/sec), new interesting: 1 (total: 5)
+fuzz: elapsed: 11s, execs: 132173 (0/sec), new interesting: 1 (total: 5)
+PASS
+ok  	github.com/Tencent/WeKnora/internal/officeguard	12.622s

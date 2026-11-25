@@ -1,0 +1,89 @@
+{
+  "originals": "git show <original_commit>:<path>; original CI zip archives remain unchanged",
+  "files": [
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-0df0bbb77/office-frontend-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "d39668b69e83d8cb499d8619f9079213b9e7b652a6154f049b78ed0302fad895",
+      "display_sha256": "0c5150d09bbc7891fe824fc758660f70545f0d51d6172dbd8a19edde1b82203a",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-0df0bbb77/office-frontend-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-913481a0d/office-frontend-913481a0de46de9fe5c6004f475860a002feb824/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "3c12f6da177b5947dc5f8aefd4baa765065846f5129ae93c6fcc6c7cf6451e35",
+      "display_sha256": "825bcadc6746b234badfaaee6523eee882b17ff5976676bfd8359b7c1dbf2ec8",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-913481a0d/office-frontend-913481a0de46de9fe5c6004f475860a002feb824/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-a22d7efce/office-frontend-a22d7efce2a678431c990b5fa4edbe7273a001b0/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "bf5728be3e0d685b16eae475a05bff9743eb9ec6b8e8ee97bc7021587c07be00",
+      "display_sha256": "5c44d40eb714de19d8d2f0a0358187d108f25f2a6aaa6226c076dda2c16abdf8",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-a22d7efce/office-frontend-a22d7efce2a678431c990b5fa4edbe7273a001b0/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-aa7cf8fc5/office-frontend-aa7cf8fc5b9c7a4ab13e53664ed8710ee2d5e22d/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "74016d9af4761f89130fc8a15bee5aed7c12d34e6dff1c97666e6690f3d5b544",
+      "display_sha256": "bda0a2ac633b6d81bee3dea8bdbb924c7b9ed2462dd9bacb643f56bbcf987473",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-aa7cf8fc5/office-frontend-aa7cf8fc5b9c7a4ab13e53664ed8710ee2d5e22d/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-d42dc53c7/office-frontend-d42dc53c764eb2c97a42035c590e6dca6da1acfa/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "61d1309fae1386fac2178a8bec01f33f261b7fdf65118c559fcfdeb330cbd3d2",
+      "display_sha256": "791e39f4bb8f668d1aafca67904f9ba6b42663156d94d8e34552b3ea8661d838",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-d42dc53c7/office-frontend-d42dc53c764eb2c97a42035c590e6dca6da1acfa/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-e39bbb055/office-frontend-e39bbb055a9580c471b07e2e5fd539600d69e224/tests.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "ba67a61e505a128f1af10cdac36a67877ed5a5474ebff42eab270d6bf33a83e8",
+      "display_sha256": "08d1a9206bf8c2e70d2a7afee538131ac497eee86cc7a1386a6ca28be0e85ce9",
+      "change": "trailing whitespace / final blank lines only"
+    },
+    {
+      "path": "docs/qa/office-encryption-evidence/linux-e39bbb055/office-frontend-e39bbb055a9580c471b07e2e5fd539600d69e224/types.txt",
+      "original_commit": "de46498b55616056909e56a98b6e20ab9d1bc2bc",
+      "original_sha256": "6544bfb7e8f68ad6ef7610b77db55cd5b13a731efa0d14c3e1c63627ceff5967",
+      "display_sha256": "9b2678fe96c82c3635248480b98c492351ad353650a0a35d723a2679e9a4b279",
+      "change": "trailing whitespace / final blank lines only"
+    }
+  ]
+}

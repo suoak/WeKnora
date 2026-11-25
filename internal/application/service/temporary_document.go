@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -19,6 +20,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	secutils "github.com/Tencent/WeKnora/internal/utils"
@@ -184,6 +186,9 @@ func (s *temporaryDocumentService) Create(
 		fileSize = int64(len(data))
 	}
 
+	if err := officeguard.Validate(ctx, bytes.NewReader(data), int64(len(data)), baseName); err != nil {
+		return nil, err
+	}
 	storageName := fmt.Sprintf("chat_attachment_%s%s", uuid.NewString()[:12], ext)
 	resourceRef, err := s.fileService.SaveBytes(ctx, data, tenantID, storageName, true)
 	if err != nil {

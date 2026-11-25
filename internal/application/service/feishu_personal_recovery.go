@@ -11,6 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
@@ -654,6 +655,9 @@ func (p *PersonalRecovery) processPrivateManifest(
 }
 
 func personalCandidateFailure(err error) (string, bool) {
+	if officeguard.IsEncryptedError(err) {
+		return "office_encrypted", false
+	}
 	if os.IsPermission(err) {
 		return "storage_permission_denied", false
 	}
@@ -750,6 +754,9 @@ func (p *PersonalRecovery) fetchCandidate(
 		}
 		if ctx.Err() != nil {
 			return ctx.Err()
+		}
+		if err := officeguard.ValidateBytes(ctx, data, name); err != nil {
+			return err
 		}
 		manifest, err = p.store.put(owner, data, name, assets...)
 		if err != nil {

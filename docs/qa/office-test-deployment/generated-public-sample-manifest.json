@@ -1,0 +1,134 @@
+[
+  {
+    "name": "broken.docx",
+    "bytes": 13,
+    "sha256": "43590a67dc6fd1bdd55ade65ad3bb2261aea3aaca0d93111e2e34fe577bf43eb",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "cycle.doc",
+    "bytes": 5632,
+    "sha256": "6a8e5c5ad7ef2acf78000cac5fe67edd7de65826711e35e9ab2cc57afd3b5d5b",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "ecma376agile_sha1_password.xlsx",
+    "bytes": 13824,
+    "sha256": "4d6437ede946382c471b681c7721e2874de569f829238c5a6b25321b172f104b",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "ecma376standard_password.docx",
+    "bytes": 7168,
+    "sha256": "d265dcf02f7d552486229b8c67a627ef3752fe6802b02fd2d2d485fcfbbac5de",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "example_password.docx",
+    "bytes": 18432,
+    "sha256": "0605624697328060fdc75ca9929ea20b9d63ebed9387ff1a97aaf9979757234a",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "example_password.xlsx",
+    "bytes": 14848,
+    "sha256": "3f792e3902a615bf0e91771f3f3016b80d59098b8e492efcdc0752748e15b997",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "header-only.xls",
+    "bytes": 8,
+    "sha256": "6dda1524c96123bdeaba431bb8bcf4eaae977606559d411919ffdda50edf3efe",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "modify-protected.docx",
+    "bytes": 36677,
+    "sha256": "791407bdab66fac8851438c33bb08ce117308d0686f6ee45bd26ef7cf2f60fe8",
+    "producer": "Python Office library"
+  },
+  {
+    "name": "normal.docx",
+    "bytes": 36648,
+    "sha256": "2c102f022ff28a0a66d170e67bd9e901a468a0f074f6d752ff9307f732815e63",
+    "producer": "Python Office library"
+  },
+  {
+    "name": "normal.pptx",
+    "bytes": 28280,
+    "sha256": "1ea33ff6e8e7f599f003da946d83e2dbb3f2de43961301dd00fff3ad6ab071f7",
+    "producer": "Python Office library"
+  },
+  {
+    "name": "normal.xlsx",
+    "bytes": 4842,
+    "sha256": "f32afce4b5cc765ab193fe0e060d8bcc5c663408c8d28932e4deb7ed2f4bc699",
+    "producer": "Python Office library"
+  },
+  {
+    "name": "plain.doc",
+    "bytes": 22528,
+    "sha256": "290f71ddd3f6d940dc3569fc410cf5f167df4cb91b9274f4408d3f1bdaa83736",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "plain.ppt",
+    "bytes": 43008,
+    "sha256": "18555251635eaab62a1fce9886026156d375615bd96f5639df7dc005e2488347",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "plain.xls",
+    "bytes": 25600,
+    "sha256": "0d57ed3cb8f9e09b0986a7d8d76407de6cb2dce84a2f30048eab9103225437f5",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "rc4cryptoapi_password.doc",
+    "bytes": 23040,
+    "sha256": "9c5217bea80fb1a7811ad7709dd9bb35f6c639bac7154580dd4c99d54e1fc0e0",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "rc4cryptoapi_password.ppt",
+    "bytes": 43008,
+    "sha256": "17a57bcbe7cb517c088410fed763ccc58b9b10d23258571c1ab67830d2591a49",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "rc4cryptoapi_password.xls",
+    "bytes": 25600,
+    "sha256": "b804cba40c27ea88f2ea994b6b7d75145661532f9356e7246d2499f63d58abfe",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  },
+  {
+    "name": "sheet-protected.xlsx",
+    "bytes": 4957,
+    "sha256": "2f3b5ef19683c45a9bedcb170c2253acf532760f7bb7f9371722d9a88333d685",
+    "producer": "Python Office library"
+  },
+  {
+    "name": "unknown-ole.doc",
+    "bytes": 5632,
+    "sha256": "2a4914d9a39d59ec1a78dd533d0c8a02659edac08f8b985a7eb0c999f55cf821",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "unknown.wps",
+    "bytes": 23,
+    "sha256": "cff04f4517df3a76c591aec94e662106d0d16d6393bbaf1d0b4f0214275735d6",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "WPS_Spout_test.xlsx",
+    "bytes": 8197,
+    "sha256": "6f30d148bec68721b552710901d58ac27cdaa7ed9170e6ba555e6f298f708511",
+    "producer": "synthetic or separately recorded public WPS sample"
+  },
+  {
+    "name": "xor_password_123456789012345.xls",
+    "bytes": 91136,
+    "sha256": "c75375186933e2413325c4e64ce76903452d51413816d0df1d5fd677ea4dd76d",
+    "producer": "public vendor fixture; see vendor/provenance.json"
+  }
+]

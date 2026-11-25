@@ -1,6 +1,7 @@
 package session
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"path/filepath"
@@ -92,6 +93,11 @@ func (h *Handler) UploadTemporaryDocument(c *gin.Context) {
 		fileHeader.Filename, fileHeader.Header.Get("Content-Type"), fileHeader.Size, file, options,
 	)
 	if err != nil {
+		var appErr *apperrors.AppError
+		if errors.As(err, &appErr) {
+			_ = c.Error(appErr)
+			return
+		}
 		c.Error(apperrors.NewBadRequestError(err.Error()))
 		return
 	}

@@ -1,0 +1,64 @@
+{
+  "observed_utc": "2026-11-25T01:17:26.258508+00:00",
+  "hostname": "aqyfzx10",
+  "uid": 1000,
+  "task_directory": {
+    "path": "/mnt/sata0/knowhub-feishu-v2-builds/office-guard-4ffd7442d-20261125",
+    "uid": 1000,
+    "mode": "0o700"
+  },
+  "free_ports": {
+    "39780": true,
+    "39781": true
+  },
+  "resource_checks": [
+    {
+      "argv": [
+        "df",
+        "-B1",
+        "/",
+        "/mnt/sata0"
+      ],
+      "exit_code": 0,
+      "stdout": "Filesystem                            1B-blocks          Used    Available Use% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv  524594610176  336815390720 161056051200  68% /\n/dev/mapper/data--vg-data--lov0   3407821250560 3084982489088 149654482944  96% /mnt/sata0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "df",
+        "-i",
+        "/",
+        "/mnt/sata0"
+      ],
+      "exit_code": 0,
+      "stdout": "Filesystem                           Inodes    IUsed     IFree IUse% Mounted on\n/dev/mapper/ubuntu--vg-ubuntu--lv  32604160  1373214  31230946    5% /\n/dev/mapper/data--vg-data--lov0   211386368 20272399 191113969   10% /mnt/sata0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "free",
+        "-b"
+      ],
+      "exit_code": 0,
+      "stdout": "              total        used        free      shared  buff/cache   available\nMem:    33627516928 12833054720  2612772864 11860893696 18181689344  8444620800\nSwap:    8589930496  8589930496           0\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "nproc"
+      ],
+      "exit_code": 0,
+      "stdout": "16\n",
+      "stderr": ""
+    },
+    {
+      "argv": [
+        "uptime"
+      ],
+      "exit_code": 0,
+      "stdout": " 01:17:29 up 190 days, 22:30,  1 user,  load average: 3.61, 4.79, 5.65\n",
+      "stderr": ""
+    }
+  ],
+  "existing_services_changed": false
+}

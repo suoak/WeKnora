@@ -2,6 +2,7 @@ import { get, post, put, del, postUpload, getDown } from "../../utils/request";
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import type { AuditLog, AuditOutcome, ListAuditLogResponse } from '@/api/tenant/audit-log';
 import { buildListKnowledgeFilesQuery } from './knowledgeFileListQuery';
+import { assertOfficeUploadable } from '@/utils/officeEncryption';
 
 export { buildListKnowledgeFilesQuery } from './knowledgeFileListQuery';
 
@@ -402,7 +403,7 @@ export function togglePinKnowledgeBase(id: string) {
 
 // 知识文件 API（基于具体知识库）
 // data.tag_ids: 可选，指定知识所属的多个标签 ID
-export function uploadKnowledgeFile(
+export async function uploadKnowledgeFile(
   kbId: string,
   data: {
     file: File
@@ -414,6 +415,8 @@ export function uploadKnowledgeFile(
   onProgress?: (progressEvent: any) => void,
   config?: { signal?: AbortSignal },
 ) {
+  await assertOfficeUploadable(data.file);
+  if (config?.signal?.aborted) throw new DOMException('Upload cancelled', 'AbortError');
   const formData = new FormData();
   Object.keys(data).forEach(key => {
     const value = data[key];

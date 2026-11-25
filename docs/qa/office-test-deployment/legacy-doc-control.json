@@ -1,0 +1,21 @@
+{
+  "case": "nonempty_legacy_doc_parse_and_retrieve",
+  "result": "PASS",
+  "source_sha": "668d067ec75a2a351ace4f7f0797be77af2b24ae",
+  "executed_utc": "2026-11-25T02:21:51.920872+00:00",
+  "sample": {
+    "repository": "https://github.com/apache/poi",
+    "path": "test-data/document/simple.doc",
+    "git_blob": "ac0384ac25269d12d778a0d65ce48e74e0541462",
+    "sha256": "4876e828e62d490fa188c7c4e47013e2e0dfdf02f5903dfd374bc0d2b2049ca1",
+    "bytes": 19456,
+    "license": "Apache-2.0; https://github.com/apache/poi/blob/trunk/LICENSE"
+  },
+  "knowledge_id": "1ac6bf65-108f-4f7a-a0e8-2220042aef36",
+  "http_status": 200,
+  "parse_status": "completed",
+  "chunks": 2,
+  "indices": 2,
+  "retrieval_http": 200,
+  "retrieval_found": true
+}

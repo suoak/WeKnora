@@ -1,0 +1,75 @@
+name: Office encrypted source native validation
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/office-encryption-native-validation]
+permissions:
+  contents: read
+defaults:
+  run:
+    shell: bash
+concurrency:
+  group: office-native-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 70
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: office-native-disposable-only
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:office-native-disposable-only@localhost:5432/feishu_atomic_test?sslmode=disable
+      FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
+      OFFICE_NATIVE_SAFETY: '1'
+      FEISHU_SYNC_SAFETY_ENABLED: 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: dtolnay/rust-toolchain@1.99.1
+      - uses: actions/cache/restore@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            third_party/anydoc-go/target
+            third_party/anydoc-go/patched-anydoc
+          key: feishu-v2-native-v1-${{ runner.os }}-${{ runner.arch }}-rust1.99.1-audit0.22.2-${{ hashFiles('third_party/anydoc-go/Cargo.lock', 'third_party/anydoc-go/Cargo.toml', 'third_party/anydoc-go/build.rs', 'third_party/anydoc-go/src/**', 'third_party/anydoc-go/include/**', 'scripts/build-anydoc-lib.sh') }}
+      - name: Build pinned native parser
+        run: |
+          mkdir -p evidence
+          git rev-parse HEAD | tee evidence/source-sha.txt
+          bash scripts/build-anydoc-lib.sh 2>&1 | tee evidence/native-build.txt
+          sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a | tee evidence/native-library.sha256
+      - name: Native encrypted incremental update with safety enabled
+        run: |
+          go test -json -p 2 -tags anydoc,sqlite_fts5 ./internal/application/service \
+            -run '^TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion$' \
+            -count=1 -timeout=20m | tee evidence/native-tests.jsonl
+          python3 - <<'PY'
+          import json
+          events=[json.loads(line) for line in open('evidence/native-tests.jsonl') if line.startswith('{')]
+          assert any(e.get('Action')=='pass' and e.get('Test')=='TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion' for e in events)
+          assert not any(e.get('Action')=='fail' for e in events)
+          PY
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: office-native-${{ github.sha }}
+          path: evidence/

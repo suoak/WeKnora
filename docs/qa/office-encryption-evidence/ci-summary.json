@@ -1,0 +1,345 @@
+{
+  "runs": [
+    {
+      "id": 45442268879,
+      "sha": "16921550f3bedbb64d33564d232fd2debe7b1b4b",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45442268879",
+      "archive": "ci-logs/45442268879.zip",
+      "sha256": "808f877ae1a20488be82a665478c05071fcdaec38f7c15028254002a75ad3901"
+    },
+    {
+      "id": 45443794219,
+      "sha": "926857fe8f359c5a443312745fc9c8f6804412e8",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45443794219",
+      "archive": "ci-logs/45443794219.zip",
+      "sha256": "ab76b90e7507d8fa182bae4684d56a40c483950f45bf09ec72e5fdcee0f426ed"
+    },
+    {
+      "id": 45445106918,
+      "sha": "0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45445106918",
+      "archive": "ci-logs/45445106918.zip",
+      "sha256": "bb275e35705443073e84b22055b341aeef2150139d31173ca6dfc13df5e97c00"
+    },
+    {
+      "id": 45445116014,
+      "sha": "0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45445116014",
+      "archive": "ci-logs/45445116014.zip",
+      "sha256": "ad5dc337920dfd8a92e4be0cc659d4ba5e8be8b497a290cfa5dcd6b5ca1df574"
+    },
+    {
+      "id": 45447320362,
+      "sha": "a22d7efce2a678431c990b5fa4edbe7273a001b0",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45447320362",
+      "archive": "ci-logs/45447320362.zip",
+      "sha256": "5e8a6c923470cff939c226ee7d807e8f8ad1e762ab578f49f48366b0dcede777"
+    },
+    {
+      "id": 45447320601,
+      "sha": "a22d7efce2a678431c990b5fa4edbe7273a001b0",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45447320601",
+      "archive": "ci-logs/45447320601.zip",
+      "sha256": "784e801e19e4d134040b3aef5dbe5a2b287a9c487094d97c5822def94d787dfa"
+    },
+    {
+      "id": 45448760638,
+      "sha": "aa7cf8fc5b9c7a4ab13e53664ed8710ee2d5e22d",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45448760638",
+      "archive": "ci-logs/45448760638.zip",
+      "sha256": "ac7e8f42cfa6f7ea0a4d15f282fbb656b84699c8869333162dc711b52e543fca"
+    },
+    {
+      "id": 45449901233,
+      "sha": "37dfe04454ac8e5cbf5e3da700e5bf9851a46f63",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45449901233",
+      "archive": "ci-logs/45449901233.zip",
+      "sha256": "db57a99683ce897754c278c52fbc4dace52de86d28312d6c8ac95d1a76918938"
+    },
+    {
+      "id": 45450125299,
+      "sha": "d42dc53c764eb2c97a42035c590e6dca6da1acfa",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45450125299",
+      "archive": "ci-logs/45450125299.zip",
+      "sha256": "c91b8329f7f842cd41697841e1b5cb65dc9fd966166fece0f2e4f7807d21c398"
+    },
+    {
+      "id": 45451127083,
+      "sha": "6603ecd692fe0398bf1770499ebe7ceb72c2cfb3",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45451127083",
+      "archive": "ci-logs/45451127083.zip",
+      "sha256": "8609cb2dd9b9c0e4f3f8473e15c6d39f6f9f09d60e5d6f94e88b571c6431aaf2"
+    },
+    {
+      "id": 45451436177,
+      "sha": "913481a0de46de9fe5c6004f475860a002feb824",
+      "conclusion": "failure",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45451436177",
+      "archive": "ci-logs/45451436177.zip",
+      "sha256": "c7b61037fed58bf8c739bb97f1b54f669a327512b15e83a1b187e2fe24a0d59d"
+    },
+    {
+      "id": 45453083132,
+      "sha": "e39bbb055a9580c471b07e2e5fd539600d69e224",
+      "conclusion": "success",
+      "url": "https://github.com/suoak/WeKnora/actions/runs/45453083132",
+      "archive": "ci-logs/45453083132.zip",
+      "sha256": "ba0aa519b84eb46f96cd0fdb4f20bc56385e475c2ea73ba4489b0d46605d5c87"
+    }
+  ],
+  "go_test_logs": [
+    {
+      "path": "linux-0df0bbb77/office-linux-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/business.jsonl",
+      "events": {
+        "pass": 182,
+        "skip": 1
+      },
+      "failed": [],
+      "skipped": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ]
+    },
+    {
+      "path": "linux-0df0bbb77/office-linux-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-0df0bbb77/office-linux-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/permissions.jsonl",
+      "events": {
+        "pass": 522
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-0df0bbb77/office-linux-0df0bbb77e9232e2c60c7ce53f68188f4a4a5b36/race.jsonl",
+      "events": {
+        "pass": 91
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-16921550f/business.jsonl",
+      "events": {
+        "pass": 166,
+        "skip": 1,
+        "fail": 1
+      },
+      "failed": [
+        "TestOfficePersonalPostgresFirstImportRejectsBeforeManifestOrKnowledge"
+      ],
+      "skipped": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ]
+    },
+    {
+      "path": "linux-16921550f/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-913481a0d/office-linux-913481a0de46de9fe5c6004f475860a002feb824/business.jsonl",
+      "events": {
+        "pass": 223,
+        "fail": 1
+      },
+      "failed": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ],
+      "skipped": []
+    },
+    {
+      "path": "linux-913481a0d/office-linux-913481a0de46de9fe5c6004f475860a002feb824/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-913481a0d/office-linux-913481a0de46de9fe5c6004f475860a002feb824/permissions.jsonl",
+      "events": {
+        "pass": 522
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-913481a0d/office-linux-913481a0de46de9fe5c6004f475860a002feb824/race.jsonl",
+      "events": {
+        "pass": 92
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-926857fe8/business.jsonl",
+      "events": {
+        "pass": 171,
+        "fail": 9,
+        "skip": 1
+      },
+      "failed": [
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.docx",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.xlsx",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.pptx",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.xlsm",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.doc",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.xls",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/encrypted.ppt",
+        "TestOfficeHTTPMultipartBypassReturns400And2400/disguised.txt",
+        "TestOfficeHTTPMultipartBypassReturns400And2400"
+      ],
+      "skipped": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ]
+    },
+    {
+      "path": "linux-926857fe8/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-a22d7efce/office-linux-a22d7efce2a678431c990b5fa4edbe7273a001b0/business.jsonl",
+      "events": {
+        "pass": 223,
+        "fail": 1
+      },
+      "failed": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ],
+      "skipped": []
+    },
+    {
+      "path": "linux-a22d7efce/office-linux-a22d7efce2a678431c990b5fa4edbe7273a001b0/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-aa7cf8fc5/office-linux-aa7cf8fc5b9c7a4ab13e53664ed8710ee2d5e22d/business.jsonl",
+      "events": {
+        "pass": 223,
+        "fail": 1
+      },
+      "failed": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ],
+      "skipped": []
+    },
+    {
+      "path": "linux-aa7cf8fc5/office-linux-aa7cf8fc5b9c7a4ab13e53664ed8710ee2d5e22d/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-d42dc53c7/office-linux-d42dc53c764eb2c97a42035c590e6dca6da1acfa/business.jsonl",
+      "events": {
+        "pass": 223,
+        "fail": 1
+      },
+      "failed": [
+        "TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge"
+      ],
+      "skipped": []
+    },
+    {
+      "path": "linux-d42dc53c7/office-linux-d42dc53c764eb2c97a42035c590e6dca6da1acfa/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-e39bbb055/office-linux-e39bbb055a9580c471b07e2e5fd539600d69e224/business.jsonl",
+      "events": {
+        "pass": 224
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-e39bbb055/office-linux-e39bbb055a9580c471b07e2e5fd539600d69e224/detector.jsonl",
+      "events": {
+        "pass": 47
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-e39bbb055/office-linux-e39bbb055a9580c471b07e2e5fd539600d69e224/permissions.jsonl",
+      "events": {
+        "pass": 522
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "linux-e39bbb055/office-linux-e39bbb055a9580c471b07e2e5fd539600d69e224/race.jsonl",
+      "events": {
+        "pass": 92
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "native-37dfe0445/office-native-37dfe04454ac8e5cbf5e3da700e5bf9851a46f63/native-tests.jsonl",
+      "events": {
+        "fail": 1
+      },
+      "failed": [
+        "TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion"
+      ],
+      "skipped": []
+    },
+    {
+      "path": "native-6603ecd69/office-native-6603ecd692fe0398bf1770499ebe7ceb72c2cfb3/native-tests.jsonl",
+      "events": {
+        "pass": 1
+      },
+      "failed": [],
+      "skipped": []
+    },
+    {
+      "path": "native-a22d7efce/office-native-a22d7efce2a678431c990b5fa4edbe7273a001b0/native-tests.jsonl",
+      "events": {
+        "fail": 1
+      },
+      "failed": [
+        "TestFeishuV2NativeReferenceUpdatesPreservePublishedVersion"
+      ],
+      "skipped": []
+    }
+  ],
+  "limits": [
+    "Counts include subtests; do not add counts as unique test cases.",
+    "CI fixtures are not deployed test-site or production acceptance."
+  ]
+}

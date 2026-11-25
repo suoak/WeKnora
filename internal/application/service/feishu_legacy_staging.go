@@ -17,6 +17,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/infrastructure/chunker"
 	"github.com/Tencent/WeKnora/internal/infrastructure/docparser"
 	"github.com/Tencent/WeKnora/internal/logger"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/utils"
 	"github.com/google/uuid"
@@ -224,6 +225,9 @@ func (s *knowledgeService) stageFeishuLegacyItem(
 		kb.VectorStoreID != nil ||
 		!kb.NeedsEmbeddingModel() {
 		return nil, ErrFeishuStagingRequired
+	}
+	if err := officeguard.ValidateBytes(ctx, item.Content, item.FileName); err != nil {
+		return nil, err
 	}
 	defer func() {
 		if receipt == nil {

@@ -233,6 +233,9 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	}
 	require.Equal(t, "knowhub-p1-dispatch-redis-20261018:6379", addr)
 	f := newMVPFixture(t)
+	// The guarded partial-output check queries both chunks and embeddings before
+	// placing the attempt in attention. Keep that check against actual SQL rows.
+	require.NoError(t, f.db.Exec("CREATE TABLE embeddings (knowledge_id varchar(36))").Error)
 	rdb := redis.NewClient(&redis.Options{Addr: addr})
 	defer func(cleanup func() error) { _ = cleanup() }(rdb.Close)
 	require.NoError(t, rdb.FlushDB(f.ctx).Err())
@@ -276,6 +279,19 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 	f.ks.redisClient = rdb
 	restarted := restartKnowledgeServiceForTest(t, f.ks)
 	require.NoError(t, restarted.RecoverKnowledgeDispatches(f.ctx))
+	queued, err := inspector.GetTaskInfo(types.QueueDefault, op.DedupKey)
+	require.NoError(t, err, "recovery must leave the original durable task in the actual queue")
+	require.Equal(t, op.TaskType, queued.Type)
+	t.Logf("recovered queue=%s task=%s state=%s next=%s", queued.Queue, queued.ID, queued.State, queued.NextProcessAt)
+	defer func() {
+		info, queueErr := inspector.GetQueueInfo(types.QueueDefault)
+		t.Logf("final queue=%+v error=%v", info, queueErr)
+		infoTask, taskErr := inspector.GetTaskInfo(types.QueueDefault, op.DedupKey)
+		if infoTask != nil {
+			t.Logf("final task state=%s error=%s", infoTask.State, infoTask.LastErr)
+		}
+		t.Logf("final task lookup error=%v", taskErr)
+	}()
 	var received atomic.Bool
 	server := asynq.NewServer(
 		asynq.RedisClientOpt{Addr: addr},
@@ -287,7 +303,10 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 		},
 	)
 	mux := asynq.NewServeMux()
-	mux.HandleFunc(types.TypeDocumentProcess, func(ctx context.Context, task *asynq.Task) error {
+	// mvpPublicTask verifies the identity-specific task type. Application-grant
+	// imports use TypeFeishuApplicationProcess, registered by the real router too.
+	mux.HandleFunc(op.TaskType, func(ctx context.Context, task *asynq.Task) error {
+		t.Logf("received task type=%s bytes=%d", task.Type(), len(task.Payload()))
 		var actual types.DocumentProcessPayload
 		if err := json.Unmarshal(task.Payload(), &actual); err != nil {
 			return err
@@ -295,6 +314,7 @@ func TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge(t *testing.T) {
 		if actual.KnowledgeID == k.ID {
 			received.Store(true)
 		}
+		t.Logf("received knowledge=%s expected=%s", actual.KnowledgeID, k.ID)
 		return restarted.ProcessDocument(ctx, task)
 	})
 	require.NoError(t, server.Start(mux))
