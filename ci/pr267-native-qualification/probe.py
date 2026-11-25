@@ -1,6 +1,6 @@
 """Read-only probes and whitelist evidence for the disposable full APP only."""
 import datetime,json,os,pathlib,socket,subprocess,time,uuid,zipfile,hashlib
-ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT']);SHA='e866d539adf3acaf52a7a1b5e81289f32df30613'
+ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT']);SHA=os.environ['SOURCE_SHA'];assert len(SHA)==40 and all(c in '0123456789abcdef' for c in SHA)
 PROJECT='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ['SOURCE_SHA']==SHA
 C=['docker','compose','-p',PROJECT,'-f',str(ROOT/'compose.json')]
 OUT=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';OUT.mkdir(exist_ok=True)

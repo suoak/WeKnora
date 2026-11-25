@@ -1,7 +1,7 @@
 """Authenticated qualification against the new, owned full native APP only."""
 import base64,datetime,hashlib,json,os,pathlib,secrets,socket,subprocess,time,urllib.request,urllib.error,uuid
 ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT'])
-PROJECT='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];SHA='e866d539adf3acaf52a7a1b5e81289f32df30613'
+PROJECT='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];SHA=os.environ['SOURCE_SHA'];assert len(SHA)==40 and all(c in '0123456789abcdef' for c in SHA)
 assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ['SOURCE_SHA']==SHA
 proof=json.loads((ROOT/'deployment-proof.json').read_text());assert proof['source_sha']==SHA and proof['project']==PROJECT
 C=['docker','compose','-p',PROJECT,'-f',str(ROOT/'compose.json')];RESULTS=[];RUNID=datetime.datetime.now(datetime.timezone.utc).strftime('%H%M%S')+'-'+secrets.token_hex(3)
@@ -101,6 +101,8 @@ def main():
 if __name__=='__main__':
  try:main()
  except Exception as error:
+  out=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';out.mkdir(exist_ok=True)
+  (out/'acceptance-failure.json').write_text(json.dumps({'source_sha':SHA,'phase':'native_app_acceptance','error_class':type(error).__name__,'results':RESULTS}))
   print(json.dumps({'phase':'native_app_acceptance','error_class':type(error).__name__,'results':RESULTS}),flush=True)
   raise SystemExit(1)
 

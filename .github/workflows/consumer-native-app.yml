@@ -13,6 +13,7 @@ permissions:
   actions: read
 env:
   SOURCE_SHA: e866d539adf3acaf52a7a1b5e81289f32df30613
+  DOCREADER_SHA: bb3e85d1214a3b390b360742d48c3c5f7e75b439
 jobs:
   full-app:
     if: github.event_name == 'workflow_dispatch'
@@ -32,6 +33,11 @@ jobs:
           persist-credentials: false
           sparse-checkout: ci/pr267-native-qualification
           path: qualification
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.DOCREADER_SHA }}
+          persist-credentials: false
+          path: docreader-source
       - name: Validate upstream run and runner resources
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -71,6 +77,7 @@ jobs:
           docker load -i native/app-image.tar.gz
           image="$(cat native/image-id.txt)"
           test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$SOURCE_SHA"
+          rm native/app-image.tar.gz
       - uses: docker/setup-buildx-action@v4
       - name: Build real DocReader and pull isolated dependencies
         run: |
@@ -78,12 +85,13 @@ jobs:
           docker pull paradedb/paradedb@sha256:af585013f97f622715de01e48d00558f7edf17055d7b40deafc9f98ca8d99a56
           docker pull redis:7.0.15
           docker pull clamav/clamav:stable
+          test "$(git -C docreader-source rev-parse HEAD)" = "$DOCREADER_SHA"
           docker buildx build --load --platform linux/amd64 \
-            -f source/docker/Dockerfile.docreader \
-            --label org.opencontainers.image.revision="$SOURCE_SHA" \
+            -f docreader-source/docker/Dockerfile.docreader \
+            --label org.opencontainers.image.revision="$DOCREADER_SHA" \
             --cache-from type=gha,scope=consumer-native-docreader \
             --cache-to type=gha,scope=consumer-native-docreader,mode=max \
-            -t "knowhub-pr267-docreader:$SOURCE_SHA" source
+            -t "knowhub-pr267-docreader:$DOCREADER_SHA" docreader-source
           docker buildx stop
       - name: Prepare fresh identities and isolated complete stack
         run: |
@@ -123,6 +131,7 @@ jobs:
           path: |
             evidence/full-app-report.json
             evidence/full-app-failure.json
+            evidence/acceptance-failure.json
             evidence/dependency-images.json
             evidence/native-upstream.json
             evidence/workflow-result.json
