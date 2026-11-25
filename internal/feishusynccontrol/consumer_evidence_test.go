@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -352,6 +353,42 @@ func TestConsumerEvidenceRetainsFirstFailureAcrossAuditFailure(t *testing.T) {
 	require.True(t, c.consumerDiagnosticRecorded)
 	require.Empty(t, c.consumerDiagnosticPending)
 	require.Equal(t, []string{first, first}, delivered)
+	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+}
+
+type evidenceAuditWriteFailure struct {
+	consumerReadFailureHook
+	fail   *atomic.Bool
+	stream string
+}
+
+func (h evidenceAuditWriteFailure) ProcessHook(next redis.ProcessHook) redis.ProcessHook {
+	return func(ctx context.Context, cmd redis.Cmder) error {
+		if cmd.Name() == "xadd" && fmt.Sprint(cmd.Args()[1]) == h.stream && h.fail.Load() {
+			return errors.New("synthetic durable audit write failure")
+		}
+		return next(ctx, cmd)
+	}
+}
+
+func TestConsumerEvidenceRetainsFirstFailureAcrossDurableWriteFailure(t *testing.T) {
+	c, r, _, key, raw := evidenceFixture(t)
+	ctx := context.Background()
+	var fail atomic.Bool
+	fail.Store(true)
+	r.AddHook(evidenceAuditWriteFailure{fail: &fail, stream: c.prefix + "control_audit"})
+	require.NoError(t, r.Del(ctx, key).Err())
+	require.Error(t, c.Step(ctx))
+	first := c.consumerDiagnosticPending
+	require.NotEmpty(t, first)
+	require.EqualValues(t, 0, r.XLen(ctx, c.prefix+"control_audit").Val())
+	require.NoError(t, r.Set(ctx, key, raw, 10*time.Second).Err())
+	fail.Store(false)
+	require.Error(t, c.Step(ctx))
+	rows := r.XRange(ctx, c.prefix+"control_audit", "-", "+").Val()
+	require.Len(t, rows, 1)
+	require.Equal(t, first, rows[0].Values["consumer_diagnostic"])
 	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
 	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
 }
