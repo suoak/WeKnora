@@ -210,7 +210,8 @@ func detectCFB(b *budget) State {
 		return Invalid
 	}
 	ver, shift := u16(h, 26), u16(h, 30)
-	if u16(h, 28) != 0xfffe || !((ver == 3 && shift == 9) || (ver == 4 && shift == 12)) || u16(h, 32) != 6 ||
+	validVersion := (ver == 3 && shift == 9) || (ver == 4 && shift == 12)
+	if u16(h, 28) != 0xfffe || !validVersion || u16(h, 32) != 6 ||
 		u32(h, 56) != 4096 {
 		return Invalid
 	}
@@ -513,7 +514,7 @@ func detectZIP(b *budget, office bool) State {
 	}
 	for _, f := range zr.File {
 		if f.Name != "word/settings.xml" && f.Name != "xl/workbook.xml" &&
-			!(strings.HasPrefix(f.Name, "xl/worksheets/") && strings.HasSuffix(f.Name, ".xml")) {
+			(!strings.HasPrefix(f.Name, "xl/worksheets/") || !strings.HasSuffix(f.Name, ".xml")) {
 			continue
 		}
 		if f.UncompressedSize64 > 256<<10 || f.CompressedSize64 > 256<<10 {

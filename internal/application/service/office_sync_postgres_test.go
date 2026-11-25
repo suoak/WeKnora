@@ -37,7 +37,7 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 	root := t.TempDir()
 	oldPath := filepath.Join(root, "original.docx")
 	oldBytes := []byte(officeFixture(t, "normal.docx"))
-	require.NoError(t, os.WriteFile(oldPath, oldBytes, 0600))
+	require.NoError(t, os.WriteFile(oldPath, oldBytes, 0o600))
 	meta, _ := json.Marshal(map[string]string{"datasource_id": "office-source", "external_id": "parent#office"})
 	old := &types.Knowledge{
 		ID:              "old-knowledge",
