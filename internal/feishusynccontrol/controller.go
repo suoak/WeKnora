@@ -53,16 +53,17 @@ var ErrNotReady = errors.New("feishu controller not ready")
 // Event is content-free evidence; Audit must deliver it to the configured alert
 // sink or return an error. Log-only wiring is not production alert verification.
 type Event struct {
-	StepID      string `json:",omitempty"`
-	Incarnation string `json:",omitempty"`
-	Kind        string
-	Reason      string
-	WorkerID    string
-	Fenced      bool
-	QueuePaused bool
-	ProbeStage  string `json:",omitempty"`
-	ElapsedMS   int64  `json:",omitempty"`
-	ctx         context.Context
+	StepID             string `json:",omitempty"`
+	Incarnation        string `json:",omitempty"`
+	Kind               string
+	Reason             string
+	WorkerID           string
+	Fenced             bool
+	QueuePaused        bool
+	ProbeStage         string `json:",omitempty"`
+	ElapsedMS          int64  `json:",omitempty"`
+	ConsumerDiagnostic string `json:",omitempty"`
+	ctx                context.Context
 }
 
 // Context carries the bounded control operation to its audit sink. Standalone
@@ -84,25 +85,30 @@ type Controller struct {
 	Audit  func(Event) error
 	// Consumers returns actual healthy Asynq sync consumers as host:pid IDs.
 	// Automatic mode validates their registry leases, never synthesizes metrics.
-	Consumers         func(context.Context) ([]string, error)
-	ApprovedConsumers func(context.Context) ([]string, error)
-	prefix            string
-	fingerprint       string
-	incarnation       string
-	departed          bool
-	recoveryEnabled   bool
-	recoveryRequired  bool
-	approvedFacts     func(context.Context, string) (RecoveryFacts, error)
-	steadyManager     *RecoveryManager
-	started           time.Time
-	admitted          bool
-	lastEvent         string
-	lastAlertAck      time.Time
-	stepStarted       time.Time
-	probeStage        string
-	Transport         *ControlTransport
-	Observe           func(StepTiming)
-	timings           StepTiming
+	Consumers                  func(context.Context) ([]string, error)
+	ApprovedConsumers          func(context.Context) ([]string, error)
+	prefix                     string
+	fingerprint                string
+	incarnation                string
+	departed                   bool
+	recoveryEnabled            bool
+	recoveryRequired           bool
+	approvedFacts              func(context.Context, string) (RecoveryFacts, error)
+	steadyManager              *RecoveryManager
+	started                    time.Time
+	admitted                   bool
+	lastEvent                  string
+	lastAlertAck               time.Time
+	stepStarted                time.Time
+	probeStage                 string
+	Transport                  *ControlTransport
+	Observe                    func(StepTiming)
+	timings                    StepTiming
+	consumerDiagnostic         *consumerEvidence
+	consumerRevision           string
+	consumerDiagnosticRecorded bool
+	consumerDiagnosticPending  string
+	lastConsumerServerIDs      []string
 }
 
 func (c *Controller) audit(ctx context.Context, event Event) error {
@@ -379,11 +385,25 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	CancelLocal()
 	fenced := c.Stop(ctx)
 	failures = append(failures, fenced)
+	consumerDiagnostic := ""
+	if c.consumerDiagnostic == nil && strings.HasPrefix(reason, "registry_") {
+		c.consumerDiagnostic = newConsumerEvidence(ctx, c.Client, false)
+		c.consumerDiagnostic.ProbeClass = "not_executed_registry_failure"
+	}
+	if !c.consumerDiagnosticRecorded {
+		if c.consumerDiagnosticPending == "" && c.consumerDiagnostic != nil {
+			c.consumerDiagnosticPending = c.consumerDiagnostic.snapshot(ctx, c, reason)
+		}
+		// Audit transport can fail after the consumer recovers. Retain the
+		// original bounded projection until both durable sinks acknowledge it.
+		consumerDiagnostic = c.consumerDiagnosticPending
+	}
 	event := Event{
 		StepID: c.timings.ID, Incarnation: c.incarnation,
 		Kind: "feishu_safety_stop", Reason: reason, WorkerID: c.Config.WorkerID,
 		Fenced: fenced == nil, QueuePaused: !c.Config.DedicatedSyncLane && paused == nil && approvedPaused == nil,
 		ProbeStage: failedStage, ElapsedMS: elapsedMS,
+		ConsumerDiagnostic: consumerDiagnostic,
 	}
 	// Repeated unsuccessful actions are reported, never misrepresented as done.
 	if c.lastEvent != reason || paused != nil || approvedPaused != nil || fenced != nil {
@@ -396,13 +416,18 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 				"shared_queue_targeted": !c.Config.DedicatedSyncLane,
 				"probe_stage":           event.ProbeStage, "step_elapsed_ms": event.ElapsedMS,
 				"step_id": event.StepID, "incarnation": event.Incarnation,
-				"probe_timing": probeTiming,
+				"probe_timing":        probeTiming,
+				"consumer_diagnostic": consumerDiagnostic,
 			},
 		}).Err()
 		alert := c.audit(ctx, event)
 		failures = append(failures, record, alert)
 		if record == nil && alert == nil {
 			c.lastEvent = reason
+			if consumerDiagnostic != "" {
+				c.consumerDiagnosticRecorded = true
+				c.consumerDiagnosticPending = ""
+			}
 		}
 	}
 	return errors.Join(append(failures, ErrNotReady)...)

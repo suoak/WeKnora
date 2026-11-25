@@ -78,7 +78,15 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, automaticFailureReason("membership_probe", err), true)
 	}
 	c.stage(ctx, "consumer_probe")
+	c.consumerRevision = revision
+	ctx = context.WithValue(ctx, consumerEvidenceKey{}, &c.consumerDiagnostic)
 	ids, err := c.Consumers(ctx)
+	if c.consumerDiagnostic != nil {
+		c.consumerDiagnostic.PreviousConsumerServerIDs = append([]string(nil), c.lastConsumerServerIDs...)
+		if err == nil {
+			c.lastConsumerServerIDs = append([]string(nil), c.consumerDiagnostic.ConsumerServerIDs...)
+		}
+	}
 	stage := "consumer_probe"
 	if err == nil {
 		stage = "permit"
@@ -121,6 +129,11 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, automaticFailureReason(stage, err), true)
 	}
 	c.admitted = true
+	// Only an actually successful admission closes the diagnostic episode.
+	// A visible consumer with TRIPPED must retain the original failure.
+	c.consumerDiagnosticRecorded = false
+	c.consumerDiagnosticPending = ""
+	c.lastEvent = ""
 	return nil
 }
 

@@ -1,0 +1,82 @@
+name: Consumer and Wiki diagnostics
+on:
+  workflow_dispatch:
+  push:
+    branches: [fix/consumer-wiki-diagnostics-20261125]
+  pull_request:
+    branches: [main]
+    paths:
+      - internal/feishusynccontrol/**
+      - internal/application/service/wiki_ownership*
+      - internal/application/service/wiki_ingest_batch.go
+      - internal/container/feishu_sync_control.go
+      - .github/workflows/consumer-wiki-diagnostics.yml
+permissions:
+  contents: read
+concurrency:
+  group: consumer-wiki-diagnostics-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  isolated:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-diagnostics-only
+          POSTGRES_DB: diagnostics_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d diagnostics_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4-alpine
+        ports: ['6379:6379']
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+      FEISHU_RECOVERY_REAL_REDIS_ADDR: knowhub-recovery-redis-abcdef123456:6379
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:disposable-diagnostics-only@localhost:5432/diagnostics_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Prepare isolated dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y build-essential libsqlite3-dev
+          echo '127.0.0.1 knowhub-recovery-redis-abcdef123456' | sudo tee -a /etc/hosts
+          mkdir evidence
+          git rev-parse HEAD | tee evidence/source-sha.txt
+          test -z "$(gofmt -l internal/feishusynccontrol/consumer_evidence*.go internal/feishusynccontrol/consumers.go internal/application/service/wiki_ownership*.go)"
+          git diff --check
+      - name: Real Redis Asynq and safety regression
+        run: |
+          set -o pipefail
+          go test -json -race -p 1 ./internal/feishusynccontrol ./internal/feishusafety -count=1 -timeout=15m | tee evidence/redis-safety.jsonl
+      - name: Wiki SQLite PostgreSQL and publication regression
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          go test -json -race -tags sqlite_fts5 -p 1 ./internal/application/service -run 'TestWikiOwnership|TestWikiRecovery|TestWikiBlocked|TestWikiDocumentSelection|TestWiki.*(Generation|Lease|Claim|Finaliz)' -count=1 -timeout=15m | tee evidence/wiki-sql.jsonl
+      - name: Wiring build and vet
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          go test -tags sqlite_fts5 -p 1 ./internal/container -run '^TestFeishuSyncRuntime' -count=1 -timeout=10m 2>&1 | tee evidence/wiring.txt
+          go vet ./internal/feishusynccontrol
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consumer-wiki-diagnostics-${{ github.event.pull_request.head.sha || github.sha }}
+          path: evidence/

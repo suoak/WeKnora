@@ -156,11 +156,12 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 			Stream: strings.TrimSuffix(guard.PermitKey(), "permit") + "events", MaxLen: 1000, Approx: true,
 			Values: map[string]any{
 				"step_id": event.StepID, "incarnation": event.Incarnation,
-				"kind":         event.Kind,
-				"reason":       event.Reason,
-				"worker_id":    event.WorkerID,
-				"fenced":       event.Fenced,
-				"queue_paused": event.QueuePaused,
+				"kind":                event.Kind,
+				"reason":              event.Reason,
+				"worker_id":           event.WorkerID,
+				"fenced":              event.Fenced,
+				"queue_paused":        event.QueuePaused,
+				"consumer_diagnostic": event.ConsumerDiagnostic,
 			},
 		}).
 			Err()
