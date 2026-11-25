@@ -6,13 +6,16 @@
 
 本轮 `git fetch origin main` 后，远端 `suoak/WeKnora main` 为 `50f82ae496d78238c0af7332739e7a9d3a49dbb1`，`git ls-remote` 核对一致。它是本功能分支祖先；审查起点 960d157c1 相比 main 落后 0、领先 21 个提交，没有新增 main 代码要合并，也没有合并冲突需要解决。创建 PR 前再次核对远端；若 main 变化，应重新检查，不将本结论外推到未来 main。
 
-相对已验收业务 SHA `668d067ec75a2a351ace4f7f0797be77af2b24ae`，本轮业务修改包括 `internal/handler/knowledge.go` 的不支持文件类型错误映射，以及检测读取返回后的预算/取消回检；另有回归测试、lint 格式/注释/显式忽略只读 Close 返回值及审查文档。上传、飞书、MCP、权限、替换的既有门禁没有放宽。
+相对已验收业务 SHA `668d067ec75a2a351ace4f7f0797be77af2b24ae`，本轮业务修改包括不支持文件类型的 4xx 映射、读取返回后的预算/取消回检，以及双端加密版本组合的明确识别；另有回归、lint 格式/注释/显式忽略只读 Close 返回值及审查文档。上传、飞书、MCP、权限、替换的既有门禁没有放宽。
 
 ## 本轮修复与审查结论
 
 - `.wps` 等不在既有文件白名单中的类型仍由服务返回 `ErrInvalidFileType`，白名单未扩大。文件上传 handler 用 `errors.Is` 将该 sentinel 映射为 **HTTP 400 / code 1000**，中文说明为“不支持的文件类型，请上传系统支持的文件格式。”不再包装成 500 / 1007，也不使用加密码 2400。
 - handler 回归走真实 multipart、服务及错误中间件，保留生产路由的所有权/写授权 guards；覆盖 `.wps`/`.WPS` 的 400/1000，未授权仍为 403。服务回归验证拒绝时 SaveFile、数据库创建及任务入队计数均为零。
 - Office 分类保持 `encrypted / drm / protected / readable / invalid / unknown / not_office`。只有明确 encrypted 或 drm 产生 2400；protected、unknown、invalid 不冒充“成功识别加密”。readable 仅表示未发现打开加密，不能证明可解析或容器完整。结构探测不进行解密或密码验证。
+- 规范对照修复版本组合的误判：Standard 2/3/4.2、Extensible 3/4.3、Agile 4.4 才作为已识别的加密版本；2.3/2.4/3.4/5.4 等组合回落 unknown。新增双端版本组合样本/回归，不对各自版本号独立范围取笛卡尔积。unknown 仍须按既有策略处理，不能将此收紧误称为所有未来/WPS 加密格式已支持。
+
+版本组合依据为 Microsoft [Standard](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/2895eba1-acb1-4624-9bde-2cdad3fea015)、[Extensible](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-offcrypto/a922e41e-63f2-4701-8521-7f5d221a7ce0) 与 [Agile 2.3.4.10](https://officeprotocoldoc.z19.web.core.windows.net/files/MS-OFFCRYPTO/%5BMS-OFFCRYPTO%5D.pdf)；并不声称完成密码/加密载荷完整性验证。
 - CFB 不按 OLE 文件头直接认定加密；检测 live 根流及相应格式标记。DRM 要求特定 live IRM 路径、变换定义和 DRM transform 信息。ZIP/CFB 畸形、伪造/失效标记、旧版格式、修改/工作表保护、超限/取消均沿用双端样本与资源预算回归；预算耗尽回落 unknown。
 - 本轮补充 ReaderAt 返回后的预算/取消回检，防止末次读取跨过预算或取消边界后仍报告明确加密。确定性测试覆盖“读取期间到期”及“最后一次读取取消”，取消返回 context.Canceled。750 ms 是协作预算，不是强行中断已阻塞磁盘系统调用的承诺；未引入超时后遗留的读取 goroutine，真实慢盘仍是未覆盖边界。
 - 上传与替换：身份/知识库/写授权仍先于服务持久化；明确拒绝发生在保存文件、建行、入队和替换取消旧任务之前。替换服务没有站点调用方的限制继续明确，不新增未审查的替换 API。

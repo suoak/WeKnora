@@ -26,6 +26,14 @@ test('stalled local read times out', async () => {
   const blob = { name: 'a.docx', size: 512, slice: () => ({ arrayBuffer: () => new Promise(() => {}) }) } as unknown as globalThis.File
   assert.equal(await inspectOffice(blob), 'unknown')
 })
+test('unknown encryption-version pairs do not invent a successful encrypted verdict', async () => {
+  for (const pair of ['2.3', '2.4', '3.4', '5.4']) {
+    const file = fixture(`unknown-version-${pair}.docx`)
+    assert.equal(await inspectOffice(file), 'unknown')
+    // Unknown follows the existing admission policy, never the 2400 refusal.
+    await assertOfficeUploadable(file)
+  }
+})
 test('DRM uses a distinct explanation, rejects before HTTP, and skips only restricted siblings', async () => {
   await assert.rejects(assertOfficeUploadable(fixture('drm.xlsx')), { code: 2400, message: officeDRMMessage })
   const result = await preflightOfficeFiles(['normal.docx', 'drm.xlsx', 'encrypted.xlsx', 'sheet-protected.xlsx'].map(fixture))

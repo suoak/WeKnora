@@ -319,7 +319,10 @@ func detectCFB(b *budget) State {
 			return Invalid
 		}
 		major, minor := u16(p, 0), u16(p, 2)
-		if major >= 2 && major <= 4 && minor >= 2 && minor <= 4 {
+		// MS-OFFCRYPTO: Standard 2/3/4.2, Extensible 3/4.3, Agile 4.4.
+		// A Cartesian range would incorrectly recognize unknown 2.3/2.4/3.4.
+		if (minor == 2 && major >= 2 && major <= 4) ||
+			(minor == 3 && (major == 3 || major == 4)) || (major == 4 && minor == 4) {
 			return Encrypted
 		}
 		return Unknown

@@ -146,7 +146,10 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
       }
       if (info && pkg && info.size >= 8 && pkg.size >= 8) {
         const p = await prefix(info, 8)
-        return [2, 3, 4].includes(u16(p, 0)) && [2, 3, 4].includes(u16(p, 2)) ? 'encrypted' : 'unknown'
+        const major = u16(p, 0), minor = u16(p, 2)
+        // MS-OFFCRYPTO version pairs, not independent major/minor ranges.
+        return (minor === 2 && [2, 3, 4].includes(major)) ||
+          (minor === 3 && [3, 4].includes(major)) || (major === 4 && minor === 4) ? 'encrypted' : 'unknown'
       }
       if (info || pkg) return 'invalid'
       const word = streams.get('WordDocument')

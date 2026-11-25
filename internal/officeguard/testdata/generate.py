@@ -98,6 +98,10 @@ bad = bytearray((ROOT / 'normal.doc').read_bytes())
 struct.pack_into('<I', bad, 512 + 4, 1)
 save('cycle.doc', bad, 'invalid')
 save('spoof-names.docx', cfb([('EncryptionInfo', b'bad info'), ('EncryptedPackage', b'bad package')]), 'unknown')
+for major, minor in [(2, 3), (2, 4), (3, 4), (5, 4)]:
+    save('unknown-version-%d.%d.docx' % (major, minor), cfb([
+        ('EncryptionInfo', struct.pack('<HHI', major, minor, 64)),
+        ('EncryptedPackage', b'1234567890')], mini=True), 'unknown')
 # Synthetic IRM hierarchy. It carries no customer document or license payload.
 def drm_fixture():
     raw = bytearray(cfb([('EncryptedPackage', b'opaque-package'),
