@@ -171,12 +171,13 @@ func TestConsumerEvidenceUnsubscribedQueueAndMetadataIdentity(t *testing.T) {
 			require.NoError(t, err)
 			msg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
 			require.NoError(t, proto.Unmarshal([]byte(raw), msg))
-			if mode == "queue" {
+			switch mode {
+			case "queue":
 				msg.Clear(msg.Descriptor().Fields().ByName("queues"))
-			} else if mode == "approved_queue" {
+			case "approved_queue":
 				queues := msg.Mutable(msg.Descriptor().Fields().ByName("queues")).Map()
 				queues.Clear(protoreflect.ValueOfString(ApprovedSyncQueue).MapKey())
-			} else {
+			default:
 				msg.Set(msg.Descriptor().Fields().ByName("host"), protoreflect.ValueOfString("different-host"))
 			}
 			data, err := proto.Marshal(msg)
