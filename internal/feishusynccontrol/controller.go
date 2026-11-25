@@ -384,6 +384,10 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 	fenced := c.Stop(ctx)
 	failures = append(failures, fenced)
 	consumerDiagnostic := ""
+	if c.consumerDiagnostic == nil && strings.HasPrefix(reason, "registry_") {
+		c.consumerDiagnostic = newConsumerEvidence(ctx, c.Client, false)
+		c.consumerDiagnostic.ProbeClass = "not_executed_registry_failure"
+	}
 	if c.consumerDiagnostic != nil && !c.consumerDiagnosticRecorded {
 		consumerDiagnostic = c.consumerDiagnostic.snapshot(ctx, c, reason)
 	}

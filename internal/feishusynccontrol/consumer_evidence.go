@@ -24,23 +24,24 @@ type consumerEvidenceKey struct{}
 // Raw metadata is retained only inside the probe, never serialized. Diagnostics
 // are observational and cannot alter the result of the existing inspector.
 type consumerEvidence struct {
-	ExpectedQueues      []string                  `json:"expected_queues"`
-	Class               string                    `json:"class"`
-	ElapsedMS           int64                     `json:"elapsed_ms"`
-	MembershipRevision  string                    `json:"membership_revision"`
-	ExpectedIncarnation string                    `json:"expected_incarnation"`
-	ObservedIncarnation string                    `json:"observed_incarnation,omitempty"`
-	AdmittedIncarnation string                    `json:"admitted_incarnation,omitempty"`
-	IncarnationMatches  bool                      `json:"incarnation_matches"`
-	ReadClass           string                    `json:"read_class"`
-	ProbeClass          string                    `json:"probe_class"`
-	RegistryCount       int                       `json:"registry_count"`
-	RegistryClass       string                    `json:"registry_class"`
-	Truncated           bool                      `json:"truncated"`
-	Servers             []*consumerServerEvidence `json:"servers"`
-	client              redis.UniversalClient
-	reads               map[string]*consumerServerEvidence
-	started             time.Time
+	ExpectedQueues                []string                  `json:"expected_queues"`
+	Class                         string                    `json:"class"`
+	ElapsedMS                     int64                     `json:"elapsed_ms"`
+	MembershipRevision            string                    `json:"membership_revision"`
+	PostFailureMembershipRevision string                    `json:"post_failure_membership_revision"`
+	ExpectedIncarnation           string                    `json:"expected_incarnation"`
+	ObservedIncarnation           string                    `json:"observed_incarnation,omitempty"`
+	AdmittedIncarnation           string                    `json:"admitted_incarnation,omitempty"`
+	IncarnationMatches            bool                      `json:"incarnation_matches"`
+	ReadClass                     string                    `json:"read_class"`
+	ProbeClass                    string                    `json:"probe_class"`
+	RegistryCount                 int                       `json:"registry_count"`
+	RegistryClass                 string                    `json:"registry_class"`
+	Truncated                     bool                      `json:"truncated"`
+	Servers                       []*consumerServerEvidence `json:"servers"`
+	client                        redis.UniversalClient
+	reads                         map[string]*consumerServerEvidence
+	started                       time.Time
 }
 type consumerServerEvidence struct {
 	ServerID        string          `json:"server_id"`
@@ -49,6 +50,7 @@ type consumerServerEvidence struct {
 	RegistryScore   float64         `json:"post_failure_registry_score"`
 	ScorePresent    bool            `json:"score_present"`
 	ReadClass       string          `json:"post_failure_read_class"`
+	ExpiryEvidence  string          `json:"expiry_evidence"`
 	QueueSubscribed map[string]bool `json:"queue_subscribed,omitempty"`
 	IdentityMatches bool            `json:"key_identity_matches_metadata"`
 	raw             string
@@ -222,6 +224,7 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 	}
 	worker := pipe.HGet(ctx, c.prefix+"workers", c.Config.WorkerID)
 	admitted := pipe.HGet(ctx, c.prefix+"admitted", c.Config.WorkerID)
+	revision := pipe.Get(ctx, c.prefix+"membership_revision")
 	_, _ = pipe.Exec(ctx)
 	for _, r := range requests {
 		r.s.ReadClass = "ok"
@@ -244,6 +247,16 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 		} else if !errors.Is(err, redis.Nil) {
 			r.s.ReadClass = failureClass(err)
 		}
+		r.s.ExpiryEvidence = "unknown"
+		if r.s.ReadClass == "ok" && r.s.TTLMS == -2 {
+			r.s.ExpiryEvidence = "key_missing_expiry_or_deletion_unknown"
+		}
+		if r.s.ReadClass == "ok" && r.s.TTLMS >= 0 && r.s.TTLMS <= 10 {
+			r.s.ExpiryEvidence = "ttl_at_expiry_boundary"
+		}
+		if r.s.ScorePresent && r.s.RegistryScore <= float64(time.Now().Unix()) {
+			r.s.ExpiryEvidence = "registry_score_elapsed"
+		}
 	}
 	if worker.Err() == nil {
 		d.ObservedIncarnation = incarnation(worker.Val())
@@ -252,6 +265,11 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 		d.AdmittedIncarnation = incarnation(admitted.Val())
 	}
 	d.IncarnationMatches = d.ExpectedIncarnation == d.ObservedIncarnation && d.ExpectedIncarnation == d.AdmittedIncarnation
+	if revision.Err() == nil {
+		if _, err := strconv.ParseUint(revision.Val(), 10, 64); err == nil {
+			d.PostFailureMembershipRevision = revision.Val()
+		}
+	}
 	encoded, _ := json.Marshal(d)
 	return string(encoded)
 }

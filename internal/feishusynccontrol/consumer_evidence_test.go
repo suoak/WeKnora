@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"testing"
@@ -156,5 +157,31 @@ func TestConsumerEvidenceIncarnationAndRevision(t *testing.T) {
 	d := retainedConsumerEvidence(t, c, r)
 	require.False(t, d.IncarnationMatches)
 	require.Equal(t, other, d.AdmittedIncarnation)
-	require.NotEmpty(t, d.MembershipRevision)
+	require.NotEmpty(t, d.PostFailureMembershipRevision)
+}
+
+type delayedEvidenceConn struct{ net.Conn }
+
+func (c delayedEvidenceConn) Read(b []byte) (int, error) {
+	time.Sleep(80 * time.Millisecond)
+	return c.Conn.Read(b)
+}
+
+func TestConsumerEvidenceRealRedisSlowResponse(t *testing.T) {
+	c, r, _, _, _ := evidenceFixture(t)
+	client := redis.NewClient(&redis.Options{Addr: r.Options().Addr, MaxRetries: -1, ReadTimeout: 20 * time.Millisecond, ContextTimeoutEnabled: true, Dialer: func(ctx context.Context, network, addr string) (net.Conn, error) {
+		conn, err := (&net.Dialer{}).DialContext(ctx, network, addr)
+		if err != nil {
+			return nil, err
+		}
+		return delayedEvidenceConn{conn}, nil
+	}})
+	t.Cleanup(func() { _ = client.Close() })
+	c.Consumers = ApprovedConsumers(client)
+	start := time.Now()
+	require.Error(t, c.Step(context.Background()))
+	require.Less(t, time.Since(start), time.Second)
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "redis_timeout", d.ProbeClass)
+	require.EqualValues(t, 0, r.Exists(context.Background(), c.Guard.PermitKey()).Val())
 }

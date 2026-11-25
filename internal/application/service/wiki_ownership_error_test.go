@@ -12,6 +12,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/testutil/syncdb"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
+	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
@@ -25,7 +26,9 @@ func TestWikiOwnershipErrorClassificationAndRedaction(t *testing.T) {
 		t.Run(tc.class, func(t *testing.T) {
 			cause := fmt.Errorf("secret context: %w", tc.err)
 			err := wikiOwnershipFailure(context.Background(), "secret-kb", WikiPendingOp{dbID: 42, KnowledgeID: "secret-id"}, cause)
-			require.ErrorIs(t, err, tc.err)
+			var diagnosed *wikiOwnershipReadError
+			require.ErrorAs(t, err, &diagnosed)
+			require.ErrorIs(t, diagnosed.Cause(), tc.err)
 			require.Contains(t, err.Error(), tc.class)
 			require.NotContains(t, err.Error(), "secret")
 			require.Equal(t, "invalid", wikiDiagnosticID("secret"))
@@ -63,12 +66,15 @@ func TestWikiOwnershipSQLFailurePreservesOperationAndFinalizingSlot(t *testing.T
 			s := &wikiIngestService{knowledgeSvc: &ownershipReadKnowledge{db: db, cause: driver.ErrBadConn}}
 			first, err := s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "doc", dbID: op.ID})
 			require.False(t, first)
-			require.ErrorIs(t, err, driver.ErrBadConn)
+			var diagnosed *wikiOwnershipReadError
+			require.ErrorAs(t, err, &diagnosed)
+			require.ErrorIs(t, diagnosed.Cause(), driver.ErrBadConn)
 			require.Contains(t, err.Error(), "database_connection")
 			canceled, cancel := context.WithCancel(context.Background())
 			cancel()
 			_, err = s.firstAddOwnership(canceled, "kb", WikiPendingOp{KnowledgeID: "doc", dbID: op.ID})
-			require.ErrorIs(t, err, context.Canceled)
+			require.ErrorAs(t, err, &diagnosed)
+			require.ErrorIs(t, diagnosed.Cause(), context.Canceled)
 			_, err = s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "missing", dbID: op.ID})
 			require.Contains(t, err.Error(), "not_found")
 			var saved types.TaskPendingOp
@@ -86,5 +92,15 @@ func TestWikiOwnershipSQLFailurePreservesOperationAndFinalizingSlot(t *testing.T
 			require.Equal(t, "finalizing", row.ParseStatus)
 			require.Equal(t, 1, row.PendingSubtasksCount)
 		})
+	}
+}
+
+func TestWikiOwnershipDiagnosticsDoNotChangeQueuePolicy(t *testing.T) {
+	for _, cause := range []error{asynq.SkipRetry, types.ErrLegacySourceRestricted, repository.ErrWikiMCPUnverified} {
+		err := wikiOwnershipFailure(context.Background(), "kb", WikiPendingOp{}, cause)
+		require.NotErrorIs(t, err, cause, "an observational change must not expose a new queue-policy sentinel")
+		svc := &wikiIngestService{}
+		svc.recordWikiBlock(context.Background(), WikiIngestPayload{}, &err)
+		require.Error(t, err)
 	}
 }

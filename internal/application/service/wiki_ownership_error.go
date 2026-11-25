@@ -15,8 +15,9 @@ import (
 	"gorm.io/gorm"
 )
 
-// Error() is safe even when Asynq or an API logs it verbatim. Unwrap preserves
-// programmatic tracing; the underlying error text/SQL parameters are never logged.
+// Error() is safe even when Asynq or an API logs it verbatim. Keep the cause
+// available to explicit internal diagnostics, without changing errors.Is-based
+// queue/ownership policy: this branch previously returned an opaque error.
 type wikiOwnershipReadError struct {
 	cause error
 	class string
@@ -25,7 +26,7 @@ type wikiOwnershipReadError struct {
 func (e *wikiOwnershipReadError) Error() string {
 	return "wiki first-add post-processing ownership read failed [" + e.class + "]"
 }
-func (e *wikiOwnershipReadError) Unwrap() error { return e.cause }
+func (e *wikiOwnershipReadError) Cause() error { return e.cause }
 
 func wikiOwnershipErrorClass(err error) string {
 	switch {
