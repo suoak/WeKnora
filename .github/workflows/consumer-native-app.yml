@@ -129,6 +129,8 @@ jobs:
           PY
           docker compose -p "knowhub-pr267-$GITHUB_RUN_ID" -f "$QUALIFICATION_ROOT/compose.json" config --quiet
           docker compose -p "knowhub-pr267-$GITHUB_RUN_ID" -f "$QUALIFICATION_ROOT/compose.json" up -d --no-build --pull never --wait --wait-timeout 300
+      - name: Diagnose permitted real HTTP client transports
+        run: python3 qualification/ci/pr267-native-qualification/network_probe.py
       - name: Real authenticated APP MCP Wiki and worker qualification
         run: |
           set -euo pipefail
@@ -157,6 +159,7 @@ jobs:
             evidence/acceptance-failure.json
             evidence/dependency-images.json
             evidence/startup-diagnostics.json
+            evidence/network-probe.json
             evidence/dictionary-assets.json
             evidence/native-upstream.json
             evidence/workflow-result.json

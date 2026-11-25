@@ -9,6 +9,8 @@ app_id=subprocess.check_output(C+['ps','-q','app'],text=True,stdin=subprocess.DE
 app_inspect=json.loads(subprocess.check_output(['docker','inspect',app_id],text=True))[0]
 assert app_inspect['Config']['Labels']['com.docker.compose.project']==PROJECT
 BASE='http://127.0.0.1:39881'
+TRANSPORT=json.loads((ROOT/'transport.json').read_text())['selected_client_transport']
+HTTP_DRIVER=pathlib.Path(__file__).with_name('http_driver.py').read_text()
 def private(name,value):
  fd=os.open(ROOT/name,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o600)
  with os.fdopen(fd,'w') as f:json.dump(value,f,indent=2)
@@ -20,6 +22,13 @@ def http(method,path,body=None,token=None,headers=None,raw=None):
  h={'Content-Type':'application/json','Accept':'application/json'}
  if token:h['Authorization']='Bearer '+token
  h.update(headers or {});payload=raw if raw is not None else json.dumps(body).encode() if body is not None else None
+ if TRANSPORT=='own_app_container_http':
+  packet={'method':method,'path':path,'headers':h,'payload':base64.b64encode(payload).decode() if payload is not None else None}
+  child=subprocess.run(C+['exec','-T','--user','1000:1000','app','python3','-c',HTTP_DRIVER],input=json.dumps(packet).encode(),capture_output=True,timeout=100)
+  assert child.returncode==0,'Owned UID1000 HTTP client failed'
+  result=json.loads(child.stdout)
+  if result['status']==0:raise urllib.error.URLError(result.get('transport_error',{}))
+  return result
  req=urllib.request.Request(BASE+path,data=payload,headers=h,method=method)
  opener=urllib.request.build_opener(urllib.request.ProxyHandler({}))
  try:
@@ -102,7 +111,7 @@ if __name__=='__main__':
  try:main()
  except Exception as error:
   out=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';out.mkdir(exist_ok=True)
-  (out/'acceptance-failure.json').write_text(json.dumps({'source_sha':SHA,'phase':'native_app_acceptance','error_class':type(error).__name__,'results':RESULTS}))
-  print(json.dumps({'phase':'native_app_acceptance','error_class':type(error).__name__,'results':RESULTS}),flush=True)
+  (out/'acceptance-failure.json').write_text(json.dumps({'source_sha':SHA,'phase':'native_app_acceptance','error_class':type(error).__name__,'reason_class':type(getattr(error,'reason',None)).__name__,'errno':getattr(getattr(error,'reason',None),'errno',None),'results':RESULTS}))
+  print(json.dumps({'phase':'native_app_acceptance','error_class':type(error).__name__,'reason_class':type(getattr(error,'reason',None)).__name__,'errno':getattr(getattr(error,'reason',None),'errno',None),'results':RESULTS}),flush=True)
   raise SystemExit(1)
 

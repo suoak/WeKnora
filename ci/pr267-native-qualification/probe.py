@@ -1,5 +1,5 @@
 """Read-only probes and whitelist evidence for the disposable full APP only."""
-import datetime,json,os,pathlib,socket,subprocess,time,uuid,zipfile,hashlib
+import datetime,json,os,pathlib,socket,subprocess,time,uuid,zipfile,hashlib,base64
 ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT']);SHA=os.environ['SOURCE_SHA'];assert len(SHA)==40 and all(c in '0123456789abcdef' for c in SHA)
 PROJECT='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];assert os.environ.get('GITHUB_ACTIONS')=='true' and os.environ['SOURCE_SHA']==SHA
 PHASE='runtime'
@@ -8,22 +8,21 @@ OUT=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';OUT.mkdir(exist_ok=T
 class Redis:
  def __init__(self):
   env=dict(x.split('=',1) for x in (ROOT/'app.env').read_text().splitlines() if '=' in x)
-  self.s=socket.create_connection(('127.0.0.1',16381),timeout=3);self.f=self.s.makefile('rb');self.cmd('AUTH',env['REDIS_PASSWORD'])
- def read(self):
-  line=self.f.readline();kind=line[:1];v=line[1:-2]
-  if kind==b'+':return v.decode()
-  if kind==b'-':raise RuntimeError('isolated_redis_error')
-  if kind==b':':return int(v)
-  if kind==b'$':
-   n=int(v)
-   if n<0:return None
-   out=self.f.read(n);assert self.f.read(2)==b'\r\n';return out
-  if kind==b'*':return [self.read() for _ in range(int(v))]
-  raise RuntimeError('invalid_isolated_redis_response')
+  code=pathlib.Path(__file__).with_name('redis_bridge.py').read_text()
+  self.process=subprocess.Popen(C+['exec','-T','--user','1000:1000','app','python3','-u','-c',code],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+  self.process.stdin.write((json.dumps({'password':env['REDIS_PASSWORD']})+'\n').encode());self.process.stdin.flush()
+  assert json.loads(self.process.stdout.readline())=={'ready':True}
  def cmd(self,name,*args):
-  assert name in ['AUTH','GET','HGETALL','ZRANGE','PTTL','TIME','EXISTS','XLEN']
-  a=[str(v).encode() for v in [name,*args]];self.s.sendall(b'*'+str(len(a)).encode()+b'\r\n'+b''.join(b'$'+str(len(v)).encode()+b'\r\n'+v+b'\r\n' for v in a));return self.read()
- def close(self):self.f.close();self.s.close()
+  assert name in ['GET','HGETALL','ZRANGE','PTTL','TIME','EXISTS','XLEN']
+  self.process.stdin.write((json.dumps([name,*args])+'\n').encode());self.process.stdin.flush()
+  def decode(value):
+   if isinstance(value,dict) and set(value)=={'base64_bytes'}:return base64.b64decode(value['base64_bytes'])
+   if isinstance(value,list):return [decode(x) for x in value]
+   return value
+  return decode(json.loads(self.process.stdout.readline()))
+ def close(self):
+  self.process.stdin.close();assert self.process.wait(timeout=5)==0
+
 def fields(raw):
  def vint(i):
   v=0;shift=0
@@ -107,7 +106,7 @@ def main():
  assert first['trip_present'] and second['trip_present'] and not first['permit_present'] and not second['permit_present'] and not second['observation_present']
  PHASE='acceptance_cases_and_whitelist'
  acceptance=json.loads((ROOT/'acceptance-final.json').read_text());assert len(acceptance['results'])==16 and all(x['result']=='PASS' for x in acceptance['results'])
- report={'source_sha':SHA,'project':PROJECT,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cases':acceptance['results'],'runtime':state,'database':database,'worker_probe':{'result':'PASS','worker_id':worker,'incarnation':incarnation,'membership_revision':first['membership_revision'],'trip_reason':first['trip_reason_class'],'manager_configuration':'installed_expected_unauthorized_policy_gate','app_uid':int(proc_uid),'approval_public_key_mode':'0600_uid1000','config_mode':'0600_uid1000','lease_score_samples':[first['leases'][worker],second['leases'][worker]],'metadata_ttl_ms_samples':[a['ttl_ms'],b['ttl_ms']],'consumer_server_id':a['server_id'],'sync_and_approved_sync':True,'lease_renewed':True,'metadata_heartbeat_advanced':True,'membership_stable':True,'stopped_without_permit':True},'signature_success_path':{'result':'NOT_RUN','reason':'No legitimate non-production offline signer/remote source; no production credentials copied'},'observation_semantic_success':{'result':'NOT_RUN','reason':'HTTP cases prove non-admin denial; signed observation controller paths are separately SQL/Redis/race qualified'},'model_semantic_quality':{'result':'NOT_RUN','reason':'Deterministic fixture; no real LLM performance claim'},'production_changes':False}
+ report={'source_sha':SHA,'project':PROJECT,'utc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'cases':acceptance['results'],'runtime':state,'transport':json.loads((ROOT/'transport.json').read_text()),'redis_transport':'readonly_RESP_from_own_APP_UID1000','database':database,'worker_probe':{'result':'PASS','worker_id':worker,'incarnation':incarnation,'membership_revision':first['membership_revision'],'trip_reason':first['trip_reason_class'],'manager_configuration':'installed_expected_unauthorized_policy_gate','app_uid':int(proc_uid),'approval_public_key_mode':'0600_uid1000','config_mode':'0600_uid1000','lease_score_samples':[first['leases'][worker],second['leases'][worker]],'metadata_ttl_ms_samples':[a['ttl_ms'],b['ttl_ms']],'consumer_server_id':a['server_id'],'sync_and_approved_sync':True,'lease_renewed':True,'metadata_heartbeat_advanced':True,'membership_stable':True,'stopped_without_permit':True},'signature_success_path':{'result':'NOT_RUN','reason':'No legitimate non-production offline signer/remote source; no production credentials copied'},'observation_semantic_success':{'result':'NOT_RUN','reason':'HTTP cases prove non-admin denial; signed observation controller paths are separately SQL/Redis/race qualified'},'model_semantic_quality':{'result':'NOT_RUN','reason':'Deterministic fixture; no real LLM performance claim'},'production_changes':False}
  (OUT/'dictionary-assets.json').write_text((ROOT/'dictionary-assets.json').read_text())
  (OUT/'full-app-report.json').write_text(json.dumps(report,indent=2))
  deps=[]
