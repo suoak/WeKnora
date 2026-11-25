@@ -57,7 +57,9 @@ jobs:
             GO_VERSION_ARG=1.26.7
             APT_MIRROR_ARG=deb.debian.org
             GOPROXY_ARG=https://proxy.golang.org,direct
-          cache-from: type=gha,scope=resilience-anydoc-app-amd64
+          cache-from: |
+            type=gha,scope=office-production-bookworm
+            type=gha,scope=resilience-anydoc-app-amd64
           cache-to: type=gha,scope=office-production-bookworm,mode=max
       - name: Verify native runtime and repeat admission and SQL regression
         run: |
@@ -83,7 +85,7 @@ jobs:
               go test -json -count=1 -tags anydoc,sqlite_fts5 -p 2 \
                 ./internal/officeguard ./internal/infrastructure/docparser/anydoc \
                 ./internal/application/service ./internal/handler ./internal/mcpserver \
-                -run "TestOffice|TestFixtures|TestVendorFixtures|TestConvert" -timeout 25m | tee /evidence/tests.jsonl
+                -run "TestOffice|TestFixtures|TestVendorFixtures|TestConvert|TestCreateKnowledgeFromFile|TestMVPFirstCreate" -timeout 25m | tee /evidence/tests.jsonl
               python3 scripts/ci/office_encryption_results.py /evidence/tests.jsonl
             '
       - uses: actions/upload-artifact@v4
