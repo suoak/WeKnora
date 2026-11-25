@@ -9,7 +9,7 @@ defaults:
   run:
     shell: bash
 env:
-  CANDIDATE_SHA: de46498b55616056909e56a98b6e20ab9d1bc2bc
+  CANDIDATE_SHA: 0bf3fc6ad49a868165b8f8b4531ad4fc0d0b25f7
 jobs:
   app:
     runs-on: ubuntu-24.04
@@ -90,7 +90,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-app-de46498b5
+          name: office-app-0bf3fc6ad
           path: package/
           retention-days: 14
   frontend:
@@ -114,7 +114,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-frontend-de46498b5
+          name: office-frontend-0bf3fc6ad
           path: package/
           retention-days: 14
   scanner:
@@ -127,12 +127,12 @@ jobs:
           docker pull clamav/clamav:stable 2>&1 | tee package/pull.txt
           docker image inspect clamav/clamav:stable --format '{{.Id}}' > package/image-id.txt
           docker image inspect clamav/clamav:stable --format '{{json .RepoDigests}}' > package/repo-digests.json
-          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:de46498b5
-          docker save knowhub-office-guard-test/scanner:de46498b5 | gzip -1 > package/scanner-image.tar.gz
+          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:0bf3fc6ad
+          docker save knowhub-office-guard-test/scanner:0bf3fc6ad | gzip -1 > package/scanner-image.tar.gz
           sha256sum package/scanner-image.tar.gz > package/scanner-image.tar.gz.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-scanner-de46498b5
+          name: office-scanner-0bf3fc6ad
           path: package/
           retention-days: 14
