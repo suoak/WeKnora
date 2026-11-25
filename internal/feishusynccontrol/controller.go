@@ -107,6 +107,7 @@ type Controller struct {
 	consumerDiagnostic         *consumerEvidence
 	consumerRevision           string
 	consumerDiagnosticRecorded bool
+	consumerDiagnosticPending  string
 	lastConsumerServerIDs      []string
 }
 
@@ -389,8 +390,13 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 		c.consumerDiagnostic = newConsumerEvidence(ctx, c.Client, false)
 		c.consumerDiagnostic.ProbeClass = "not_executed_registry_failure"
 	}
-	if c.consumerDiagnostic != nil && !c.consumerDiagnosticRecorded {
-		consumerDiagnostic = c.consumerDiagnostic.snapshot(ctx, c, reason)
+	if !c.consumerDiagnosticRecorded {
+		if c.consumerDiagnosticPending == "" && c.consumerDiagnostic != nil {
+			c.consumerDiagnosticPending = c.consumerDiagnostic.snapshot(ctx, c, reason)
+		}
+		// Audit transport can fail after the consumer recovers. Retain the
+		// original bounded projection until both durable sinks acknowledge it.
+		consumerDiagnostic = c.consumerDiagnosticPending
 	}
 	event := Event{
 		StepID: c.timings.ID, Incarnation: c.incarnation,
@@ -420,6 +426,7 @@ func (c *Controller) freeze(ctx context.Context, reason string, latch bool) erro
 			c.lastEvent = reason
 			if consumerDiagnostic != "" {
 				c.consumerDiagnosticRecorded = true
+				c.consumerDiagnosticPending = ""
 			}
 		}
 	}

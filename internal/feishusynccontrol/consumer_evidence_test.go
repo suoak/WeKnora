@@ -3,6 +3,7 @@ package feishusynccontrol
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -323,4 +324,34 @@ func TestConsumerEvidenceRealRedisSlowResponse(t *testing.T) {
 	d := retainedConsumerEvidence(t, c, r)
 	require.Equal(t, "redis_timeout", d.ProbeClass)
 	require.EqualValues(t, 0, r.Exists(context.Background(), c.Guard.PermitKey()).Val())
+}
+
+func TestConsumerEvidenceRetainsFirstFailureAcrossAuditFailure(t *testing.T) {
+	c, r, _, key, raw := evidenceFixture(t)
+	ctx := context.Background()
+	var delivered []string
+	failed := true
+	c.Audit = func(event Event) error {
+		if event.Kind == "feishu_safety_stop" {
+			delivered = append(delivered, event.ConsumerDiagnostic)
+			if failed {
+				return errors.New("synthetic audit unavailable")
+			}
+		}
+		return nil
+	}
+	require.NoError(t, r.Del(ctx, key).Err())
+	require.Error(t, c.Step(ctx))
+	first := c.consumerDiagnosticPending
+	require.NotEmpty(t, first)
+	require.Contains(t, first, "metadata_get_missing")
+	require.False(t, c.consumerDiagnosticRecorded)
+	require.NoError(t, r.Set(ctx, key, raw, 10*time.Second).Err())
+	failed = false
+	require.Error(t, c.Step(ctx))
+	require.True(t, c.consumerDiagnosticRecorded)
+	require.Empty(t, c.consumerDiagnosticPending)
+	require.Equal(t, []string{first, first}, delivered)
+	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
 }
