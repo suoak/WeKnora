@@ -28,9 +28,9 @@ jobs:
           docker load --input package/app-image.tar.gz
           IMAGE="$(cat package/image-id.txt)"
           docker inspect "$IMAGE" --format '{{json .Config.Labels}}'
-          docker run --rm --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'ls -l /app/jieba-dict/jieba.dict.utf8 /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64; printenv JIEBA_DICT_DIR'
+          docker run --rm --user 1000:1000 --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'ls -l /app/jieba-dict/jieba.dict.utf8 /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64; printenv JIEBA_DICT_DIR'
           test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = ca1c058c0887b9b2c00899bb6c7da6201761415a
-          docker run --rm --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'test -s /app/jieba-dict/jieba.dict.utf8 && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/spatial.duckdb_extension && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/excel.duckdb_extension && ldd /app/WeKnora && ! ldd /app/WeKnora | grep "not found"' | tee package/qualification.txt
+          docker run --rm --user 1000:1000 --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'test -s /app/jieba-dict/jieba.dict.utf8 && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/spatial.duckdb_extension && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/excel.duckdb_extension && ldd /app/WeKnora && ! ldd /app/WeKnora | grep "not found"' | tee package/qualification.txt
           printf 'built_by=45528362950\ncleanup_failure=read_only_copy_of_module_dictionary\napplication_binary_rebuilt_or_modified=false\n' > package/provenance.txt
       - uses: actions/upload-artifact@v4
         with:
