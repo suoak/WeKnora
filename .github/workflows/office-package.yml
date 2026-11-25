@@ -85,6 +85,7 @@ jobs:
           docker image inspect "$IMAGE" --format '{{.Id}}' > package/image-id.txt
           docker save "$IMAGE" | gzip -1 > package/app-image.tar.gz
           sha256sum package/app-image.tar.gz > package/app-image.tar.gz.sha256
+          chmod -R u+w package/runtime/jieba-dict
           rm -rf package/runtime
       - uses: actions/upload-artifact@v4
         if: always()

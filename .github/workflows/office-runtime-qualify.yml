@@ -1,0 +1,39 @@
+name: Office runtime artifact qualification
+on:
+  workflow_dispatch:
+  push:
+    branches: [ci/office-guard-runtime-qualify]
+permissions:
+  contents: read
+  actions: read
+defaults:
+  run:
+    shell: bash
+jobs:
+  app:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: office-app-ca1c058c0
+          run-id: 45528362950
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: package
+      - name: Independently verify exact previously built runtime
+        run: |
+          test "$(cat package/source-sha.txt)" = ca1c058c0887b9b2c00899bb6c7da6201761415a
+          sha256sum --check package/app-image.tar.gz.sha256
+          grep 'CGO_ENABLED=1' package/binary-build-info.txt
+          docker load --input package/app-image.tar.gz
+          IMAGE="$(cat package/image-id.txt)"
+          test "$(docker inspect "$IMAGE" --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}')" = ca1c058c0887b9b2c00899bb6c7da6201761415a
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'test -s /app/jieba-dict/jieba.dict.utf8 && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/spatial.duckdb_extension && test -s /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64/excel.duckdb_extension && ldd /app/WeKnora && ! ldd /app/WeKnora | grep "not found"' | tee package/qualification.txt
+          printf 'built_by=45528362950\ncleanup_failure=read_only_copy_of_module_dictionary\napplication_binary_rebuilt_or_modified=false\n' > package/provenance.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: office-app-ca1c058c0
+          path: |
+            package/*
+            !package/runtime/**
+          retention-days: 14
