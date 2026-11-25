@@ -151,6 +151,9 @@ func (m *RecoveryManager) PlanSteadyWithSharedQueueRelease(
 	if err != nil || p.ReleaseSharedQueue {
 		return p, err
 	}
+	if p.ObservationPlanSHA256 != "" {
+		return SteadyPlan{}, ErrRecoveryRejected
+	}
 	q, err := m.queue(ctx)
 	if err != nil || q.digest != p.HistoricalQueueSHA256 || len(q.ids) != p.HistoricalPending {
 		return SteadyPlan{}, ErrRecoveryRejected

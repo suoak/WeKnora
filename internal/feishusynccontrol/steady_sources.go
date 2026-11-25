@@ -36,6 +36,7 @@ type SteadySource struct {
 // approved normal-service authorization period. Health leases never extend it.
 type SteadyPlan struct {
 	ContinuityPlan
+	ObservationPlanSHA256        string                 `json:"observation_plan_sha256,omitempty"`
 	NormalServiceAuthorizationID string                 `json:"normal_service_authorization_id,omitempty"`
 	ReleaseSharedQueue           bool                   `json:"release_shared_queue,omitempty"`
 	SharedCheckpointID           string                 `json:"shared_checkpoint_id,omitempty"`
@@ -322,6 +323,7 @@ func (m *RecoveryManager) planSteady(
 		}
 	}
 	p.PolicyRevision = 1
+	p.ObservationPlanSHA256 = s.ObservationPlanSHA256
 	if s.Steady != nil {
 		p.PolicyRevision = s.Steady.Plan.PolicyRevision + 1
 	}
@@ -384,6 +386,8 @@ func (m *RecoveryManager) verifySteady(cert SteadyCertificate, now int64, consum
 	p, a := cert.Plan, cert.Approval
 	hash, err := RecoveryDigest(p)
 	if err != nil || !validSharedQueuePlan(p) || !validSteadyParentVersion(p) ||
+		(p.ObservationPlanSHA256 != "" && (!recoverySHA.MatchString(p.ObservationPlanSHA256) ||
+			p.ReleaseSharedQueue || p.NormalServiceAuthorizationID != "")) ||
 		p.PolicyRevision < 1 || p.ApprovalKeyID != m.keyID ||
 		p.TerminalArchivedCount < 0 || p.TerminalArchivedCount > 1000 ||
 		(p.TerminalArchivedCount == 0 && p.TerminalArchiveSHA256 != "") ||
@@ -458,6 +462,7 @@ func (m *RecoveryManager) checkSteadyState(ctx context.Context, state recoveryMo
 		"feishu:safety:{"+state.Steady.Plan.Namespace+"}:" != m.controller.prefix ||
 		state.Steady.Plan.MembershipRevision != state.MembershipRevision ||
 		state.Steady.Plan.RecoveryPlanSHA256 != state.PlanSHA256 ||
+		state.Steady.Plan.ObservationPlanSHA256 != state.ObservationPlanSHA256 ||
 		state.Steady.Plan.HistoricalQueueSHA256 != state.HistoricalQueueSHA256 ||
 		len(state.ApprovedSources) != len(state.Steady.Plan.ManagedSources) {
 		return fmt.Errorf("steady_runtime_binding: %w", ErrRecoveryRejected)
@@ -592,6 +597,10 @@ func (m *RecoveryManager) ActivateSteady(ctx context.Context, p SteadyPlan, a Re
 		(state.Phase != "awaiting_review" && state.Phase != "approved_sources") ||
 		state.PlanSHA256 != p.RecoveryPlanSHA256 ||
 		(p.Version == 1 && state.MembershipRevision != p.MembershipRevision) {
+		return ErrRecoveryRejected
+	}
+	if p.ObservationPlanSHA256 != state.ObservationPlanSHA256 ||
+		(state.ObservationPlanSHA256 != "" && p.ReleaseSharedQueue) {
 		return ErrRecoveryRejected
 	}
 	expectedRevision := int64(1)
