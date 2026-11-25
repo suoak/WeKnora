@@ -1,8 +1,8 @@
-name: Office isolated test images
+name: Office production main release images
 on:
   workflow_dispatch:
   push:
-    branches: [ci/office-guard-package-runner]
+    branches: [ci/office-production-4257]
 permissions:
   contents: read
 concurrency:
@@ -12,7 +12,7 @@ defaults:
   run:
     shell: bash
 env:
-  CANDIDATE_SHA: a813f7115e596eb271dcaf3c5c5e8f4980b0e179
+  CANDIDATE_SHA: 4257ca6c5507ea8ad5f5cae1a1740baf5b93ac22
 jobs:
   app:
     runs-on: ubuntu-24.04
@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ci/office-guard-package-source
+          ref: 4257ca6c5507ea8ad5f5cae1a1740baf5b93ac22
       - run: test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
       - uses: actions/setup-go@v6
         with:
@@ -45,12 +45,13 @@ jobs:
           go mod verify | tee package/go-mod-verify.txt
           bash scripts/build-anydoc-lib.sh 2>&1 | tee package/native-build.txt
           sha256sum third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a | tee package/native.sha256
-          export VERSION=office-guard-isolated-test COMMIT_ID="$CANDIDATE_SHA"
+          export VERSION=office-guard-production COMMIT_ID="$CANDIDATE_SHA"
           export BUILD_TIME="$(date -u +%Y-%m-%dT%H:%M:%SZ)" GO_VERSION="$(go version)"
           make build-prod GO_BUILD_TAGS=anydoc,sqlite_fts5 2>&1 | tee package/app-build.txt
           go version -m WeKnora | tee package/binary-build-info.txt
           sha256sum WeKnora | tee package/binary.sha256
           cp WeKnora package/runtime/
+          cp WeKnora package/WeKnora
           cp -a config scripts migrations dataset package/runtime/
           cp -a "$(go env GOMODCACHE)/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict" package/runtime/jieba-dict
           mkdir -p package/runtime/duckdb-extensions
@@ -78,11 +79,11 @@ jobs:
           RUN chown -R appuser:appuser /home/appuser/.duckdb
           ENV JIEBA_DICT_DIR=/app/jieba-dict
           RUN chmod +x /app/WeKnora /app/scripts/docker-entrypoint.sh
-          LABEL org.opencontainers.image.revision="$CANDIDATE_SHA" knowhub.environment="isolated-office-test"
+          LABEL org.opencontainers.image.revision="$CANDIDATE_SHA" knowhub.release="office-production"
           ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
           CMD ["/app/WeKnora"]
           EOF
-          IMAGE="knowhub-office-guard-test/app:$CANDIDATE_SHA"
+          IMAGE="knowhub-office-release/app:$CANDIDATE_SHA"
           docker build -t "$IMAGE" package/runtime 2>&1 | tee package/image-build.txt
           docker run --rm --network none --read-only --cap-drop ALL --entrypoint /bin/sh "$IMAGE" -c 'ldd /app/WeKnora && ! ldd /app/WeKnora | grep "not found"' | tee package/linkage.txt
           docker image inspect "$IMAGE" --format '{{.Id}}' > package/image-id.txt
@@ -93,7 +94,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-app-a813f7115
+          name: office-app-4257ca6c5
           path: package/
           retention-days: 14
   frontend:
@@ -102,40 +103,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ci/office-guard-package-source
+          ref: 4257ca6c5507ea8ad5f5cae1a1740baf5b93ac22
       - name: Build exact frontend from pinned repository Dockerfile
         run: |
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           mkdir -p package
           git rev-parse HEAD > package/source-sha.txt
           sha256sum frontend/Dockerfile > package/dockerfile.sha256
-          IMAGE="knowhub-office-guard-test/frontend:$CANDIDATE_SHA"
-          docker build --build-arg VITE_FRONTEND_COMMIT="$CANDIDATE_SHA" -t "$IMAGE" frontend 2>&1 | tee package/image-build.txt
+          IMAGE="knowhub-office-release/frontend:$CANDIDATE_SHA"
+          docker build --label org.opencontainers.image.revision="$CANDIDATE_SHA" --build-arg VITE_FRONTEND_COMMIT="$CANDIDATE_SHA" -t "$IMAGE" frontend 2>&1 | tee package/image-build.txt
           docker image inspect "$IMAGE" --format '{{.Id}}' > package/image-id.txt
+          CID=$(docker create "$IMAGE")
+          docker cp "$CID:/usr/share/nginx/html" package/dist
+          docker rm "$CID"
+          tar -C package -czf package/frontend-dist.tar.gz dist
+          rm -rf package/dist
           docker save "$IMAGE" | gzip -1 > package/frontend-image.tar.gz
           sha256sum package/frontend-image.tar.gz > package/frontend-image.tar.gz.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-frontend-a813f7115
-          path: package/
-          retention-days: 14
-  scanner:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 15
-    steps:
-      - name: Pin and package real antivirus service
-        run: |
-          mkdir -p package
-          docker pull clamav/clamav:stable 2>&1 | tee package/pull.txt
-          docker image inspect clamav/clamav:stable --format '{{.Id}}' > package/image-id.txt
-          docker image inspect clamav/clamav:stable --format '{{json .RepoDigests}}' > package/repo-digests.json
-          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:a813f7115
-          docker save knowhub-office-guard-test/scanner:a813f7115 | gzip -1 > package/scanner-image.tar.gz
-          sha256sum package/scanner-image.tar.gz > package/scanner-image.tar.gz.sha256
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: office-scanner-a813f7115
+          name: office-frontend-4257ca6c5
           path: package/
           retention-days: 14
