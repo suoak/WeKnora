@@ -1,5 +1,5 @@
 """Create ONLY a new owned, isolated APP qualification stack on the test host."""
-import datetime,hashlib,ipaddress,json,os,pathlib,secrets,socket,subprocess,sys
+import datetime,hashlib,ipaddress,json,os,pathlib,secrets,socket,subprocess,sys,tarfile,io
 from cryptography.hazmat.primitives.asymmetric import ed25519
 from cryptography.hazmat.primitives import serialization
 ROOT=pathlib.Path(os.environ['QUALIFICATION_ROOT'])
@@ -51,7 +51,20 @@ write('app.env',''.join(k+'='+v+'\n' for k,v in env.items()))
 cid=run('docker','create','--network','none',image)
 try:
  subprocess.run(['docker','cp',cid+':/app/config/config.yaml',str(ROOT/'config.yaml')],check=True,timeout=30)
- subprocess.run(['docker','cp',cid+':/go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict',str(ROOT/'runtime-jieba-dict')],check=True,timeout=30)
+ asset=subprocess.run(['docker','run','--rm','--network','none','--read-only','--cap-drop','ALL','--user','1000:1000','--entrypoint','tar',image,'-C','/go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict','-cf','-','.'],capture_output=True,timeout=30)
+ assert asset.returncode==0 and len(asset.stdout)<32*1024**2,'Bounded native dictionary asset read failed'
+ target=ROOT/'runtime-jieba-dict';target.mkdir(mode=0o755)
+ with tarfile.open(fileobj=io.BytesIO(asset.stdout)) as archive:
+  members=archive.getmembers();assert len(members)<=40 and sum(m.size for m in members)<32*1024**2
+  for member in members:
+   relative=pathlib.PurePosixPath(member.name);assert not relative.is_absolute() and '..' not in relative.parts
+   dest=target.joinpath(*relative.parts)
+   if member.isdir():dest.mkdir(parents=True,exist_ok=True,mode=0o755)
+   else:
+    assert member.isfile();dest.parent.mkdir(parents=True,exist_ok=True,mode=0o755)
+    fd=os.open(dest,os.O_CREAT|os.O_EXCL|os.O_WRONLY,0o444)
+    with os.fdopen(fd,'wb') as output:output.write(archive.extractfile(member).read())
+
 
 finally:subprocess.run(['docker','rm',cid],check=True,stdout=subprocess.DEVNULL,timeout=15)
 dictionary=ROOT/'runtime-jieba-dict';hashes={}

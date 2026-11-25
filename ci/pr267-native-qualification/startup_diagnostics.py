@@ -3,7 +3,9 @@ import hashlib,json,os,pathlib,re,subprocess
 root=pathlib.Path(os.environ['QUALIFICATION_ROOT']);project='knowhub-pr267-'+os.environ['GITHUB_RUN_ID'];out=pathlib.Path(os.environ['GITHUB_WORKSPACE'])/'evidence';out.mkdir(exist_ok=True)
 report={'source_sha':os.environ['SOURCE_SHA'],'scope':'disposable_own_project','raw_logs_exported':False}
 try:
- if not (root/'compose.json').exists():raise FileNotFoundError('stack_not_created')
+ if not (root/'compose.json').exists():
+  report.update({'stage':'pre_stack_preparation','stack_created':False,'app_startup':'NOT_RUN'})
+  (out/'startup-diagnostics.json').write_text(json.dumps(report,indent=2));print(json.dumps({'stage':'pre_stack_preparation','app_startup':'NOT_RUN'}));raise SystemExit(0)
  c=['docker','compose','-p',project,'-f',str(root/'compose.json')]
  ids=subprocess.check_output(c+['ps','-aq'],text=True).split();rows=json.loads(subprocess.check_output(['docker','inspect',*ids],text=True)) if ids else []
  assert all(x['Config']['Labels']['com.docker.compose.project']==project for x in rows)
