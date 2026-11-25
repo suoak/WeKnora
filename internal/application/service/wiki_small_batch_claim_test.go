@@ -28,8 +28,10 @@ func TestWikiSmallBatchClaimSettlePostgres(t *testing.T) {
 		t.Run(fmt.Sprintf("batch%d-map%d", size, size), func(t *testing.T) {
 			db := syncdb.Open(t, "postgres")
 			require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
-			require.NoError(t, db.Exec("CREATE TABLE knowledge_bases (id text PRIMARY KEY, tenant_id bigint, deleted_at timestamptz)").Error)
-			require.NoError(t, db.Exec("CREATE TABLE knowledges (id text PRIMARY KEY, pending_subtasks_count integer, parse_status text)").Error)
+			require.NoError(t, db.Exec("CREATE TABLE knowledge_bases ("+
+				"id text PRIMARY KEY, tenant_id bigint, deleted_at timestamptz)").Error)
+			require.NoError(t, db.Exec("CREATE TABLE knowledges ("+
+				"id text PRIMARY KEY, pending_subtasks_count integer, parse_status text)").Error)
 			kb := "batch-test-" + uuid.NewString()
 			require.NoError(t, db.Exec("INSERT INTO knowledge_bases (id,tenant_id) VALUES (?,1)", kb).Error)
 			ctx := types.WithExecutionTenant(context.Background(), 1)
@@ -39,13 +41,17 @@ func TestWikiSmallBatchClaimSettlePostgres(t *testing.T) {
 				id := fmt.Sprintf("doc-%d", i)
 				payload, err := json.Marshal(WikiPendingOp{KnowledgeID: id, Op: WikiOpIngest, Attempt: 7})
 				require.NoError(t, err)
-				require.NoError(t, repo.Enqueue(ctx, &types.TaskPendingOp{TenantID: 1,
+				require.NoError(t, repo.Enqueue(ctx, &types.TaskPendingOp{
+					TenantID: 1,
 					TaskType: wikiTaskType, Scope: wikiTaskScope, ScopeID: kb, DedupKey: id,
-					Op: WikiOpIngest, Payload: payload}))
+					Op: WikiOpIngest, Payload: payload,
+				}))
 				require.NoError(t, db.Exec("INSERT INTO knowledges VALUES (?,1,'finalizing')", id).Error)
 			}
-			other := &types.TaskPendingOp{TenantID: 1, TaskType: wikiTaskType, Scope: wikiTaskScope,
-				ScopeID: "other-kb", DedupKey: "other-doc", Op: WikiOpIngest, Payload: []byte(`{}`)}
+			other := &types.TaskPendingOp{
+				TenantID: 1, TaskType: wikiTaskType, Scope: wikiTaskScope,
+				ScopeID: "other-kb", DedupKey: "other-doc", Op: WikiOpIngest, Payload: []byte(`{}`),
+			}
 			require.NoError(t, repo.Enqueue(ctx, other))
 			addr := os.Getenv("WIKI_BATCH_TEST_REDIS_ADDR")
 			if addr == "" {
@@ -113,14 +119,16 @@ func TestWikiSmallBatchClaimSettlePostgres(t *testing.T) {
 			require.EqualValues(t, size, peak.Load())
 			require.Zero(t, client.Exists(ctx, "wiki:proof:generation:"+kb).Val())
 			var counters int64
-			require.NoError(t, db.Table("knowledges").Where("pending_subtasks_count=1 AND parse_status='finalizing'").Count(&counters).Error)
+			require.NoError(t, db.Table("knowledges").
+				Where("pending_subtasks_count=1 AND parse_status='finalizing'").Count(&counters).Error)
 			require.EqualValues(t, 4, counters)
 			var remaining []types.TaskPendingOp
 			require.NoError(t, db.Find(&remaining).Error)
 			require.Len(t, remaining, 1)
 			require.Equal(t, other.ID, remaining[0].ID)
 			require.Nil(t, remaining[0].ClaimedAt)
-			t.Logf("controlled scheduling only: batch=%d map=%d batches=%d peak=%d elapsed=%s; no publication or model-throughput claim", size, size, batches, peak.Load(), time.Since(started))
+			t.Logf("controlled scheduling only: batch=%d map=%d batches=%d peak=%d elapsed=%s; "+
+				"no publication or model-throughput claim", size, size, batches, peak.Load(), time.Since(started))
 		})
 	}
 }

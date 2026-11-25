@@ -315,7 +315,8 @@ func (s *wikiIngestService) processWikiIngest(ctx context.Context, t *asynq.Task
 				"elapsed=%s mode=%s pending_ops=%d ops(ingest=%d,retract=%d) "+
 				"ingest(success=%d,failed=%d) retract_handled=%d pages(total=%d) "+
 				"followup=%v tunables(batch=%d,map_par=%d,reduce_par=%d,"+
-				"max_inflight=%d) stages_ms(prepare=%d,map=%d,taxonomy=%d,reduce=%d,postprocess=%d,settle=%d,followup=%d) preview=%s",
+				"max_inflight=%d) stages_ms(prepare=%d,map=%d,taxonomy=%d,reduce=%d,"+
+				"postprocess=%d,settle=%d,followup=%d) preview=%s",
 			payload.KnowledgeBaseID,
 			payload.TenantID,
 			retryCount,
