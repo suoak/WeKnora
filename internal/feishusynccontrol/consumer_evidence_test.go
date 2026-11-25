@@ -392,3 +392,21 @@ func TestConsumerEvidenceRetainsFirstFailureAcrossDurableWriteFailure(t *testing
 	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
 	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
 }
+
+func TestConsumerEvidenceSuccessfulAdmissionStartsNewDiagnosticEpisode(t *testing.T) {
+	c, r, _, key, _ := evidenceFixture(t)
+	ctx := context.Background()
+	c.consumerDiagnosticRecorded = true
+	c.consumerDiagnosticPending = "prior acknowledged episode"
+	c.lastEvent = "prior stop"
+	require.NoError(t, c.Step(ctx))
+	require.False(t, c.consumerDiagnosticRecorded)
+	require.Empty(t, c.consumerDiagnosticPending)
+	require.Empty(t, c.lastEvent)
+	require.NoError(t, r.Del(ctx, key).Err())
+	require.Error(t, c.Step(ctx))
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "metadata_get_missing", d.Servers[0].MetadataClass)
+	require.EqualValues(t, 1, r.Exists(ctx, c.prefix+"trip").Val())
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+}

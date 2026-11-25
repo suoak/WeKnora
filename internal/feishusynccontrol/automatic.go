@@ -129,6 +129,11 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 		return c.freeze(ctx, automaticFailureReason(stage, err), true)
 	}
 	c.admitted = true
+	// Only an actually successful admission closes the diagnostic episode.
+	// A visible consumer with TRIPPED must retain the original failure.
+	c.consumerDiagnosticRecorded = false
+	c.consumerDiagnosticPending = ""
+	c.lastEvent = ""
 	return nil
 }
 
