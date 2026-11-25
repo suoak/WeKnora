@@ -16,6 +16,9 @@ cursor, archived task, permit or historical trip may be edited manually.
    an active wide grant, unknown/mismatched SQL/Redis authorization, nonempty
    dedicated pending lane, live work, unauthorized source, or changed incident.
    The shared queue and dedicated archived tasks are retained.
+   The existing offline CLI uses `--hold-for-review --expected-pending 0` for
+   plan/prepare/approve/execute. It rejects implicit changes of observation
+   intent, a missing inactive-grant digest or a nonempty dedicated checkpoint.
 4. Review the returned `hold_for_review`, inactive `normal_service_sha256`,
    incident, namespace, current SHA, worker/incarnation, queue and source facts.
    Use the existing independent Ed25519 reset and canary approvals and expiry.

@@ -161,4 +161,20 @@ class RecoveryClientTests(unittest.TestCase):
             runtime_sha=self.args.runtime_sha,trip=self.args.trip)))
         self.assertEqual(json.loads(output.read_text()),self.envelope)
 
+    def test_observation_requires_explicit_intent_empty_lane_and_root_digest(self):
+        p=self.envelope['plan']
+        p.update(hold_for_review=True,queue_name='approved_sync',queue_pending_count=0,
+                 normal_service_sha256='e'*64)
+        self.args.expected_pending=0
+        self.envelope['plan_sha256']=r.digest(p)
+        self.assertRaises(ValueError,r.validate_plan,self.envelope,self.args)
+        self.args.hold_for_review=True
+        self.assertEqual(r.validate_plan(self.envelope,self.args),p)
+        for key,value in [('queue_name','sync'),('queue_pending_count',1),('normal_service_sha256','invalid'),('hold_for_review',False)]:
+            with self.subTest(key=key):
+                changed=json.loads(json.dumps(self.envelope))
+                changed['plan'][key]=value
+                changed['plan_sha256']=r.digest(changed['plan'])
+                self.assertRaises(ValueError,r.validate_plan,changed,self.args)
+
 if __name__=='__main__':unittest.main()
