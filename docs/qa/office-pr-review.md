@@ -42,6 +42,8 @@
 
 ## 最终验证与 PR
 
+审查发现 12 份历史 CI 展示文本带有尾部空格/额外空行，导致相对 main 的 diff-check 失败。本轮仅规范化展示副本的空白，原始字节仍可从不可变历史提交取得，原始 CI ZIP 未改；[双哈希清单](office-encryption-evidence/display-normalization.json) 记录变换。没有放宽 diff-check 规则或改写测试结果。GitHub 对原始日志标记 generated 以便折叠，审查 Markdown 和测试源码仍正常展示。
+
 本轮最终提交必须重新运行 `.github/workflows/office-encryption.yml`（Linux 业务、SQL、权限/MCP、race、完整前端、类型检查、构建和 Chromium），以及 `office-encryption-native.yml`（真实 ParadeDB/Redis/原生联合）。镜像构建由专用 CI 引用精确 checkout 同一最终提交，保留 CGO/原生库，校验源码 SHA、运行时链接、制品哈希及镜像 ID。
 
 最终 CI 链接、实际验证完整 SHA 和镜像 ID 填入 Draft PR 描述与 CI 制品；审查文档不会用先前 668d067ec 的通过结果替代最终提交验证。不会在 CI 完成后再改业务代码却沿用旧 CI。未执行的全仓库检查、lint 或基线失败须单列，不勾选假通过。

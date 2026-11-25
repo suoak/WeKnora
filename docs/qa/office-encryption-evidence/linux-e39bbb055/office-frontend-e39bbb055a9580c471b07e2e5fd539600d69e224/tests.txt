@@ -1702,15 +1702,15 @@
 ✔ loads server default, saves only browser instructions, and restores inherited default (10.487671ms)
 ✔ saved custom text is displayed and save failures preserve the draft (3.537929ms)
 ✔ duplicate saves are blocked and late responses do not update an unmounted editor (2.539349ms)
-[Vue warn]: expose() should be called only once per setup(). 
+[Vue warn]: expose() should be called only once per setup().
   at <McpSettings>
-[Vue warn]: expose() should be called only once per setup(). 
+[Vue warn]: expose() should be called only once per setup().
   at <McpSettings>
-[Vue warn]: expose() should be called only once per setup(). 
+[Vue warn]: expose() should be called only once per setup().
   at <McpSettings>
-[Vue warn]: expose() should be called only once per setup(). 
+[Vue warn]: expose() should be called only once per setup().
   at <McpSettings>
-[Vue warn]: expose() should be called only once per setup(). 
+[Vue warn]: expose() should be called only once per setup().
   at <McpSettings>
 ✔ edit and tools buttons select the correct drawer step; add resets it (9.907474ms)
 ✔ status changes after save and repeated clicks cannot race (2.932614ms)
