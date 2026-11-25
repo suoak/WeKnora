@@ -9,7 +9,7 @@ defaults:
   run:
     shell: bash
 env:
-  CANDIDATE_SHA: 4ffd7442da82675bba2b63f3f0dfe31995712070
+  CANDIDATE_SHA: ca1c058c0887b9b2c00899bb6c7da6201761415a
 jobs:
   app:
     runs-on: ubuntu-24.04
@@ -49,6 +49,12 @@ jobs:
           sha256sum WeKnora | tee package/binary.sha256
           cp WeKnora package/runtime/
           cp -a config scripts migrations dataset package/runtime/
+          cp -a "$(go env GOMODCACHE)/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict" package/runtime/jieba-dict
+          mkdir -p package/runtime/duckdb-extensions
+          for extension in spatial excel; do
+            curl --fail --show-error --location --retry 3 "https://extensions.duckdb.org/v1.5.2/linux_amd64/$extension.duckdb_extension.gz" | gzip -d > "package/runtime/duckdb-extensions/$extension.duckdb_extension"
+          done
+          sha256sum package/runtime/jieba-dict/*.utf8 package/runtime/duckdb-extensions/* > package/runtime-data.sha256
       - name: Package compatible runtime and verify linkage
         run: |
           docker pull debian:trixie-slim
@@ -64,6 +70,10 @@ jobs:
           COPY scripts /app/scripts
           COPY migrations /app/migrations
           COPY dataset /app/dataset
+          COPY jieba-dict /app/jieba-dict
+          COPY duckdb-extensions /home/appuser/.duckdb/extensions/v1.5.2/linux_amd64
+          RUN chown -R appuser:appuser /home/appuser/.duckdb
+          ENV JIEBA_DICT_DIR=/app/jieba-dict
           RUN chmod +x /app/WeKnora /app/scripts/docker-entrypoint.sh
           LABEL org.opencontainers.image.revision="$CANDIDATE_SHA" knowhub.environment="isolated-office-test"
           ENTRYPOINT ["/app/scripts/docker-entrypoint.sh"]
@@ -79,7 +89,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-app-4ffd7442d
+          name: office-app-ca1c058c0
           path: package/
           retention-days: 14
   frontend:
@@ -103,7 +113,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-frontend-4ffd7442d
+          name: office-frontend-ca1c058c0
           path: package/
           retention-days: 14
   scanner:
@@ -116,12 +126,12 @@ jobs:
           docker pull clamav/clamav:stable 2>&1 | tee package/pull.txt
           docker image inspect clamav/clamav:stable --format '{{.Id}}' > package/image-id.txt
           docker image inspect clamav/clamav:stable --format '{{json .RepoDigests}}' > package/repo-digests.json
-          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:4ffd7442d
-          docker save knowhub-office-guard-test/scanner:4ffd7442d | gzip -1 > package/scanner-image.tar.gz
+          docker tag clamav/clamav:stable knowhub-office-guard-test/scanner:ca1c058c0
+          docker save knowhub-office-guard-test/scanner:ca1c058c0 | gzip -1 > package/scanner-image.tar.gz
           sha256sum package/scanner-image.tar.gz > package/scanner-image.tar.gz.sha256
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: office-scanner-4ffd7442d
+          name: office-scanner-ca1c058c0
           path: package/
           retention-days: 14
