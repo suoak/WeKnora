@@ -56,6 +56,13 @@ def write_new(path, value):
 
 def validate_plan(envelope, args, now_ms=None):
     plan = envelope["plan"]
+    observation = bool(plan.get("hold_for_review", False))
+    if observation != bool(getattr(args, "hold_for_review", False)):
+        raise ValueError("observation intent must be explicitly reviewed")
+    if observation and (plan.get("queue_name") != "approved_sync" or
+                        plan.get("queue_pending_count") != 0 or
+                        not re.fullmatch(r"[a-f0-9]{64}", plan.get("normal_service_sha256", ""))):
+        raise ValueError("observation requires an empty dedicated lane and pinned inactive grant")
     now = int(time.time() * 1000) if now_ms is None else now_ms
     checks = {
         "namespace": args.namespace,
@@ -180,6 +187,8 @@ def main(argv=None):
     parser.add_argument("--incident", required=True)
     parser.add_argument("--runtime-sha", required=True)
     parser.add_argument("--expected-pending", type=int, default=6)
+    parser.add_argument("--hold-for-review", action="store_true",
+                        help="require durable wide-grant revocation and single-source observation")
     parser.add_argument("--base-url")
     parser.add_argument("--session-token-file")
     parser.add_argument("--plan-file")
@@ -204,6 +213,8 @@ def main(argv=None):
         parser.error("execute requires independent approval file")
     if args.action in ("prepare", "plan"):
         body = {"incident_id": args.incident, "runtime_sha": args.runtime_sha, "trip": args.trip} if args.action == "prepare" else None
+        if body is not None and args.hold_for_review:
+            body["hold_for_review"] = True
         result = request(args, args.action, body); validate_plan(result, args)
         write_new(args.output, result)
         print(json.dumps({"plan_sha256": result["plan_sha256"], "production_writes": args.action == "prepare"}))

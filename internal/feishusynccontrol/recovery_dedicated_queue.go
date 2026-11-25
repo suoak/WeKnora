@@ -28,7 +28,9 @@ func (m *RecoveryManager) incidentQueue(ctx context.Context) (recoveryQueueSnaps
 		return recoveryQueueSnapshot{}, err
 	}
 	if !normal {
-		return m.queue(ctx)
+		if _, err := m.inactiveNormalRecord(ctx); err != nil {
+			return m.queue(ctx)
+		}
 	}
 	c := m.controller.Client
 	q := recoveryQueueSnapshot{name: "approved_sync"}

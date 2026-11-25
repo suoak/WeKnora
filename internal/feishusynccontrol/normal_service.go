@@ -172,6 +172,9 @@ func (m *RecoveryManager) NormalServiceActive(ctx context.Context) (bool, error)
 // pauses and emergency trips remain independent. With a dedicated lane, also
 // release the shared queue pause left by older Feishu controllers.
 func (m *RecoveryManager) resumeNormalQueueAfterHealth(ctx context.Context) error {
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
+		return err
+	}
 	c := m.controller
 	paused, err := c.Client.Get(ctx, "asynq:{approved_sync}:paused").Result()
 	if err != nil && !errors.Is(err, redis.Nil) {
@@ -242,6 +245,9 @@ return resumed`, []string{
 // Incident steady-source planning cannot require retiring legitimate normal
 // jobs that arrived while the canary kept their consumer paused.
 func (m *RecoveryManager) resumeNormalQueueAfterCanary(ctx context.Context) error {
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
+		return err
+	}
 	record, err := m.normalRecord(ctx)
 	if err != nil || record == nil {
 		return err
@@ -296,6 +302,9 @@ func (m *RecoveryManager) ActivateNormalService(
 	defer m.operation.Unlock()
 	cfg := m.normalService.Load()
 	if cfg == nil || authorization.ActorID != actor || m.verifyNormalAuthorization(authorization, true) != nil {
+		return ErrRecoveryRejected
+	}
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
 		return ErrRecoveryRejected
 	}
 	previousRaw := ""
@@ -396,6 +405,9 @@ func (m *RecoveryManager) checkNormalSource(
 		if err != nil {
 			return ctx, false, fmt.Errorf("normal_service_record: %w", err)
 		}
+		if _, err := m.observationBarrier(ctx); err != nil {
+			return ctx, false, err
+		}
 		return ctx, false, nil
 	}
 	identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
@@ -408,6 +420,12 @@ func (m *RecoveryManager) checkNormalSource(
 			return ctx, true, err
 		}
 		return ctx, false, nil
+	}
+	// Normal service must not override an independently signed observation or
+	// its later exact-source expansion. Fall through to the existing incident /
+	// steady-source verifier (including its source, execution and health fences).
+	if observing, err := m.observationBarrier(ctx); err != nil || observing {
+		return ctx, false, err
 	}
 	authority, err := m.normalService.Load().source(ctx, tx, source, config)
 	if err != nil {

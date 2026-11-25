@@ -56,6 +56,8 @@ func sameRecoveryFacts(a, b RecoveryFacts) bool {
 
 // RecoveryPlan binds a short approval window to one incident and source.
 type RecoveryPlan struct {
+	HoldForReview         bool          `json:"hold_for_review,omitempty"`
+	NormalServiceSHA256   string        `json:"normal_service_sha256,omitempty"`
 	ResetMode             string        `json:"reset_mode,omitempty"`
 	ApprovalKeyID         string        `json:"approval_key_id"`
 	Version               int           `json:"version"`
@@ -96,6 +98,8 @@ type RecoveryApproval struct {
 }
 
 type recoveryMode struct {
+	ObservationPlanSHA256 string                    `json:"observation_plan_sha256,omitempty"`
+	ObservationRootSHA256 string                    `json:"observation_root_sha256,omitempty"`
 	QueueName             string                    `json:"queue_name,omitempty"`
 	QueueReleased         bool                      `json:"queue_released,omitempty"`
 	Steady                *SteadyCertificate        `json:"steady_policy,omitempty"`
@@ -169,6 +173,11 @@ func NewRecoveryManager(
 }
 
 func (c *Controller) checkRecoveryPolicy(ctx context.Context) error {
+	if c.steadyManager != nil {
+		if _, err := c.steadyManager.observationBarrier(ctx); err != nil {
+			return err
+		}
+	}
 	raw, e := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	if errors.Is(e, redis.Nil) {
 		required, err := c.Client.Exists(ctx, c.prefix+"recovery_required").Result()
@@ -325,6 +334,9 @@ type recoveryQueueSnapshot struct {
 }
 
 func (m *RecoveryManager) queue(ctx context.Context) (recoveryQueueSnapshot, error) {
+	if q, observing, err := m.observationQueue(ctx); observing || err != nil {
+		return q, err
+	}
 	if snapshot, released, err := m.releasedQueueSnapshot(ctx); released {
 		return snapshot, err
 	}
@@ -446,6 +458,9 @@ func (m *RecoveryManager) Plan(ctx context.Context, source, actor string) (Recov
 		CreatedMS:             now,
 		ExpiresMS:             now + int64((15*time.Minute)/time.Millisecond),
 	}
+	if err := m.bindObservationPlan(ctx, &p); err != nil {
+		return RecoveryPlan{}, err
+	}
 	return p, nil
 }
 
@@ -480,6 +495,9 @@ func (m *RecoveryManager) Reset(
 	}
 	defer m.operation.Unlock()
 	if e := m.verify(p, a, actor, "reset"); e != nil {
+		return e
+	}
+	if e := m.requireObservationPlan(ctx, p); e != nil {
 		return e
 	}
 	if p.ResetMode != "" {
@@ -542,8 +560,14 @@ func (m *RecoveryManager) Reset(
 	}
 	inc := uuid.NewString()
 	planHash, _ := RecoveryDigest(p)
+	observationHash := ""
+	if p.HoldForReview {
+		observationHash = planHash
+	}
 	state, _ := json.Marshal(
 		recoveryMode{
+			ObservationPlanSHA256: observationHash,
+			ObservationRootSHA256: p.NormalServiceSHA256,
 			QueueName:             q.name,
 			Version:               1,
 			RuntimeSHA:            c.Config.SourceSHA,
@@ -606,6 +630,8 @@ if #leases~=1 or leases[1]~=ARGV[#ARGV-1] then return redis.error_reply('RECOVER
 local now=redis.call('TIME');local ms=now[1]*1000+math.floor(now[2]/1000)
 local state=cjson.decode(ARGV[6]);if state.expires_ms<=ms or not tonumber(ARGV[3]) then return
 redis.error_reply('RECOVERY_EXPIRED') end
+if state.observation_plan_sha256 and state.observation_plan_sha256~='' and
+ redis.call('GET',KEYS[13])~=ARGV[#ARGV-4] then return redis.error_reply('RECOVERY_ROOT_CHANGED') end
 if tonumber(redis.call('ZSCORE',KEYS[4],leases[1]) or '0')<=ms then return
 redis.error_reply('RECOVERY_LEASE_LOST') end
 local admitted=redis.call('HGETALL',KEYS[9])
@@ -630,13 +656,23 @@ state.worker_id,
 'incarnation',
 state.incarnation)
 redis.call('SET',KEYS[11],ARGV[#ARGV])
+if state.observation_plan_sha256 and state.observation_plan_sha256~='' then
+ redis.call('SET',KEYS[12],state.observation_plan_sha256)
+end
 state.membership_revision=tostring(tonumber(ARGV[3])+1)
 redis.call('SET',KEYS[8],cjson.encode(state))
 redis.call('HSET',KEYS[3],ARGV[#ARGV-1],ARGV[5])
 redis.call('HSET',KEYS[9],ARGV[#ARGV-1],ARGV[5])
 redis.call('ZADD',KEYS[4],ms+2000,ARGV[#ARGV-1]);redis.call('INCR',KEYS[5])
 redis.call('DEL',KEYS[1]);return 1`)
-	args = append(args, q.pause, string(approvalAudit), p.WorkerID, planHash)
+	root := ""
+	if p.HoldForReview {
+		root, e = m.inactiveNormalRecord(ctx)
+		if e != nil || digestBytes(root) != p.NormalServiceSHA256 {
+			return ErrRecoveryRejected
+		}
+	}
+	args = append(args, root, q.pause, string(approvalAudit), p.WorkerID, planHash)
 	e = script.Eval(ctx,
 		c.Client,
 		[]string{
@@ -651,6 +687,8 @@ redis.call('DEL',KEYS[1]);return 1`)
 			c.prefix + "admitted",
 			c.Guard.PermitKey(),
 			c.prefix + "recovery_required",
+			c.prefix + "observation_required",
+			c.prefix + "normal_service",
 		},
 		args...).
 		Err()
@@ -783,6 +821,9 @@ func (m *RecoveryManager) Canary(
 	defer m.operation.Unlock()
 	if execute == nil {
 		return ErrRecoveryRejected
+	}
+	if err := m.requireObservationPlan(ctx, p); err != nil {
+		return err
 	}
 	permit, e := m.controller.Client.Get(ctx, m.controller.Guard.PermitKey()).Result()
 	if e != nil || permit != m.controller.Guard.Fingerprint() {
