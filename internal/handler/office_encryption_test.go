@@ -29,7 +29,8 @@ func (officeHTTPKB) GetKnowledgeBaseByID(context.Context, string) (*types.Knowle
 
 // Real handler, error middleware and knowledge service. Authentication is a
 // controlled incoming identity; this is not deployed JWT/provider acceptance.
-func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
+func officeHTTPRouter(t *testing.T) *gin.Engine {
+	t.Helper()
 	gin.SetMode(gin.TestMode)
 	on := true
 	cfg := &config.Config{Tenant: &config.TenantConfig{EnableRBAC: &on}}
@@ -65,6 +66,11 @@ func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 		}, cfg),
 		middleware.RequireKBAccess(middleware.KBIDFromParam("id"), types.OrgRoleEditor, kb, nil, nil, cfg),
 		h.CreateKnowledgeFromFile)
+	return router
+}
+
+func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
+	router := officeHTTPRouter(t)
 	for _, name := range []string{"encrypted.docx", "encrypted.xlsx", "encrypted.pptx", "encrypted.xlsm", "encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt"} {
 		t.Run(name, func(t *testing.T) {
 			data, e := os.ReadFile("../officeguard/testdata/" + name)
@@ -94,6 +100,45 @@ func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 				var result struct{ Error struct{ Code int } }
 				require.NoError(t, json.Unmarshal(w.Body.Bytes(), &result))
 				require.Equal(t, 2400, result.Error.Code)
+			}
+		})
+	}
+}
+
+func TestOfficeHTTPUnsupportedWPSReturns400WithoutEncryptionCode(t *testing.T) {
+	router := officeHTTPRouter(t)
+	for _, name := range []string{"unknown.wps", "unknown.WPS"} {
+		t.Run(name, func(t *testing.T) {
+			var body bytes.Buffer
+			form := multipart.NewWriter(&body)
+			part, err := form.CreateFormFile("file", name)
+			require.NoError(t, err)
+			_, err = part.Write([]byte("WPS proprietary format: not an encrypted Office envelope"))
+			require.NoError(t, err)
+			require.NoError(t, form.Close())
+			for _, denied := range []bool{false, true} {
+				req := httptest.NewRequest(http.MethodPost, "/api/v1/knowledge-bases/kb-office-http/knowledge/file", bytes.NewReader(body.Bytes()))
+				req.Header.Set("Content-Type", form.FormDataContentType())
+				if denied {
+					req.Header.Set("X-Synthetic-Denied", "1")
+				}
+				response := httptest.NewRecorder()
+				router.ServeHTTP(response, req)
+				if denied {
+					require.Equal(t, http.StatusForbidden, response.Code, response.Body.String())
+					continue
+				}
+				require.Equal(t, http.StatusBadRequest, response.Code, response.Body.String())
+				var result struct {
+					Error struct {
+						Code    int
+						Message string
+					}
+				}
+				require.NoError(t, json.Unmarshal(response.Body.Bytes(), &result))
+				require.Equal(t, 1000, result.Error.Code)
+				require.Contains(t, result.Error.Message, "不支持")
+				require.NotContains(t, result.Error.Message, "加密")
 			}
 		})
 	}

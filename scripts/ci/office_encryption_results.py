@@ -10,6 +10,8 @@ required = {
     'TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation',
     'TestOfficeMCPErrorUsesControlledCodeAndMessage',
     'TestOfficeHTTPMultipartBypassReturns400And2400',
+    'TestOfficeHTTPUnsupportedWPSReturns400WithoutEncryptionCode',
+    'TestCreateKnowledgeFromFileUnsupportedWPSNeverPersistsOrEnqueues',
     'TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch',
     'TestOfficePersonalPostgresFirstImportRejectsBeforeManifestOrKnowledge',
     'TestOfficePersonalPostgresEncryptedUpdatePreservesExistingPolicyAndVersion',

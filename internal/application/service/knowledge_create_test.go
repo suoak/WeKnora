@@ -127,6 +127,26 @@ func (s *createKnowledgeTaskEnqueuerStub) Enqueue(
 	return &asynq.TaskInfo{ID: "task-1", Queue: "default"}, nil
 }
 
+func TestCreateKnowledgeFromFileUnsupportedWPSNeverPersistsOrEnqueues(t *testing.T) {
+	t.Parallel()
+	repo := &createKnowledgeFileRepoStub{}
+	files := &createKnowledgeFileServiceStub{}
+	queue := &createKnowledgeTaskEnqueuerStub{}
+	svc := &knowledgeService{
+		repo: repo, fileSvc: files, task: queue,
+		kbService: &createKnowledgeFileKBServiceStub{kb: &types.KnowledgeBase{ID: "kb-1"}},
+	}
+	row, err := svc.CreateKnowledgeFromFile(newCreateKnowledgeFileContext(), "kb-1",
+		newMultipartFileHeader(t, "unknown.wps", "unsupported proprietary format"),
+		nil, nil, "", nil, "", nil)
+	require.ErrorIs(t, err, ErrInvalidFileType)
+	require.Nil(t, row)
+	require.Zero(t, files.saveCalls)
+	require.Zero(t, files.deleteCalls)
+	require.Zero(t, repo.createCalls)
+	require.Zero(t, queue.calls)
+}
+
 func TestCreateKnowledgeFromFileDoesNotPersistWhenStorageSaveFails(t *testing.T) {
 	t.Parallel()
 
