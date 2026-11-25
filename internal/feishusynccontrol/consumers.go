@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 )
@@ -60,6 +61,9 @@ func syncConsumersForQueues(
 					return nil, &probeFailure{stage: "asynq_consumer", cause: errConsumerInactive}
 				}
 				ids = append(ids, fmt.Sprintf("%s:%d", server.Host, server.PID))
+				if id, e := uuid.Parse(server.ID); e == nil && id.String() == server.ID && len(evidence.ConsumerServerIDs) < consumerEvidenceLimit {
+					evidence.ConsumerServerIDs = append(evidence.ConsumerServerIDs, server.ID)
+				}
 			}
 		}
 		if len(ids) == 0 {

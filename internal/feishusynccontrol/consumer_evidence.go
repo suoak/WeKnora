@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"math"
 	"net"
 	"strconv"
 	"strings"
@@ -38,6 +39,9 @@ type consumerEvidence struct {
 	RegistryCount                 int                       `json:"registry_count"`
 	RegistryClass                 string                    `json:"registry_class"`
 	Truncated                     bool                      `json:"truncated"`
+	ConsumerServerIDs             []string                  `json:"consumer_server_ids"`
+	PreviousConsumerServerIDs     []string                  `json:"previous_consumer_server_ids"`
+	MissingPreviousServerIDs      []string                  `json:"missing_previous_server_ids"`
 	Servers                       []*consumerServerEvidence `json:"servers"`
 	client                        redis.UniversalClient
 	reads                         map[string]*consumerServerEvidence
@@ -133,7 +137,12 @@ func (d *consumerEvidence) decode(key string, s *consumerServerEvidence) {
 		s.MetadataClass = "metadata_decode_unavailable"
 		return
 	}
-	msg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
+	messageDescriptor, ok := desc.(protoreflect.MessageDescriptor)
+	if !ok {
+		s.MetadataClass = "metadata_decode_unavailable"
+		return
+	}
+	msg := dynamicpb.NewMessage(messageDescriptor)
 	if e = proto.Unmarshal([]byte(s.raw), msg); e != nil {
 		s.MetadataClass = "metadata_decode_failed"
 		return
@@ -176,12 +185,36 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 	defer cancel()
 	d.Class = reason
 	d.ExpectedIncarnation = c.incarnation
+	client := d.client
+	switch original := client.(type) {
+	case *ControlClient:
+		// Production's reserved pools already honor the caller deadline.
+	case *redis.Client:
+		// UniversalClient callers may disable context socket deadlines or use
+		// long automatic retries. Never inherit those for extra diagnostics.
+		opts := *original.Options()
+		opts.ContextTimeoutEnabled = true
+		opts.MaxRetries = -1
+		opts.DialTimeout = 100 * time.Millisecond
+		opts.ReadTimeout = 100 * time.Millisecond
+		opts.WriteTimeout = 100 * time.Millisecond
+		opts.PoolTimeout = 100 * time.Millisecond
+		opts.PoolSize = 1
+		opts.MinIdleConns = 0
+		bounded := redis.NewClient(&opts)
+		defer bounded.Close()
+		client = bounded
+	default:
+		d.ReadClass = "unsupported_bounded_client"
+		encoded, _ := json.Marshal(d)
+		return string(encoded)
+	}
 	if _, e := strconv.ParseUint(c.consumerRevision, 10, 64); e == nil {
 		d.MembershipRevision = c.consumerRevision
 	} else {
 		d.MembershipRevision = "unavailable"
 	}
-	rows, e := d.client.ZRangeWithScores(ctx, "asynq:servers", 0, consumerEvidenceLimit-1).Result()
+	rows, e := client.ZRangeWithScores(ctx, "asynq:servers", 0, consumerEvidenceLimit-1).Result()
 	if e != nil {
 		d.ReadClass = failureClass(e)
 	} else {
@@ -198,18 +231,27 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 			d.RegistryClass = "registry_members_absent"
 		}
 	}
+	seen := map[string]bool{}
 	for _, row := range rows {
 		key, ok := row.Member.(string)
 		if !ok {
 			continue
 		}
+		seen[evidenceServerID(key)] = true
 		if _, exists := d.reads[key]; !exists && len(d.reads) < consumerEvidenceLimit && evidenceServerID(key) != "invalid" {
 			s := &consumerServerEvidence{ServerID: evidenceServerID(key), MetadataClass: "not_in_original_gets", TTLMS: -3}
 			d.reads[key] = s
 			d.Servers = append(d.Servers, s)
 		}
 	}
-	pipe := d.client.Pipeline()
+	if e == nil && !d.Truncated {
+		for _, id := range d.PreviousConsumerServerIDs {
+			if !seen[id] {
+				d.MissingPreviousServerIDs = append(d.MissingPreviousServerIDs, id)
+			}
+		}
+	}
+	pipe := client.Pipeline()
 	type pair struct {
 		s     *consumerServerEvidence
 		ttl   *redis.DurationCmd
@@ -238,7 +280,7 @@ func (d *consumerEvidence) snapshot(ctx context.Context, c *Controller, reason s
 				r.s.TTLMS = ttl.Milliseconds()
 			}
 		}
-		if err := r.score.Err(); err == nil {
+		if err := r.score.Err(); err == nil && !math.IsInf(r.score.Val(), 0) && !math.IsNaN(r.score.Val()) {
 			r.s.RegistryScore = r.score.Val()
 			r.s.ScorePresent = true
 			if r.s.MetadataClass == "metadata_get_missing" && r.score.Val() <= float64(time.Now().Unix()) {

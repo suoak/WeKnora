@@ -107,6 +107,7 @@ type Controller struct {
 	consumerDiagnostic         *consumerEvidence
 	consumerRevision           string
 	consumerDiagnosticRecorded bool
+	lastConsumerServerIDs      []string
 }
 
 func (c *Controller) audit(ctx context.Context, event Event) error {

@@ -81,6 +81,12 @@ func (c *Controller) automaticStep(ctx context.Context) error {
 	c.consumerRevision = revision
 	ctx = context.WithValue(ctx, consumerEvidenceKey{}, &c.consumerDiagnostic)
 	ids, err := c.Consumers(ctx)
+	if c.consumerDiagnostic != nil {
+		c.consumerDiagnostic.PreviousConsumerServerIDs = append([]string(nil), c.lastConsumerServerIDs...)
+		if err == nil {
+			c.lastConsumerServerIDs = append([]string(nil), c.consumerDiagnostic.ConsumerServerIDs...)
+		}
+	}
 	stage := "consumer_probe"
 	if err == nil {
 		stage = "permit"

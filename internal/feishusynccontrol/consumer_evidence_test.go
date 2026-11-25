@@ -15,6 +15,10 @@ import (
 	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/reflect/protoreflect"
+	"google.golang.org/protobuf/reflect/protoregistry"
+	"google.golang.org/protobuf/types/dynamicpb"
 )
 
 func evidenceFixture(t *testing.T) (*Controller, *redis.Client, *asynq.Server, string, string) {
@@ -110,6 +114,71 @@ func TestConsumerEvidenceHeartbeatAndRealConsumerExit(t *testing.T) {
 	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
 	d := retainedConsumerEvidence(t, c, r)
 	require.Equal(t, "registry_members_absent", d.RegistryClass)
+	require.NotEmpty(t, d.MissingPreviousServerIDs)
+}
+
+func TestConsumerEvidenceUnsubscribedQueueAndMetadataIdentity(t *testing.T) {
+	for _, mode := range []string{"queue", "identity"} {
+		t.Run(mode, func(t *testing.T) {
+			c, r, _, key, raw := evidenceFixture(t)
+			ctx := context.Background()
+			desc, err := protoregistry.GlobalFiles.FindDescriptorByName("asynq.ServerInfo")
+			require.NoError(t, err)
+			msg := dynamicpb.NewMessage(desc.(protoreflect.MessageDescriptor))
+			require.NoError(t, proto.Unmarshal([]byte(raw), msg))
+			if mode == "queue" {
+				msg.Clear(msg.Descriptor().Fields().ByName("queues"))
+			} else {
+				msg.Set(msg.Descriptor().Fields().ByName("host"), protoreflect.ValueOfString("different-host"))
+			}
+			data, err := proto.Marshal(msg)
+			require.NoError(t, err)
+			require.NoError(t, r.Set(ctx, key, data, 10*time.Second).Err())
+			require.Error(t, c.Step(ctx))
+			d := retainedConsumerEvidence(t, c, r)
+			if mode == "queue" {
+				require.Equal(t, "expected_queue_not_subscribed", d.Servers[0].MetadataClass)
+			} else {
+				require.Equal(t, "metadata_identity_mismatch", d.Servers[0].MetadataClass)
+			}
+			require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+		})
+	}
+}
+
+func TestConsumerEvidenceTTLBoundaryIsNotProofOfDeletionCause(t *testing.T) {
+	c, r, _, key, _ := evidenceFixture(t)
+	ctx := context.Background()
+	require.NoError(t, r.PExpire(ctx, key, 5*time.Millisecond).Err())
+	time.Sleep(15 * time.Millisecond)
+	// In miniredis, time passage is explicit; the same test also runs against
+	// real Redis, where the short TTL above expires normally.
+	if os.Getenv("FEISHU_RECOVERY_REAL_REDIS_ADDR") == "" {
+		require.NoError(t, r.Del(ctx, key).Err())
+	}
+	require.Error(t, c.Step(ctx))
+	d := retainedConsumerEvidence(t, c, r)
+	require.Equal(t, "metadata_get_missing", d.Servers[0].MetadataClass)
+	require.Equal(t, "key_missing_expiry_or_deletion_unknown", d.Servers[0].ExpiryEvidence)
+}
+
+type revisionDuringProbe struct {
+	redis.UniversalClient
+	prefix string
+}
+
+func (r revisionDuringProbe) Ping(ctx context.Context) *redis.StatusCmd {
+	_ = r.UniversalClient.Incr(ctx, r.prefix+"membership_revision").Err()
+	return r.UniversalClient.Ping(ctx)
+}
+
+func TestConsumerEvidenceMembershipRevisionRaceStaysClosed(t *testing.T) {
+	c, r, _, _, _ := evidenceFixture(t)
+	ctx := context.Background()
+	c.Consumers = ApprovedConsumers(revisionDuringProbe{r, c.prefix})
+	require.Error(t, c.Step(ctx))
+	require.EqualValues(t, 0, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	require.EqualValues(t, 0, r.Exists(ctx, c.prefix+"trip").Val(), "existing REGISTRY_CHANGED join behavior must remain unchanged")
 }
 
 func TestConsumerEvidenceBoundsReadOnlySnapshotAndExpiry(t *testing.T) {

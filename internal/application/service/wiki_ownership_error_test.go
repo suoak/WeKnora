@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"database/sql/driver"
 	"errors"
@@ -14,6 +15,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/hibiken/asynq"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/require"
 	"gorm.io/gorm"
 )
@@ -24,14 +26,21 @@ func TestWikiOwnershipErrorClassificationAndRedaction(t *testing.T) {
 		class string
 	}{{context.Canceled, "context_canceled"}, {context.DeadlineExceeded, "deadline_exceeded"}, {gorm.ErrRecordNotFound, "not_found"}, {repository.ErrKnowledgeNotFound, "not_found"}, {driver.ErrBadConn, "database_connection"}, {&pgconn.PgError{Code: "08006", Message: "secret SQL body"}, "database_connection"}, {errors.New("secret token SQL body"), "query_error"}} {
 		t.Run(tc.class, func(t *testing.T) {
+			var output bytes.Buffer
+			log := logrus.New()
+			log.SetOutput(&output)
+			ctx := context.WithValue(context.Background(), types.LoggerContextKey, logrus.NewEntry(log))
 			cause := fmt.Errorf("secret context: %w", tc.err)
-			err := wikiOwnershipFailure(context.Background(), "secret-kb", WikiPendingOp{dbID: 42, KnowledgeID: "secret-id"}, cause)
+			err := wikiOwnershipFailure(ctx, "secret-kb", WikiPendingOp{dbID: 42, KnowledgeID: "secret-id"}, cause)
 			var diagnosed *wikiOwnershipReadError
 			require.ErrorAs(t, err, &diagnosed)
 			require.ErrorIs(t, diagnosed.Cause(), tc.err)
 			require.Contains(t, err.Error(), tc.class)
 			require.NotContains(t, err.Error(), "secret")
 			require.Equal(t, "invalid", wikiDiagnosticID("secret"))
+			require.NotContains(t, output.String(), "secret")
+			require.Contains(t, output.String(), "operation_id=42")
+			require.Contains(t, output.String(), "stage=first_add_postprocess")
 		})
 	}
 }
@@ -77,6 +86,11 @@ func TestWikiOwnershipSQLFailurePreservesOperationAndFinalizingSlot(t *testing.T
 			require.ErrorIs(t, diagnosed.Cause(), context.Canceled)
 			_, err = s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "missing", dbID: op.ID})
 			require.Contains(t, err.Error(), "not_found")
+			// Exercise a real query failure, in this test-owned schema only.
+			require.NoError(t, db.Exec("ALTER TABLE knowledges RENAME COLUMN deleted_at TO unavailable_deleted_at").Error)
+			_, err = s.firstAddOwnership(context.Background(), "kb", WikiPendingOp{KnowledgeID: "doc", dbID: op.ID})
+			require.Contains(t, err.Error(), "query_error")
+			require.NotContains(t, err.Error(), "unavailable_deleted_at")
 			var saved types.TaskPendingOp
 			require.NoError(t, db.First(&saved, op.ID).Error)
 			require.Equal(t, "knowledge_base", saved.Scope)
