@@ -43,6 +43,12 @@ func (m *RecoveryManager) observationBarrier(ctx context.Context) (bool, error) 
 	if !recoverySHA.MatchString(marker) || state.ObservationPlanSHA256 != marker {
 		return true, ErrRecoveryRejected
 	}
+	validPhase := state.Version == 1 && state.Steady == nil &&
+		(state.Phase == "frozen" || state.Phase == "admit" || state.Phase == "running" || state.Phase == "awaiting_review")
+	validPhase = validPhase || (state.Version == 2 && state.Steady != nil && state.Phase == "approved_sources")
+	if !validPhase || !recoverySHA.MatchString(state.ObservationRootSHA256) {
+		return true, ErrRecoveryRejected
+	}
 	root, err := m.inactiveNormalRecord(ctx)
 	if err != nil || digestBytes(root) != state.ObservationRootSHA256 {
 		return true, ErrRecoveryRejected

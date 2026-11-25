@@ -89,7 +89,7 @@ func TestObservationCanaryRequiresSecondSignatureAndKeepsOtherSourcesClosed(t *t
 }
 
 func TestObservationStateLossAndRootChangesFailClosed(t *testing.T) {
-	for _, fault := range []string{"marker_missing", "mode_missing", "root_missing", "root_reactivated", "root_wrong_type", "canceled"} {
+	for _, fault := range []string{"marker_missing", "mode_missing", "mode_invalid", "mode_wrong_type", "unknown_phase", "marker_wrong_type", "marker_changed", "root_missing", "root_reactivated", "root_wrong_type", "canceled"} {
 		t.Run(fault, func(t *testing.T) {
 			f := observationFixture(t)
 			ctx := context.Background()
@@ -98,6 +98,23 @@ func TestObservationStateLossAndRootChangesFailClosed(t *testing.T) {
 				require.NoError(t, f.r.Del(ctx, f.c.prefix+"observation_required").Err())
 			case "mode_missing":
 				require.NoError(t, f.r.Del(ctx, f.c.prefix+"recovery").Err())
+			case "mode_invalid":
+				require.NoError(t, f.r.Set(ctx, f.c.prefix+"recovery", "{invalid", 0).Err())
+			case "mode_wrong_type":
+				require.NoError(t, f.r.Del(ctx, f.c.prefix+"recovery").Err())
+				require.NoError(t, f.r.HSet(ctx, f.c.prefix+"recovery", "not", "a-mode").Err())
+			case "unknown_phase":
+				var state recoveryMode
+				require.NoError(t, json.Unmarshal([]byte(f.r.Get(ctx, f.c.prefix+"recovery").Val()), &state))
+				state.Phase = "unknown"
+				raw, err := json.Marshal(state)
+				require.NoError(t, err)
+				require.NoError(t, f.r.Set(ctx, f.c.prefix+"recovery", raw, 0).Err())
+			case "marker_wrong_type":
+				require.NoError(t, f.r.Del(ctx, f.c.prefix+"observation_required").Err())
+				require.NoError(t, f.r.HSet(ctx, f.c.prefix+"observation_required", "not", "a-marker").Err())
+			case "marker_changed":
+				require.NoError(t, f.r.Set(ctx, f.c.prefix+"observation_required", "mismatch", 0).Err())
 			case "root_missing":
 				require.NoError(t, f.r.Del(ctx, f.c.prefix+"normal_service").Err())
 			case "root_reactivated":
@@ -121,4 +138,35 @@ func TestObservationStateLossAndRootChangesFailClosed(t *testing.T) {
 			require.Error(t, err)
 		})
 	}
+}
+
+func TestObservationPrepareCannotOverrideActiveWideGrant(t *testing.T) {
+	f := newNormalFixture(t)
+	f.c.Config.DedicatedSyncLane = true
+	f.activateNormal(t)
+	ctx := context.Background()
+	before := *f.saved
+	_, err := f.m.Prepare(ctx, f.ids[0], "operator", RecoveryPrepareRequest{
+		HoldForReview: true, RuntimeSHA: f.c.Config.SourceSHA,
+		IncidentID: "not-authority", Trip: "not-authority",
+	})
+	require.Error(t, err)
+	require.Equal(t, before, *f.saved)
+	require.Zero(t, f.r.Exists(ctx, f.c.prefix+"observation_required").Val())
+}
+
+func TestObservationRejectsNonemptyDedicatedLaneWithoutRemovingTasks(t *testing.T) {
+	f := newNormalFixture(t)
+	f.c.Config.DedicatedSyncLane = true
+	f.activateNormal(t)
+	ctx := context.Background()
+	require.NoError(t, f.m.DeactivateNormalService(ctx))
+	require.NoError(t, f.r.Set(ctx, "asynq:{approved_sync}:paused", dedicatedRecoveryPause, 0).Err())
+	require.NoError(t, f.r.RPush(ctx, "asynq:{approved_sync}:pending", "retained-historical-task").Err())
+	trip := f.r.Get(ctx, f.c.prefix+"trip").Val()
+	_, err := f.m.Plan(ctx, f.ids[0], "operator")
+	require.Error(t, err)
+	require.Equal(t, []string{"retained-historical-task"}, f.r.LRange(ctx, "asynq:{approved_sync}:pending", 0, -1).Val())
+	require.Equal(t, trip, f.r.Get(ctx, f.c.prefix+"trip").Val())
+	require.Zero(t, f.r.Exists(ctx, f.c.Guard.PermitKey()).Val())
 }
