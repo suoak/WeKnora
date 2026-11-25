@@ -1,14 +1,13 @@
 name: Consumer Wiki Bookworm native qualification
 on:
+  push:
+    branches: [ci/consumer-wiki-native-release-20261125]
+    paths: [.github/workflows/consumer-native-build.yml]
   workflow_dispatch:
-    inputs:
-      source_sha:
-        description: Exact reviewed source commit
-        required: true
 permissions:
   contents: read
 env:
-  SOURCE_SHA: ${{ inputs.source_sha }}
+  SOURCE_SHA: 92ff276415346dc27f600f5782260821be067d94
 jobs:
   native:
     runs-on: ubuntu-24.04
@@ -16,7 +15,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.source_sha }}
+          ref: ${{ env.SOURCE_SHA }}
           persist-credentials: false
       - name: Bind exact source and existing production recipe
         run: |
@@ -80,7 +79,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: consumer-native-${{ inputs.source_sha }}
+          name: consumer-native-${{ env.SOURCE_SHA }}
           path: package/
           compression-level: 0
           retention-days: 14
