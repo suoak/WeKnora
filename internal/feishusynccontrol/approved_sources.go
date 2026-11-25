@@ -186,6 +186,25 @@ func BindApprovedSource(ctx context.Context, source, config string) (context.Con
 	if m == nil {
 		return ctx, false, nil
 	}
+	if observing, err := m.observationBarrier(ctx); err != nil {
+		return ctx, false, err
+	} else if observing {
+		raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
+		var state recoveryMode
+		if err != nil || json.Unmarshal([]byte(raw), &state) != nil {
+			return ctx, false, ErrRecoveryRejected
+		}
+		if state.Phase != "approved_sources" {
+			identity, _ := feishusafety.RecoveryOutboundExecution(ctx)
+			if (state.Phase != "admit" && state.Phase != "running") ||
+				source != state.SourceID || config != state.ConfigSHA256 || identity.Plan != state.PlanID {
+				return ctx, false, ErrRecoveryRejected
+			}
+			// Only the existing inline canary context may proceed to its usual
+			// Guard/SQL claim checks. Never create ordinary queued authority.
+			return ctx, false, nil
+		}
+	}
 	if work, handled, err := m.bindNormalSource(ctx, source, config); handled || err != nil {
 		return work, handled, err
 	}
