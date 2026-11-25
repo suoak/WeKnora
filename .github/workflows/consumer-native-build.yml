@@ -7,7 +7,7 @@ on:
 permissions:
   contents: read
 env:
-  SOURCE_SHA: 8e0242c4dc4de826dbba09aaf43496370d2fb3eb
+  SOURCE_SHA: adf38741588f65eee034062dea7f5f81a12d27a4
 jobs:
   native:
     runs-on: ubuntu-24.04
