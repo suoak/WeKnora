@@ -18,9 +18,12 @@ func TestPortalAccessRequestsProjectApplicantNamesWithinTenant(t *testing.T) {
 	sqlDB, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { _ = sqlDB.Close() })
-	require.NoError(t, db.Exec(`CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT, email TEXT, password_hash TEXT, deleted_at DATETIME)`).Error)
+	require.NoError(t, db.Exec(`CREATE TABLE users (
+ id TEXT PRIMARY KEY, username TEXT, email TEXT, password_hash TEXT, deleted_at DATETIME
+)`).Error)
 	require.NoError(t, db.AutoMigrate(&types.TenantAccessRequest{}))
-	require.False(t, db.Migrator().HasColumn(&types.TenantAccessRequest{}, "applicant_name"), "display projection must not require a migration")
+	require.False(t, db.Migrator().HasColumn(&types.TenantAccessRequest{}, "applicant_name"),
+		"display projection must not require a migration")
 	require.NoError(t, db.Exec(`INSERT INTO users VALUES
  ('alice', 'Alice Chen', 'private-email-marker', 'private-password-marker', NULL),
  ('owner', 'Owner', 'owner-private-email', 'private-password-marker', NULL),
@@ -28,7 +31,10 @@ func TestPortalAccessRequestsProjectApplicantNamesWithinTenant(t *testing.T) {
  ('other', 'Other tenant private name', '', '', NULL)`).Error)
 	reviewer := "owner"
 	for _, row := range []types.TenantAccessRequest{
-		{ID: "active", TenantID: 7, ApplicantUserID: "alice", ReviewedBy: &reviewer, Status: types.TenantAccessRequestPending},
+		{
+			ID: "active", TenantID: 7, ApplicantUserID: "alice", ReviewedBy: &reviewer,
+			Status: types.TenantAccessRequestPending,
+		},
 		{ID: "missing", TenantID: 7, ApplicantUserID: "missing-user", Status: types.TenantAccessRequestPending},
 		{ID: "deleted", TenantID: 7, ApplicantUserID: "deleted", Status: types.TenantAccessRequestPending},
 		{ID: "other", TenantID: 99, ApplicantUserID: "other", Status: types.TenantAccessRequestPending},
@@ -49,7 +55,10 @@ func TestPortalAccessRequestsProjectApplicantNamesWithinTenant(t *testing.T) {
 	require.Empty(t, byID["deleted"].ApplicantName)
 	payload, err := json.Marshal(rows)
 	require.NoError(t, err)
-	for _, private := range []string{"private-email-marker", "private-password-marker", "Deleted private name", "Other tenant private name", "password_hash", `"email"`} {
+	for _, private := range []string{
+		"private-email-marker", "private-password-marker", "Deleted private name",
+		"Other tenant private name", "password_hash", `"email"`,
+	} {
 		require.NotContains(t, string(payload), private)
 	}
 }
