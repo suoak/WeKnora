@@ -44,7 +44,9 @@ func escapeLikeKeyword(keyword string) string {
 // counter jump back up and never reach zero (the "stuck
 // pending_subtasks_count / never promoted to completed" bug). Omitting
 // the column here means Save can never touch it.
-var omitFieldsOnUpdate = []string{"DeletedAt", "PendingSubtasksCount"}
+// A background processor may save a struct loaded before a directory move.
+// Folder placement belongs to the explicit folder/column update operations.
+var omitFieldsOnUpdate = []string{"DeletedAt", "PendingSubtasksCount", "FolderPath"}
 
 // knowledgeRepository implements knowledge base and knowledge repository interface
 type knowledgeRepository struct {

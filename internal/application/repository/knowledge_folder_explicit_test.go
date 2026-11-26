@@ -183,3 +183,39 @@ func setupExplicitFolderTestDB(t *testing.T) *gorm.DB {
 		"VALUES ('kb',1),('other',1),('kb-tenant-2',2)").Error)
 	return db
 }
+
+func TestBackgroundKnowledgeSavePreservesFolderPlacement(t *testing.T) {
+	db := setupKnowledgeTestDB(t)
+	require.NoError(t, db.AutoMigrate(&types.Knowledge{}))
+	repo := NewKnowledgeRepository(db)
+	ctx := context.Background()
+	id := "background-folder-save"
+	require.NoError(t, db.Create(&types.Knowledge{
+		ID: id, TenantID: 1, KnowledgeBaseID: "kb", Type: "file",
+		Title: "before", FileName: "document.md", FolderPath: "before",
+		ParseStatus: types.ParseStatusCompleted,
+		Metadata:    types.JSON(`{}`), CustomMetadata: types.JSON(`{}`),
+	}).Error)
+	stale, err := repo.GetKnowledgeByID(ctx, 1, id)
+	require.NoError(t, err)
+	stale.Metadata = types.JSON(`{}`)
+	_, err = repo.UpdateKnowledgeFolderPath(ctx, 1, "kb", []string{id}, "after")
+	require.NoError(t, err)
+	stale.Title = "processed title"
+	require.NoError(t, repo.UpdateKnowledge(ctx, stale))
+	require.Equal(t, "after", folderPathOf(t, db, id))
+	current, err := repo.GetKnowledgeByID(ctx, 1, id)
+	require.NoError(t, err)
+	require.Equal(t, "processed title", current.Title)
+	_, err = repo.UpdateKnowledgeFolderPath(ctx, 1, "kb", []string{id}, "batch-target")
+	require.NoError(t, err)
+	current.Description = "processed description"
+	require.NoError(t, repo.UpdateKnowledgeBatch(ctx, []*types.Knowledge{current}))
+	require.Equal(t, "batch-target", folderPathOf(t, db, id))
+	// Historical replacement requests use explicit column updates to set a
+	// qualified filename's directory. That contract continues to work.
+	require.NoError(t, repo.UpdateKnowledgeColumns(ctx, id, map[string]interface{}{
+		"folder_path": "replacement-target",
+	}))
+	require.Equal(t, "replacement-target", folderPathOf(t, db, id))
+}
