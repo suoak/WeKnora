@@ -135,7 +135,8 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 		(!cfg.Automatic && cfg.Maintenance != 1) {
 		return nil, fmt.Errorf("%w: incomplete controller or canary concurrency", ErrNotReady)
 	}
-	if cfg.AutomaticService && (!cfg.Automatic || !cfg.DedicatedSyncLane || cfg.Scope != "all" || len(cfg.SourceSHA) != 40) {
+	if cfg.AutomaticService &&
+		(!cfg.Automatic || !cfg.DedicatedSyncLane || cfg.Scope != "all" || len(cfg.SourceSHA) != 40) {
 		return nil, fmt.Errorf("%w: automatic service requires a versioned dedicated runtime", ErrNotReady)
 	}
 	if !cfg.Automatic && len(cfg.SourceSHA) != 40 {

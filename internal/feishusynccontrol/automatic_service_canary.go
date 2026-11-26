@@ -193,13 +193,15 @@ func (s *automaticService) advanceCanary(
 		return err
 	}
 	return redis.NewScript(`
-if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[2])~=0 then return redis.error_reply('SYSTEM_CANARY_CHANGED') end
+if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[2])~=0 then
+ return redis.error_reply('SYSTEM_CANARY_CHANGED') end
 local s=cjson.decode(ARGV[1]);local next=cjson.decode(ARGV[2])
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
 if next.phase=='ramp' then next.next_admission_ms=now+5000;next.ramp_until_ms=now+60000
 else redis.call('HSET',KEYS[4],s.canary_source_id,tostring(now+60000)) end
 redis.call('XADD',KEYS[3],'*','event','automatic_canary_'..ARGV[3],
- 'epoch',s.epoch,'source_id',s.canary_source_id,'run_id',s.canary_run_id,'publication_proof',next.canary_proof_sha256 or '')
+ 'epoch',s.epoch,'source_id',s.canary_source_id,'run_id',s.canary_run_id,
+ 'publication_proof',next.canary_proof_sha256 or '')
 redis.call('SET',KEYS[1],cjson.encode(next));return 1`).Run(ctx, s.c.Client,
 		[]string{
 			s.c.prefix + "system_service",

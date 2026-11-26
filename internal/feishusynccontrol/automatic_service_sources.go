@@ -205,7 +205,8 @@ func (s *automaticService) bindSource(
 
 var registerSystemSource = redis.NewScript(`
 if redis.call('GET',KEYS[1])~=ARGV[1] or redis.call('EXISTS',KEYS[3])~=0 or
- redis.call('GET',KEYS[4])~=ARGV[5] or redis.call('PTTL',KEYS[4])<=0 then return redis.error_reply('SYSTEM_SOURCE_NOT_READY') end
+ redis.call('GET',KEYS[4])~=ARGV[5] or redis.call('PTTL',KEYS[4])<=0 then
+ return redis.error_reply('SYSTEM_SOURCE_NOT_READY') end
 local s=cjson.decode(ARGV[1]);local entry=cjson.decode(ARGV[4])
 if entry.epoch~=s.epoch or entry.source_id~=ARGV[2] then return redis.error_reply('SYSTEM_SOURCE_BINDING_CHANGED') end
 local t=redis.call('TIME');local now=t[1]*1000+math.floor(t[2]/1000)
@@ -214,7 +215,8 @@ if backoff and tonumber(backoff)>now then return redis.error_reply('SYSTEM_SOURC
 local changed=false
 if s.phase=='canary' then
  if s.canary_source_id=='' then s.canary_source_id=ARGV[2];s.canary_run_id=ARGV[3];s.canary_started_ms=now;changed=true
- elseif s.canary_source_id~=ARGV[2] or s.canary_run_id~=ARGV[3] then return redis.error_reply('SYSTEM_CANARY_OTHER_SOURCE') end
+ elseif s.canary_source_id~=ARGV[2] or s.canary_run_id~=ARGV[3] then
+  return redis.error_reply('SYSTEM_CANARY_OTHER_SOURCE') end
 elseif s.phase=='ramp' then
  local registered=redis.call('HGET',KEYS[2],ARGV[2]);local same=false
  if registered then local previous=cjson.decode(registered);same=previous.epoch==s.epoch end

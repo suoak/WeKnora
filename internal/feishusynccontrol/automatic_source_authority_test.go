@@ -406,7 +406,8 @@ func (f automaticAuthorityFixture) rawKey(
 	require.NoError(
 		t,
 		f.db.Raw(
-			`INSERT INTO tenant_api_keys(tenant_id,owner_user_id,scope_type,name,key_hash,api_key,full_access,capabilities,knowledge_base_ids,personal_scope_mode)
+			`INSERT INTO tenant_api_keys(tenant_id,owner_user_id,scope_type,name,key_hash,api_key,
+ full_access,capabilities,knowledge_base_ids,personal_scope_mode)
  VALUES(?,?,?,'resource-fixture',?,?,?,?::jsonb,?::jsonb,?) RETURNING id`,
 			tenant,
 			owner,
