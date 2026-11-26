@@ -1,0 +1,85 @@
+name: Consumer Wiki Bookworm native qualification
+on:
+  push:
+    branches: [ci/consumer-wiki-native-release-20261125]
+    paths: [.github/workflows/consumer-native-build.yml]
+  workflow_dispatch:
+permissions:
+  contents: read
+env:
+  SOURCE_SHA: ${{ inputs.source_sha }}
+jobs:
+  native:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 100
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - name: Bind exact source and existing production recipe
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir package
+          git rev-parse HEAD > package/source-sha.txt
+          git rev-parse HEAD^{tree} > package/source-tree.txt
+          sha256sum docker/Dockerfile.app.knowhub-release > package/recipe.sha256
+      - uses: docker/setup-buildx-action@v4
+      - name: Build complete Bookworm runtime with native AnyDoc
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: docker/Dockerfile.app.knowhub-release
+          platforms: linux/amd64
+          target: validation
+          push: false
+          load: true
+          tags: knowhub-consumer-native-validation:ci
+          build-args: |
+            WITH_ANYDOC=1
+            VERSION_ARG=consumer-wiki-diagnostics
+            COMMIT_ID_ARG=${{ env.SOURCE_SHA }}
+            REVISION_ARG=${{ env.SOURCE_SHA }}
+            GO_VERSION_ARG=1.26.7
+            APT_MIRROR_ARG=deb.debian.org
+            GOPROXY_ARG=https://proxy.golang.org,direct
+          cache-from: |
+            type=gha,scope=office-production-bookworm
+            type=gha,scope=resilience-anydoc-app-amd64
+            type=gha,scope=consumer-wiki-native
+          cache-to: type=gha,scope=consumer-wiki-native,mode=max
+      - name: Run real native conversion tests in Bookworm
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --cap-drop ALL \
+            --tmpfs /tmp:size=128m,mode=1777 knowhub-consumer-native-validation:ci \
+            -test.v -test.timeout=5m | tee package/native-runtime-tests.log
+      - name: Export production-shaped runtime without test binaries
+        run: |
+          set -euo pipefail
+          docker buildx build --load --platform linux/amd64 --target runtime \
+            -f docker/Dockerfile.app.knowhub-release \
+            --cache-from type=gha,scope=consumer-wiki-native \
+            --build-arg WITH_ANYDOC=1 --build-arg VERSION_ARG=consumer-wiki-diagnostics \
+            --build-arg COMMIT_ID_ARG="$SOURCE_SHA" --build-arg REVISION_ARG="$SOURCE_SHA" \
+            --build-arg GO_VERSION_ARG=1.26.7 --build-arg APT_MIRROR_ARG=deb.debian.org \
+            --build-arg GOPROXY_ARG=https://proxy.golang.org,direct \
+            -t "knowhub-consumer-native:$SOURCE_SHA" .
+          image="knowhub-consumer-native:$SOURCE_SHA"
+          test "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image")" = "$SOURCE_SHA"
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint sh "$image" \
+            -c 'cat /etc/os-release; ldd /app/WeKnora; test ! -e /usr/local/bin/anydoc-runtime-tests' | tee package/runtime-linkage.log
+          ! grep 'not found' package/runtime-linkage.log
+          grep -F bookworm package/runtime-linkage.log
+          docker image inspect --format '{{.Id}}' "$image" > package/image-id.txt
+          docker image inspect --format '{{json .Config.Labels}}' "$image" > package/image-labels.json
+          docker save "$image" | gzip -1 > package/app-image.tar.gz
+          sha256sum package/app-image.tar.gz > package/archive.sha256
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: consumer-native-${{ env.SOURCE_SHA }}
+          path: package/
+          compression-level: 0
+          retention-days: 14
