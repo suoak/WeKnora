@@ -1,0 +1,81 @@
+name: Persistent knowledge folders
+on:
+  pull_request:
+    paths:
+      - 'internal/**/knowledge*'
+      - 'internal/router/**'
+      - 'internal/types/interfaces/knowledge.go'
+      - 'frontend/src/views/knowledge/**'
+      - 'frontend/src/api/knowledge-base/**'
+      - 'frontend/tests/knowledge-folders/**'
+      - 'migrations/**'
+      - '.github/workflows/knowledge-folders.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: knowledge-folders-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  persistence-and-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: synthetic-folders
+          POSTGRES_DB: feishu_atomic_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+      FEISHU_LEGACY_TEST_DSN: postgres://postgres:synthetic-folders@localhost:5432/feishu_atomic_test?sslmode=disable
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.11'
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Unit, permissions, real PostgreSQL and migration governance
+        run: |
+          mkdir -p evidence
+          set -o pipefail
+          go test -p 2 -tags sqlite_fts5 ./internal/types ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/database -run 'Folder|MigrationNumbers|MigrationGovernance|TestFeishuLegacyAtomicPostgres|TestKnowledgeDerivedWritePostgres' -count=1 -timeout=15m -v 2>&1 | tee evidence/backend.log
+      - name: Frontend component state and locale regression
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts --no-audit --no-fund
+          npx tsx --test src/views/knowledge/folderCreateState.test.ts src/views/knowledge/folderDeleteState.test.ts src/views/knowledge/folderTree.test.ts src/views/knowledge/components/KbFolderTree.test.ts
+          npm run type-check
+      - name: Browser against real Go handler, service and disk database
+        env:
+          FOLDER_BROWSER_TEST: '1'
+          VITE_DEV_PROXY_TARGET: http://127.0.0.1:18088
+        run: |
+          go test -tags sqlite_fts5 ./internal/handler -run '^TestKnowledgeFolderBrowserServer$' -timeout=8m -v > evidence/browser-api.log 2>&1 &
+          fixture_pid=$!
+          trap 'kill "$fixture_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 120); do
+            if curl -fsS http://127.0.0.1:18088/api/v1/knowledge-bases/kb-1/knowledge/folders > evidence/empty-tree.json; then break; fi
+            sleep 1
+          done
+          cd frontend
+          npx playwright install --with-deps chromium
+          npx playwright test --config tests/knowledge-folders/playwright.config.ts
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: knowledge-folder-evidence
+          path: |
+            evidence
+            frontend/test-results/knowledge-folders

@@ -50,7 +50,7 @@
                     </button>
                     <template #content>
                       <div class="card-menu" @click.stop>
-                        <FolderPickerMenu
+                        <FolderPickerMenu :kb-id="kbInfo?.id"
                           :options="pickerFolderOptions"
                           :current-path="localTargetFolder"
                           allow-reselect

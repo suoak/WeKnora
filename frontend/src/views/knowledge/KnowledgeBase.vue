@@ -42,6 +42,7 @@ import {
   listKnowledgeFolders,
   moveKnowledgeToFolder,
   renameKnowledgeFolder,
+  deleteEmptyKnowledgeFolder,
   downKnowledgeDetails,
   type KnowledgeFolderTree,
 } from "@/api/knowledge-base/index";
@@ -55,6 +56,8 @@ import DocumentBatchBar from './components/DocumentBatchBar.vue';
 import KnowledgeProcessingSummary from './components/KnowledgeProcessingSummary.vue';
 import KbUploadSourceDropdown from './components/KbUploadSourceDropdown.vue';
 import KbFolderTree from './components/KbFolderTree.vue';
+import CreateDocumentFolderDialog from './components/CreateDocumentFolderDialog.vue';
+import type { CreatedDocumentFolder } from './folderCreateState';
 import DocumentScopeSummary from './components/DocumentScopeSummary.vue';
 import BatchTagDialog from './components/BatchTagDialog.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
@@ -812,6 +815,16 @@ const writeStoredFlag = (key: string, value: boolean) => {
 };
 const folderTree = ref<KnowledgeFolderTree | null>(null);
 const folderTreeLoading = ref(false);
+const folderCreateVisible = ref(false);
+const folderCreateParent = ref('');
+const openFolderCreate = (parent = selectedFolderPath.value) => { if (!canEdit.value) return; folderCreateParent.value = parent; folderCreateVisible.value = true; };
+const handleFolderCreated = async ({ kbId: targetKbId }: CreatedDocumentFolder) => { if (kbId.value === targetKbId) await loadFolderTree(targetKbId); };
+const handleFolderDelete = async (path: string) => {
+ if (!canEdit.value) return;
+ const targetKbId = kbId.value;
+ try { await deleteEmptyKnowledgeFolder(targetKbId, path); if (kbId.value !== targetKbId) return; await loadFolderTree(targetKbId); MessagePlugin.success(t('knowledgeBase.folderDelete.success')); }
+ catch (error: any) { MessagePlugin.error(error?.message || t('knowledgeBase.folderDelete.failed')); }
+};
 // The folder being browsed; ROOT_FOLDER_PATH ('') is the knowledge base top
 // level, a real node of the tree rather than a separate mode.
 const selectedFolderPath = ref<string>(ROOT_FOLDER_PATH);
@@ -819,7 +832,7 @@ const folderTreeCollapsed = ref(readStoredFlag(FOLDER_TREE_COLLAPSED_KEY));
 const hasFolders = computed(() => (folderTree.value?.folders?.length ?? 0) > 0);
 // The folder column only earns its space once the knowledge base actually has
 // folders, so knowledge bases filled with single-file uploads look unchanged.
-const showFolderTree = computed(() => !isFAQ.value && hasFolders.value);
+const showFolderTree = computed(() => !isFAQ.value && (hasFolders.value || canEdit.value));
 // Browsing lists one folder's own contents; filtering searches its whole
 // subtree. There is no mode switch: the list follows what the user is doing.
 const isFiltering = computed(() =>
@@ -975,13 +988,7 @@ const handleFolderRename = async ({ from, to }: { from: string; to: string }) =>
     return;
   }
   try {
-    const res: any = await renameKnowledgeFolder(kbId.value, from, to);
-    const movedCount = res?.data?.moved_count ?? 0;
-    if (movedCount === 0) {
-      MessagePlugin.warning(t('knowledgeBase.folderTree.renameFailed'));
-      await loadFolderTree(kbId.value);
-      return;
-    }
+    await renameKnowledgeFolder(kbId.value, from, to);
     MessagePlugin.success(t('knowledgeBase.folderTree.renameSuccess'));
     // Follow the folder to its new path so the user stays where they were.
     if (selectedFolderPath.value === from) {
@@ -2463,10 +2470,11 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
           <KbFolderTree v-if="showFolderTree && !folderTreeCollapsed" :tree="folderTree" :selected-path="selectedFolderPath"
             :loading="folderTreeLoading" :can-edit="canEdit" :root-label="kbInfo?.name"
             @select="handleFolderSelect" @update:collapsed="handleFolderTreeCollapsedChange"
-            @rename="handleFolderRename" />
+            @rename="handleFolderRename" @create="openFolderCreate" @delete-empty="handleFolderDelete" />
           <div class="tag-content">
             <div class="doc-card-area">
               <div class="doc-filter-bar">
+                <t-button v-if="canEdit && !isFAQ" variant="outline" @click="openFolderCreate()"><template #icon><t-icon name="folder-add" /></template>{{ t('knowledgeBase.folderCreate.title') }}</t-button>
                 <nav class="doc-folder-path" :aria-label="$t('knowledgeBase.folderTree.title')">
                   <button v-if="showFolderTree && folderTreeCollapsed" type="button" class="doc-folder-path__tree-toggle"
                     :aria-expanded="false" :title="$t('knowledgeBase.folderTree.expand')"
@@ -2720,7 +2728,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 </template>
               </div>
               <div class="doc-batch-bar-anchor" v-show="batchMode || selectedIds.size > 0">
-                <DocumentBatchBar :count="selectedIds.size" :delete-loading="batchDeleting"
+                <DocumentBatchBar :kb-id="kbId" :count="selectedIds.size" :delete-loading="batchDeleting"
                   :can-reparse="!Array.from(selectedIds).some(id => cardList.find(item => item.id === id)?.channel === 'feishu_personal')"
                   :source-reparse-only="selectedIds.size > 0 && Array.from(selectedIds).every(id => { const item = cardList.find(c => c.id === id); return item && feishuSourceId(item); })"
                   :reparse-loading="batchReparsing" :tag-loading="batchTagging" :download-loading="batchDownloading"
@@ -2754,6 +2762,8 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
   <KnowledgeBaseEditorModal :visible="uiStore.showKBEditorModal" :mode="uiStore.kbEditorMode"
     :kb-id="uiStore.currentKBId || undefined" :initial-type="uiStore.kbEditorType"
     @update:visible="(val) => val ? null : uiStore.closeKBEditor()" @success="handleKBEditorSuccess" />
+
+  <CreateDocumentFolderDialog v-model:visible="folderCreateVisible" :kb-id="kbId" :kb-name="kbInfo?.name" :parent-path="folderCreateParent" :can-edit="canEdit && !isFAQ" :folder-paths="folderOptions.map(folder => folder.path)" :after-create="handleFolderCreated" />
 
   <ContextualGuide tour="kbDetail" :when="showKbDetailContextualGuide" />
 

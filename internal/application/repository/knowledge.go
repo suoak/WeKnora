@@ -302,6 +302,9 @@ func (r *knowledgeRepository) ListKnowledgeFolderCounts(
 	if _, _, err := access.GuardDocumentReadQuery(ctx, tenantID, kbID); err != nil {
 		return nil, err
 	}
+	if !protected {
+		return r.appendExplicitKnowledgeFolders(ctx, tenantID, kbID, counts)
+	}
 	return counts, nil
 }
 
@@ -332,45 +335,45 @@ func (r *knowledgeRepository) UpdateKnowledgeFolderPath(
 // RenameKnowledgeFolderPath rewrites folder_path for a folder and every folder
 // below it, which is how a folder rename or move is applied. Renaming onto an
 // existing path merges the two folders. Returns the number of affected rows.
-func (r *knowledgeRepository) RenameKnowledgeFolderPath(
-	ctx context.Context,
-	tenantID uint64,
-	kbID string,
-	from string,
-	to string,
-) (int64, error) {
-	if from == "" {
-		return 0, errors.New("source folder path is required")
-	}
-
-	// The rewrite is done row by row rather than with SQL string functions so it
-	// behaves identically on PostgreSQL and SQLite.
-	var rows []*types.Knowledge
-	if err := r.db.WithContext(ctx).
-		Select("id", "folder_path").
-		Where("tenant_id = ? AND knowledge_base_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE ?)",
-			tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).
-		Find(&rows).Error; err != nil {
+func (r *knowledgeRepository) RenameKnowledgeFolderPath(ctx context.Context, tenantID uint64, kbID, from, to string) (int64, error) {
+	if err := validateKnowledgeFolderRewrite(from); err != nil {
 		return 0, err
 	}
-	if len(rows) == 0 {
+	if err := validateKnowledgeFolderRewrite(to); err != nil {
+		return 0, err
+	}
+	if from == to {
 		return 0, nil
 	}
-
-	// Group by destination so each distinct rewrite is a single UPDATE.
-	byTarget := map[string][]string{}
-	for _, row := range rows {
-		suffix := strings.TrimPrefix(row.FolderPath, from)
-		byTarget[types.NormalizeKnowledgeFolderPath(to+suffix)] = append(
-			byTarget[types.NormalizeKnowledgeFolderPath(to+suffix)], row.ID)
+	if strings.HasPrefix(to, from+"/") {
+		return 0, ErrKnowledgeFolderInvalidPath
 	}
-
 	var affected int64
-	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		for target, targetIDs := range byTarget {
-			result := tx.Model(&types.Knowledge{}).
-				Where("tenant_id = ? AND knowledge_base_id = ? AND id IN (?)", tenantID, kbID, targetIDs).
-				Updates(map[string]interface{}{"folder_path": target, "updated_at": time.Now()})
+	err := r.withKnowledgeFolderMutation(ctx, tenantID, kbID, func(tx *gorm.DB) error {
+		exists, err := knowledgeFolderExists(tx, tenantID, kbID, from)
+		if err != nil {
+			return err
+		}
+		if !exists {
+			return nil
+		}
+		var rows []*types.Knowledge
+		if err := tx.Select("id", "folder_path").Where("tenant_id = ? AND knowledge_base_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE ?)", tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).Find(&rows).Error; err != nil {
+			return err
+		}
+		byTarget := map[string][]string{}
+		for _, row := range rows {
+			target := to + strings.TrimPrefix(row.FolderPath, from)
+			if err := validateKnowledgeFolderRewrite(target); err != nil {
+				return err
+			}
+			byTarget[target] = append(byTarget[target], row.ID)
+		}
+		if err := renameExplicitKnowledgeFolders(tx, tenantID, kbID, from, to); err != nil {
+			return err
+		}
+		for target, ids := range byTarget {
+			result := tx.Model(&types.Knowledge{}).Where("tenant_id = ? AND knowledge_base_id = ? AND id IN (?)", tenantID, kbID, ids).Updates(map[string]interface{}{"folder_path": target, "updated_at": time.Now()})
 			if result.Error != nil {
 				return result.Error
 			}
@@ -378,10 +381,7 @@ func (r *knowledgeRepository) RenameKnowledgeFolderPath(
 		}
 		return nil
 	})
-	if err != nil {
-		return 0, err
-	}
-	return affected, nil
+	return affected, err
 }
 
 // UpdateKnowledge updates knowledge
