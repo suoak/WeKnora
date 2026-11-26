@@ -84,6 +84,7 @@ Actual qualification to date (2026-11-26, Asia/Shanghai):
 | Linux run 45733572901, source `c8fb86d0a` | FAIL | A new test's typed capability constants needed explicit string conversion. No runtime qualification claimed. |
 | Linux run 45735034346, source `c83f8f6fd` | FAIL: race 770 PASS / 3 SKIP / 2 FAIL; claim/scheduler 12 PASS / 1 FAIL | Revoked Personal MCP scope was safely denied but misclassified as infrastructure failure. Two fixture assertions also failed: a real database CHECK correctly rejected an invalid mode, and JSONB normalized whitespace. Fixes retain the constraint and compare cursor JSON semantically. APP admission 22 PASS; vet PASS. |
 | Linux run 45736914623, source `948ebcddd` | PASS | Includes actual Redis/Asynq + PostgreSQL bootstrap, SQL acknowledgment failures/restarts, same-incarnation Consumer conflict and incident CAS races. The later live-byte proof correction still requires its own exact-head run. |
+| Linux run 45740113710, source `bcbd544cf` | PASS: race/control/access 812, SQL/claim/scheduler 13, APP wiring 22; zero skips | Includes live protobuf validation/read-use CAS and all real Redis/Asynq gates. Final review subsequently added explicit rejection of legacy reconciliation purposes; that final head requires another exact-source run. |
 | Native Windows control/safety/access regression | PASS | Real CGO and stack protection retained by linking the installed libssp. No configured private PostgreSQL or Redis executable; gated cases are not database/native-consumer acceptance. Later changes need rerun. |
 | Final candidate Linux race, SQL, real Redis/Asynq and APP wiring | Pending | Use the exact committed head; earlier run results cannot qualify uncommitted runtime changes. |
 | Full native APP acceptance and production restoration | NOT_RUN | No production safety-state changes, archived replay, forced finalization, or Wiki tuning. |
@@ -104,3 +105,14 @@ This uses Docker's documented [named context stage override](https://docs.docker
 Qualification prefetch confines the token to the official API request and uses
 a fresh unauthenticated request after validating the release-asset redirect.
 Neither the token nor an alternate unverified dependency enters the build.
+
+## Historical task purpose boundary
+
+The system protocol explicitly rejects legacy signed reconciliation purposes
+before reading their old ticket. A valid ordinary-source check cannot replace
+the old purpose's independent signature, expiry or publication guard. Retained
+old tasks/tickets remain audit evidence; they are not reinterpreted or stripped
+into new authority. Missing current content must use a fresh authorized ordinary
+increment. Regression tests retain a real signed fixture and ticket, verify its
+legacy behavior first, then verify all new-protocol entry points reject it
+without changing the ticket, recovery record or queue.
