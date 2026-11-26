@@ -7008,6 +7008,8 @@ const messages = {
     tagUpdateSuccess: '태그 업데이트 성공',
     tagEditDialogHeading: '태그 편집',
     folderCreate: {
+      submit: '만들기',
+      placeholder: '폴더 이름을 입력하세요',
       title: "새 폴더",
       parent: "위치",
       name: "폴더 이름",

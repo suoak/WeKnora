@@ -577,6 +577,8 @@ export default {
     tagUpdateSuccess: 'Tag updated successfully',
     tagEditDialogHeading: 'Edit tags',
     folderCreate: {
+      submit: 'Create',
+      placeholder: 'Enter a folder name',
       title: "New folder",
       parent: "Location",
       name: "Folder name",

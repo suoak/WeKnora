@@ -7008,6 +7008,8 @@ const messages = {
     tagUpdateSuccess: 'Тег успешно обновлен',
     tagEditDialogHeading: 'Редактировать теги',
     folderCreate: {
+      submit: 'Создать',
+      placeholder: 'Введите имя папки',
       title: "Создать папку",
       parent: "Расположение",
       name: "Имя папки",

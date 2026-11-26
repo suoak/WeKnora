@@ -13,7 +13,7 @@ test('real components create and retain nested empty folders, rename and delete 
  const create=async(name:string)=>{
   await page.getByRole('button',{name:'新建文件夹',exact:true}).last().click()
   await page.locator('#document-folder-name').fill(name)
-  await page.locator('.document-folder-create-dialog').getByRole('button',{name:'新建文件夹'}).click()
+  await page.locator('.document-folder-create-dialog').getByRole('button',{name:'创建',exact:true}).click()
   await expect(page.locator('#document-folder-name')).toBeHidden({timeout:15000})
  }
  await create('空目录')

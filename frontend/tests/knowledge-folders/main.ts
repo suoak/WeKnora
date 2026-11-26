@@ -12,7 +12,8 @@ import '../../src/assets/theme/theme.css'
 
 installTDesignIconOfflineGuard()
 const tree = ref<KnowledgeFolderTree | null>(null)
-const selected = ref('')
+const params = new URLSearchParams(location.search)
+const selected = ref(params.get('parent') || '')
 const parent = ref('')
 const visible = ref(false)
 const viewer = new URLSearchParams(location.search).has('viewer')
@@ -40,7 +41,7 @@ createApp({
      !viewer && h('details', [h('summary','移动目标选择器'),h(FolderPickerMenu, { kbId:'kb-1', options:paths().map(path=>({path,name:path.split('/').at(-1)!,depth:path.split('/').length-1})), onCreate:refresh })]),
     ]),
    ]),
-   h(CreateDocumentFolderDialog, { visible:visible.value, 'onUpdate:visible':(v:boolean)=>visible.value=v, kbId:'kb-1',kbName:'空知识库',parentPath:parent.value,canEdit:!viewer,folderPaths:paths(),afterCreate:refresh }),
+   h(CreateDocumentFolderDialog, { visible:visible.value, 'onUpdate:visible':(v:boolean)=>visible.value=v, kbId:'kb-1',kbName:params.get('kbName') || '空知识库',parentPath:parent.value,canEdit:!viewer,folderPaths:paths(),afterCreate:refresh }),
   ])
  }
 }).use(createPinia()).use(i18n).use(TDesign).mount('#app')

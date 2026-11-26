@@ -480,6 +480,8 @@ const messages = {
     },
     tagEditDialogHeading: 'タグを編集',
     folderCreate: {
+      submit: '作成',
+      placeholder: 'フォルダー名を入力',
       title: "フォルダーを作成",
       parent: "作成先",
       name: "フォルダー名",

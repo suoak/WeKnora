@@ -7095,6 +7095,8 @@ export default {
     tagUpdateSuccess: '标签已更新',
     tagEditDialogHeading: '编辑标签',
     folderCreate: {
+      submit: '创建',
+      placeholder: '请输入文件夹名称',
       title: "新建文件夹",
       parent: "创建位置",
       name: "文件夹名称",
