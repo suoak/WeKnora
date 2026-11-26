@@ -2,7 +2,6 @@ package repository
 
 import (
 	"context"
-	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -11,6 +10,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/database"
 	"github.com/Tencent/WeKnora/internal/testutil/feishulegacy"
 	"github.com/Tencent/WeKnora/internal/types"
+	"github.com/golang-migrate/migrate/v4"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gorm.io/driver/postgres"
@@ -120,14 +120,28 @@ func TestPersistentKnowledgeFoldersPostgres(t *testing.T) {
 		require.NoError(t, created)
 	}
 	// Export markers before destructive down; restore after up. Documents survive both.
+	retained := &types.Knowledge{
+		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+		Type: "file", Title: "retained document", ParseStatus: types.ParseStatusCompleted,
+	}
+	require.NoError(t, db.Create(retained).Error)
+	const fullDocumentProjection = "SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?"
+	var retainedBefore, retainedAfter string
+	require.NoError(t, db.Raw(fullDocumentProjection, retained.ID).Scan(&retainedBefore).Error)
 	var preserved []types.KnowledgeFolder
 	require.NoError(t, db.Find(&preserved).Error)
-	for _, direction := range []string{"down", "up"} {
-		sql, err := os.ReadFile(filepath.Join("migrations/versioned", "003052_knowledge_folders."+direction+".sql"))
-		require.NoError(t, err)
-		require.NoError(t, db.Exec(string(sql)).Error)
-	}
+	runner, err := migrate.New("file://migrations/versioned", dsn)
+	require.NoError(t, err)
+	t.Cleanup(func() {
+		sourceErr, databaseErr := runner.Close()
+		require.NoError(t, sourceErr)
+		require.NoError(t, databaseErr)
+	})
+	require.NoError(t, runner.Migrate(3051))
+	require.NoError(t, runner.Migrate(3052))
 	require.NoError(t, db.Create(&preserved).Error)
+	require.NoError(t, db.Raw(fullDocumentProjection, retained.ID).Scan(&retainedAfter).Error)
+	require.Equal(t, retainedBefore, retainedAfter, "formal down/up must not change any document field")
 	var paths []string
 	require.NoError(t, db.Model(&types.KnowledgeFolder{}).Pluck("path", &paths).Error)
 	require.Contains(t, paths, "final/child")
