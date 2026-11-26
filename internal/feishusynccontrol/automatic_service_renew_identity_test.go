@@ -61,12 +61,19 @@ func TestAutomaticServiceNativeSQLIdentityChangesBeforeFinalHealthStayClosed(t *
 func TestAutomaticServiceNativeSQLGuardedTaskAcrossAutonomousHeartbeats(t *testing.T) {
 	workReady := make(chan context.Context, 1)
 	finished := make(chan error, 1)
+	started, handlerDone := make(chan struct{}), make(chan struct{})
 	var service *automaticService
 	handler := asynq.HandlerFunc(func(ctx context.Context, _ *asynq.Task) error {
+		close(started)
+		defer close(handlerDone)
 		work := <-workReady
+		taskWork, cancelWork := context.WithCancel(work)
+		stopCancel := context.AfterFunc(ctx, cancelWork)
+		defer stopCancel()
+		defer cancelWork()
 		until := time.Now().Add(12 * time.Second)
 		for time.Now().Before(until) {
-			if err := service.c.Guard.Check(work); err != nil {
+			if err := service.c.Guard.Check(taskWork); err != nil {
 				finished <- err
 				return err
 			}
@@ -80,7 +87,7 @@ func TestAutomaticServiceNativeSQLGuardedTaskAcrossAutonomousHeartbeats(t *testi
 		finished <- nil
 		return nil
 	})
-	f, s, r, _, opt := renewableSQLServiceRuntime(t, handler)
+	f, s, r, server, opt := renewableSQLServiceRuntime(t, handler)
 	service = s
 	ctx := context.Background()
 	logs := repository.NewSyncLogRepository(f.db)
@@ -114,7 +121,22 @@ func TestAutomaticServiceNativeSQLGuardedTaskAcrossAutonomousHeartbeats(t *testi
 			time.Sleep(5 * time.Millisecond)
 		}
 	}))
-	t.Cleanup(func() { require.NoError(t, f.db.Callback().Query().Remove(callback)) })
+	t.Cleanup(func() {
+		// A failed assertion must not remove/compile GORM callbacks while the
+		// independently running handler can still execute a database read.
+		server.Shutdown()
+		select {
+		case <-started:
+			select {
+			case <-handlerDone:
+			case <-time.After(3 * time.Second):
+				t.Error("owned handler did not stop; retain its callback rather than mutate it concurrently")
+				return
+			}
+		default:
+		}
+		require.NoError(t, f.db.Callback().Query().Remove(callback))
+	})
 	workReady <- work
 	client := asynq.NewClient(opt)
 	t.Cleanup(func() { require.NoError(t, client.Close()) })
