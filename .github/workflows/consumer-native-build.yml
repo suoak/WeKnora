@@ -4,6 +4,11 @@ on:
     branches: [ci/consumer-wiki-native-release-20261125]
     paths: [.github/workflows/consumer-native-build.yml]
   workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact candidate source commit
+        required: true
+        type: string
 permissions:
   contents: read
 env:
