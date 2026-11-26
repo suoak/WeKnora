@@ -1,0 +1,42 @@
+{
+  "read_only": true,
+  "production_changed": false,
+  "observed_utc": "2026-11-26T14:11:49.176000+00:00",
+  "namespace": "feishu-prod-080f7bb6a01f",
+  "dedicated_lane": true,
+  "scope_kind": "all",
+  "pinned_scope_count": 0,
+  "trip": null,
+  "permit_ttl_ms": 637,
+  "inflight": 0,
+  "admitted_workers": 0,
+  "queue_pauses": {
+    "sync": null,
+    "approved_sync": null
+  },
+  "workers": [
+    {
+      "worker_id": "a6b8a9848ae1:1",
+      "fingerprint_prefix": "f002a789f298",
+      "lease_remaining_ms": 1876
+    }
+  ],
+  "normal_service": {
+    "record_present": true,
+    "active": false,
+    "source_policy": "current_authorized_sources_v1",
+    "validity": "until_revoked"
+  },
+  "dictionary": {
+    "configured_path": "/app/jieba-dict",
+    "exists": true,
+    "files": {
+      "idf.utf8": "dbd1e03d72b2263cc8d84a4304ed77677eed9e7deaf43a1a5133bbba9733b535",
+      "user.dict.utf8": "495bbf49270408a1234690e1e6a97328f30a482a7a72aa769e8a12e8714b0c62",
+      "README.md": "8bcc7c2ed7dff082d9a99c09de0bfd72249bf3b5c4298a3af328da40cbd8cfd1",
+      "jieba.dict.utf8": "3043b77068e09c9904f27cad82f12b6ebe9dbdb5aeff3b25e45ab7f9c1122b55",
+      "hmm_model.utf8": "f17790586ac86dd048c8adffed052c4bd2b28ed0682972c1275e59040c0589a7",
+      "stop_words.utf8": "b788b8a939d2e2fe079abd579ea98f12f9fb84370bfd0dddd81bb9381f7ab42c"
+    }
+  }
+}

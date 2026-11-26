@@ -1,5 +1,7 @@
 # KnowHub 多级空目录：实现、验收与发布
 
+生产准备的最新结论见[已验证兼容项](qa/knowledge-folders/compatibility-20261126.md)、[历史飞书停止独立诊断](qa/knowledge-folders/sync-incident-20261126.md)及[限定发布与回滚方案](qa/knowledge-folders/production-readiness-20261126.md)。目录验收与在线同步未测项分开，生产操作仍需用户确认。
+
 ## 基线与上游取舍
 
 2026-11-26 拉取远端后从 `suoak/WeKnora main` 的 `556657a92b7bd3359c36997ce9086996a20f29a0` 创建独立 worktree。原工作区的 SourceID、Confluence 和 MCP 未提交改动没有带入。上游 main 为 `3b36d23dcb729987f64b1a6e054354a90048b3ee`。核查时 fork 没有 open PR；本任务随后创建 [PR #272](https://github.com/suoak/WeKnora/pull/272)。合入前必须重新 fetch main 并核查迁移编号。

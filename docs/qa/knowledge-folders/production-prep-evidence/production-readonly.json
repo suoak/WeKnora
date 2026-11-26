@@ -1,0 +1,97 @@
+{
+  "observed_utc": "2026-11-26T14:01:52.177871+00:00",
+  "host": "10.51.134.114",
+  "read_only": true,
+  "production_changed": false,
+  "database": "weknora",
+  "containers": [
+    {
+      "name": "/WeKnora-app",
+      "database_writer_candidate": true,
+      "image_id": "sha256:41ded77264df8097a6d7641f3e87ae07e2809cdd57ada72d1a2539b079395967",
+      "revision": "556657a92b7bd3359c36997ce9086996a20f29a0",
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "flags": {
+        "AUTO_MIGRATE": "false",
+        "AUTO_RECOVER_DIRTY": "false",
+        "FEISHU_APPROVED_SYNC_LANE_ENABLED": "1",
+        "FEISHU_SYNC_SAFETY_MODE": "automatic",
+        "FEISHU_SYNC_SAFETY_ENABLED": "true",
+        "FEISHU_SYNC_SOURCE_SHA": "3e7d5c25d88f52169d12e8f4822d5cc1525cbfaa",
+        "WEKNORA_TENANT_ENABLE_RBAC": null
+      },
+      "compose_file_count": 249,
+      "compose_list_sha256": "9fd0b955915f44e70547ccd5e6d2486733731bb1055ec0dd5ee8cc4cffc6f3ea"
+    },
+    {
+      "name": "/WeKnora-frontend",
+      "database_writer_candidate": false,
+      "image_id": "sha256:00eecab6b8ccf5808beab525254a0f308bc0d4c71ac7297151ab5d041249aa2e",
+      "revision": "4257ca6c5507ea8ad5f5cae1a1740baf5b93ac22",
+      "running": true,
+      "health": null,
+      "restart_count": 0,
+      "flags": {
+        "AUTO_MIGRATE": null,
+        "AUTO_RECOVER_DIRTY": null,
+        "FEISHU_APPROVED_SYNC_LANE_ENABLED": null,
+        "FEISHU_SYNC_SAFETY_MODE": null,
+        "FEISHU_SYNC_SAFETY_ENABLED": null,
+        "FEISHU_SYNC_SOURCE_SHA": null,
+        "WEKNORA_TENANT_ENABLE_RBAC": null
+      },
+      "compose_file_count": 231,
+      "compose_list_sha256": "6496612537a102568eecd13945ae6ea0f8fc40462ac192196f68b4e525606b62"
+    },
+    {
+      "name": "/WeKnora-postgres",
+      "database_writer_candidate": false,
+      "image_id": "sha256:6396bfd53a97f6c1aad50af05aad4a65b06bb7c07602b42a8b33b5d51cf83ab1",
+      "revision": null,
+      "running": true,
+      "health": "healthy",
+      "restart_count": 0,
+      "flags": {
+        "AUTO_MIGRATE": null,
+        "AUTO_RECOVER_DIRTY": null,
+        "FEISHU_APPROVED_SYNC_LANE_ENABLED": null,
+        "FEISHU_SYNC_SAFETY_MODE": null,
+        "FEISHU_SYNC_SAFETY_ENABLED": null,
+        "FEISHU_SYNC_SOURCE_SHA": null,
+        "WEKNORA_TENANT_ENABLE_RBAC": null
+      },
+      "compose_file_count": 1,
+      "compose_list_sha256": "648fc1dfe33e529a62719972b3f964c5091a1b0cb5401187ec9a7678997ac010"
+    }
+  ],
+  "schema": [
+    "3051|f"
+  ],
+  "folder_table": [
+    "f"
+  ],
+  "folder_column": [
+    "character varying|1024"
+  ],
+  "source_states": [
+    "active|active|9",
+    "active|revoked|27",
+    "active|unmanaged|14",
+    "error|active|13",
+    "error|revoked|5",
+    "error|unmanaged|7",
+    "inactive|unmanaged|1",
+    "paused|revoked|8",
+    "paused|unmanaged|58"
+  ],
+  "active_work": [
+    "personal|0",
+    "claimed|0",
+    "legacy|0"
+  ],
+  "postgres_version": [
+    "17.9 (Debian 17.9-1.pgdg13+1)"
+  ]
+}

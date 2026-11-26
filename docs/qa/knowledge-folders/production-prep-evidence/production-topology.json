@@ -1,0 +1,132 @@
+{
+  "read_only": true,
+  "production_changed": false,
+  "services": [
+    {
+      "container": "WeKnora-app",
+      "compose_project": "release-package",
+      "compose_service": "app",
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "hostname": "a6b8a9848ae1",
+      "entrypoint": [
+        "./scripts/docker-entrypoint.sh"
+      ],
+      "command": [
+        "./WeKnora"
+      ],
+      "db_target": {
+        "DB_HOST": "postgres",
+        "DB_PORT": "5432",
+        "DB_USER": "postgres",
+        "DB_NAME": "weknora",
+        "DB_SSL_MODE": null,
+        "DB_SSLMODE": null
+      },
+      "mount_targets": [
+        {
+          "target": "/app/jieba-dict",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/data/files",
+          "type": "volume",
+          "read_only": false
+        },
+        {
+          "target": "/tmp/docreader",
+          "type": "volume",
+          "read_only": true
+        },
+        {
+          "target": "/app/config/config.yaml",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/data/feishu-personal-private",
+          "type": "volume",
+          "read_only": false
+        },
+        {
+          "target": "/app/config/feishu-recovery-approval-public.pem",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/data/mcp-usage-spool",
+          "type": "bind",
+          "read_only": false
+        }
+      ],
+      "ports": {
+        "8080/tcp": [
+          {
+            "host_ip": "0.0.0.0",
+            "host_port": "8080"
+          },
+          {
+            "host_ip": "::",
+            "host_port": "8080"
+          }
+        ]
+      }
+    },
+    {
+      "container": "WeKnora-frontend",
+      "compose_project": "release-package",
+      "compose_service": "frontend",
+      "networks": [
+        "release-package_WeKnora-network"
+      ],
+      "hostname": "edb5dddfae61",
+      "entrypoint": [
+        "/docker-entrypoint.sh"
+      ],
+      "command": null,
+      "db_target": null,
+      "mount_targets": [
+        {
+          "target": "/etc/nginx/templates/default.conf.template",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/etc/nginx/conf.d/10-isolated-mcp-https.conf",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/etc/nginx/isolated-mcp-source-allowlist.conf",
+          "type": "bind",
+          "read_only": true
+        },
+        {
+          "target": "/etc/knowhub/mcp-tls",
+          "type": "bind",
+          "read_only": true
+        }
+      ],
+      "ports": {
+        "80/tcp": [
+          {
+            "host_ip": "0.0.0.0",
+            "host_port": "80"
+          },
+          {
+            "host_ip": "::",
+            "host_port": "80"
+          }
+        ],
+        "8443/tcp": [
+          {
+            "host_ip": "10.51.134.114",
+            "host_port": "8443"
+          }
+        ]
+      }
+    }
+  ]
+}

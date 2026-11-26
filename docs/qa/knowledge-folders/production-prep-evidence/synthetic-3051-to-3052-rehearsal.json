@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "observed_utc": "2026-11-26T14:13:01.066861+00:00",
+  "environment": "dedicated synthetic test DBs only",
+  "production_data_copied": false,
+  "canary_source_copied": false,
+  "workers_started": false,
+  "baseline_schema": "3051 clean",
+  "after_schema": "3052 clean",
+  "synthetic_document_full_row_sha256": "ac7b3d4a506ddfff4784b3238f72ebe198191618e0f7e20c43a43b52160e3676",
+  "retained_document_unchanged": true,
+  "fresh_connection_sees_three_empty_levels": true,
+  "full_3051_backup_restored": true,
+  "directory_backup_restored_identically": true,
+  "source_rows": 0,
+  "full_backup_sha256": "7fa7d25b15894b5b59512c39ed366fccb00835f3f93e5ab7b455b208985952d3",
+  "folder_backup_sha256": "ea06f98b9cac863a8c4d408ad61b3518d30b1bad0c74f48285440ea743f39ca9"
+}

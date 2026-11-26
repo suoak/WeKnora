@@ -1,0 +1,13 @@
+{
+  "status": "PASS",
+  "source_commit": "556657a92b7bd3359c36997ce9086996a20f29a0",
+  "schema": 3052,
+  "scope": "old repository read/move/rename against dedicated synthetic PostgreSQL",
+  "production_data_copied": false,
+  "canary_source_copied": false,
+  "workers_started": false,
+  "explicit_folder_markers_retained": 3,
+  "original_document_restored_identically": true,
+  "full_native_old_app_startup_tested": false,
+  "test_source_sha256": "fe1920a12f09638faf3ba0fc59e4bf2533c400af2401eb186042897d721dcce7"
+}

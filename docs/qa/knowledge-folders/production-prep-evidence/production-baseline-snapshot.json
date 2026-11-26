@@ -1,0 +1,28 @@
+{
+  "production_read_only": true,
+  "production_changed": false,
+  "encrypted_local_snapshot": "DPAPI protected local secure store; not committed",
+  "snapshot_plaintext_sha256": "9f2117fed13ec14a2281bcd48aa89f7e6d013f55654e73884741d43720154bf2",
+  "compose_plaintext_sha256": "09c6edc80922e68ef3109454ef49edf333ccb0da9edc9d5c6cdf634765ce3baf",
+  "services": {
+    "app": {
+      "image_id": "sha256:41ded77264df8097a6d7641f3e87ae07e2809cdd57ada72d1a2539b079395967",
+      "mount_count": 7,
+      "port_binding_count": 1,
+      "privileged": false,
+      "networks": [
+        "n0"
+      ]
+    },
+    "frontend": {
+      "image_id": "sha256:00eecab6b8ccf5808beab525254a0f308bc0d4c71ac7297151ab5d041249aa2e",
+      "mount_count": 4,
+      "port_binding_count": 2,
+      "privileged": false,
+      "networks": [
+        "n0"
+      ]
+    }
+  },
+  "plaintext_credentials_exported": false
+}

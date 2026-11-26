@@ -1,0 +1,8 @@
+=== RUN   TestOld3051RepositoryWithFolderSchema3052
+
+
+2026/11/26 22:29:24 E:/code/WeKnora-folders-rollback-3051/internal/application/repository/knowledge.go:325 SLOW SQL >= 200ms
+[219.239ms] [rows:1] UPDATE "knowledges" SET "folder_path"='legacy-classified',"updated_at"='2026-11-26 22:29:24.529' WHERE (tenant_id = 809954 AND knowledge_base_id = 'd7c4ec31-f9cc-43fd-b4c8-e3566e1fb053' AND id IN ('6ff12890-b761-4ff4-8e99-2beb16e41faa')) AND "knowledges"."deleted_at" IS NULL
+--- PASS: TestOld3051RepositoryWithFolderSchema3052 (0.33s)
+PASS
+ok  	github.com/Tencent/WeKnora/internal/application/repository	2.066s

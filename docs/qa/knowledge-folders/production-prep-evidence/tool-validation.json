@@ -1,0 +1,8 @@
+{
+  "yaml_parsed": true,
+  "bash_scripts_syntax_passed": 4,
+  "rollback_dry_run_exit": 0,
+  "production_execute_run": false,
+  "provenance_tests_passed": 5,
+  "rollback_script_sha256": "8b08c65a42fdcc11c5126cd5a721cf2a40be879c221b857307a10cdc9bb3f9d5"
+}

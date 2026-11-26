@@ -1,0 +1,11 @@
+{
+  "before_public_key_path_configured": false,
+  "before_online_private_key_configured": false,
+  "current": {
+    "public_key_path_configured": false,
+    "public_key_exists": false,
+    "public_key_mode": null,
+    "online_private_key_configured": false,
+    "dedicated_lane": false
+  }
+}
