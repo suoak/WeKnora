@@ -822,8 +822,21 @@ const folderCreateVisible = ref(false);
 const folderCreateParent = ref('');
 const folderMoveFrom = ref('');
 const folderMoveVisible = ref(false);
-const openFolderMove = (path: string) => { if (!canEdit.value) return; folderMoveFrom.value = path; folderMoveVisible.value = true; };
-const handleFolderMove = async (parent: string) => { const from = folderMoveFrom.value; const name = from.split('/').pop() || ''; folderMoveVisible.value = false; await handleFolderRename({ from, to: joinFolderPath(parent, name) }); };
+let folderMoveKbId = '';
+const openFolderMove = (path: string) => {
+  if (!canEdit.value) return;
+  folderMoveKbId = kbId.value;
+  folderMoveFrom.value = path;
+  folderMoveVisible.value = true;
+};
+const handleFolderMove = async (parent: string) => {
+  folderMoveVisible.value = false;
+  if (!canEdit.value || folderMoveKbId !== kbId.value) return;
+  const from = folderMoveFrom.value;
+  const name = from.split('/').pop() || '';
+  await handleFolderRename({ from, to: joinFolderPath(parent, name) });
+};
+watch(kbId, () => { folderMoveVisible.value = false; folderMoveFrom.value = ''; });
 const openFolderCreate = (parent = selectedFolderPath.value) => { if (!canEdit.value) return; folderCreateParent.value = parent; folderCreateVisible.value = true; };
 const handleFolderCreated = async ({ kbId: targetKbId }: CreatedDocumentFolder) => { if (kbId.value === targetKbId) await loadFolderTree(targetKbId); };
 
