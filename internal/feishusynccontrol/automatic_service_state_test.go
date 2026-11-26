@@ -24,6 +24,7 @@ func TestSystemServiceStableIdentityWindow(t *testing.T) {
 		require.False(t, stable.observe(start.Add(time.Duration(i)*200*time.Millisecond), proof, nil))
 	}
 	require.True(t, stable.observe(start.Add(3*time.Second), proof, nil))
+	require.True(t, stable.observe(start.Add(3*time.Second+time.Millisecond), proof, nil), "an additional healthy read does not invalidate an already proven window")
 	// A heartbeat byte change is normal; a registry/consumer identity change is not.
 	proof.Metadata["asynq:servers:{test}"] = "new-heartbeat-digest"
 	require.True(t, stable.observe(start.Add(3200*time.Millisecond), proof, nil))

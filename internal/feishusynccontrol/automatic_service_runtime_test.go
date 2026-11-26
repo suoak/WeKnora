@@ -48,9 +48,10 @@ func TestAutomaticServiceNativeSQLBootstrapClaimAndMissingPublication(t *testing
 		}
 	}))
 	t.Cleanup(func() { require.NoError(t, f.db.Callback().Update().Remove(callback)) })
-	require.Error(t, c.Step(ctx), "Redis-only migration cannot authorize execution when SQL acknowledgment fails")
+	require.ErrorContains(t, c.Step(ctx), "controlled SQL acknowledgment failure", "reach the exact injected fault, not an unrelated closed precondition")
 	prepared, err := readSystemReceipt(ctx, f.db)
 	require.NoError(t, err)
+	require.NotNil(t, prepared)
 	require.Equal(t, "prepared", prepared.Phase)
 	require.Zero(t, r.Exists(ctx, c.Guard.PermitKey()).Val())
 	require.NoError(t, c.Step(ctx), "healthy ordinary startup needs no approval key or signature")
@@ -66,6 +67,20 @@ func TestAutomaticServiceNativeSQLBootstrapClaimAndMissingPublication(t *testing
 	handled, err := s.queueSource(f.userContext(f.viewer), f.source.ID, f.config)
 	require.True(t, handled)
 	require.NoError(t, err, "existing lawful user intent needs no internal approval")
+	handled, err = QueueScheduledSource(ctx, f.source.ID, f.config)
+	require.True(t, handled)
+	require.NoError(t, err, "server scheduler accepts current delegated intent without a fabricated run identity")
+	_, err = QueueScheduledSource(f.userContext(f.owner), f.source.ID, f.config)
+	require.ErrorIs(t, err, ErrRecoveryRejected, "an HTTP principal cannot choose the scheduler authority branch")
+	_, err = QueueNormalSource(ctx, f.source.ID, f.config)
+	require.ErrorIs(t, err, ErrRecoveryRejected, "an absent session does not gain user import authority")
+	key := f.rawKey(t, types.APIKeyScopeUserMCP, false,
+		types.StringArray{types.APIKeyCapabilityManageDataSources, types.APIKeyCapabilityIngest}, "dynamic_all")
+	keyCtx := f.keyContext(key, types.APIKeyScopeUserMCP, false,
+		types.StringArray{types.APIKeyCapabilityManageDataSources, types.APIKeyCapabilityIngest}, false)
+	require.Equal(t, "sync_service_rechecking", AdmissionFailureReason(keyCtx, f.source.ID, f.config))
+	require.NoError(t, f.db.Table("tenant_api_keys").Where("id=?", key).Update("revoked_at", time.Now().UTC()).Error)
+	require.Equal(t, "sync_source_permission_denied", AdmissionFailureReason(keyCtx, f.source.ID, f.config))
 	log := types.SyncLog{ID: uuid.NewString(), DataSourceID: f.source.ID, TenantID: f.tenant.ID, Status: types.SyncLogStatusRunning}
 	require.NoError(t, f.db.Create(&log).Error)
 	work, handled, err := PrepareAutomaticSourceExecution(ctx, f.source.ID, log.ID, f.tenant.ID)

@@ -27,7 +27,7 @@ func AdmissionFailureReason(ctx context.Context, source, config string) string {
 		if trip != "" && !automaticServiceRecoverableTrip(trip) {
 			return "sync_platform_stopped"
 		}
-		if _, err := automaticSourceAuthority(ctx, m.system.db, nil, source, config); err != nil {
+		if _, err := automaticSourceAuthority(ctx, m.system.db, nil, source, config, m.system.keys); err != nil {
 			if errors.Is(err, ErrRecoveryRejected) {
 				return "sync_source_permission_denied"
 			}

@@ -84,6 +84,20 @@ func (s *automaticService) queueSource(ctx context.Context, source, config strin
 		}
 		return true, errors.Join(ErrNormalQueueSafetyUnavailable, err)
 	}
+	return s.queueControlState(ctx)
+}
+
+func (s *automaticService) queueScheduledSource(ctx context.Context, source, config string) (bool, error) {
+	if _, err := automaticBackgroundSourceAuthority(ctx, s.db, nil, source, config); err != nil {
+		if errors.Is(err, ErrRecoveryRejected) {
+			return true, err
+		}
+		return true, errors.Join(ErrNormalQueueSafetyUnavailable, err)
+	}
+	return s.queueControlState(ctx)
+}
+
+func (s *automaticService) queueControlState(ctx context.Context) (bool, error) {
 	trip, err := systemRead(ctx, s.c.Client, s.c.prefix+"trip")
 	if err != nil {
 		return true, errors.Join(ErrNormalQueueSafetyUnavailable, err)

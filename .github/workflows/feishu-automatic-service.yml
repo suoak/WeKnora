@@ -10,6 +10,9 @@ on:
       - internal/feishusafety/**
       - internal/application/access/source_write*
       - internal/application/service/datasource*
+      - internal/application/repository/datasource*
+      - internal/datasource/scheduler*
+      - internal/types/sync_admission.go
       - internal/container/feishu_sync*
       - .github/workflows/feishu-automatic-service.yml
 permissions:
@@ -77,7 +80,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
-          go test -json -race -p 1 ./internal/application/repository -run '^TestAutomaticService' -count=1 -timeout=5m | tee evidence/automatic-claim.jsonl
+          go test -json -race -p 1 ./internal/application/repository ./internal/datasource -run '^TestAutomaticService|^TestSchedulerAutomaticService' -count=1 -timeout=5m | tee evidence/automatic-claim.jsonl
       - name: Vet state and authority packages
         if: ${{ !cancelled() }}
         run: |

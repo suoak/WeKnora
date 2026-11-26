@@ -80,7 +80,7 @@ func (s *stableServiceHealth) observe(now time.Time, proof systemHealthProof, er
 	}
 	// Multiple probes in the same instant cannot manufacture a stable window.
 	if now.Sub(s.last) < 100*time.Millisecond {
-		return false
+		return s.samples >= 10 && now.Sub(s.started) >= 3*time.Second
 	}
 	s.last = now
 	s.samples++

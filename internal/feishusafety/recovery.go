@@ -12,7 +12,9 @@ import (
 
 // RecoveryContext is server-owned execution identity, never an HTTP parameter.
 // Its presence is not authority: Redis must bind the same source/config/run to
-// a separately approved recovery state, in addition to the ordinary permit.
+// the active versioned system-service epoch or legacy incident state, in
+// addition to live source authority and the short-lived runtime permit. Plan
+// names the server-owned epoch in ordinary service; it is not user approval.
 type RecoveryContext struct {
 	Plan, Config, Run string
 	Generation        int64
