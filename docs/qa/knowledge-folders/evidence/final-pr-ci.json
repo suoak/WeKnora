@@ -1,0 +1,117 @@
+[
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743211/job/139918098145",
+    "name": "Docker image and production startup smoke",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743398/job/139912163260",
+    "name": "golangci-lint (.)",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742841/job/139912162843",
+    "name": "Portal contracts, RBAC, race, and branding",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742841/job/139912162384",
+    "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742841/job/139912162763",
+    "name": "M1 Linux backend and MCP compatibility",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820730009/job/139912121173",
+    "name": "Portal contracts, RBAC, race, and branding",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820730009/job/139912120591",
+    "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820730009/job/139912120807",
+    "name": "M1 Linux backend and MCP compatibility",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742892/job/139912091721",
+    "name": "postgres",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742892/job/139912078351",
+    "name": "Complete resilience race (${{ matrix.repetition }})",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743211/job/139912049377",
+    "name": "Format, vet, test, and build",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742922/job/139912051800",
+    "name": "defaults",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742804/job/139912026477",
+    "name": "postgres-proof-and-race",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742794/job/139912026157",
+    "name": "Personal document deletion and lease regression",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743012/job/139912027955",
+    "name": "Docker multi-stage image",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743040/job/139912028590",
+    "name": "persistence-and-browser",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742890/job/139912025959",
+    "name": "Personal MCP authenticated concurrency and SSE isolation",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742890/job/139912026435",
+    "name": "accounting",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743398/job/139912028805",
+    "name": "detect lint modules",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820743012/job/139912028410",
+    "name": "Test, type-check, and build",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742860/job/139912027054",
+    "name": "postgres-and-sqlite",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742808/job/139912026936",
+    "name": "Feishu bounded recovery and PostgreSQL publication",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45820742892/job/139912030050",
+    "name": "verify",
+    "state": "SKIPPED"
+  }
+]

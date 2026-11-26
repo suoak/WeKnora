@@ -1,0 +1,59 @@
+{
+  "source_sha": "642bbe7f18c4512a8623be84c385abf0862f43ec",
+  "business_fields": {
+    "knowledges": {
+      "before": "6|ab29ebe03a4ec4af4ded4f9c41773d3c",
+      "after": "6|ab29ebe03a4ec4af4ded4f9c41773d3c",
+      "match": true
+    },
+    "chunks": {
+      "before": "241|2527d9b303c51fa3203257fce6b14987",
+      "after": "241|2527d9b303c51fa3203257fce6b14987",
+      "match": true
+    },
+    "embeddings": {
+      "before": "57|77ca8c5ea804a598cf0a6399a7dff2ce",
+      "after": "57|77ca8c5ea804a598cf0a6399a7dff2ce",
+      "match": true
+    },
+    "data_sources": {
+      "before": "4|b575b4700ed0189a76d9191e47b7a6c7",
+      "after": "4|b575b4700ed0189a76d9191e47b7a6c7",
+      "match": true
+    },
+    "feishu_legacy_resources": {
+      "before": "2|6512c277028ffa76fee1f7e5fb4899d8",
+      "after": "2|6512c277028ffa76fee1f7e5fb4899d8",
+      "match": true
+    },
+    "models": {
+      "before": "3|2332005052ae50eb98644fbd411c65f5",
+      "after": "3|2332005052ae50eb98644fbd411c65f5",
+      "match": true
+    },
+    "users": {
+      "before": "3|486032c89b64636daa264f1abc97ce5a",
+      "after": "3|486032c89b64636daa264f1abc97ce5a",
+      "match": true
+    },
+    "knowledge_bases": {
+      "before": "6|168bd8414ca5ac33aaa710716990d26c",
+      "after": "6|168bd8414ca5ac33aaa710716990d26c",
+      "match": true
+    },
+    "feishu_personal_imports": {
+      "before": "5|a1ca45e6cc532c018aee801921fe825f",
+      "after": "5|a1ca45e6cc532c018aee801921fe825f",
+      "match": true
+    }
+  },
+  "all_original_business_fields_unchanged": true,
+  "original_knowledge_count_excluding_qa": "6",
+  "folder_rows": "3",
+  "qa_empty_kb_documents": "0",
+  "source_states": [
+    "active|active|2",
+    "active|revoked|1",
+    "active|unmanaged|1"
+  ]
+}

@@ -1,0 +1,97 @@
+{
+  "status": "PASS",
+  "url": "http://172.30.232.42/platform/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8",
+  "tree": {
+    "root_document_count": 0,
+    "total_document_count": 0,
+    "folders": [
+      {
+        "path": "三级已重命名",
+        "name": "三级已重命名",
+        "document_count": 0,
+        "total_count": 0
+      },
+      {
+        "path": "空目录验收",
+        "name": "空目录验收",
+        "document_count": 0,
+        "total_count": 0,
+        "children": [
+          {
+            "path": "空目录验收/二级空目录",
+            "name": "二级空目录",
+            "document_count": 0,
+            "total_count": 0
+          }
+        ]
+      }
+    ]
+  },
+  "http_errors": [],
+  "folder_requests": [
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 201
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/a9c616d7-f124-495b-90ad-be848dee00d8/knowledge/folders",
+      "status": 200
+    }
+  ],
+  "screenshots": [
+    "test-host-nested-empty.png",
+    "test-host-renamed-moved.png"
+  ]
+}

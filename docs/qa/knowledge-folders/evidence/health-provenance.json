@@ -1,0 +1,27 @@
+{
+  "source_sha": "642bbe7f18c4512a8623be84c385abf0862f43ec",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "migration": "3052|f",
+  "app": {
+    "running": true,
+    "image_id": "sha256:51637f6dc20d8876771582b6b4fc022bfc33b99fdf84fa8588f100b117e08d49",
+    "expected_image": true,
+    "restart_count": 0,
+    "healthy": true
+  },
+  "worker2": {
+    "running": true,
+    "image_id": "sha256:51637f6dc20d8876771582b6b4fc022bfc33b99fdf84fa8588f100b117e08d49",
+    "expected_image": true,
+    "restart_count": 0,
+    "healthy": true
+  },
+  "frontend": {
+    "running": true,
+    "image_id": "sha256:b8fa597477215aacf6c0bd2c1934961e701a89befaa232b9181ba8d8921f7885",
+    "expected_image": true,
+    "restart_count": 0
+  },
+  "frontend_source_present": true,
+  "status": "PASS"
+}
