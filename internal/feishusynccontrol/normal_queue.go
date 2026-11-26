@@ -15,6 +15,18 @@ var (
 	ErrNormalQueueSafetyUnavailable = errors.New("normal_sync_queue_safety_unavailable")
 )
 
+// QueueScheduledSource is only for the server's normal scheduler. It reloads
+// persisted source delegation rather than treating an absent HTTP principal as
+// source authority. A task still needs a durable run and a fresh worker claim.
+// Legacy protocols retain their original bind/guard behavior when not handled.
+func QueueScheduledSource(ctx context.Context, source, config string) (bool, error) {
+	m := Recovery()
+	if m == nil || m.system == nil {
+		return false, nil
+	}
+	return m.system.queueScheduledSource(ctx, source, config)
+}
+
 // QueueNormalSource verifies durable service authorization and current source
 // access for a pending request. It does not issue an outbound permit or require
 // a healthy consumer: the worker rebinds and revalidates before any source I/O.
@@ -22,6 +34,9 @@ func QueueNormalSource(ctx context.Context, source, config string) (bool, error)
 	m := Recovery()
 	if m == nil {
 		return false, nil
+	}
+	if m.system != nil {
+		return m.system.queueSource(ctx, source, config)
 	}
 	cfg := m.normalService.Load()
 	if cfg == nil || cfg.saved == nil {

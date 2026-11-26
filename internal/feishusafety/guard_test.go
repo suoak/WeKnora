@@ -29,15 +29,17 @@ func fixture(t *testing.T, cfg Config) (*Guard, *redis.Client) {
 			t.Fatal("isolated Redis must be explicit loopback address")
 		}
 	}
-	client := redis.NewClient(
-		&redis.Options{
-			Addr:         addr,
-			MaxRetries:   -1,
-			DialTimeout:  200 * time.Millisecond,
-			ReadTimeout:  200 * time.Millisecond,
-			WriteTimeout: 200 * time.Millisecond,
-		},
-	)
+	options := &redis.Options{
+		Addr:         addr,
+		MaxRetries:   -1,
+		DialTimeout:  200 * time.Millisecond,
+		ReadTimeout:  200 * time.Millisecond,
+		WriteTimeout: 200 * time.Millisecond,
+	}
+	if executable := os.Getenv("FEISHU_SAFETY_REDIS_EXECUTABLE"); executable != "" {
+		options = ownedRedisProcess(t, executable)
+	}
+	client := redis.NewClient(options)
 	t.Cleanup(func() { _ = client.Close() })
 	cfg.Namespace = "test-" + uuid.NewString()
 	if cfg.EndpointHost == "" {

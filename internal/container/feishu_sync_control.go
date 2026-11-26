@@ -122,6 +122,7 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 			cfg.SourceSHA = "build-unversioned"
 		}
 	}
+	cfg.AutomaticService = automatic && cfg.DedicatedSyncLane && cfg.Scope == "all"
 	controlRedis, transport := feishusynccontrol.NewControlClient(rdb)
 	keepControlRedis := false
 	defer func() {
@@ -130,6 +131,10 @@ func startFeishuSyncControl(db *gorm.DB, rdb *redis.Client,
 		}
 	}()
 	controller, err := feishusynccontrol.New(controlRedis, guard, cfg, func(stopCtx context.Context) error {
+		if cfg.AutomaticService {
+			_, fenceErr := repository.FenceClaimedLegacySyncExecutions(stopCtx, db)
+			return fenceErr
+		}
 		_, fenceErr := repository.FenceLegacySyncExecutions(stopCtx, db)
 		return fenceErr
 	}, func(event feishusynccontrol.Event) error {

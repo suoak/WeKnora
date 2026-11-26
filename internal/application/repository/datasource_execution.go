@@ -83,6 +83,9 @@ func (r *SyncLogRepository) ClaimExecution(
 			return err
 		}
 		owner.Generation = log.ExecutionGeneration
+		if err := types.CheckSyncAdmission(tx, owner); err != nil {
+			return err
+		}
 		claimed = true
 		return nil
 	})

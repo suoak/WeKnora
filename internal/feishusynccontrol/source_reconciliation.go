@@ -68,6 +68,14 @@ func (m *RecoveryManager) reconciliationContext(
 	if m == nil {
 		return ctx, "", ErrRecoveryRejected
 	}
+	// Historical signed reconciliation is a different execution purpose from
+	// ordinary source authority. Never reinterpret its ticket under the system
+	// protocol, whose source validator does not validate that old signed window.
+	// Retain the historical task; missing current content needs a fresh, normally
+	// authorized increment rather than stripping/replaying its old policy.
+	if m.system != nil {
+		return ctx, "", fmt.Errorf("legacy_reconciliation_not_applicable: %w", ErrRecoveryRejected)
+	}
 	raw, err := m.controller.Client.Get(ctx, m.controller.prefix+"recovery").Result()
 	var state recoveryMode
 	if err != nil || json.Unmarshal([]byte(raw), &state) != nil || state.Steady == nil ||

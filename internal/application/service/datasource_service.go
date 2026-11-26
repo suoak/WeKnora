@@ -968,6 +968,10 @@ func (s *DataSourceService) processSyncAttempt(ctx context.Context, task *asynq.
 		}
 		marked, _, err = feishusynccontrol.BindApprovedSource(marked, ds.ID, fingerprint)
 		if err != nil {
+			if manager := feishusynccontrol.Recovery(); manager != nil && manager.AutomaticServiceManaged() &&
+				errors.Is(err, feishusynccontrol.ErrNotReady) {
+				return err
+			}
 			return errors.Join(asynq.SkipRetry, err)
 		}
 		marked = feishusafety.WithRecoveryExecution(

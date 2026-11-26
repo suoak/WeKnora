@@ -23,6 +23,18 @@ func AdmissionFailureReason(ctx context.Context, source, config string) string {
 	if err != nil && !errors.Is(err, redis.Nil) {
 		return "sync_safety_unavailable"
 	}
+	if m.system != nil {
+		if trip != "" && !automaticServiceRecoverableTrip(trip) {
+			return "sync_platform_stopped"
+		}
+		if _, err := automaticSourceAuthority(ctx, m.system.db, nil, source, config, m.system.keys); err != nil {
+			if errors.Is(err, ErrRecoveryRejected) {
+				return "sync_source_permission_denied"
+			}
+			return "sync_safety_unavailable"
+		}
+		return "sync_service_rechecking"
+	}
 	raw, stateErr := c.Client.Get(ctx, c.prefix+"recovery").Result()
 	var state recoveryMode
 	validState := stateErr == nil && json.Unmarshal([]byte(raw), &state) == nil

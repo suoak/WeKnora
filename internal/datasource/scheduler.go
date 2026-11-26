@@ -204,7 +204,7 @@ func (s *Scheduler) triggerSyncContext(ctx context.Context, dataSourceID string,
 	}
 
 	ds, err := s.dsRepo.FindByID(ctx, dataSourceID)
-	if err != nil || !ds.AutoSyncEnabled() {
+	if err != nil || ds == nil || ds.TenantID != tenantID || !ds.AutoSyncEnabled() {
 		logger.Infof(ctx, "[Scheduler] skipping sync for ds=%s (not active or not found)", dataSourceID)
 		return
 	}
@@ -212,6 +212,7 @@ func (s *Scheduler) triggerSyncContext(ctx context.Context, dataSourceID string,
 		return
 	}
 	queueName := types.QueueSync
+	normalQueued := false
 	if !types.FeishuConnectorType(ds.Type) {
 		queueName = types.QueueGeneralSync
 	}
@@ -228,15 +229,18 @@ func (s *Scheduler) triggerSyncContext(ctx context.Context, dataSourceID string,
 			return
 		}
 		var approved bool
-		ctx, approved, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		normalQueued, err = feishusynccontrol.QueueScheduledSource(ctx, ds.ID, fingerprint)
+		if err == nil && !normalQueued {
+			ctx, approved, err = feishusynccontrol.BindApprovedSource(ctx, ds.ID, fingerprint)
+		}
 		if err != nil {
 			return
 		}
-		if approved {
+		if approved || normalQueued {
 			queueName = types.QueueApprovedSync
 		}
 	}
-	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil {
+	if err := feishusafety.CheckLegacy(ctx, ds.Type, ds.ID); err != nil && !normalQueued {
 		logger.Warnf(ctx, "[Scheduler] sync safety gate closed ds=%s", ds.ID)
 		return
 	}

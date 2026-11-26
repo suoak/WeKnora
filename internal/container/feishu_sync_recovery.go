@@ -10,6 +10,7 @@ import (
 	"errors"
 	"os"
 
+	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
@@ -20,6 +21,18 @@ import (
 func configureFeishuRecovery(db *gorm.DB, c *feishusynccontrol.Controller) error {
 	feishusynccontrol.InstallRecovery(nil)
 	c.ApprovedConsumers = feishusynccontrol.ApprovedConsumers(c.Client)
+	if c.Config.AutomaticService {
+		keys, ok := repository.NewTenantAPIKeyRepository(db).(feishusynccontrol.AutomaticSourceKeyScopes)
+		if !ok {
+			return feishusynccontrol.ErrNotReady
+		}
+		manager, err := feishusynccontrol.NewAutomaticServiceManager(c, db, keys)
+		if err != nil {
+			return err
+		}
+		feishusynccontrol.InstallRecovery(manager)
+		return nil
+	}
 	if os.Getenv("FEISHU_SYNC_RECOVERY_APPROVAL_KEY_FILE") != "" {
 		return feishusynccontrol.ErrRecoveryRejected
 	}

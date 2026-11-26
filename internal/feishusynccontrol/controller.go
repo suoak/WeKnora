@@ -23,6 +23,9 @@ import (
 
 // Config selects a strict attested inventory or automatic Asynq/lease discovery.
 type Config struct {
+	// AutomaticService uses current source authority and audited system recovery,
+	// without the legacy platform-signature workflow. Requires a dedicated lane.
+	AutomaticService bool
 	// DedicatedSyncLane isolates Feishu stops from unrelated shared sync work.
 	DedicatedSyncLane bool
 	Automatic         bool
@@ -77,6 +80,7 @@ func (e Event) Context() context.Context {
 
 // Controller validates inventory/telemetry and executes an idempotent stop loop.
 type Controller struct {
+	system *automaticService
 	mu     sync.Mutex
 	Client redis.UniversalClient
 	Guard  *feishusafety.Guard
@@ -131,10 +135,14 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 		(!cfg.Automatic && cfg.Maintenance != 1) {
 		return nil, fmt.Errorf("%w: incomplete controller or canary concurrency", ErrNotReady)
 	}
+	if cfg.AutomaticService &&
+		(!cfg.Automatic || !cfg.DedicatedSyncLane || cfg.Scope != "all" || len(cfg.SourceSHA) != 40) {
+		return nil, fmt.Errorf("%w: automatic service requires a versioned dedicated runtime", ErrNotReady)
+	}
 	if !cfg.Automatic && len(cfg.SourceSHA) != 40 {
 		return nil, fmt.Errorf("%w: source identity", ErrNotReady)
 	}
-	if _, err := hex.DecodeString(cfg.SourceSHA); !cfg.Automatic && err != nil {
+	if _, err := hex.DecodeString(cfg.SourceSHA); (!cfg.Automatic || cfg.AutomaticService) && err != nil {
 		return nil, fmt.Errorf("%w: source identity", ErrNotReady)
 	}
 	if cfg.Scope != "none" && (!cfg.Automatic || cfg.Scope != "all") {
@@ -171,6 +179,10 @@ func New(client redis.UniversalClient, guard *feishusafety.Guard, cfg Config,
 	}
 	if cfg.DedicatedSyncLane {
 		identity = append(identity, "dedicated_sync_lane")
+	}
+	if cfg.AutomaticService {
+		identity = append(identity, "automatic_service_v1")
+		guard.RequireAutomaticService()
 	}
 	raw, _ := json.Marshal(identity)
 	hash := sha256.Sum256(raw)
@@ -238,6 +250,12 @@ func (c *Controller) Step(ctx context.Context) (result error) {
 	defer func() { c.probeStage = "" }()
 	if c.departed {
 		return ErrNotReady
+	}
+	if c.Config.AutomaticService {
+		if c.system == nil {
+			return ErrNotReady
+		}
+		return c.system.step(ctx)
 	}
 	now, err := register.Run(ctx, c.Client, []string{
 		c.prefix + "workers", c.prefix + "leases", c.prefix + "joining",

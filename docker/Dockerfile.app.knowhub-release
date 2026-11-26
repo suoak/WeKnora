@@ -45,6 +45,7 @@ ARG REVISION_ARG
 ARG BUILD_TIME_ARG
 ARG GO_VERSION_ARG=1.26.7
 ARG WITH_ANYDOC=1
+ARG CARGO_SOURCE_ARG=ustc
 ARG ANYDOC_VERSION=0.2.4
 ARG ANYDOC_SHA256=cf0d78e4cfe3654eb3ea04422ec5a94352000ee56e97902125e68e51f7527062
 
@@ -67,14 +68,21 @@ RUN test "$TARGETARCH" = "amd64" && test "$WITH_ANYDOC" = "1" && \
     rustc --version | grep -F 'rustc 1.98.1 ' && \
     go version | grep -F 'go1.26.7'
 
-# Cargo uses the established USTC sparse mirror. The AnyDoc crate itself is
-# fetched and verified separately below before it can enter the build.
-RUN mkdir -p /usr/local/cargo && printf '%s\n' \
+# Preserve the established mirror by default; external runners can select the
+# official registry when that mirror denies access. Cargo --locked and crate
+# checksums remain mandatory for both choices.
+RUN mkdir -p /usr/local/cargo && \
+    case "$CARGO_SOURCE_ARG" in \
+    ustc) printf '%s\n' \
       '[source.crates-io]' \
       'replace-with = "ustc"' \
       '[source.ustc]' \
       'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' \
-      > /usr/local/cargo/config.toml
+      > /usr/local/cargo/config.toml ;; \
+    crates-io) printf '%s\n' '[registries.crates-io]' 'protocol = "sparse"' \
+      > /usr/local/cargo/config.toml ;; \
+    *) echo 'Unsupported Cargo source selection' >&2; exit 1 ;; \
+    esac
 
 RUN go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.1
 
@@ -124,6 +132,11 @@ RUN --mount=type=cache,target=/go/pkg/mod \
     go test -tags anydoc -c -o /anydoc-runtime-tests ./internal/infrastructure/docparser/anydoc
 RUN --mount=type=cache,target=/go/pkg/mod cp -r /go/pkg/mod/github.com/yanyiwu/ /app/yanyiwu/
 
+# Optional named context for an independently fetched OFFICIAL release asset.
+# Without --build-context verified-release-assets=... the empty stage preserves
+# the existing download path. Both paths use the same pinned hash/version below.
+FROM scratch AS verified-release-assets
+
 FROM debian:12.12-slim@sha256:d5d3f9c23164ea16f31852f95bd5959aad1c5e854332fe00f7b3a20fcc9f635c AS runtime
 ARG APT_MIRROR_ARG=mirrors.ustc.edu.cn
 ARG VERSION_ARG=0.8.0-baseline-test
@@ -143,7 +156,8 @@ ENV BROWSERSKILL_BINARY=/opt/weknora/browserskill/bsk \
     PIP_INDEX_URL=https://pypi.mirrors.ustc.edu.cn/simple \
     PATH=/home/appuser/.local/bin:$PATH
 COPY --from=browserskill /opt/weknora/browserskill /opt/weknora/browserskill
-RUN useradd -m -s /bin/bash appuser && \
+RUN --mount=type=bind,from=verified-release-assets,target=/verified-release-assets,readonly \
+    useradd -m -s /bin/bash appuser && \
     test "$UV_VERSION" = "0.12.15" && \
     test "$UV_SHA256" = "f97935763c04be3e692460a7aaeaaab8fc3b78fcf8b389da820b38ae7423a638" && \
     sed -i "s@deb.debian.org@${APT_MIRROR_ARG}@g" /etc/apt/sources.list.d/debian.sources && \
@@ -154,9 +168,13 @@ RUN useradd -m -s /bin/bash appuser && \
         python3-dev libffi-dev libssl-dev nodejs npm gosu ffmpeg && \
     rm -rf /var/lib/apt/lists/* && \
     uv_archive=/tmp/uv.tar.gz && \
-    curl --fail --location --silent --show-error \
-      "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
-      --output "$uv_archive" && \
+    if [ -r /verified-release-assets/uv.tar.gz ]; then \
+      cp /verified-release-assets/uv.tar.gz "$uv_archive"; \
+    else \
+      curl --fail --location --silent --show-error \
+        "https://github.com/astral-sh/uv/releases/download/${UV_VERSION}/uv-x86_64-unknown-linux-gnu.tar.gz" \
+        --output "$uv_archive"; \
+    fi && \
     echo "${UV_SHA256}  $uv_archive" | sha256sum --check --strict && \
     mkdir -p /tmp/uv-extract /home/appuser/.local/bin && \
     tar -xzf "$uv_archive" -C /tmp/uv-extract && \
