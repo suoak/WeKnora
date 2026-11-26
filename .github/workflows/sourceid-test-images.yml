@@ -47,12 +47,6 @@ jobs:
           recipe = recipe.replace(old, 'FROM golang:1.26.8-bookworm AS builder')
           recipe = recipe.replace('ARG GO_VERSION_ARG=1.26.7', 'ARG GO_VERSION_ARG=1.26.8')
           recipe = recipe.replace("grep -F 'go1.26.7'", "grep -F 'go1.26.8'")
-          # Public GitHub runners receive HTTP 403 from the regional mirror.
-          # Keep the release recipe and locked sources; use the official index
-          # for the browser-skill stage, which predates CARGO_SOURCE_ARG.
-          start = recipe.index('RUN mkdir -p /usr/local/cargo && printf')
-          end = recipe.index('COPY scripts/build_browserskill.sh', start)
-          recipe = recipe[:start] + 'RUN mkdir -p /usr/local/cargo\n' + recipe[end:]
           Path('/tmp/Dockerfile.sourceid-test').write_text(recipe)
           PY
             sha256sum /tmp/Dockerfile.sourceid-test > /tmp/sourceid-image-results/recipe-sha256.txt
@@ -72,9 +66,6 @@ jobs:
               --build-arg "REVISION_ARG=$SOURCE_SHA" \
               --build-arg "BUILD_TIME_ARG=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
               --build-arg GO_VERSION_ARG=1.26.8 \
-              --build-arg APT_MIRROR_ARG=deb.debian.org \
-              --build-arg GOPROXY_ARG=https://proxy.golang.org,direct \
-              --build-arg CARGO_SOURCE_ARG=crates-io \
               -f /tmp/Dockerfile.sourceid-test -t "$image" .
           else
             docker build --progress=plain --platform linux/amd64 \
