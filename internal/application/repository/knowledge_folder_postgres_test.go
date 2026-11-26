@@ -28,7 +28,7 @@ func TestPersistentKnowledgeFoldersPostgres(t *testing.T) {
 	require.NoError(t, err)
 	pool, err := db.DB()
 	require.NoError(t, err)
-	defer pool.Close()
+	defer func() { require.NoError(t, pool.Close()) }()
 	tenant := &types.Tenant{ID: 809952, Name: "folders synthetic", Status: "active"}
 	require.NoError(t, db.Create(tenant).Error)
 	kb := &types.KnowledgeBase{ID: uuid.NewString(), TenantID: tenant.ID, Name: "folders", Type: "document"}
@@ -43,7 +43,7 @@ func TestPersistentKnowledgeFoldersPostgres(t *testing.T) {
 	require.NoError(t, err)
 	freshPool, err := fresh.DB()
 	require.NoError(t, err)
-	defer freshPool.Close()
+	defer func() { require.NoError(t, freshPool.Close()) }()
 	counts, err := NewKnowledgeRepository(fresh).ListKnowledgeFolderCounts(ctx, tenant.ID, kb.ID)
 	require.NoError(t, err)
 	tree := types.BuildKnowledgeFolderTree(counts)

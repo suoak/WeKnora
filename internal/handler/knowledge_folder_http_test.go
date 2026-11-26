@@ -28,7 +28,7 @@ func persistentFolderHTTP(t *testing.T) *gin.Engine {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(1)
-	t.Cleanup(func() { pool.Close() })
+	t.Cleanup(func() { require.NoError(t, pool.Close()) })
 	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases "+
 		"(id TEXT PRIMARY KEY, tenant_id INTEGER, deleted_at DATETIME)").Error)
 	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id) VALUES ('kb-1',1)").Error)
@@ -110,6 +110,6 @@ func TestKnowledgeFolderBrowserServer(t *testing.T) {
 		t.Skip("opt-in browser fixture")
 	}
 	srv := &http.Server{Addr: "127.0.0.1:18088", Handler: persistentFolderHTTP(t), ReadHeaderTimeout: 5 * time.Second}
-	t.Cleanup(func() { srv.Close() })
+	t.Cleanup(func() { _ = srv.Close() })
 	require.NoError(t, srv.ListenAndServe())
 }
