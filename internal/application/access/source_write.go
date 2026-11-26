@@ -15,8 +15,10 @@ type SourceWriteTarget struct {
 	SourceID        string
 }
 
+// SourceWritePrincipal identifies the server-validated authority path.
 type SourceWritePrincipal string
 
+// Source-write authority paths are distinct; a background claim is not an HTTP principal.
 const (
 	SourceWriteUser       SourceWritePrincipal = "user"
 	SourceWriteAPIKey     SourceWritePrincipal = "source_management_key"
@@ -32,6 +34,7 @@ type SourceWriteMember struct {
 	UserDeleted, Deleted bool
 }
 
+// SourceWriteSource is the current source binding loaded from the database.
 type SourceWriteSource struct {
 	ID, KnowledgeBaseID, Revision string
 	TenantID                      uint64
@@ -57,6 +60,7 @@ type SourceWriteKey struct {
 	ExpiresAt        *time.Time
 }
 
+// SourceWriteFacts contains live database facts used to verify source writes.
 type SourceWriteFacts struct {
 	TenantID      uint64
 	TenantStatus  string
@@ -84,7 +88,11 @@ type SourceWriteFactsLoader interface {
 // AuthorizeSourceWrite checks HTTP source-management authority. It preserves
 // both the route policy and SourceWriteAccess's effective ingest constraint.
 // It returns no generic KB Editor/ingest grant.
-func AuthorizeSourceWrite(ctx context.Context, target SourceWriteTarget, loader SourceWriteFactsLoader) error {
+func AuthorizeSourceWrite(
+	ctx context.Context,
+	target SourceWriteTarget,
+	loader SourceWriteFactsLoader,
+) error {
 	if ctx == nil {
 		return ErrUnauthorized
 	}
@@ -105,7 +113,11 @@ func AuthorizeSourceWrite(ctx context.Context, target SourceWriteTarget, loader 
 // path. An absent caller or execution tenant is insufficient: the mandatory
 // loader must supply current persisted source delegation and active membership.
 // Pre-claim scheduling is permitted; any present claim is checked exactly.
-func AuthorizeBackgroundSourceWrite(ctx context.Context, target SourceWriteTarget, loader SourceWriteFactsLoader) error {
+func AuthorizeBackgroundSourceWrite(
+	ctx context.Context,
+	target SourceWriteTarget,
+	loader SourceWriteFactsLoader,
+) error {
 	if ctx == nil || target.SourceID == "" {
 		return ErrForbidden
 	}
@@ -119,7 +131,12 @@ func AuthorizeBackgroundSourceWrite(ctx context.Context, target SourceWriteTarge
 	return authorizeSourceWrite(ctx, target, SourceWriteBackground, loader)
 }
 
-func authorizeSourceWrite(ctx context.Context, target SourceWriteTarget, kind SourceWritePrincipal, loader SourceWriteFactsLoader) error {
+func authorizeSourceWrite(
+	ctx context.Context,
+	target SourceWriteTarget,
+	kind SourceWritePrincipal,
+	loader SourceWriteFactsLoader,
+) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -161,7 +178,8 @@ func authorizeSourceWrite(ctx context.Context, target SourceWriteTarget, kind So
 			return ErrForbidden
 		}
 		if scope.Normalize().ScopeType == types.APIKeyScopeUserMCP &&
-			(key.OwnerUserID != caller.UserID || !sourceWriteMemberActive(facts.Member, caller.UserID, target.TenantID)) {
+			(key.OwnerUserID != caller.UserID ||
+				!sourceWriteMemberActive(facts.Member, caller.UserID, target.TenantID)) {
 			return ErrForbidden
 		}
 		return nil

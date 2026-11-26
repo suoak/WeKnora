@@ -13,7 +13,14 @@ import (
 )
 
 func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
-	for _, fault := range []string{"none", "unrelated-old-history", "second-emergency", "later-identity-stop", "missing-control-coverage", "context-canceled"} {
+	for _, fault := range []string{
+		"none",
+		"unrelated-old-history",
+		"second-emergency",
+		"later-identity-stop",
+		"missing-control-coverage",
+		"context-canceled",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()
 			server := miniredis.RunT(t)
@@ -27,16 +34,47 @@ func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
 			prefix := strings.TrimSuffix(guard.PermitKey(), "permit")
 			s := &automaticService{c: &Controller{Client: client, Guard: guard, prefix: prefix}}
 			if fault != "missing-control-coverage" {
-				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", ID: "1-0", Values: map[string]any{"event": "bootstrap"}}).Err())
+				require.NoError(
+					t,
+					client.XAdd(ctx, &redis.XAddArgs{
+						Stream: prefix + "control_audit",
+						ID:     "1-0",
+						Values: map[string]any{"event": "bootstrap"},
+					}).
+						Err(),
+				)
 			}
 			trip := "automatic_asynq_consumer_consumer_absent"
 			if fault == "unrelated-old-history" {
 				// Historical audit fixtures are not live trip/permit writes. A
 				// previous incident had the same reason and a later operator stop.
-				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "audit", ID: "2-0", Values: map[string]any{"event": "trip", "reason": trip}}).Err())
-				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", ID: "3-0", Values: map[string]any{"event": "feishu_safety_stop", "reason": "operator_emergency_stop"}}).Err())
+				require.NoError(
+					t,
+					client.XAdd(ctx, &redis.XAddArgs{
+						Stream: prefix + "audit",
+						ID:     "2-0",
+						Values: map[string]any{"event": "trip", "reason": trip},
+					}).
+						Err(),
+				)
+				require.NoError(
+					t,
+					client.XAdd(ctx, &redis.XAddArgs{
+						Stream: prefix + "control_audit",
+						ID:     "3-0",
+						Values: map[string]any{"event": "feishu_safety_stop", "reason": "operator_emergency_stop"},
+					}).
+						Err(),
+				)
 				for i := 0; i < 1001; i++ {
-					require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", Values: map[string]any{"event": "historical_normal_source_registered"}}).Err())
+					require.NoError(
+						t,
+						client.XAdd(ctx, &redis.XAddArgs{
+							Stream: prefix + "control_audit",
+							Values: map[string]any{"event": "historical_normal_source_registered"},
+						}).
+							Err(),
+					)
 				}
 				// Keep the complete fixture history before the current incident's
 				// common millisecond boundary, independent of stream sequence IDs.
@@ -47,7 +85,17 @@ func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
 			case "second-emergency":
 				require.NoError(t, guard.Trip(ctx, "operator_emergency_stop"))
 			case "later-identity-stop":
-				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", Values: map[string]any{"event": "feishu_safety_stop", "reason": "system_worker_identity_conflict"}}).Err())
+				require.NoError(
+					t,
+					client.XAdd(ctx, &redis.XAddArgs{
+						Stream: prefix + "control_audit",
+						Values: map[string]any{
+							"event":  "feishu_safety_stop",
+							"reason": "system_worker_identity_conflict",
+						},
+					}).
+						Err(),
+				)
 			case "context-canceled":
 				var cancel context.CancelFunc
 				ctx, cancel = context.WithCancel(ctx)
@@ -68,7 +116,12 @@ func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
 			} else {
 				require.Error(t, err)
 			}
-			require.Equal(t, trip, client.Get(context.Background(), prefix+"trip").Val(), "read-only evidence gathering preserves the original trip")
+			require.Equal(
+				t,
+				trip,
+				client.Get(context.Background(), prefix+"trip").Val(),
+				"read-only evidence gathering preserves the original trip",
+			)
 			require.Zero(t, client.Exists(context.Background(), prefix+"system_service").Val())
 			require.Zero(t, client.Exists(context.Background(), guard.PermitKey()).Val())
 		})

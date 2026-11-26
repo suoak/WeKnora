@@ -67,7 +67,8 @@ func (s *automaticService) step(ctx context.Context) error {
 		if err != nil {
 			return s.withdraw(ctx, "system_state_invalid")
 		}
-		if state.WorkerValue == proof.WorkerValue && state.ConsumerServerID != proof.ConsumerServerIDs[0] {
+		if state.WorkerValue == proof.WorkerValue &&
+			state.ConsumerServerID != proof.ConsumerServerIDs[0] {
 			// A replacement consumer in the same worker incarnation is a real
 			// identity drift, not a recovered heartbeat of the original server.
 			return c.freeze(ctx, "system_consumer_identity_conflict", true)
@@ -83,7 +84,8 @@ func (s *automaticService) step(ctx context.Context) error {
 	prepared := receipt != nil && receipt.Phase == "prepared"
 	if raw == "" || state.WorkerValue != proof.WorkerValue || state.RuntimeSHA != c.Config.SourceSHA ||
 		state.MembershipRevision != proof.MembershipRevision ||
-		trip != "" || s.needsCanary || prepared {
+		trip != "" || s.needsCanary ||
+		prepared {
 		c.Guard.SuspendDependency(true)
 		if err := c.Client.Del(ctx, c.Guard.PermitKey()).Err(); err != nil {
 			return s.withdraw(ctx, "permit_withdrawal_unavailable")
@@ -98,12 +100,17 @@ func (s *automaticService) step(ctx context.Context) error {
 		return s.withdraw(ctx, "durable_epoch_unavailable")
 	}
 	if time.Since(c.lastAlertAck) >= time.Second {
-		if err := c.audit(ctx, Event{Kind: "feishu_safety_heartbeat", Reason: "automatic_service_alive", WorkerID: c.Config.WorkerID}); err != nil {
+		if err := c.audit(ctx, Event{
+			Kind:     "feishu_safety_heartbeat",
+			Reason:   "automatic_service_alive",
+			WorkerID: c.Config.WorkerID,
+		}); err != nil {
 			return s.withdraw(ctx, "audit_unavailable")
 		}
 		c.lastAlertAck = time.Now()
 	}
-	if state.Phase == "canary" && state.CanaryRunID != "" && time.Since(s.lastCanaryRead) >= time.Second {
+	if state.Phase == "canary" && state.CanaryRunID != "" &&
+		time.Since(s.lastCanaryRead) >= time.Second {
 		s.lastCanaryRead = time.Now()
 		if err := s.advanceCanary(ctx, state, raw); err != nil {
 			return s.withdraw(ctx, "canary_receipt_unavailable")

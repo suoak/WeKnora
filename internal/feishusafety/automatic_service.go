@@ -74,18 +74,29 @@ func (g *Guard) automaticAdmissionError(ctx context.Context, cause error) error 
 		return fmt.Errorf("%w: %v", ErrClosed, cause)
 	}
 	text := cause.Error()
-	for _, reason := range []string{"SYSTEM_CONSUMER_UNCONFIRMED", "SYSTEM_LEASE_NOT_READY", "SYSTEM_MEMBERSHIP_CHANGED", "SAFETY_NO_PERMIT"} {
+	for _, reason := range []string{
+		"SYSTEM_CONSUMER_UNCONFIRMED",
+		"SYSTEM_LEASE_NOT_READY",
+		"SYSTEM_MEMBERSHIP_CHANGED",
+		"SAFETY_NO_PERMIT",
+	} {
 		if strings.Contains(text, reason) {
 			return errors.Join(ErrClosed, ErrControlTemporarilyUnavailable)
 		}
 	}
-	for _, reason := range []string{"SYSTEM_SOURCE_EPOCH_CHANGED", "SYSTEM_CANARY_SCOPE_DENIED", "SYSTEM_SOURCE_MISSING", "SYSTEM_SOURCE_CHANGED"} {
+	for _, reason := range []string{
+		"SYSTEM_SOURCE_EPOCH_CHANGED",
+		"SYSTEM_CANARY_SCOPE_DENIED",
+		"SYSTEM_SOURCE_MISSING",
+		"SYSTEM_SOURCE_CHANGED",
+	} {
 		if strings.Contains(text, reason) {
 			return ErrSourceAdmissionChanged
 		}
 	}
 	var network net.Error
-	if ctx.Err() != nil || errors.Is(cause, context.DeadlineExceeded) || errors.Is(cause, context.Canceled) || errors.As(cause, &network) {
+	if ctx.Err() != nil || errors.Is(cause, context.DeadlineExceeded) || errors.Is(cause, context.Canceled) ||
+		errors.As(cause, &network) {
 		return errors.Join(ErrClosed, ErrControlTemporarilyUnavailable)
 	}
 	return fmt.Errorf("%w: %v", ErrClosed, cause)

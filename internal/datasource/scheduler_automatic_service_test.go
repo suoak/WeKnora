@@ -31,7 +31,10 @@ type schedulerAutomaticQueue struct {
 	queues []string
 }
 
-func (q *schedulerAutomaticQueue) Enqueue(task *asynq.Task, options ...asynq.Option) (*asynq.TaskInfo, error) {
+func (q *schedulerAutomaticQueue) Enqueue(
+	task *asynq.Task,
+	options ...asynq.Option,
+) (*asynq.TaskInfo, error) {
 	q.tasks = append(q.tasks, task)
 	for _, option := range options {
 		if option.Type() == asynq.QueueOpt {
@@ -69,35 +72,110 @@ func newSchedulerAutomaticFixture(t *testing.T) schedulerAutomaticFixture {
 	pool, err := db.DB()
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, pool.Close()) })
-	f := schedulerAutomaticFixture{db: db, tenant: types.Tenant{Name: "scheduler-automatic-fixture", Status: "active"}}
+	f := schedulerAutomaticFixture{
+		db:     db,
+		tenant: types.Tenant{Name: "scheduler-automatic-fixture", Status: "active"},
+	}
 	require.NoError(t, db.Create(&f.tenant).Error)
-	f.owner = types.User{ID: uuid.NewString(), Username: uuid.NewString(), Email: uuid.NewString() + "@example.invalid", PasswordHash: "synthetic", TenantID: f.tenant.ID, IsActive: true}
+	f.owner = types.User{
+		ID:           uuid.NewString(),
+		Username:     uuid.NewString(),
+		Email:        uuid.NewString() + "@example.invalid",
+		PasswordHash: "synthetic",
+		TenantID:     f.tenant.ID,
+		IsActive:     true,
+	}
 	require.NoError(t, db.Create(&f.owner).Error)
-	require.NoError(t, db.Create(&types.TenantMember{UserID: f.owner.ID, TenantID: f.tenant.ID, Role: types.TenantRoleOwner, Status: types.TenantMemberStatusActive}).Error)
-	f.kb = types.KnowledgeBase{ID: uuid.NewString(), TenantID: f.tenant.ID, CreatorID: f.owner.ID, Name: "scheduler-automatic-test", Type: "document"}
+	require.NoError(
+		t,
+		db.Create(
+			&types.TenantMember{
+				UserID:   f.owner.ID,
+				TenantID: f.tenant.ID,
+				Role:     types.TenantRoleOwner,
+				Status:   types.TenantMemberStatusActive,
+			},
+		).Error,
+	)
+	f.kb = types.KnowledgeBase{
+		ID:        uuid.NewString(),
+		TenantID:  f.tenant.ID,
+		CreatorID: f.owner.ID,
+		Name:      "scheduler-automatic-test",
+		Type:      "document",
+	}
 	require.NoError(t, db.Create(&f.kb).Error)
 	mini := miniredis.RunT(t)
 	f.redis = redis.NewClient(&redis.Options{Addr: mini.Addr(), MaxRetries: -1})
 	t.Cleanup(func() { _ = f.redis.Close() })
-	f.guard, err = feishusafety.New(f.redis, feishusafety.Config{Namespace: "scheduler-automatic-" + uuid.NewString(), EndpointHost: "gateway.invalid", InFlight: 1, RPM: 30, RPS: 1, TPM: 30000, WaitBudgetDuration: time.Second, TokenBoundVerified: true})
+	f.guard, err = feishusafety.New(
+		f.redis,
+		feishusafety.Config{
+			Namespace:          "scheduler-automatic-" + uuid.NewString(),
+			EndpointHost:       "gateway.invalid",
+			InFlight:           1,
+			RPM:                30,
+			RPS:                1,
+			TPM:                30000,
+			WaitBudgetDuration: time.Second,
+			TokenBoundVerified: true,
+		},
+	)
 	require.NoError(t, err)
-	control, err := feishusynccontrol.New(f.redis, f.guard, feishusynccontrol.Config{Automatic: true, AutomaticService: true, DedicatedSyncLane: true, Scope: "all", WorkerID: "scheduler-test:1", SourceSHA: strings.Repeat("a", 40), Maintenance: 4}, func(context.Context) error { return nil }, func(feishusynccontrol.Event) error { return nil })
+	control, err := feishusynccontrol.New(
+		f.redis,
+		f.guard,
+		feishusynccontrol.Config{
+			Automatic:         true,
+			AutomaticService:  true,
+			DedicatedSyncLane: true,
+			Scope:             "all",
+			WorkerID:          "scheduler-test:1",
+			SourceSHA:         strings.Repeat("a", 40),
+			Maintenance:       4,
+		},
+		func(context.Context) error { return nil },
+		func(feishusynccontrol.Event) error { return nil },
+	)
 	require.NoError(t, err)
-	manager, err := feishusynccontrol.NewAutomaticServiceManager(control, db, repository.NewTenantAPIKeyRepository(db).(feishusynccontrol.AutomaticSourceKeyScopes))
+	manager, err := feishusynccontrol.NewAutomaticServiceManager(
+		control,
+		db,
+		repository.NewTenantAPIKeyRepository(db).(feishusynccontrol.AutomaticSourceKeyScopes),
+	)
 	require.NoError(t, err)
 	priorRecovery, priorGuard := feishusynccontrol.Recovery(), feishusafety.Default()
 	feishusynccontrol.InstallRecovery(manager)
 	feishusafety.InstallDefault(f.guard)
-	t.Cleanup(func() { feishusynccontrol.InstallRecovery(priorRecovery); feishusafety.InstallDefault(priorGuard) })
+	t.Cleanup(
+		func() { feishusynccontrol.InstallRecovery(priorRecovery); feishusafety.InstallDefault(priorGuard) },
+	)
 	f.queue = &schedulerAutomaticQueue{}
-	f.scheduler = NewScheduler(repository.NewDataSourceRepository(db), repository.NewSyncLogRepository(db), f.queue)
-	t.Log("SQL: disposable PostgreSQL with full migrations; Redis: miniredis admission fixture; queue: capturing adapter, no consumer or outbound requests")
+	f.scheduler = NewScheduler(
+		repository.NewDataSourceRepository(db),
+		repository.NewSyncLogRepository(db),
+		f.queue,
+	)
+	t.Log(
+		"SQL: disposable PostgreSQL with full migrations; Redis: miniredis admission fixture; " +
+			"queue: capturing adapter, no consumer or outbound requests",
+	)
 	return f
 }
 
 func (f schedulerAutomaticFixture) source(t *testing.T) types.DataSource {
 	t.Helper()
-	ds := types.DataSource{ID: uuid.NewString(), TenantID: f.tenant.ID, KnowledgeBaseID: f.kb.ID, Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive, LegacyAccessState: "unmanaged", Config: types.JSON(`{"resource_ids":["fixture-root"],"settings":{}}`), SyncSchedule: "0 0 0 * * *", LastSyncCursor: types.JSON(`{"fixture":"unchanged"}`)}
+	ds := types.DataSource{
+		ID:                uuid.NewString(),
+		TenantID:          f.tenant.ID,
+		KnowledgeBaseID:   f.kb.ID,
+		Type:              types.ConnectorTypeFeishu,
+		Status:            types.DataSourceStatusActive,
+		LegacyAccessState: "unmanaged",
+		Config:            types.JSON(`{"resource_ids":["fixture-root"],"settings":{}}`),
+		SyncSchedule:      "0 0 0 * * *",
+		LastSyncCursor:    types.JSON(`{"fixture":"unchanged"}`),
+	}
 	require.NoError(t, f.db.Create(&ds).Error)
 	return ds
 }
@@ -112,7 +190,11 @@ func (f schedulerAutomaticFixture) logs(t *testing.T, source string) []types.Syn
 func (f schedulerAutomaticFixture) closed(t *testing.T, source string) {
 	t.Helper()
 	require.Zero(t, f.redis.Exists(context.Background(), f.guard.PermitKey()).Val())
-	require.Error(t, f.guard.Check(feishusafety.WithScope(context.Background(), source)), "queue admission is not an execution grant")
+	require.Error(
+		t,
+		f.guard.Check(feishusafety.WithScope(context.Background(), source)),
+		"queue admission is not an execution grant",
+	)
 }
 
 func TestSchedulerAutomaticServicePersistsIntentAndApprovedQueue(t *testing.T) {
@@ -140,10 +222,20 @@ func TestSchedulerAutomaticServicePersistsIntentAndApprovedQueue(t *testing.T) {
 	var saved types.DataSource
 	require.NoError(t, f.db.First(&saved, "id=?", ds.ID).Error)
 	require.JSONEq(t, string(ds.LastSyncCursor), string(saved.LastSyncCursor))
-	fingerprint, err := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.TenantID, ds.Config)
+	fingerprint, err := feishusafety.SourceConfigFingerprint(
+		ds.ID,
+		ds.KnowledgeBaseID,
+		ds.Type,
+		ds.LegacyAccessState,
+		ds.TenantID,
+		ds.Config,
+	)
 	require.NoError(t, err)
 	http := context.WithValue(context.Background(), types.UserIDContextKey, f.owner.ID)
-	http = types.WithCaller(http, types.Caller{UserID: f.owner.ID, TenantID: f.tenant.ID, Role: types.TenantRoleOwner})
+	http = types.WithCaller(
+		http,
+		types.Caller{UserID: f.owner.ID, TenantID: f.tenant.ID, Role: types.TenantRoleOwner},
+	)
 	http = types.WithPrincipal(http, types.Principal{Type: types.PrincipalWebUser, ID: f.owner.ID})
 	handled, err := feishusynccontrol.QueueScheduledSource(http, ds.ID, fingerprint)
 	require.True(t, handled)
@@ -154,7 +246,16 @@ func TestSchedulerAutomaticServicePersistsIntentAndApprovedQueue(t *testing.T) {
 
 func TestSchedulerAutomaticServiceCurrentRevocationAndTenantBinding(t *testing.T) {
 	f := newSchedulerAutomaticFixture(t)
-	for _, scenario := range []string{"paused", "hold", "revoked-owner", "revoked-membership", "no-management", "tenant-inactive", "tenant-mismatch", "operator-stop"} {
+	for _, scenario := range []string{
+		"paused",
+		"hold",
+		"revoked-owner",
+		"revoked-membership",
+		"no-management",
+		"tenant-inactive",
+		"tenant-mismatch",
+		"operator-stop",
+	} {
 		t.Run(scenario, func(t *testing.T) {
 			ds := f.source(t)
 			tenant := ds.TenantID
@@ -167,11 +268,27 @@ func TestSchedulerAutomaticServiceCurrentRevocationAndTenantBinding(t *testing.T
 				require.NoError(t, f.db.Model(&f.owner).Update("is_active", false).Error)
 				defer f.db.Model(&f.owner).Update("is_active", true)
 			case "revoked-membership":
-				require.NoError(t, f.db.Table("tenant_members").Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).Update("status", "suspended").Error)
-				defer f.db.Table("tenant_members").Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).Update("status", "active")
+				require.NoError(
+					t,
+					f.db.Table("tenant_members").
+						Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).
+						Update("status", "suspended").
+						Error,
+				)
+				defer f.db.Table("tenant_members").
+					Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).
+					Update("status", "active")
 			case "no-management":
-				require.NoError(t, f.db.Table("tenant_members").Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).Update("role", "viewer").Error)
-				defer f.db.Table("tenant_members").Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).Update("role", "owner")
+				require.NoError(
+					t,
+					f.db.Table("tenant_members").
+						Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).
+						Update("role", "viewer").
+						Error,
+				)
+				defer f.db.Table("tenant_members").
+					Where("user_id=? AND tenant_id=?", f.owner.ID, f.tenant.ID).
+					Update("role", "owner")
 			case "tenant-inactive":
 				require.NoError(t, f.db.Model(&f.tenant).Update("status", "suspended").Error)
 				defer f.db.Model(&f.tenant).Update("status", "active")

@@ -56,12 +56,18 @@ func (g *Guard) automaticConsumerDigest(ctx context.Context) (string, error) {
 	if ctx == nil {
 		return "", ErrClosed
 	}
-	values, err := readAutomaticConsumer.Run(ctx, g.client, []string{g.key("system_service")}, g.prefix, g.fingerprint).Slice()
+	values, err := readAutomaticConsumer.Run(ctx, g.client, []string{g.key("system_service")}, g.prefix, g.fingerprint).
+		Slice()
 	if err != nil {
 		if ctx.Err() != nil {
 			return fail("SYSTEM_CONSUMER_UNCONFIRMED")
 		}
-		for _, code := range []string{"SYSTEM_SERVICE_MISSING", "SYSTEM_SERVICE_CLOSED", "SYSTEM_CONSUMER_UNCONFIRMED", "SYSTEM_CONSUMER_INVALID"} {
+		for _, code := range []string{
+			"SYSTEM_SERVICE_MISSING",
+			"SYSTEM_SERVICE_CLOSED",
+			"SYSTEM_CONSUMER_UNCONFIRMED",
+			"SYSTEM_CONSUMER_INVALID",
+		} {
 			if redis.HasErrorPrefix(err, code) {
 				return fail(code)
 			}
@@ -87,7 +93,8 @@ func (g *Guard) automaticConsumerDigest(ctx context.Context) (string, error) {
 		Fingerprint string `json:"guard_fingerprint"`
 		Phase       string `json:"phase"`
 	}
-	if json.Unmarshal([]byte(root), &state) != nil || state.Version != 1 || state.Namespace != g.prefix || state.Fingerprint != g.fingerprint {
+	if json.Unmarshal([]byte(root), &state) != nil || state.Version != 1 || state.Namespace != g.prefix ||
+		state.Fingerprint != g.fingerprint {
 		return fail("SYSTEM_SERVICE_CLOSED")
 	}
 	id, iderr := uuid.Parse(state.ServerID)
@@ -121,11 +128,13 @@ func (g *Guard) automaticConsumerDigest(ctx context.Context) (string, error) {
 	}
 	host := message.Get(fields.ByName("host")).String()
 	pid := message.Get(fields.ByName("pid")).Int()
-	if host == "" || strings.ContainsAny(host, "{} \t\r\n") || pid <= 0 || host+":"+strconv.FormatInt(pid, 10) != state.WorkerID ||
+	if host == "" || strings.ContainsAny(host, "{} \t\r\n") || pid <= 0 ||
+		host+":"+strconv.FormatInt(pid, 10) != state.WorkerID ||
 		message.Get(fields.ByName("server_id")).String() != state.ServerID {
 		return fail("SYSTEM_CONSUMER_IDENTITY_INVALID")
 	}
-	if message.Get(fields.ByName("status")).String() != "active" || message.Get(fields.ByName("concurrency")).Int() <= 0 {
+	if message.Get(fields.ByName("status")).String() != "active" ||
+		message.Get(fields.ByName("concurrency")).Int() <= 0 {
 		return fail("SYSTEM_CONSUMER_INACTIVE")
 	}
 	queues := message.Get(fields.ByName("queues")).Map()

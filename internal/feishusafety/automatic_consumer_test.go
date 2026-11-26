@@ -65,11 +65,28 @@ func reversedAutomaticConsumerWire(t *testing.T, raw []byte) []byte {
 	return reversed
 }
 
-func automaticConsumerRoot(t *testing.T, g *Guard, client *redis.Client, server string, raw []byte) map[string]any {
+func automaticConsumerRoot(
+	t *testing.T,
+	g *Guard,
+	client *redis.Client,
+	server string,
+	raw []byte,
+) map[string]any {
 	t.Helper()
-	root := map[string]any{"version": 1, "namespace": g.prefix, "guard_fingerprint": g.Fingerprint(), "phase": "normal", "worker_id": "worker:123", "consumer_server_id": server, "consumer_metadata_sha1": strings.Repeat("0", 40)}
+	root := map[string]any{
+		"version":                1,
+		"namespace":              g.prefix,
+		"guard_fingerprint":      g.Fingerprint(),
+		"phase":                  "normal",
+		"worker_id":              "worker:123",
+		"consumer_server_id":     server,
+		"consumer_metadata_sha1": strings.Repeat("0", 40),
+	}
 	automaticConsumerStoreRoot(t, g, client, root)
-	require.NoError(t, client.Set(context.Background(), "asynq:servers:{worker:123:"+server+"}", raw, 10*time.Second).Err())
+	require.NoError(
+		t,
+		client.Set(context.Background(), "asynq:servers:{worker:123:"+server+"}", raw, 10*time.Second).Err(),
+	)
 	return root
 }
 
@@ -103,22 +120,66 @@ func TestAutomaticConsumerCurrentSemanticHeartbeat(t *testing.T) {
 	require.True(t, proto.Equal(message, decoded))
 	var digests []string
 	for _, raw := range [][]byte{original, otherCount, otherEncoding} {
-		require.NoError(t, client.Set(ctx, "asynq:servers:{worker:123:"+server+"}", raw, 10*time.Second).Err())
+		require.NoError(
+			t,
+			client.Set(ctx, "asynq:servers:{worker:123:"+server+"}", raw, 10*time.Second).Err(),
+		)
 		digest, err := g.automaticConsumerDigest(ctx)
 		require.NoError(t, err)
 		expected := sha1.Sum(raw)
 		require.Equal(t, hex.EncodeToString(expected[:]), digest)
 		digests = append(digests, digest)
-		require.Equal(t, rootBefore, client.Get(ctx, g.key("system_service")).Val(), "semantic read must never refresh root metadata fingerprint")
-		require.Equal(t, g.Fingerprint(), client.Get(ctx, g.PermitKey()).Val(), "read cannot issue, renew or change the fixture permit")
-		require.Equal(t, countBefore, client.DBSize(ctx).Val(), "read cannot create registry, leases, grants or audit state")
+		require.Equal(
+			t,
+			rootBefore,
+			client.Get(ctx, g.key("system_service")).Val(),
+			"semantic read must never refresh root metadata fingerprint",
+		)
+		require.Equal(
+			t,
+			g.Fingerprint(),
+			client.Get(ctx, g.PermitKey()).Val(),
+			"read cannot issue, renew or change the fixture permit",
+		)
+		require.Equal(
+			t,
+			countBefore,
+			client.DBSize(ctx).Val(),
+			"read cannot create registry, leases, grants or audit state",
+		)
 	}
 	require.NotEqual(t, digests[0], digests[1])
 	require.NotEqual(t, digests[0], digests[2])
 }
 
 func TestAutomaticConsumerInvalidStateRemainsClosed(t *testing.T) {
-	for _, fault := range []string{"missing-root", "root-corrupt", "root-long", "root-version", "root-phase", "root-namespace", "root-fingerprint", "root-worker", "root-server", "metadata-missing", "metadata-long", "metadata-empty", "metadata-corrupt", "server-mismatch", "host-mismatch", "pid-mismatch", "stopped", "zero-concurrency", "missing-sync", "missing-approved", "zero-weight", "negative-weight", "context-canceled", "root-wrong-type", "metadata-wrong-type"} {
+	for _, fault := range []string{
+		"missing-root",
+		"root-corrupt",
+		"root-long",
+		"root-version",
+		"root-phase",
+		"root-namespace",
+		"root-fingerprint",
+		"root-worker",
+		"root-server",
+		"metadata-missing",
+		"metadata-long",
+		"metadata-empty",
+		"metadata-corrupt",
+		"server-mismatch",
+		"host-mismatch",
+		"pid-mismatch",
+		"stopped",
+		"zero-concurrency",
+		"missing-sync",
+		"missing-approved",
+		"zero-weight",
+		"negative-weight",
+		"context-canceled",
+		"root-wrong-type",
+		"metadata-wrong-type",
+	} {
 		t.Run(fault, func(t *testing.T) {
 			g, client := fixture(t, Config{})
 			g.RequireAutomaticService()
@@ -135,7 +196,10 @@ func TestAutomaticConsumerInvalidStateRemainsClosed(t *testing.T) {
 			case "root-corrupt":
 				require.NoError(t, client.Set(ctx, g.key("system_service"), "{secret-test-raw", 0).Err())
 			case "root-long":
-				require.NoError(t, client.Set(ctx, g.key("system_service"), strings.Repeat("x", 4097), 0).Err())
+				require.NoError(
+					t,
+					client.Set(ctx, g.key("system_service"), strings.Repeat("x", 4097), 0).Err(),
+				)
 			case "root-version":
 				root["version"] = 2
 				automaticConsumerStoreRoot(t, g, client, root)
@@ -156,7 +220,10 @@ func TestAutomaticConsumerInvalidStateRemainsClosed(t *testing.T) {
 				automaticConsumerStoreRoot(t, g, client, root)
 			case "root-wrong-type":
 				require.NoError(t, client.Del(ctx, g.key("system_service")).Err())
-				require.NoError(t, client.HSet(ctx, g.key("system_service"), "secret-test-raw", "not serialized").Err())
+				require.NoError(
+					t,
+					client.HSet(ctx, g.key("system_service"), "secret-test-raw", "not serialized").Err(),
+				)
 			case "metadata-wrong-type":
 				require.NoError(t, client.Del(ctx, key).Err())
 				require.NoError(t, client.HSet(ctx, key, "secret-test-raw", "not serialized").Err())
@@ -184,16 +251,24 @@ func TestAutomaticConsumerInvalidStateRemainsClosed(t *testing.T) {
 				message.Set(fields.ByName("concurrency"), protoreflect.ValueOfInt32(0))
 				changedMessage = true
 			case "missing-sync":
-				message.Mutable(fields.ByName("queues")).Map().Clear(protoreflect.ValueOfString("sync").MapKey())
+				message.Mutable(fields.ByName("queues")).
+					Map().
+					Clear(protoreflect.ValueOfString("sync").MapKey())
 				changedMessage = true
 			case "missing-approved":
-				message.Mutable(fields.ByName("queues")).Map().Clear(protoreflect.ValueOfString("approved_sync").MapKey())
+				message.Mutable(fields.ByName("queues")).
+					Map().
+					Clear(protoreflect.ValueOfString("approved_sync").MapKey())
 				changedMessage = true
 			case "zero-weight":
-				message.Mutable(fields.ByName("queues")).Map().Set(protoreflect.ValueOfString("approved_sync").MapKey(), protoreflect.ValueOfInt32(0))
+				message.Mutable(fields.ByName("queues")).
+					Map().
+					Set(protoreflect.ValueOfString("approved_sync").MapKey(), protoreflect.ValueOfInt32(0))
 				changedMessage = true
 			case "negative-weight":
-				message.Mutable(fields.ByName("queues")).Map().Set(protoreflect.ValueOfString("sync").MapKey(), protoreflect.ValueOfInt32(-1))
+				message.Mutable(fields.ByName("queues")).
+					Map().
+					Set(protoreflect.ValueOfString("sync").MapKey(), protoreflect.ValueOfInt32(-1))
 				changedMessage = true
 			case "context-canceled":
 				var cancel context.CancelFunc
@@ -201,13 +276,22 @@ func TestAutomaticConsumerInvalidStateRemainsClosed(t *testing.T) {
 				cancel()
 			}
 			if changedMessage {
-				require.NoError(t, client.Set(context.Background(), key, automaticConsumerWire(t, message), 10*time.Second).Err())
+				require.NoError(
+					t,
+					client.Set(context.Background(), key, automaticConsumerWire(t, message), 10*time.Second).
+						Err(),
+				)
 			}
 			digest, err := g.automaticConsumerDigest(ctx)
 			require.Error(t, err)
 			require.Empty(t, digest)
 			require.NotContains(t, err.Error(), "secret-test-raw")
-			require.Equal(t, g.Fingerprint(), client.Get(context.Background(), g.PermitKey()).Val(), "failure cannot mutate the pre-existing fixture permit")
+			require.Equal(
+				t,
+				g.Fingerprint(),
+				client.Get(context.Background(), g.PermitKey()).Val(),
+				"failure cannot mutate the pre-existing fixture permit",
+			)
 			if fault == "metadata-missing" {
 				require.ErrorIs(t, err, ErrControlTemporarilyUnavailable)
 			}

@@ -23,7 +23,12 @@ type AutomaticSourceKeyScopes interface {
 
 // Only DB-issued execution or ProcessSync's private pending proof may convert
 // an ordinary call into background authority. TaskInitiator is audit data.
-func automaticSourceAuthority(ctx context.Context, db, publication *gorm.DB, source, config string, keys ...AutomaticSourceKeyScopes) (NormalSourceAuthority, error) {
+func automaticSourceAuthority(
+	ctx context.Context,
+	db, publication *gorm.DB,
+	source, config string,
+	keys ...AutomaticSourceKeyScopes,
+) (NormalSourceAuthority, error) {
 	if ctx == nil || db == nil {
 		return NormalSourceAuthority{}, ErrRecoveryRejected
 	}
@@ -31,11 +36,14 @@ func automaticSourceAuthority(ctx context.Context, db, publication *gorm.DB, sou
 		if automaticHTTPAuthority(ctx) {
 			return NormalSourceAuthority{}, ErrRecoveryRejected
 		}
-		if execution.DataSourceID != source || execution.SyncLogID == "" || execution.TenantID == 0 || execution.Generation < 1 {
+		if execution.DataSourceID != source || execution.SyncLogID == "" ||
+			execution.TenantID == 0 ||
+			execution.Generation < 1 {
 			return NormalSourceAuthority{}, ErrRecoveryRejected
 		}
 		if pending, ok := systemPendingExecutionFromContext(ctx); ok &&
-			(pending.SourceID != source || pending.RunID != execution.SyncLogID || pending.TenantID != execution.TenantID) {
+			(pending.SourceID != source || pending.RunID != execution.SyncLogID ||
+				pending.TenantID != execution.TenantID) {
 			return NormalSourceAuthority{}, ErrRecoveryRejected
 		}
 		return automaticResourceAuthority(ctx, db, publication, source, config, true, keys...)
@@ -49,8 +57,9 @@ func automaticSourceAuthority(ctx context.Context, db, publication *gorm.DB, sou
 		}
 		work := automaticAuthorityDB(ctx, db, publication)
 		var count int64
-		if err := work.Table("sync_logs").Where("id=? AND data_source_id=? AND tenant_id=? AND status='running' AND execution_claimed=false",
-			pending.RunID, source, pending.TenantID).Count(&count).Error; err != nil {
+		if err := work.Table("sync_logs").
+			Where("id=? AND data_source_id=? AND tenant_id=? AND status='running' AND execution_claimed=false",
+				pending.RunID, source, pending.TenantID).Count(&count).Error; err != nil {
 			return NormalSourceAuthority{}, err
 		}
 		if count != 1 {
@@ -78,7 +87,11 @@ func automaticSourceAuthority(ctx context.Context, db, publication *gorm.DB, sou
 
 // Controller/scheduler-only entry. Never accept an authenticated HTTP principal
 // here. An audit-only TaskInitiator cannot choose the background policy actor.
-func automaticBackgroundSourceAuthority(ctx context.Context, db, publication *gorm.DB, source, config string) (NormalSourceAuthority, error) {
+func automaticBackgroundSourceAuthority(
+	ctx context.Context,
+	db, publication *gorm.DB,
+	source, config string,
+) (NormalSourceAuthority, error) {
 	if ctx == nil || db == nil {
 		return NormalSourceAuthority{}, ErrRecoveryRejected
 	}
@@ -111,13 +124,20 @@ func automaticAuthorityDB(ctx context.Context, db, publication *gorm.DB) *gorm.D
 	return db.WithContext(ctx)
 }
 
-func automaticResourceAuthority(ctx context.Context, db, publication *gorm.DB, source, config string, background bool, keys ...AutomaticSourceKeyScopes) (NormalSourceAuthority, error) {
+func automaticResourceAuthority(
+	ctx context.Context,
+	db, publication *gorm.DB,
+	source, config string,
+	background bool,
+	keys ...AutomaticSourceKeyScopes,
+) (NormalSourceAuthority, error) {
 	authContext := ctx
 	if background {
 		authContext = automaticAuthorizationContext(ctx)
 	}
 	policyContext := authContext
-	if key, ok := types.TenantAPIKeyScopeFromContext(authContext); ok && key.ScopeType != types.APIKeyScopeUserMCP {
+	if key, ok := types.TenantAPIKeyScopeFromContext(authContext); ok &&
+		key.ScopeType != types.APIKeyScopeUserMCP {
 		// api_platform:<id> and tenant-key display users are not human members.
 		// Only the old DB policy projection uses current source management; the
 		// actual request principal/key remains intact for resource authorization.
@@ -127,18 +147,29 @@ func automaticResourceAuthority(ctx context.Context, db, publication *gorm.DB, s
 	if err != nil {
 		return authority, err
 	}
-	loader := automaticSourceFacts{db: automaticAuthorityDB(authContext, db, publication), authority: authority, lock: publication != nil}
+	loader := automaticSourceFacts{
+		db:        automaticAuthorityDB(authContext, db, publication),
+		authority: authority,
+		lock:      publication != nil,
+	}
 	if len(keys) == 1 {
 		loader.keys = keys[0]
 	}
-	target := access.SourceWriteTarget{TenantID: authority.TenantID, KnowledgeBaseID: authority.KBID, SourceID: source}
+	target := access.SourceWriteTarget{
+		TenantID:        authority.TenantID,
+		KnowledgeBaseID: authority.KBID,
+		SourceID:        source,
+	}
 	if background {
 		err = access.AuthorizeBackgroundSourceWrite(authContext, target, loader)
 	} else {
 		err = access.AuthorizeSourceWrite(authContext, target, loader)
 	}
 	if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) ||
-		errors.Is(err, access.ErrNotFound) || errors.Is(err, types.ErrTenantAPIKeyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
+		errors.Is(
+			err,
+			access.ErrNotFound,
+		) || errors.Is(err, types.ErrTenantAPIKeyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = errors.Join(ErrRecoveryRejected, err)
 	}
 	return authority, err
@@ -159,31 +190,52 @@ func (l automaticSourceFacts) query(table string) *gorm.DB {
 	return q
 }
 
-func (l automaticSourceFacts) LoadSourceWriteFacts(ctx context.Context, target access.SourceWriteTarget, kind access.SourceWritePrincipal) (access.SourceWriteFacts, error) {
+func (l automaticSourceFacts) LoadSourceWriteFacts(
+	ctx context.Context,
+	target access.SourceWriteTarget,
+	kind access.SourceWritePrincipal,
+) (access.SourceWriteFacts, error) {
 	var facts access.SourceWriteFacts
 	var source types.DataSource
-	if err := l.query("data_sources").Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,deleted_at").
+	if err := l.query("data_sources").
+		Select("id,tenant_id,knowledge_base_id,type,status,legacy_access_state,config,deleted_at").
 		Where("id=? AND deleted_at IS NULL", target.SourceID).Take(&source).Error; err != nil {
 		return facts, err
 	}
-	fingerprint, err := feishusafety.SourceConfigFingerprint(source.ID, source.KnowledgeBaseID, source.Type,
-		source.LegacyAccessState, source.TenantID, source.Config)
-	if err != nil || fingerprint != l.authority.ConfigSHA256 || source.Status != "active" && source.Status != "error" {
+	fingerprint, err := feishusafety.SourceConfigFingerprint(
+		source.ID,
+		source.KnowledgeBaseID,
+		source.Type,
+		source.LegacyAccessState,
+		source.TenantID,
+		source.Config,
+	)
+	if err != nil || fingerprint != l.authority.ConfigSHA256 ||
+		source.Status != "active" && source.Status != "error" {
 		return facts, ErrRecoveryRejected
 	}
 	var tenant struct {
 		ID     uint64
 		Status string
 	}
-	if err := l.query("tenants").Select("id,status").Where("id=? AND deleted_at IS NULL", target.TenantID).Take(&tenant).Error; err != nil {
+	if err := l.query("tenants").
+		Select("id,status").
+		Where("id=? AND deleted_at IS NULL", target.TenantID).
+		Take(&tenant).Error; err != nil {
 		return facts, err
 	}
 	var kb types.KnowledgeBase
-	if err := l.query("knowledge_bases").Select("id,tenant_id,deleted_at").Where("id=?", target.KnowledgeBaseID).Take(&kb).Error; err != nil {
+	if err := l.query("knowledge_bases").
+		Select("id,tenant_id,deleted_at").
+		Where("id=?", target.KnowledgeBaseID).
+		Take(&kb).Error; err != nil {
 		return facts, err
 	}
 	var private struct{ OwnerID string }
-	if err := l.query("feishu_private_kbs").Select("owner_id").Where("kb_id=?", kb.ID).Scan(&private).Error; err != nil {
+	if err := l.query("feishu_private_kbs").
+		Select("owner_id").
+		Where("kb_id=?", kb.ID).
+		Scan(&private).Error; err != nil {
 		return facts, err
 	}
 	kb.PrivateOwnerID = private.OwnerID
@@ -205,15 +257,26 @@ func (l automaticSourceFacts) LoadSourceWriteFacts(ctx context.Context, target a
 		return facts, ErrRecoveryRejected
 	}
 	facts.TenantID, facts.TenantStatus, facts.KnowledgeBase = tenant.ID, tenant.Status, &kb
-	facts.Source = &access.SourceWriteSource{ID: source.ID, TenantID: source.TenantID, KnowledgeBaseID: source.KnowledgeBaseID, Revision: fingerprint}
+	facts.Source = &access.SourceWriteSource{
+		ID:              source.ID,
+		TenantID:        source.TenantID,
+		KnowledgeBaseID: source.KnowledgeBaseID,
+		Revision:        fingerprint,
+	}
 	if execution, ok := types.SyncExecutionFromContext(ctx); ok {
 		var live types.SyncLog
 		if err := l.query("sync_logs").Select("id,data_source_id,tenant_id,execution_generation").
-			Where("id=? AND data_source_id=? AND tenant_id=? AND status='running' AND execution_claimed=true AND execution_generation=?",
+			Where("id=? AND data_source_id=? AND tenant_id=? AND status='running' "+
+				"AND execution_claimed=true AND execution_generation=?",
 				execution.SyncLogID, source.ID, source.TenantID, execution.Generation).Take(&live).Error; err != nil {
 			return facts, err
 		}
-		facts.Execution = &types.SyncExecution{DataSourceID: live.DataSourceID, SyncLogID: live.ID, TenantID: live.TenantID, Generation: live.ExecutionGeneration}
+		facts.Execution = &types.SyncExecution{
+			DataSourceID: live.DataSourceID,
+			SyncLogID:    live.ID,
+			TenantID:     live.TenantID,
+			Generation:   live.ExecutionGeneration,
+		}
 	}
 	if kind == access.SourceWriteBackground {
 		config, err := source.ParseConfig()
@@ -240,7 +303,10 @@ func (l automaticSourceFacts) LoadSourceWriteFacts(ctx context.Context, target a
 
 // Anonymous projection + Table query: no secret/hash column or TenantAPIKey
 // AfterFind hook is used. Dynamic user-MCP scope is resolved by the repository.
-func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.SourceWriteKey, error) {
+func (l automaticSourceFacts) key(
+	ctx context.Context,
+	tenant uint64,
+) (*access.SourceWriteKey, error) {
 	scope, ok := types.TenantAPIKeyScopeFromContext(ctx)
 	if !ok || scope.KeyID == 0 {
 		return nil, ErrRecoveryRejected
@@ -254,7 +320,11 @@ func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.S
 		KnowledgeBaseIDs, Capabilities types.StringArray
 		ExpiresAt, RevokedAt           *time.Time
 	}
-	if err := l.query("tenant_api_keys").Select("id,tenant_id,owner_user_id,scope_type,full_access,knowledge_base_ids,capabilities,expires_at,revoked_at").Where("id=?", scope.KeyID).Take(&row).Error; err != nil {
+	if err := l.query("tenant_api_keys").
+		Select("id,tenant_id,owner_user_id,scope_type,full_access,"+
+			"knowledge_base_ids,capabilities,expires_at,revoked_at").
+		Where("id=?", scope.KeyID).
+		Take(&row).Error; err != nil {
 		return nil, err
 	}
 	p, _ := ctx.Value(types.PrincipalContextKey).(types.Principal)
@@ -262,7 +332,12 @@ func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.S
 		KeyID: row.ID, ScopeType: row.ScopeType, FullAccess: row.FullAccess,
 		KnowledgeBaseIDs: row.KnowledgeBaseIDs, Capabilities: row.Capabilities,
 	}
-	key := &access.SourceWriteKey{TenantID: tenant, Scope: current, Revoked: row.RevokedAt != nil, ExpiresAt: row.ExpiresAt}
+	key := &access.SourceWriteKey{
+		TenantID:  tenant,
+		Scope:     current,
+		Revoked:   row.RevokedAt != nil,
+		ExpiresAt: row.ExpiresAt,
+	}
 	if row.OwnerUserID != nil {
 		key.OwnerUserID = *row.OwnerUserID
 	}
@@ -271,14 +346,18 @@ func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.S
 	}
 	switch row.ScopeType {
 	case types.APIKeyScopeTenant:
+		tenantPrincipal := p.Type == types.PrincipalAPITenant &&
+			p.ID == strconv.FormatUint(tenant, 10)
+		externalPrincipal := p.Type == types.PrincipalAPIExternalUser &&
+			strings.HasPrefix(p.ID, strconv.FormatUint(tenant, 10)+":") &&
+			len(p.ID) > len(strconv.FormatUint(tenant, 10))+1
 		if row.TenantID == nil || *row.TenantID != tenant ||
-			!(p.Type == types.PrincipalAPITenant && p.ID == strconv.FormatUint(tenant, 10) ||
-				p.Type == types.PrincipalAPIExternalUser && strings.HasPrefix(p.ID, strconv.FormatUint(tenant, 10)+":") &&
-					len(p.ID) > len(strconv.FormatUint(tenant, 10))+1) {
+			(!tenantPrincipal && !externalPrincipal) {
 			return nil, ErrRecoveryRejected
 		}
 	case types.APIKeyScopePlatform:
-		if row.TenantID != nil || p.Type != types.PrincipalAPIPlatform || p.ID != strconv.FormatUint(row.ID, 10) {
+		if row.TenantID != nil || p.Type != types.PrincipalAPIPlatform ||
+			p.ID != strconv.FormatUint(row.ID, 10) {
 			return nil, ErrRecoveryRejected
 		}
 		key.Scope.FullAccess = false // Existing platform auth never derives full_access.
@@ -295,7 +374,8 @@ func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.S
 		}
 		key.Scope.KnowledgeBaseIDs = nil
 		key.Scope.KnowledgeBaseRestricted = grant.KBScopeMode == types.APIKeyKBScopeSelected
-		if grant.KBScopeMode != types.APIKeyKBScopeAll && grant.KBScopeMode != types.APIKeyKBScopeSelected {
+		if grant.KBScopeMode != types.APIKeyKBScopeAll &&
+			grant.KBScopeMode != types.APIKeyKBScopeSelected {
 			return nil, ErrRecoveryRejected
 		}
 		for _, item := range grant.KnowledgeBases {

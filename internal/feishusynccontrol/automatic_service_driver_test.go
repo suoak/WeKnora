@@ -30,12 +30,35 @@ func nativeAutomaticService(t *testing.T) (*automaticService, *redis.Client, asy
 	dir, err := os.MkdirTemp("", "knowhub-driver-redis-")
 	require.NoError(t, err)
 	socket := filepath.Join(dir, "redis.sock")
-	command := exec.Command(executable, "--port", "0", "--unixsocket", socket, "--unixsocketperm", "700", "--save", "", "--appendonly", "no", "--loglevel", "warning")
+	command := exec.Command(
+		executable,
+		"--port",
+		"0",
+		"--unixsocket",
+		socket,
+		"--unixsocketperm",
+		"700",
+		"--save",
+		"",
+		"--appendonly",
+		"no",
+		"--loglevel",
+		"warning",
+	)
 	command.Stdout, command.Stderr = io.Discard, io.Discard
 	require.NoError(t, command.Start())
 	finished := make(chan error, 1)
 	go func() { finished <- command.Wait() }()
-	client := redis.NewClient(&redis.Options{Network: "unix", Addr: socket, MaxRetries: -1, DialTimeout: 200 * time.Millisecond, ReadTimeout: 200 * time.Millisecond, WriteTimeout: 200 * time.Millisecond})
+	client := redis.NewClient(
+		&redis.Options{
+			Network:      "unix",
+			Addr:         socket,
+			MaxRetries:   -1,
+			DialTimeout:  200 * time.Millisecond,
+			ReadTimeout:  200 * time.Millisecond,
+			WriteTimeout: 200 * time.Millisecond,
+		},
+	)
 	t.Cleanup(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
@@ -49,25 +72,71 @@ func nativeAutomaticService(t *testing.T) (*automaticService, *redis.Client, asy
 		}
 		require.NoError(t, os.RemoveAll(dir)) // Exact, generated, test-owned directory.
 	})
-	require.Eventually(t, func() bool { return client.Ping(context.Background()).Err() == nil }, 3*time.Second, 20*time.Millisecond)
+	require.Eventually(
+		t,
+		func() bool { return client.Ping(context.Background()).Err() == nil },
+		3*time.Second,
+		20*time.Millisecond,
+	)
 	info, err := client.Info(context.Background(), "server").Result()
 	require.NoError(t, err)
 	require.Contains(t, info, "redis_version:")
 	t.Log("backend: independently owned real Redis process and real Asynq consumer")
-	guard, err := feishusafety.New(client, feishusafety.Config{Namespace: "native-driver-" + uuid.NewString(), EndpointHost: "gateway.invalid", InFlight: 1, RPM: 30, RPS: 1, TPM: 30000, WaitBudgetDuration: time.Second, TokenBoundVerified: true})
+	guard, err := feishusafety.New(
+		client,
+		feishusafety.Config{
+			Namespace:          "native-driver-" + uuid.NewString(),
+			EndpointHost:       "gateway.invalid",
+			InFlight:           1,
+			RPM:                30,
+			RPS:                1,
+			TPM:                30000,
+			WaitBudgetDuration: time.Second,
+			TokenBoundVerified: true,
+		},
+	)
 	require.NoError(t, err)
 	host, err := os.Hostname()
 	require.NoError(t, err)
-	controller, err := New(client, guard, Config{Automatic: true, AutomaticService: true, DedicatedSyncLane: true, Scope: "all", WorkerID: fmt.Sprintf("%s:%d", host, os.Getpid()), SourceSHA: strings.Repeat("a", 40), Maintenance: 4}, func(context.Context) error { return nil }, func(Event) error { return nil })
+	controller, err := New(
+		client,
+		guard,
+		Config{
+			Automatic:         true,
+			AutomaticService:  true,
+			DedicatedSyncLane: true,
+			Scope:             "all",
+			WorkerID:          fmt.Sprintf("%s:%d", host, os.Getpid()),
+			SourceSHA:         strings.Repeat("a", 40),
+			Maintenance:       4,
+		},
+		func(context.Context) error { return nil },
+		func(Event) error { return nil },
+	)
 	require.NoError(t, err)
 	controller.ApprovedConsumers = ApprovedConsumers(client)
-	return &automaticService{c: controller}, client, asynq.RedisClientOpt{Network: "unix", Addr: socket}
+	return &automaticService{
+			c: controller,
+		}, client, asynq.RedisClientOpt{
+			Network: "unix",
+			Addr:    socket,
+		}
 }
 
 func startNativeAutomaticConsumer(t *testing.T, redisOpt asynq.RedisClientOpt) *asynq.Server {
 	t.Helper()
-	server := asynq.NewServer(redisOpt, asynq.Config{Concurrency: 1, Queues: map[string]int{"sync": 1, ApprovedSyncQueue: 1}, ShutdownTimeout: time.Second})
-	require.NoError(t, server.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return nil })))
+	server := asynq.NewServer(
+		redisOpt,
+		asynq.Config{
+			Concurrency:     1,
+			Queues:          map[string]int{"sync": 1, ApprovedSyncQueue: 1},
+			ShutdownTimeout: time.Second,
+		},
+	)
+	require.NoError(
+		t,
+		server.Start(asynq.HandlerFunc(func(context.Context, *asynq.Task) error { return nil })),
+	)
 	t.Cleanup(server.Shutdown)
 	return server
 }
@@ -77,7 +146,15 @@ func nativeAutomaticProof(t *testing.T, s *automaticService) systemHealthProof {
 	var proof systemHealthProof
 	require.Eventually(t, func() bool {
 		c := s.c
-		if register.Run(context.Background(), c.Client, []string{c.prefix + "workers", c.prefix + "leases", c.prefix + "joining", c.prefix + "admitted", c.prefix + "membership_revision"}, c.Config.WorkerID, c.fingerprint+":"+c.incarnation).Err() != nil {
+		if register.Run(context.Background(), c.Client, []string{
+			c.prefix + "workers",
+			c.prefix + "leases",
+			c.prefix + "joining",
+			c.prefix + "admitted",
+			c.prefix + "membership_revision",
+		}, c.Config.WorkerID, c.fingerprint+":"+c.incarnation).
+			Err() !=
+			nil {
 			return false
 		}
 		var err error
@@ -96,10 +173,20 @@ func nativeAutomaticStable(t *testing.T, s *automaticService) systemHealthProof 
 		if s.stable.observe(time.Now(), proof, nil) {
 			break
 		}
-		require.Less(t, time.Since(start), 5*time.Second, "real healthy observation did not stabilize")
+		require.Less(
+			t,
+			time.Since(start),
+			5*time.Second,
+			"real healthy observation did not stabilize",
+		)
 		time.Sleep(150 * time.Millisecond)
 	}
-	require.GreaterOrEqual(t, s.stable.last.Sub(s.stable.started), 3*time.Second, "only actual elapsed observation time establishes stability")
+	require.GreaterOrEqual(
+		t,
+		s.stable.last.Sub(s.stable.started),
+		3*time.Second,
+		"only actual elapsed observation time establishes stability",
+	)
 	return proof
 }
 
@@ -140,11 +227,25 @@ func TestAutomaticServiceNativeHealthyMetadataGapStableWindow(t *testing.T) {
 	require.NoError(t, r.Set(ctx, key, raw, ttl).Err())
 	recovered := nativeAutomaticProof(t, s)
 	require.Equal(t, proof.ConsumerServerIDs, recovered.ConsumerServerIDs)
-	require.False(t, s.stable.observe(time.Now(), recovered, nil), "one recovered read is not a stable window")
-	require.ErrorIs(t, s.step(ctx), ErrNotReady, "driver must wait, not enter SQL migration on first recovered sample")
+	require.False(
+		t,
+		s.stable.observe(time.Now(), recovered, nil),
+		"one recovered read is not a stable window",
+	)
+	require.ErrorIs(
+		t,
+		s.step(ctx),
+		ErrNotReady,
+		"driver must wait, not enter SQL migration on first recovered sample",
+	)
 	assertNativeAutomaticClosed(t, s)
 	nativeAutomaticStable(t, s)
-	require.Equal(t, trip, r.Get(ctx, s.c.prefix+"trip").Val(), "health samples never erase historical evidence")
+	require.Equal(
+		t,
+		trip,
+		r.Get(ctx, s.c.prefix+"trip").Val(),
+		"health samples never erase historical evidence",
+	)
 	assertNativeAutomaticClosed(t, s) // No SQL receipt/canary/publication was issued.
 }
 
@@ -162,11 +263,24 @@ func TestAutomaticServiceNativeConsumerExitAndReplacementIdentity(t *testing.T) 
 	replacement := nativeAutomaticProof(t, s)
 	require.Equal(t, original.WorkerID, replacement.WorkerID)
 	require.Equal(t, incarnation, s.c.incarnation)
-	require.NotEqual(t, original.ConsumerServerIDs, replacement.ConsumerServerIDs, "real Asynq restart has a new server UUID")
-	require.False(t, s.stable.observe(time.Now(), replacement, nil), "replacement SID cannot inherit the old stable window")
+	require.NotEqual(
+		t,
+		original.ConsumerServerIDs,
+		replacement.ConsumerServerIDs,
+		"real Asynq restart has a new server UUID",
+	)
+	require.False(
+		t,
+		s.stable.observe(time.Now(), replacement, nil),
+		"replacement SID cannot inherit the old stable window",
+	)
 	require.ErrorIs(t, s.step(context.Background()), ErrNotReady)
 	assertNativeAutomaticClosed(t, s)
-	require.Zero(t, r.Exists(context.Background(), s.c.prefix+"system_service").Val(), "health-only fixture does not invent a durable SQL service epoch")
+	require.Zero(
+		t,
+		r.Exists(context.Background(), s.c.prefix+"system_service").Val(),
+		"health-only fixture does not invent a durable SQL service epoch",
+	)
 }
 
 func TestAutomaticServiceNativeExpiredMetadataAndCanceledProbe(t *testing.T) {

@@ -30,15 +30,21 @@ func canaryWitnessKey(state systemServiceState) string {
 	return systemServiceSetting + ".canary." + state.Epoch + "." + state.CanaryRunID
 }
 
-func readCanaryWitness(ctx context.Context, db *gorm.DB, state systemServiceState) (systemCanaryWitness, error) {
+func readCanaryWitness(
+	ctx context.Context,
+	db *gorm.DB,
+	state systemServiceState,
+) (systemCanaryWitness, error) {
 	var witness systemCanaryWitness
 	var row types.SystemSetting
 	if err := db.WithContext(ctx).First(&row, "key=?", canaryWitnessKey(state)).Error; err != nil {
 		return witness, err
 	}
 	if json.Unmarshal(row.Value, &witness) != nil || witness.Version != 1 || witness.Epoch != state.Epoch ||
-		witness.SourceID != state.CanarySourceID || witness.RunID != state.CanaryRunID || witness.RuntimeSHA != state.RuntimeSHA ||
-		witness.WorkerValue != state.WorkerValue || !recoverySHA.MatchString(witness.PublicationSHA256) {
+		witness.SourceID != state.CanarySourceID || witness.RunID != state.CanaryRunID ||
+		witness.RuntimeSHA != state.RuntimeSHA ||
+		witness.WorkerValue != state.WorkerValue ||
+		!recoverySHA.MatchString(witness.PublicationSHA256) {
 		return witness, ErrNotReady
 	}
 	hash, err := RecoveryDigest(witness)
@@ -74,12 +80,20 @@ func canaryPublicationDigest(ctx context.Context, db *gorm.DB, source string) (s
 	return RecoveryDigest(rows)
 }
 
-func (s *automaticService) advanceCanary(ctx context.Context, state systemServiceState, rawState string) error {
+func (s *automaticService) advanceCanary(
+	ctx context.Context,
+	state systemServiceState,
+	rawState string,
+) error {
 	var witness systemCanaryWitness
 	outcome := "pending"
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		var locked string
-		if err := tx.Raw("SELECT id FROM data_sources WHERE id=? AND deleted_at IS NULL FOR UPDATE", state.CanarySourceID).Scan(&locked).Error; err != nil {
+		if err := tx.Raw(
+			"SELECT id FROM data_sources WHERE id=? AND deleted_at IS NULL FOR UPDATE",
+			state.CanarySourceID,
+		).
+			Scan(&locked).Error; err != nil {
 			return err
 		}
 		if locked != state.CanarySourceID {
@@ -102,7 +116,13 @@ func (s *automaticService) advanceCanary(ctx context.Context, state systemServic
 		if json.Unmarshal([]byte(raw), &entry) != nil || entry.Epoch != state.Epoch {
 			return ErrNotReady
 		}
-		authority, err := automaticBackgroundSourceAuthority(ctx, s.db, tx, state.CanarySourceID, entry.ConfigSHA256)
+		authority, err := automaticBackgroundSourceAuthority(
+			ctx,
+			s.db,
+			tx,
+			state.CanarySourceID,
+			entry.ConfigSHA256,
+		)
 		if err != nil {
 			if errors.Is(err, ErrRecoveryRejected) {
 				outcome = "source_failed"
@@ -125,7 +145,9 @@ func (s *automaticService) advanceCanary(ctx context.Context, state systemServic
 		witness = systemCanaryWitness{
 			Version: 1, Epoch: state.Epoch, SourceID: state.CanarySourceID, RunID: state.CanaryRunID,
 			RuntimeSHA: state.RuntimeSHA, WorkerValue: state.WorkerValue, ConfigSHA256: authority.ConfigSHA256,
-			AuthoritySHA256: authority.AuthoritySHA256, ExecutionSHA256: authority.ExecutionSHA256, PublicationSHA256: publication,
+			AuthoritySHA256:   authority.AuthoritySHA256,
+			ExecutionSHA256:   authority.ExecutionSHA256,
+			PublicationSHA256: publication,
 		}
 		encoded, err := json.Marshal(witness)
 		if err != nil {
@@ -143,7 +165,14 @@ func (s *automaticService) advanceCanary(ctx context.Context, state systemServic
 		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return err
 		}
-		return tx.Create(&types.SystemSetting{Key: canaryWitnessKey(state), Value: types.JSON(encoded), ValueType: "string", Category: "integration"}).Error
+		return tx.Create(
+			&types.SystemSetting{
+				Key:       canaryWitnessKey(state),
+				Value:     types.JSON(encoded),
+				ValueType: "string",
+				Category:  "integration",
+			},
+		).Error
 	})
 	if err != nil || outcome == "pending" {
 		return err
@@ -172,5 +201,11 @@ else redis.call('HSET',KEYS[4],s.canary_source_id,tostring(now+60000)) end
 redis.call('XADD',KEYS[3],'*','event','automatic_canary_'..ARGV[3],
  'epoch',s.epoch,'source_id',s.canary_source_id,'run_id',s.canary_run_id,'publication_proof',next.canary_proof_sha256 or '')
 redis.call('SET',KEYS[1],cjson.encode(next));return 1`).Run(ctx, s.c.Client,
-		[]string{s.c.prefix + "system_service", s.c.prefix + "trip", s.c.prefix + "system_journal", s.c.prefix + "system_source_backoff"}, rawState, string(encoded), outcome).Err()
+		[]string{
+			s.c.prefix + "system_service",
+			s.c.prefix + "trip",
+			s.c.prefix + "system_journal",
+			s.c.prefix + "system_source_backoff",
+		}, rawState, string(encoded), outcome).
+		Err()
 }

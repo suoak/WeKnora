@@ -25,7 +25,12 @@ func TestAutomaticServiceClaimGuardAndPendingRequestRetention(t *testing.T) {
 					Type: "feishu_drive", Status: "active", LegacyAccessState: "unmanaged", Config: types.JSON(`{}`),
 				}
 				require.NoError(t, db.Create(&source).Error)
-				log := types.SyncLog{ID: uuid.NewString(), DataSourceID: source.ID, TenantID: 1, Status: types.SyncLogStatusRunning}
+				log := types.SyncLog{
+					ID:           uuid.NewString(),
+					DataSourceID: source.ID,
+					TenantID:     1,
+					Status:       types.SyncLogStatusRunning,
+				}
 				require.NoError(t, db.Create(&log).Error)
 				return source, log
 			}
@@ -33,24 +38,40 @@ func TestAutomaticServiceClaimGuardAndPendingRequestRetention(t *testing.T) {
 			queuedSource, queuedLog := makeRun()
 			repo := &SyncLogRepository{db: db}
 			changedEpoch := errors.New("verified system epoch changed")
-			blocked := types.WithSyncAdmissionGuard(ctx, source.ID, log.ID, 1, func(tx *gorm.DB, owner types.SyncExecution) error {
-				var assigned types.SyncLog
-				require.NoError(t, tx.First(&assigned, "id=?", owner.SyncLogID).Error)
-				require.True(t, assigned.ExecutionClaimed)
-				require.Equal(t, assigned.ExecutionGeneration, owner.Generation)
-				return changedEpoch
-			})
+			blocked := types.WithSyncAdmissionGuard(
+				ctx,
+				source.ID,
+				log.ID,
+				1,
+				func(tx *gorm.DB, owner types.SyncExecution) error {
+					var assigned types.SyncLog
+					require.NoError(t, tx.First(&assigned, "id=?", owner.SyncLogID).Error)
+					require.True(t, assigned.ExecutionClaimed)
+					require.Equal(t, assigned.ExecutionGeneration, owner.Generation)
+					return changedEpoch
+				},
+			)
 			_, claimed, err := repo.ClaimExecution(blocked, source.ID, log.ID, 1)
 			require.ErrorIs(t, err, changedEpoch)
 			require.False(t, claimed)
 			var unchanged types.SyncLog
 			require.NoError(t, db.First(&unchanged, "id=?", log.ID).Error)
 			require.False(t, unchanged.ExecutionClaimed)
-			require.Zero(t, unchanged.ExecutionGeneration, "failed admission rolls back the actual generation assignment")
-			wrongRun := types.WithSyncAdmissionGuard(ctx, source.ID, uuid.NewString(), 1, func(*gorm.DB, types.SyncExecution) error {
-				t.Fatal("wrong-bound admission callback invoked")
-				return nil
-			})
+			require.Zero(
+				t,
+				unchanged.ExecutionGeneration,
+				"failed admission rolls back the actual generation assignment",
+			)
+			wrongRun := types.WithSyncAdmissionGuard(
+				ctx,
+				source.ID,
+				uuid.NewString(),
+				1,
+				func(*gorm.DB, types.SyncExecution) error {
+					t.Fatal("wrong-bound admission callback invoked")
+					return nil
+				},
+			)
 			_, claimed, err = repo.ClaimExecution(wrongRun, source.ID, log.ID, 1)
 			require.ErrorIs(t, err, types.ErrStaleSyncExecution)
 			require.False(t, claimed)

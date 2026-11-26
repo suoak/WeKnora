@@ -14,6 +14,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
+// ErrTenantAPIKeyNotFound preserves the shared domain error for repository callers.
 var ErrTenantAPIKeyNotFound = types.ErrTenantAPIKeyNotFound
 
 type tenantAPIKeyRepository struct {

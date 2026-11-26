@@ -87,7 +87,8 @@ Actual qualification to date (2026-11-26, Asia/Shanghai):
 | Linux run 45740113710, source `bcbd544cf` | PASS: race/control/access 812, SQL/claim/scheduler 13, APP wiring 22; zero skips | Includes live protobuf validation/read-use CAS and all real Redis/Asynq gates. Final review subsequently added explicit rejection of legacy reconciliation purposes; that final head requires another exact-source run. |
 | Native Windows control/safety/access regression | PASS | Real CGO and stack protection retained by linking the installed libssp. No configured private PostgreSQL or Redis executable; gated cases are not database/native-consumer acceptance. Later changes need rerun. |
 | Final candidate Linux race, SQL, real Redis/Asynq and APP wiring | Pending | Use the exact committed head; earlier run results cannot qualify uncommitted runtime changes. |
-| Full native APP acceptance and production restoration | NOT_RUN | No production safety-state changes, archived replay, forced finalization, or Wiki tuning. |
+| Full native APP run 45742983624, source `bcbd544cf` | PASS: 16 HTTP/MCP/Wiki cases, actual Worker/lease/heartbeat, 600ms metadata-gap diagnostic and stable recovery, ClamAV/EICAR | Fresh isolated PostgreSQL/Redis/storage/network/accounts; no signing credentials. Zero remote Feishu sources, so real Feishu export/publication remains NOT_RUN. Later legacy-purpose rejection and build-input changes require final-source qualification. |
+| Production ordinary-service restoration | NOT_RUN | No production safety-state migration, archived replay or forced finalization. |
 
 PR #266 is separately merged into `6ee9f128c4fc5ea62974995a0c725213f8f2c56b`;
 no batch/map increase or production change is implied by that merge.
@@ -113,6 +114,14 @@ before deployment. The release recipe therefore has an explicit build-only
 `CARGO_SOURCE_ARG=crates-io` alternative to its unchanged `ustc` default. Both
 retain Cargo `--locked`, the committed dependency checksums and the independently
 verified pinned AnyDoc source. Final-source native qualification is still needed.
+The option applies to the AnyDoc builder; BrowserSkill retains its existing
+mirror configuration, so a cached qualification is not proof that every cold
+build dependency is reachable.
+
+Final PR lint run 45744187863 rejected new-code line lengths, missing exported
+comments, two unchecked test fault-injection return values and a boolean-style
+finding. The correction retains all checks and runtime conditions; formatting
+does not weaken admission or dependency tests. Its final-source rerun is pending.
 
 ## Historical task purpose boundary
 

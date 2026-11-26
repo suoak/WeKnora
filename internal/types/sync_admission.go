@@ -20,9 +20,14 @@ type syncAdmissionGuard struct {
 func WithSyncAdmissionGuard(ctx context.Context, source, run string, tenant uint64,
 	check func(*gorm.DB, SyncExecution) error,
 ) context.Context {
-	return context.WithValue(ctx, syncAdmissionKey{}, syncAdmissionGuard{source: source, run: run, tenant: tenant, check: check})
+	return context.WithValue(
+		ctx,
+		syncAdmissionKey{},
+		syncAdmissionGuard{source: source, run: run, tenant: tenant, check: check},
+	)
 }
 
+// CheckSyncAdmission verifies the server-owned continuation inside the real claim transaction.
 func CheckSyncAdmission(tx *gorm.DB, execution SyncExecution) error {
 	proof, present := tx.Statement.Context.Value(syncAdmissionKey{}).(syncAdmissionGuard)
 	if !present {

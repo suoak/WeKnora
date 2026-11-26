@@ -14,7 +14,12 @@ func TestAutomaticServiceRejectsLegacyPurposeBeforeDependencyRead(t *testing.T) 
 	// not availability of a legacy ticket or its old infrastructure.
 	m := &RecoveryManager{system: &automaticService{}}
 	for _, worker := range []bool{false, true} {
-		ctx, raw, err := m.reconciliationContext(context.Background(), uuid.NewString(), uuid.NewString(), worker)
+		ctx, raw, err := m.reconciliationContext(
+			context.Background(),
+			uuid.NewString(),
+			uuid.NewString(),
+			worker,
+		)
 		require.ErrorIs(t, err, ErrRecoveryRejected)
 		require.ErrorContains(t, err, "legacy_reconciliation_not_applicable")
 		require.Empty(t, raw)

@@ -58,27 +58,54 @@ func TestSystemServiceSQLReceiptRetainsEvidenceAndClosesSplitCommit(t *testing.T
 	var retired NormalServiceRecord
 	require.NoError(t, json.Unmarshal(legacy.Value, &retired))
 	require.False(t, retired.Active)
-	require.Equal(t, f.saved.Authorization, retired.Authorization, "original real fixture signature is retained exactly")
+	require.Equal(
+		t,
+		f.saved.Authorization,
+		retired.Authorization,
+		"original real fixture signature is retained exactly",
+	)
 	var histories []types.SystemSetting
-	require.NoError(t, db.Where("key LIKE ?", NormalServiceSetting+".history.%").Find(&histories).Error)
+	require.NoError(
+		t,
+		db.Where("key LIKE ?", NormalServiceSetting+".history.%").Find(&histories).Error,
+	)
 	require.Len(t, histories, 1)
 	var historical NormalServiceRecord
 	require.NoError(t, json.Unmarshal(histories[0].Value, &historical))
 	require.Equal(t, *f.saved, historical)
-	require.Error(t, prepareSystemReceipt(ctx, db, receipt, nil), "repeated preparation cannot overwrite a durable epoch")
+	require.Error(
+		t,
+		prepareSystemReceipt(ctx, db, receipt, nil),
+		"repeated preparation cannot overwrite a durable epoch",
+	)
 	require.NoError(t, acknowledgeSystemReceipt(ctx, db, *receipt))
 	require.NoError(t, checkSystemReceipt(ctx, db, state))
-	require.Error(t, acknowledgeSystemReceipt(ctx, db, *receipt), "lost acknowledgment is reconciled by reading state, not rewriting it")
+	require.Error(
+		t,
+		acknowledgeSystemReceipt(ctx, db, *receipt),
+		"lost acknowledgment is reconciled by reading state, not rewriting it",
+	)
 	changed := state
 	changed.Epoch = uuid.NewString()
 	require.ErrorIs(t, checkSystemReceipt(ctx, db, changed), ErrNotReady)
 	// Emulate the old executable policy reader after the atomic Redis half.
 	// This is a protocol compatibility assertion, not a full old-APP rollout.
-	require.NoError(t, f.c.Client.Set(ctx, f.c.prefix+"normal_service", receipt.RetiredNormal, 0).Err())
-	require.NoError(t, f.c.Client.Set(ctx, f.c.prefix+"recovery_required", "system-service-v1:"+state.Epoch, 0).Err())
+	require.NoError(
+		t,
+		f.c.Client.Set(ctx, f.c.prefix+"normal_service", receipt.RetiredNormal, 0).Err(),
+	)
+	require.NoError(
+		t,
+		f.c.Client.Set(ctx, f.c.prefix+"recovery_required", "system-service-v1:"+state.Epoch, 0).
+			Err(),
+	)
 	require.NoError(t, f.m.ConfigureNormalService(f.load, f.store, &retired))
 	active, err := f.m.NormalServiceActive(ctx)
 	require.NoError(t, err)
 	require.False(t, active)
-	require.Error(t, f.c.checkRecoveryPolicy(ctx), "old incident cannot bypass the system Canary after binary rollback")
+	require.Error(
+		t,
+		f.c.checkRecoveryPolicy(ctx),
+		"old incident cannot bypass the system Canary after binary rollback",
+	)
 }

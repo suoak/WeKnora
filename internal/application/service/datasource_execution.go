@@ -70,7 +70,8 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 					if readErr != nil {
 						return readErr
 					}
-					if snapshot != nil && snapshot.DataSourceID == payload.DataSourceID && snapshot.TenantID == payload.TenantID {
+					if snapshot != nil && snapshot.DataSourceID == payload.DataSourceID &&
+						snapshot.TenantID == payload.TenantID {
 						if _, finishErr := finalizer.FinalizeReleasedExecution(ctx, snapshot); finishErr != nil {
 							return finishErr
 						}

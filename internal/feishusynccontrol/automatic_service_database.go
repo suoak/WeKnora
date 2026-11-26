@@ -57,7 +57,8 @@ func readSystemReceipt(ctx context.Context, db *gorm.DB) (*systemServiceReceipt,
 		return nil, ErrNotReady
 	}
 	var immutable types.SystemSetting
-	if err := db.WithContext(ctx).First(&immutable, "key=?", systemServiceSetting+".epoch."+receipt.Epoch).Error; err != nil {
+	if err := db.WithContext(ctx).
+		First(&immutable, "key=?", systemServiceSetting+".epoch."+receipt.Epoch).Error; err != nil {
 		return nil, err
 	}
 	var frozen systemServiceReceipt
@@ -121,7 +122,9 @@ func prepareSystemReceipt(ctx context.Context, db *gorm.DB, receipt *systemServi
 		// signed record/history. An older binary must remain closed on rollback;
 		// it cannot ignore the new system Canary and resume its wide grant.
 		var legacy types.SystemSetting
-		err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(&legacy, "key=?", NormalServiceSetting).Error
+		err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			First(&legacy, "key=?", NormalServiceSetting).
+			Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			if receipt.OriginalNormal != "" {
 				return ErrNotReady
@@ -180,7 +183,11 @@ func prepareSystemReceipt(ctx context.Context, db *gorm.DB, receipt *systemServi
 	})
 }
 
-func acknowledgeSystemReceipt(ctx context.Context, db *gorm.DB, receipt systemServiceReceipt) error {
+func acknowledgeSystemReceipt(
+	ctx context.Context,
+	db *gorm.DB,
+	receipt systemServiceReceipt,
+) error {
 	prepared, err := json.Marshal(receipt)
 	if err != nil || receipt.Phase != "prepared" {
 		return ErrNotReady
@@ -223,16 +230,22 @@ func checkSystemReceipt(ctx context.Context, db *gorm.DB, state systemServiceSta
 // Canary result is read from the ordinary durable sync receipt. A successful
 // source run alone does not prove publication: unfinished/failed current source
 // resources, missing chunks or missing vector rows keep the Canary closed.
-func systemCanaryOutcome(ctx context.Context, db *gorm.DB, state systemServiceState) (string, error) {
+func systemCanaryOutcome(
+	ctx context.Context,
+	db *gorm.DB,
+	state systemServiceState,
+) (string, error) {
 	if state.CanarySourceID == "" || state.CanaryRunID == "" {
 		return "pending", nil
 	}
 	var log types.SyncLog
-	if err := db.WithContext(ctx).First(&log, "id=? AND data_source_id=?", state.CanaryRunID, state.CanarySourceID).Error; err != nil {
+	if err := db.WithContext(ctx).
+		First(&log, "id=? AND data_source_id=?", state.CanaryRunID, state.CanarySourceID).Error; err != nil {
 		return "", err
 	}
 	if log.ExecutionClaimed || log.Status == types.SyncLogStatusRunning {
-		if !log.ExecutionClaimed && state.CanaryStartedMS > 0 && time.Now().UnixMilli()-state.CanaryStartedMS >= 300000 {
+		if !log.ExecutionClaimed && state.CanaryStartedMS > 0 &&
+			time.Now().UnixMilli()-state.CanaryStartedMS >= 300000 {
 			return "candidate_timeout", nil
 		}
 		return "pending", nil

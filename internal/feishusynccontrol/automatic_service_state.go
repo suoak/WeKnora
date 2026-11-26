@@ -69,7 +69,8 @@ type stableServiceHealth struct {
 }
 
 func (s *stableServiceHealth) observe(now time.Time, proof systemHealthProof, err error) bool {
-	if err != nil || proof.WorkerID == "" || len(proof.Metadata) == 0 || len(proof.ConsumerServerIDs) == 0 {
+	if err != nil || proof.WorkerID == "" || len(proof.Metadata) == 0 ||
+		len(proof.ConsumerServerIDs) == 0 {
 		*s = stableServiceHealth{}
 		return false
 	}
@@ -224,7 +225,10 @@ func systemState(raw string) (systemServiceState, error) {
 		return state, ErrNotReady
 	}
 	if _, err := hex.DecodeString(state.RuntimeSHA); err != nil ||
-		!strings.HasPrefix(state.Namespace, "feishu:safety:{") || !strings.HasSuffix(state.Namespace, "}:") {
+		!strings.HasPrefix(
+			state.Namespace,
+			"feishu:safety:{",
+		) || !strings.HasSuffix(state.Namespace, "}:") {
 		return state, ErrNotReady
 	}
 	switch state.Phase {

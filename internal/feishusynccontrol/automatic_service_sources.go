@@ -15,7 +15,6 @@ type systemSourceRegistration struct {
 	NormalSourceAuthority
 	Epoch string `json:"epoch"`
 }
-
 type (
 	systemPendingExecution struct {
 		SourceID, RunID string
@@ -32,7 +31,11 @@ func systemPendingExecutionFromContext(ctx context.Context) (systemPendingExecut
 // PrepareAutomaticSourceExecution is a worker-only continuation of an already
 // persisted intent. The payload supplies identifiers only; current SQL source,
 // log, tenant and status are loaded before a private context proof is installed.
-func PrepareAutomaticSourceExecution(ctx context.Context, source, run string, tenant uint64) (context.Context, bool, error) {
+func PrepareAutomaticSourceExecution(
+	ctx context.Context,
+	source, run string,
+	tenant uint64,
+) (context.Context, bool, error) {
 	m := Recovery()
 	if m == nil || m.system == nil {
 		return ctx, false, nil
@@ -52,28 +55,51 @@ func PrepareAutomaticSourceExecution(ctx context.Context, source, run string, te
 		return ctx, false, nil
 	}
 	var log types.SyncLog
-	if err := s.db.WithContext(ctx).First(&log, "id=? AND data_source_id=? AND tenant_id=?", run, source, tenant).Error; err != nil {
+	if err := s.db.WithContext(ctx).
+		First(&log, "id=? AND data_source_id=? AND tenant_id=?", run, source, tenant).Error; err != nil {
 		return ctx, true, err
 	}
 	if log.Status != types.SyncLogStatusRunning {
 		return ctx, true, types.ErrStaleSyncExecution
 	}
-	config, err := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.TenantID, ds.Config)
+	config, err := feishusafety.SourceConfigFingerprint(
+		ds.ID,
+		ds.KnowledgeBaseID,
+		ds.Type,
+		ds.LegacyAccessState,
+		ds.TenantID,
+		ds.Config,
+	)
 	if err != nil {
 		return ctx, true, err
 	}
-	ctx = context.WithValue(ctx, systemPendingExecutionKey{}, systemPendingExecution{SourceID: source, RunID: run, TenantID: tenant})
+	ctx = context.WithValue(
+		ctx,
+		systemPendingExecutionKey{},
+		systemPendingExecution{SourceID: source, RunID: run, TenantID: tenant},
+	)
 	ctx = feishusafety.WithRecoveryExecution(ctx, config, run, 0)
 	work, err := s.bindSource(ctx, source, config)
 	if err != nil {
 		return ctx, true, err
 	}
-	work = types.WithSyncAdmissionGuard(work, source, run, tenant, func(tx *gorm.DB, owner types.SyncExecution) error {
-		marked := types.WithSyncExecution(tx.Statement.Context, owner)
-		marked = feishusafety.WithRecoveryExecution(marked, config, owner.SyncLogID, owner.Generation)
-		_, err := s.checkSource(marked, tx, source, config)
-		return err
-	})
+	work = types.WithSyncAdmissionGuard(
+		work,
+		source,
+		run,
+		tenant,
+		func(tx *gorm.DB, owner types.SyncExecution) error {
+			marked := types.WithSyncExecution(tx.Statement.Context, owner)
+			marked = feishusafety.WithRecoveryExecution(
+				marked,
+				config,
+				owner.SyncLogID,
+				owner.Generation,
+			)
+			_, err := s.checkSource(marked, tx, source, config)
+			return err
+		},
+	)
 	return work, true, nil
 }
 
@@ -87,7 +113,10 @@ func (s *automaticService) queueSource(ctx context.Context, source, config strin
 	return s.queueControlState(ctx)
 }
 
-func (s *automaticService) queueScheduledSource(ctx context.Context, source, config string) (bool, error) {
+func (s *automaticService) queueScheduledSource(
+	ctx context.Context,
+	source, config string,
+) (bool, error) {
 	if _, err := automaticBackgroundSourceAuthority(ctx, s.db, nil, source, config); err != nil {
 		if errors.Is(err, ErrRecoveryRejected) {
 			return true, err
@@ -110,7 +139,10 @@ func (s *automaticService) queueControlState(ctx context.Context) (bool, error) 
 	return true, nil
 }
 
-func (s *automaticService) bindSource(ctx context.Context, source, config string) (context.Context, error) {
+func (s *automaticService) bindSource(
+	ctx context.Context,
+	source, config string,
+) (context.Context, error) {
 	authority, err := automaticSourceAuthority(ctx, s.db, nil, source, config, s.keys)
 	if err != nil {
 		return ctx, err
@@ -158,7 +190,15 @@ func (s *automaticService) bindSource(ctx context.Context, source, config string
 	if err != nil {
 		return ctx, errors.Join(ErrNotReady, err)
 	}
-	ctx = feishusafety.WithRecoveryContext(ctx, feishusafety.RecoveryContext{Plan: state.Epoch, Config: config, Run: run, Generation: identity.Generation})
+	ctx = feishusafety.WithRecoveryContext(
+		ctx,
+		feishusafety.RecoveryContext{
+			Plan:       state.Epoch,
+			Config:     config,
+			Run:        run,
+			Generation: identity.Generation,
+		},
+	)
 	ctx = context.WithValue(ctx, normalSourceAuthorityKey{}, authority)
 	return s.checkSource(ctx, nil, source, config)
 }
