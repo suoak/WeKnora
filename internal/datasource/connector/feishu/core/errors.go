@@ -11,6 +11,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/feishusafety"
 	"github.com/Tencent/WeKnora/internal/utils"
 )
 
@@ -112,6 +113,18 @@ func TransportErrorCategory(err error) string {
 	var network net.Error
 	var dns *net.DNSError
 	switch {
+	case errors.Is(err, feishusafety.ErrControlTemporarilyUnavailable):
+		return "safety_control_unavailable"
+	case errors.Is(err, feishusafety.ErrEmbeddingTemporarilyUnavailable):
+		return "safety_embedding_unavailable"
+	case errors.Is(err, feishusafety.ErrSourceValidationUnavailable):
+		return "safety_source_validation_unavailable"
+	case errors.Is(err, feishusafety.ErrSourceAdmissionChanged):
+		return "safety_source_admission_changed"
+	case errors.Is(err, feishusafety.ErrBudgetBusy):
+		return "safety_budget_busy"
+	case errors.Is(err, feishusafety.ErrClosed):
+		return "safety_closed"
 	case errors.Is(err, context.DeadlineExceeded):
 		return "timeout"
 	case errors.Is(err, context.Canceled):

@@ -7,6 +7,8 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/datasource/connector/feishu/core"
+	"github.com/Tencent/WeKnora/internal/feishusafety"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -39,6 +41,25 @@ func (s *DataSourceService) bindFeishuSource(
 	if s.feishuIdentity == nil || s.feishuIdentity.recovery == nil ||
 		ds.Type != types.ConnectorTypeFeishu && ds.Type != types.ConnectorTypeFeishuDrive {
 		return ctx, types.ErrFeishuIdentityDisabled
+	}
+	// Credential resolution uses the current owner's KB/OAuth identity. A real
+	// automatic worker must retain its separate DB-issued execution identity at
+	// the outbound gate, rather than becoming an HTTP user via batchContext.
+	restoreWorkerPrincipal := false
+	if manager := feishusynccontrol.Recovery(); manager != nil && manager.AutomaticServiceManaged() {
+		if execution, claimed := types.SyncExecutionFromContext(ctx); claimed {
+			if execution.DataSourceID != ds.ID || execution.TenantID != ds.TenantID ||
+				ctx.Value(types.PrincipalContextKey) != nil ||
+				ctx.Value(types.TenantAPIKeyScopeContextKey) != nil || !feishusafety.Scoped(ctx) {
+				return ctx, access.ErrForbidden
+			}
+			// WithSyncExecution alone is not authority: recheck the live claim,
+			// generation, source delegation and current automatic runtime first.
+			if err := feishusafety.Check(ctx); err != nil {
+				return ctx, err
+			}
+			restoreWorkerPrincipal = true
+		}
 	}
 	if err := s.feishuIdentity.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		return validatePersonalSourceBinding(tx, ref)
@@ -80,6 +101,12 @@ func (s *DataSourceService) bindFeishuSource(
 	)
 	if err != nil {
 		return ctx, err
+	}
+	if restoreWorkerPrincipal {
+		// The owner/KB checks above still use batchContext's local WebUser.
+		// Restore only that derived principal before resolving credentials, so
+		// token refresh and subsequent source HTTP retain the worker identity.
+		fresh = context.WithValue(fresh, types.PrincipalContextKey, ctx.Value(types.PrincipalContextKey))
 	}
 	remote, client, credential, err := s.feishuIdentity.ResolveCredentialReference(
 		fresh,

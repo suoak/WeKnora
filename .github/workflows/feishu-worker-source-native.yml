@@ -1,0 +1,182 @@
+name: Feishu claimed Worker native SQL qualification
+on:
+  push:
+    branches: [ci/feishu-self-recovery-native-20261126]
+    paths: [.github/workflows/feishu-worker-source-native.yml]
+  workflow_dispatch:
+    inputs:
+      source_sha:
+        description: Exact reviewed source commit, never a branch
+        required: true
+        type: string
+      mode:
+        description: Test-only unchanged-runtime baseline or complete fixed regression
+        required: true
+        default: full
+        type: choice
+        options: [full, baseline]
+permissions:
+  contents: read
+env:
+  SOURCE_SHA: ${{ inputs.source_sha }}
+  QUALIFICATION_MODE: ${{ inputs.mode }}
+jobs:
+  native-sql:
+    if: ${{ github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    services:
+      postgres:
+        image: paradedb/paradedb:v0.22.2-pg17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-worker-native
+          POSTGRES_DB: feishu_atomic_test
+        options: >-
+          --shm-size=1g
+          --health-cmd "pg_isready -U postgres -d feishu_atomic_test"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+      redis:
+        image: redis:7.4-bookworm
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ env.SOURCE_SHA }}
+          persist-credentials: false
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.7'
+          cache: false
+      - name: Bind source and append test-only stages to unchanged native builder
+        run: |
+          set -euo pipefail
+          [[ "$SOURCE_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          test "$QUALIFICATION_MODE" = full || test "$QUALIFICATION_MODE" = baseline
+          mkdir evidence
+          git rev-parse HEAD > evidence/source-sha.txt
+          git rev-parse 'HEAD^{tree}' > evidence/source-tree.txt
+          printf '%s\n' "$QUALIFICATION_MODE" > evidence/mode.txt
+          sha256sum docker/Dockerfile.app.knowhub-release > evidence/production-recipe.sha256
+          echo '539762700d42e3a2bb3128aabbb3dc4a35a3e87ff9402821fe9cd13fcbd73302  docker/Dockerfile.app.knowhub-release' | sha256sum -c --strict
+          cat docker/Dockerfile.app.knowhub-release > "$RUNNER_TEMP/worker-source.Dockerfile"
+          cat >> "$RUNNER_TEMP/worker-source.Dockerfile" <<'DOCKERFILE'
+
+          # Qualification only: real production builder and verified native archive.
+          # No production runtime or Dockerfile is modified or exported by this job.
+          FROM builder AS worker-source-validation
+          COPY --from=builder /app/yanyiwu/ /go/pkg/mod/github.com/yanyiwu/
+          RUN --mount=type=cache,target=/go/pkg/mod \
+              test "$WITH_ANYDOC" = 1 && \
+              CGO_ENABLED=1 go test -race -tags anydoc -c -o /worker-source-tests ./internal/application/service && \
+              CGO_ENABLED=1 go test -race -tags anydoc -c -o /feishu-core-tests ./internal/datasource/connector/feishu/core
+          RUN test -s /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict/jieba.dict.utf8 && \
+              useradd -m -u 10001 worker-test && \
+              sha256sum /worker-source-tests /feishu-core-tests \
+                /app/third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a > /native-test-binaries.sha256
+          LABEL knowhub.qualification-only="true"
+          USER worker-test
+          WORKDIR /workspace/internal/application/service
+          ENTRYPOINT ["/worker-source-tests"]
+          DOCKERFILE
+          sha256sum "$RUNNER_TEMP/worker-source.Dockerfile" > evidence/qualification-recipe.sha256
+          cp "$RUNNER_TEMP/worker-source.Dockerfile" evidence/qualification.Dockerfile
+          docker cp '${{ job.services.redis.id }}:/usr/local/bin/redis-server' "$RUNNER_TEMP/worker-owned-redis"
+          chmod 555 "$RUNNER_TEMP/worker-owned-redis"
+          sha256sum "$RUNNER_TEMP/worker-owned-redis" > evidence/owned-redis.sha256
+      - uses: docker/setup-buildx-action@v4
+      - name: Build real Bookworm CGO AnyDoc race binaries, no stub or runtime image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ runner.temp }}/worker-source.Dockerfile
+          platforms: linux/amd64
+          target: worker-source-validation
+          push: false
+          load: true
+          tags: knowhub-worker-source-qualification:ci
+          build-args: |
+            WITH_ANYDOC=1
+            CARGO_SOURCE_ARG=crates-io
+            VERSION_ARG=consumer-wiki-diagnostics
+            COMMIT_ID_ARG=${{ env.SOURCE_SHA }}
+            REVISION_ARG=${{ env.SOURCE_SHA }}
+            GO_VERSION_ARG=1.26.7
+            APT_MIRROR_ARG=deb.debian.org
+            GOPROXY_ARG=https://proxy.golang.org,direct
+          cache-from: |
+            type=gha,scope=consumer-wiki-native
+            type=gha,scope=office-production-bookworm
+            type=gha,scope=resilience-anydoc-app-amd64
+            type=gha,scope=feishu-worker-source-native
+          cache-to: type=gha,scope=feishu-worker-source-native,mode=max
+      - name: Verify native linkage and actual AnyDoc conversion
+        run: |
+          set -euo pipefail
+          image=knowhub-worker-source-qualification:ci
+          docker image inspect --format '{{.Id}}' "$image" > evidence/qualification-image-id.txt
+          docker run --rm --network none --read-only --cap-drop ALL --entrypoint sh "$image" -c \
+            'cat /etc/os-release; cat /native-test-binaries.sha256; test -s /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict/jieba.dict.utf8; ldd /worker-source-tests; ldd /feishu-core-tests' \
+            | tee evidence/native-linkage.log
+          ! grep -F 'not found' evidence/native-linkage.log
+          grep -F bookworm evidence/native-linkage.log
+          docker run --rm --network none --read-only --cap-drop ALL --tmpfs /tmp:size=256m,mode=1777 \
+            --workdir /app/internal/infrastructure/docparser/anydoc --entrypoint /anydoc-runtime-tests "$image" \
+            -test.v -test.timeout=5m | tee evidence/anydoc-runtime-tests.log
+      - name: Real claimed handler, SQL, Redis, OAuth and authority isolation
+        env:
+          POSTGRES_CONTAINER: ${{ job.services.postgres.id }}
+        run: |
+          set -euo pipefail
+          network=$(docker inspect --format '{{range $name, $_ := .NetworkSettings.Networks}}{{$name}}{{end}}' "$POSTGRES_CONTAINER")
+          [[ "$network" == github_network_* ]]
+          printf '%s\n' "$network" > evidence/disposable-network.txt
+          pattern='^TestFeishuWorkerIdentity'
+          if test "$QUALIFICATION_MODE" = baseline; then
+            pattern='^TestFeishuWorkerIdentity(ProcessSyncUsesGuardedOwnerCredential|ApplicationGrantUsesGuardedTenantToken)$'
+          fi
+          set +e
+          docker run --rm --network "$network" --read-only --cap-drop ALL \
+            --tmpfs /tmp:size=768m,mode=1777 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/workspace,readonly" \
+            --mount "type=bind,src=$RUNNER_TEMP/worker-owned-redis,dst=/qualification/redis-server,readonly" \
+            -e REQUIRE_PRIVATE_POSTGRES=1 -e FEISHU_SAFETY_REDIS_EXECUTABLE=/qualification/redis-server \
+            -e 'FEISHU_LEGACY_TEST_DSN=postgres://postgres:disposable-worker-native@postgres:5432/feishu_atomic_test?sslmode=disable' \
+            -e GOMAXPROCS=2 -e GOTRACEBACK=single knowhub-worker-source-qualification:ci \
+            -test.v -test.run "$pattern" -test.timeout=15m 2>&1 | tee evidence/worker-source-native.log
+          result=${PIPESTATUS[0]}
+          set -e
+          printf '%s\n' "$result" > evidence/worker-exit.txt
+          go tool test2json -t -p github.com/Tencent/WeKnora/internal/application/service \
+            < evidence/worker-source-native.log > evidence/worker-source-native.jsonl
+          test "$result" = 0
+          python3 - <<'PY'
+          import json
+          rows=[json.loads(x) for x in open('evidence/worker-source-native.jsonl')]
+          passed=[r['Test'] for r in rows if r.get('Action')=='pass' and r.get('Test')]
+          skipped=[r['Test'] for r in rows if r.get('Action')=='skip']
+          failed=[r.get('Test','package') for r in rows if r.get('Action')=='fail']
+          import os
+          expected=2 if os.environ['QUALIFICATION_MODE']=='baseline' else 14
+          summary={'passed':passed,'skipped':skipped,'failed':failed,'minimum_cases':expected}
+          open('evidence/worker-summary.json','w').write(json.dumps(summary,indent=2))
+          assert len(passed)>=expected and not skipped and not failed, 'native qualification incomplete'
+          print(json.dumps(summary))
+          PY
+      - name: Error cause, safe labels and unchanged retry classification
+        if: ${{ inputs.mode == 'full' && !cancelled() }}
+        run: |
+          set -euo pipefail
+          docker run --rm --network none --read-only --cap-drop ALL --tmpfs /tmp:size=256m,mode=1777 \
+            --workdir /app/internal/datasource/connector/feishu/core --entrypoint /feishu-core-tests \
+            knowhub-worker-source-qualification:ci -test.v -test.timeout=5m \
+            2>&1 | tee evidence/core-native.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: worker-source-native-${{ env.QUALIFICATION_MODE }}-${{ env.SOURCE_SHA }}
+          path: evidence/
+          retention-days: 14
