@@ -23,6 +23,9 @@ func QueueNormalSource(ctx context.Context, source, config string) (bool, error)
 	if m == nil {
 		return false, nil
 	}
+	if m.system != nil {
+		return m.system.queueSource(ctx, source, config)
+	}
 	cfg := m.normalService.Load()
 	if cfg == nil || cfg.saved == nil {
 		return false, nil

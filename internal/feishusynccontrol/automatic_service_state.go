@@ -21,18 +21,23 @@ const automaticServiceVersion = 1
 // or an unsigned NormalServiceAuthorization masquerading as a signed grant.
 // Epoch changes invalidate every old task context and source registration.
 type systemServiceState struct {
-	Version            int    `json:"version"`
-	Epoch              string `json:"epoch"`
-	RuntimeSHA         string `json:"runtime_sha"`
-	WorkerID           string `json:"worker_id"`
-	WorkerValue        string `json:"worker_value"`
-	MembershipRevision string `json:"membership_revision"`
-	ConsumerServerID   string `json:"consumer_server_id"`
-	GuardFingerprint   string `json:"guard_fingerprint"`
-	Phase              string `json:"phase"`
-	CanarySourceID     string `json:"canary_source_id"`
-	CanaryRunID        string `json:"canary_run_id"`
-	NextAdmissionMS    int64  `json:"next_admission_ms"`
+	Version              int    `json:"version"`
+	Namespace            string `json:"namespace"`
+	Epoch                string `json:"epoch"`
+	RuntimeSHA           string `json:"runtime_sha"`
+	WorkerID             string `json:"worker_id"`
+	WorkerValue          string `json:"worker_value"`
+	MembershipRevision   string `json:"membership_revision"`
+	ConsumerServerID     string `json:"consumer_server_id"`
+	ConsumerMetadataSHA1 string `json:"consumer_metadata_sha1"`
+	GuardFingerprint     string `json:"guard_fingerprint"`
+	Phase                string `json:"phase"`
+	CanarySourceID       string `json:"canary_source_id"`
+	CanaryRunID          string `json:"canary_run_id"`
+	CanaryStartedMS      int64  `json:"canary_started_ms"`
+	CanaryProofSHA256    string `json:"canary_proof_sha256"`
+	RampUntilMS          int64  `json:"ramp_until_ms"`
+	NextAdmissionMS      int64  `json:"next_admission_ms"`
 }
 
 // systemHealthProof is produced only by actual bounded Redis/Asynq reads.
@@ -135,7 +140,8 @@ if (redis.call('GET',KEYS[6]) or '')~=ARGV[5] or
  (redis.call('GET',KEYS[7]) or '')~=ARGV[6] or
  (redis.call('GET',KEYS[8]) or '')~=ARGV[7] or
  (redis.call('GET',KEYS[9]) or '')~=ARGV[8] or
- (redis.call('GET',KEYS[10]) or '')~=ARGV[9] then
+ (redis.call('GET',KEYS[10]) or '')~=ARGV[9] or
+ (redis.call('GET',KEYS[17]) or '')~=ARGV[16] then
  return redis.error_reply('SYSTEM_MIGRATION_SNAPSHOT_CHANGED') end
 if redis.call('HLEN',KEYS[11])~=0 or redis.call('LLEN',KEYS[12])~=0 or
  redis.call('LLEN',KEYS[13])~=0 or redis.call('EXISTS',KEYS[18])~=0 then
@@ -145,12 +151,21 @@ local control=redis.call('XREVRANGE',KEYS[16],'+','-','COUNT',1)
 if (#guard==0 and ARGV[13]~='') or (#guard>0 and guard[1][1]~=ARGV[13]) or
  (#control==0 and ARGV[14]~='') or (#control>0 and control[1][1]~=ARGV[14]) then
  return redis.error_reply('SYSTEM_INCIDENT_EVIDENCE_CHANGED') end
+if ARGV[5]~='' then
+ if ARGV[17]=='' then return redis.error_reply('SYSTEM_ORIGINAL_TRIP_AUDIT_MISSING') end
+ local incident=redis.call('XRANGE',KEYS[15],ARGV[17],ARGV[17],'COUNT',1)
+ if #incident~=1 then return redis.error_reply('SYSTEM_ORIGINAL_TRIP_AUDIT_MISSING') end
+ local fields={};for i=1,#incident[1][2],2 do fields[incident[1][2][i]]=incident[1][2][i+1] end
+ if fields.event~='trip' or fields.reason~=ARGV[5] then
+  return redis.error_reply('SYSTEM_ORIGINAL_TRIP_AUDIT_CHANGED') end
+elseif ARGV[17]~='' then return redis.error_reply('SYSTEM_UNEXPECTED_TRIP_AUDIT') end
 local state=cjson.decode(ARGV[10])
 if state.version~=1 or state.phase~='canary' or state.worker_id~=ARGV[1] or
  state.worker_value~=ARGV[2] or state.membership_revision~=ARGV[3] then
  return redis.error_reply('SYSTEM_MIGRATION_STATE_INVALID') end
 redis.call('XADD',KEYS[14],'*','event','automatic_service_migrated','epoch',state.epoch,
  'sql_receipt_sha256',ARGV[11],'original_trip',ARGV[5],'original_evidence',ARGV[12],
+ 'original_trip_audit_id',ARGV[17],
  'legacy_normal_sha1',redis.sha1hex(ARGV[7]),'legacy_recovery_sha1',redis.sha1hex(ARGV[8]),
  'legacy_observation_sha1',redis.sha1hex(ARGV[9]),'previous_system_state',ARGV[6])
 redis.call('SET',KEYS[7],ARGV[10])
@@ -194,6 +209,10 @@ func systemState(raw string) (systemServiceState, error) {
 		return state, ErrNotReady
 	}
 	if id, err := uuid.Parse(state.Epoch); err != nil || id.String() != state.Epoch {
+		return state, ErrNotReady
+	}
+	if _, err := hex.DecodeString(state.RuntimeSHA); err != nil ||
+		!strings.HasPrefix(state.Namespace, "feishu:safety:{") || !strings.HasSuffix(state.Namespace, "}:") {
 		return state, ErrNotReady
 	}
 	switch state.Phase {

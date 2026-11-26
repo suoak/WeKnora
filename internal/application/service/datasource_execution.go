@@ -55,6 +55,32 @@ func (s *DataSourceService) ProcessSync(ctx context.Context, task *asynq.Task) (
 	if err != nil {
 		return err
 	}
+	work, automatic, prepareErr := feishusynccontrol.PrepareAutomaticSourceExecution(
+		ctx, payload.DataSourceID, payload.SyncLogID, payload.TenantID)
+	if automatic {
+		if errors.Is(prepareErr, types.ErrStaleSyncExecution) {
+			return nil // Duplicate/terminal delivery is never a new execution.
+		}
+		if prepareErr != nil {
+			if !syncTaskCanRetry(ctx, prepareErr) {
+				if finalizer, ok := repo.(interface {
+					FinalizeReleasedExecution(context.Context, *types.SyncLog) (bool, error)
+				}); ok {
+					snapshot, readErr := s.syncLogRepo.FindByID(ctx, payload.SyncLogID)
+					if readErr != nil {
+						return readErr
+					}
+					if snapshot != nil && snapshot.DataSourceID == payload.DataSourceID && snapshot.TenantID == payload.TenantID {
+						if _, finishErr := finalizer.FinalizeReleasedExecution(ctx, snapshot); finishErr != nil {
+							return finishErr
+						}
+					}
+				}
+			}
+			return prepareErr // Finite ordinary retry; no implicit SkipRetry/archive.
+		}
+		ctx = work
+	}
 	e, claimed, err := repo.ClaimExecution(ctx, payload.DataSourceID, payload.SyncLogID, payload.TenantID)
 	if err != nil {
 		return err

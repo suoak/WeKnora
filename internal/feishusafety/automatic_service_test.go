@@ -2,6 +2,8 @@ package feishusafety
 
 import (
 	"context"
+	"crypto/sha1"
+	"encoding/hex"
 	"encoding/json"
 	"testing"
 	"time"
@@ -12,17 +14,22 @@ import (
 )
 
 func TestAutomaticServiceRequiresExactEpochSourceAndRuntime(t *testing.T) {
-	for _, fault := range []string{"none", "missing-state", "legacy-grant-only", "source", "phase", "epoch", "lease", "revision", "incarnation", "validator"} {
+	for _, fault := range []string{"none", "missing-state", "legacy-grant-only", "source", "phase", "epoch", "lease", "revision", "incarnation", "validator", "consumer-missing", "consumer-changed", "canary-expired"} {
 		t.Run(fault, func(t *testing.T) {
 			g, client := fixture(t, Config{})
 			ctx := context.Background()
 			g.RequireAutomaticService()
 			g.SetApprovedSourceValidator(func(context.Context, string, string) error { return nil })
 			epoch, run := uuid.NewString(), uuid.NewString()
+			serverID := uuid.NewString()
+			serverKey := "asynq:servers:{test:1:" + serverID + "}"
+			metadataDigest := sha1.Sum([]byte("fixture-consumer-protobuf"))
 			state := map[string]any{
-				"version": 1, "epoch": epoch, "guard_fingerprint": g.Fingerprint(),
+				"version": 1, "namespace": g.prefix, "epoch": epoch, "guard_fingerprint": g.Fingerprint(),
+				"consumer_server_id": serverID, "consumer_metadata_sha1": hex.EncodeToString(metadataDigest[:]),
 				"phase": "canary", "canary_source_id": "source", "canary_run_id": run,
-				"worker_id": "test:1", "worker_value": "worker:incarnation", "membership_revision": "7",
+				"canary_started_ms": time.Now().UnixMilli(),
+				"worker_id":         "test:1", "worker_value": "worker:incarnation", "membership_revision": "7",
 			}
 			raw, err := json.Marshal(state)
 			require.NoError(t, err)
@@ -35,6 +42,8 @@ func TestAutomaticServiceRequiresExactEpochSourceAndRuntime(t *testing.T) {
 			require.NoError(t, err)
 			require.NoError(t, client.ZAdd(ctx, g.key("leases"), redis.Z{Member: "test:1", Score: float64(now.Add(time.Second).UnixMilli())}).Err())
 			require.NoError(t, client.Set(ctx, g.key("membership_revision"), "7", 0).Err())
+			require.NoError(t, client.Set(ctx, serverKey, "fixture-consumer-protobuf", 10*time.Second).Err())
+			require.NoError(t, client.ZAdd(ctx, "asynq:servers", redis.Z{Member: serverKey, Score: float64(now.Add(10 * time.Second).Unix())}).Err())
 			work := WithRecoveryContext(WithScope(ctx, "source"), RecoveryContext{Plan: epoch, Config: "config", Run: run, Generation: 1})
 			switch fault {
 			case "missing-state":
@@ -49,6 +58,11 @@ func TestAutomaticServiceRequiresExactEpochSourceAndRuntime(t *testing.T) {
 				raw, err = json.Marshal(state)
 				require.NoError(t, err)
 				require.NoError(t, client.Set(ctx, g.key("system_service"), raw, 0).Err())
+			case "canary-expired":
+				state["canary_started_ms"] = time.Now().Add(-6 * time.Minute).UnixMilli()
+				raw, err = json.Marshal(state)
+				require.NoError(t, err)
+				require.NoError(t, client.Set(ctx, g.key("system_service"), raw, 0).Err())
 			case "epoch":
 				work = WithRecoveryContext(work, RecoveryContext{Plan: uuid.NewString(), Config: "config", Run: run, Generation: 1})
 			case "lease":
@@ -59,6 +73,10 @@ func TestAutomaticServiceRequiresExactEpochSourceAndRuntime(t *testing.T) {
 				require.NoError(t, client.HSet(ctx, g.key("workers"), "test:1", "worker:replacement").Err())
 			case "validator":
 				g.SetApprovedSourceValidator(nil)
+			case "consumer-missing":
+				require.NoError(t, client.Del(ctx, serverKey).Err())
+			case "consumer-changed":
+				require.NoError(t, client.Set(ctx, serverKey, "metadata-changed-after-probe", 10*time.Second).Err())
 			}
 			// The budget allocation repeats the same atomic gate as Check.
 			checkErr := g.Check(work)

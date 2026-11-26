@@ -20,7 +20,7 @@ func TestSteadyManualSyncErrorsAreSpecificAndNeverExposeProviderDetails(t *testi
 		{"sync_source_protected", "数据源暂不可同步，请联系管理员", 409},
 		{"sync_policy_expired", "飞书同步策略已到期，请联系管理员恢复", 409},
 		{"sync_source_not_approved", "该来源尚未启用同步，请联系管理员", 409},
-		{"sync_platform_stopped", "飞书同步服务暂时停止，管理员正在恢复", 503},
+		{"sync_platform_stopped", "飞书同步安全校验未通过，请查看来源或服务错误详情", 503},
 		{"sync_source_permission_denied", "当前账号无权同步此来源", 403},
 	} {
 		t.Run(test.reason, func(t *testing.T) {

@@ -50,7 +50,35 @@ authorization can instead send them back through the incident path.
 
 ## Qualification status
 
-Architecture/source audit in progress. New v2 code, integration, fault-path CI,
-isolation acceptance and production rollout are **NOT_RUN** until recorded with
-their actual source SHA and evidence. PR #266 is separately merged; no Wiki
-batch/map increase or production change is implied by that merge.
+The candidate now wires the system protocol into the dedicated automatic lane,
+ordinary queue admission, transactional worker claims, live source validation
+and publication guards. Legacy signed administrative recovery endpoints return
+410 for that protocol; no signing key is read to start ordinary service.
+
+Migration binds the original trip's exact audit entry, both audit tails,
+current physical consumer, leases and membership to an immutable SQL receipt
+and an untrimmed Redis journal. SQL preparation durably retires the old signed
+executable grant, retaining its history. A previous binary therefore remains
+Feishu-closed on rollback; do not restore an old grant or Redis safety snapshot.
+Known split commits are reconciled against their exact immutable evidence;
+unknown/missing state is never treated as a clean install.
+
+Canary candidates have a five-minute execution scope and a bounded publication
+evidence limit. An unsuitable source is deferred without changing its cursor,
+document state or business permissions. The next qualified source can be
+selected after the prior SQL claim settles normally. Publication requires the
+real version receipt, original knowledge, chunks and matching vector rows;
+independent Wiki finalizing is not a reason to falsify the core publication.
+
+Actual qualification to date (2026-11-26, Asia/Shanghai):
+
+| Evidence | Result | Boundary |
+| --- | --- | --- |
+| Linux run 45719954080, source `2200ae1` | PASS | Early primitives only; not the later runtime wiring. |
+| Linux run 45722804545, source `76bcd4f` | FAIL: 730 passing cases, 3 skipped, 18 failed | Shared real-Redis fixtures contaminated static Asynq keys across tests. Assertions/failure logs retained; corrected fixtures own separate real Redis processes rather than clearing shared keys or downgrading to mocks. |
+| Native Windows control/safety/access regression | PASS | Real CGO and stack protection retained by linking the installed libssp. No configured private PostgreSQL or Redis executable; gated cases are not database/native-consumer acceptance. Later changes need rerun. |
+| Final candidate Linux race, SQL, real Redis/Asynq and APP wiring | Pending | Use the exact committed head; earlier run results cannot qualify uncommitted runtime changes. |
+| Full native APP acceptance and production restoration | NOT_RUN | No production safety-state changes, archived replay, forced finalization, or Wiki tuning. |
+
+PR #266 is separately merged into `6ee9f128c4fc5ea62974995a0c725213f8f2c56b`;
+no batch/map increase or production change is implied by that merge.

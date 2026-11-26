@@ -41,6 +41,7 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 	for _, fault := range []string{
 		"none", "membership", "metadata", "lease", "trip", "old-work", "audit", "incarnation",
 		"operator-stop", "unknown-stop", "consumer-lost-stop",
+		"original-audit-missing", "original-audit-mismatch", "audit-tail-changed", "observation-changed", "required-changed",
 	} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()
@@ -51,7 +52,7 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 			keys := []string{
 				prefix + "workers", prefix + "leases", prefix + "membership_revision", prefix + "admitted",
 				"asynq:servers", prefix + "trip", prefix + "system_service", prefix + "normal_service",
-				prefix + "recovery", prefix + "observation", prefix + "inflight",
+				prefix + "recovery", prefix + "observation_required", prefix + "inflight",
 				"asynq:{approved_sync}:active", "asynq:{sync}:active", prefix + "system_journal",
 				prefix + "audit", prefix + "control_audit", prefix + "recovery_required", prefix + "permit",
 			}
@@ -75,6 +76,8 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 				reason = "automatic_permit_consumer_lost"
 			}
 			require.NoError(t, client.Set(ctx, keys[5], reason, 0).Err())
+			incidentID, err := client.XAdd(ctx, &redis.XAddArgs{Stream: keys[14], Values: map[string]any{"event": "trip", "reason": reason}}).Result()
+			require.NoError(t, err)
 			proof := systemHealthProof{
 				WorkerID: "test:1", WorkerValue: workerValue, MembershipRevision: "7",
 				ConsumerServerIDs: []string{serverID},
@@ -83,14 +86,14 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 			args, err := systemProofArgs(proof)
 			require.NoError(t, err)
 			state := systemServiceState{
-				Version: 1, Epoch: uuid.NewString(), RuntimeSHA: "0123456789012345678901234567890123456789",
+				Version: 1, Namespace: prefix, Epoch: uuid.NewString(), RuntimeSHA: "0123456789012345678901234567890123456789",
 				WorkerID: proof.WorkerID, WorkerValue: proof.WorkerValue, MembershipRevision: proof.MembershipRevision,
 				GuardFingerprint: "0123456789012345678901234567890123456789012345678901234567890123", Phase: "canary",
 			}
 			raw, err := json.Marshal(state)
 			require.NoError(t, err)
 			args = append(args, reason, "", "", "", "", string(raw), "sql-receipt-digest",
-				`{"original_audit_id":"retained"}`, "", "", "")
+				`{"original_audit_id":"retained"}`, incidentID, "", "", "", incidentID)
 			switch fault {
 			case "membership":
 				require.NoError(t, client.Set(ctx, keys[2], "8", 0).Err())
@@ -106,6 +109,18 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 				require.NoError(t, client.Set(ctx, keys[13], "wrong-type", 0).Err())
 			case "incarnation":
 				require.NoError(t, client.HSet(ctx, keys[3], "test:1", "fp:different-incarnation").Err())
+			case "original-audit-missing":
+				args[16] = "0-0"
+			case "original-audit-mismatch":
+				wrongID, err := client.XAdd(ctx, &redis.XAddArgs{Stream: keys[14], Values: map[string]any{"event": "trip", "reason": "other"}}).Result()
+				require.NoError(t, err)
+				args[12], args[16] = wrongID, wrongID
+			case "audit-tail-changed":
+				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: keys[14], Values: map[string]any{"event": "emergency_stop"}}).Err())
+			case "observation-changed":
+				require.NoError(t, client.Set(ctx, keys[9], "new-observation", 0).Err())
+			case "required-changed":
+				require.NoError(t, client.Set(ctx, keys[16], "new-recovery", 0).Err())
 			}
 			err = migrateSystemService.Run(ctx, client, keys, args...).Err()
 			if fault != "none" {
@@ -123,6 +138,7 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 			require.NoError(t, err)
 			require.Len(t, journal, 1)
 			require.Equal(t, reason, journal[0].Values["original_trip"])
+			require.Equal(t, incidentID, journal[0].Values["original_trip_audit_id"])
 			require.NotContains(t, journal[0].Values, "private-protobuf-not-exported")
 			// Lost acknowledgment/repeated migration is a changed-state error,
 			// not an implicit success, duplicate audit or permission grant.

@@ -174,7 +174,7 @@ func authorizeSourceWrite(ctx context.Context, target SourceWriteTarget, kind So
 			return ErrForbidden
 		}
 		actor = d.ActorUserID
-		if d.Mode == "user_oauth" {
+		if d.Mode == "user_oauth" || d.Mode == "personal_ref" {
 			if d.PersonalOwnerID != actor {
 				return ErrForbidden
 			}

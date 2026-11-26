@@ -147,6 +147,7 @@ func NormalSourceFromDatabase(
 	// in-flight execution's old deletion/mode/document-policy snapshot.
 	executionHash, err := RecoveryDigest([]any{fingerprint, ds.SyncMode, ds.SyncDeletions, ds.DocumentDeferrals})
 	return NormalSourceAuthority{
+		ActorID: actor, ActorRole: authority.Role,
 		SourceID: source, TenantID: ds.TenantID, KBID: ds.KnowledgeBaseID,
 		ConfigSHA256: fingerprint, AuthoritySHA256: digest, ExecutionSHA256: executionHash,
 	}, err

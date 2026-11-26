@@ -72,6 +72,10 @@ type ContinuityPlan struct {
 }
 
 func (m *RecoveryManager) checkApprovedSource(ctx context.Context, source, config string) error {
+	if m.system != nil {
+		_, err := m.system.checkSource(ctx, nil, source, config)
+		return err
+	}
 	if _, handled, err := m.checkNormalSource(ctx, nil, source, config); handled || err != nil {
 		if err != nil {
 			return fmt.Errorf("normal_admission: %w", err)
@@ -185,6 +189,10 @@ func BindApprovedSource(ctx context.Context, source, config string) (context.Con
 	m := Recovery()
 	if m == nil {
 		return ctx, false, nil
+	}
+	if m.system != nil {
+		work, err := m.system.bindSource(ctx, source, config)
+		return work, true, err
 	}
 	if observing, err := m.observationBarrier(ctx); err != nil {
 		return ctx, false, err

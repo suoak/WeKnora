@@ -126,6 +126,7 @@ type recoveryMode struct {
 
 // RecoveryManager coordinates one approved replacement Guard lifecycle.
 type RecoveryManager struct {
+	system           *automaticService
 	controller       *Controller
 	operation        sync.Mutex
 	key              ed25519.PublicKey

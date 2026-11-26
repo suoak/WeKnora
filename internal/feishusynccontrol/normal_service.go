@@ -49,6 +49,8 @@ type NormalServiceRecord struct {
 // NormalSourceAuthority identifies the actual current source binding. It is
 // produced by trusted database policy, never a task payload or HTTP header.
 type NormalSourceAuthority struct {
+	ActorID         string `json:"actor_id,omitempty"`
+	ActorRole       string `json:"actor_role,omitempty"`
 	SourceID        string `json:"source_id"`
 	KBID            string `json:"knowledge_base_id"`
 	ConfigSHA256    string `json:"config_sha256"`
@@ -163,6 +165,11 @@ func (m *RecoveryManager) normalRecord(ctx context.Context) (*NormalServiceRecor
 
 // NormalServiceActive is a service-level boundary, never source read authority.
 func (m *RecoveryManager) NormalServiceActive(ctx context.Context) (bool, error) {
+	if m.system != nil {
+		// Enabled business policy is separate from execution health. Queued
+		// requests do not imply a permit or a successful consumer/SQL probe.
+		return true, nil
+	}
 	record, err := m.normalRecord(ctx)
 	return record != nil, err
 }

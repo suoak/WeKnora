@@ -227,7 +227,7 @@ func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
 		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load()).Err(); err != nil {
-		return fmt.Errorf("%w: %v", ErrClosed, err)
+		return g.automaticAdmissionError(ctx, err)
 	}
 	return nil
 }
@@ -440,7 +440,7 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 			}
 			return nil, &BudgetBusyError{Reason: reason}
 		}
-		return nil, fmt.Errorf("%w: %v", ErrClosed, err)
+		return nil, g.automaticAdmissionError(ctx, err)
 	}
 	// No automatic expiry: a crashed worker retains its slot until an operator
 	// proves it drained. Reclaiming a lease while a remote request lives is unsafe.

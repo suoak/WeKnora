@@ -35,7 +35,7 @@ func TestSystemServiceSQLReceiptRetainsEvidenceAndClosesSplitCommit(t *testing.T
 	original, err := json.Marshal(f.saved)
 	require.NoError(t, err)
 	state := systemServiceState{
-		Version: 1, Epoch: uuid.NewString(), RuntimeSHA: f.c.Config.SourceSHA,
+		Version: 1, Namespace: f.c.prefix, Epoch: uuid.NewString(), RuntimeSHA: f.c.Config.SourceSHA,
 		WorkerID: f.c.Config.WorkerID, WorkerValue: f.c.fingerprint + ":" + f.c.incarnation,
 		MembershipRevision: "7", GuardFingerprint: f.c.Guard.Fingerprint(), Phase: "canary",
 	}

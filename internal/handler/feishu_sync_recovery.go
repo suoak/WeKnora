@@ -27,6 +27,13 @@ func (h *DataSourceHandler) recoveryActor(c *gin.Context) (*feishusynccontrol.Re
 		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "recovery_not_configured"})
 		return nil, "", false
 	}
+	if m.AutomaticServiceManaged() {
+		c.JSON(http.StatusGone, gin.H{
+			"error":                                  "legacy_signed_recovery_not_applicable",
+			"normal_sync_requires_platform_approval": false,
+		})
+		return nil, "", false
+	}
 	return m, actor, true
 }
 
