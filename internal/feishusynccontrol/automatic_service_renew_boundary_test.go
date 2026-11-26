@@ -13,6 +13,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"github.com/google/uuid"
+	"github.com/hibiken/asynq"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/encoding/protowire"
@@ -25,9 +26,28 @@ import (
 
 func renewableSQLService(t *testing.T) (automaticAuthorityFixture, *automaticService, *redis.Client) {
 	t.Helper()
+	f, s, r, _, _ := renewableSQLServiceRuntime(t)
+	return f, s, r
+}
+
+func renewableSQLServiceRuntime(t *testing.T, handlers ...asynq.Handler) (
+	automaticAuthorityFixture, *automaticService, *redis.Client, *asynq.Server, asynq.RedisClientOpt,
+) {
+	t.Helper()
 	f := newAutomaticAuthorityFixture(t)
 	health, r, opt := nativeAutomaticService(t)
-	startNativeAutomaticConsumer(t, opt)
+	var server *asynq.Server
+	if len(handlers) == 0 {
+		server = startNativeAutomaticConsumer(t, opt)
+	} else {
+		require.Len(t, handlers, 1)
+		server = asynq.NewServer(opt, asynq.Config{
+			Concurrency: 1,
+			Queues:      map[string]int{"sync": 1, ApprovedSyncQueue: 1}, ShutdownTimeout: time.Second,
+		})
+		require.NoError(t, server.Start(handlers[0]))
+		t.Cleanup(server.Shutdown)
+	}
 	c := health.c
 	m, err := NewAutomaticServiceManager(c, f.db,
 		repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
@@ -37,7 +57,7 @@ func renewableSQLService(t *testing.T) (automaticAuthorityFixture, *automaticSer
 	t.Cleanup(func() { InstallRecovery(previous) })
 	nativeAutomaticStable(t, m.system)
 	require.NoError(t, c.Step(context.Background()))
-	return f, m.system, r
+	return f, m.system, r, server, opt
 }
 
 // Reorder complete protobuf fields from an ACTUAL running SDK consumer. This
@@ -92,16 +112,10 @@ func TestAutomaticServiceNativeSQLRefreshRenewProofAfterSQLBoundary(t *testing.T
 				created, createErr := logs.CreateIfNoRunning(ctx, log)
 				require.NoError(t, createErr)
 				require.True(t, created)
-				work, handled, prepareErr := PrepareAutomaticSourceExecution(ctx, f.source.ID, log.ID, f.tenant.ID)
-				require.NoError(t, prepareErr)
-				require.True(t, handled)
-				owner, claimed, claimErr := logs.(interfaces.SyncExecutionRepository).
-					ClaimExecution(work, f.source.ID, log.ID, f.tenant.ID)
-				require.NoError(t, claimErr)
-				require.True(t, claimed)
-				sourceWork = feishusafety.WithRecoveryExecution(
-					types.WithSyncExecution(work, owner), f.config, log.ID, owner.Generation)
 				runID = log.ID
+				unbound, _, readErr := s.current(ctx)
+				require.NoError(t, readErr)
+				require.Empty(t, unbound.CanarySourceID, "do not select the source before the injected boundary")
 			}
 			var queries atomic.Int32
 			var injected atomic.Bool
@@ -115,6 +129,15 @@ func TestAutomaticServiceNativeSQLRefreshRenewProofAfterSQLBoundary(t *testing.T
 					key := "asynq:servers:{" + before.WorkerID + ":" + before.ConsumerServerID + "}"
 					reorderActualConsumerMetadata(t, r, key)
 				} else {
+					work, handled, prepareErr := PrepareAutomaticSourceExecution(ctx, f.source.ID, runID, f.tenant.ID)
+					require.NoError(t, prepareErr)
+					require.True(t, handled)
+					repo := repository.NewSyncLogRepository(f.db).(interfaces.SyncExecutionRepository)
+					owner, claimed, claimErr := repo.ClaimExecution(work, f.source.ID, runID, f.tenant.ID)
+					require.NoError(t, claimErr)
+					require.True(t, claimed)
+					sourceWork = feishusafety.WithRecoveryExecution(
+						types.WithSyncExecution(work, owner), f.config, runID, owner.Generation)
 					_, bindErr := s.bindSource(sourceWork, f.source.ID, f.config)
 					require.NoError(t, bindErr, "use real SQL claim, authority checks and registration Lua")
 				}
