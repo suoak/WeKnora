@@ -31,6 +31,165 @@ jobs:
           git rev-parse HEAD^{tree} > package/source-tree.txt
           sha256sum docker/Dockerfile.app.knowhub-release > package/recipe.sha256
       - uses: docker/setup-buildx-action@v4
+      - name: Prefetch fixed verified official uv release asset
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python3 - <<'PY'
+          """Prefetch the fixed official uv release into a test-owned BuildKit context.
+          
+          No dependency upgrade, credential export, browser URL fallback, or relaxed hash
+          verification. --self-test performs offline validation only.
+          """
+          import argparse,hashlib,io,json,os,pathlib,re,sys,tempfile,urllib.error,urllib.parse,urllib.request
+          TAG='0.12.15'
+          ASSET_ID=565630898
+          NAME='uv-x86_64-unknown-linux-gnu.tar.gz'
+          SIZE=19443011
+          SHA256='f97935763c04be3e692460a7aaeaaab8fc3b78fcf8b389da820b38ae7423a638'
+          LIMIT=32*1024*1024
+          API='https://api.github.com/repos/astral-sh/uv/releases/tags/'+TAG
+          ASSET_API='https://api.github.com/repos/astral-sh/uv/releases/assets/'+str(ASSET_ID)
+          DOWNLOAD_HOSTS={'release-assets.githubusercontent.com','objects.githubusercontent.com'}
+          PHASE='initialization'
+          
+          class RefuseRedirect(urllib.request.HTTPRedirectHandler):
+           def redirect_request(self,req,fp,code,msg,headers,newurl):return None
+          
+          def check_download_url(url):
+           p=urllib.parse.urlsplit(url)
+           if p.scheme!='https' or p.hostname not in DOWNLOAD_HOSTS or p.netloc!=p.hostname or p.username or p.password or p.fragment:
+            raise ValueError('unapproved_download_origin')
+           return p.hostname
+          
+          def check_metadata(meta):
+           if meta.get('tag_name')!=TAG or meta.get('draft') is not False or meta.get('prerelease') is not False:
+            raise ValueError('release_identity_mismatch')
+           assets=[a for a in meta.get('assets',[]) if a.get('id')==ASSET_ID or a.get('name')==NAME]
+           if len(assets)!=1:raise ValueError('asset_identity_ambiguous')
+           a=assets[0]
+           if a.get('id')!=ASSET_ID or a.get('name')!=NAME or a.get('size')!=SIZE or a.get('digest')!='sha256:'+SHA256 or a.get('url')!=ASSET_API:
+            raise ValueError('asset_integrity_metadata_mismatch')
+           return a
+          
+          def request(opener,url,token=None,accept='application/octet-stream'):
+           headers={'Accept':accept,'User-Agent':'KnowHub-verified-release-prefetch'}
+           if token is not None:
+            if url not in (API,ASSET_API) or urllib.parse.urlsplit(url).hostname!='api.github.com':raise ValueError('credential_origin_mismatch')
+            headers['Authorization']='Bearer '+token
+           return opener.open(urllib.request.Request(url,headers=headers),timeout=45)
+          
+          def api_asset_response(opener,token):
+           try:return request(opener,ASSET_API,token), 'api.github.com'
+           except urllib.error.HTTPError as error:
+            if error.code not in (301,302,303,307,308):raise
+            target=error.headers.get('Location','');error.close()
+           for _ in range(3):
+            host=check_download_url(target)
+            try:
+             # Deliberately create a fresh request without any Authorization header.
+             return request(opener,target),host
+            except urllib.error.HTTPError as error:
+             if error.code not in (301,302,303,307,308):raise
+             target=error.headers.get('Location','');error.close()
+           raise ValueError('download_redirect_limit')
+          
+          def copy_verified(stream,destination):
+           size=0;digest=hashlib.sha256()
+           with destination.open('xb') as output:
+            os.chmod(destination,0o600)
+            while True:
+             block=stream.read(1024*1024)
+             if not block:break
+             size+=len(block)
+             if size>LIMIT or size>SIZE:raise ValueError('download_size_exceeded')
+             digest.update(block);output.write(block)
+            output.flush();os.fsync(output.fileno())
+           if size!=SIZE or digest.hexdigest()!=SHA256:raise ValueError('download_integrity_mismatch')
+           return size,digest.hexdigest()
+          
+          def self_test():
+           meta={'tag_name':TAG,'draft':False,'prerelease':False,'assets':[{'id':ASSET_ID,'name':NAME,'size':SIZE,'digest':'sha256:'+SHA256,'url':ASSET_API}]}
+           check_metadata(meta)
+           for key,value in [('tag_name','0.12.16'),('draft',True),('prerelease',True)]:
+            bad=dict(meta);bad[key]=value
+            try:check_metadata(bad)
+            except ValueError:pass
+            else:raise AssertionError('bad_release_accepted')
+           for key,value in [('id',ASSET_ID+1),('name','different.tar.gz'),('size',SIZE+1),('digest','sha256:'+'0'*64),('url','https://example.invalid/')]:
+            bad=dict(meta);bad['assets']=[dict(meta['assets'][0],**{key:value})]
+            try:check_metadata(bad)
+            except ValueError:pass
+            else:raise AssertionError('bad_asset_accepted')
+           for url in ['http://release-assets.githubusercontent.com/x','https://api.github.com/x','https://release-assets.githubusercontent.com.example.invalid/x','https://user:secret@objects.githubusercontent.com/x','https://objects.githubusercontent.com:443/x','https://objects.githubusercontent.com/x#fragment']:
+            try:check_download_url(url)
+            except ValueError:pass
+            else:raise AssertionError('bad_origin_accepted')
+           for host in sorted(DOWNLOAD_HOSTS):assert check_download_url('https://'+host+'/asset?private-query=never-logged')==host
+           class Response:
+            def __enter__(self):return self
+            def __exit__(self,*args):pass
+           class CapturingOpener:
+            def __init__(self):self.requests=[]
+            def open(self,req,timeout):self.requests.append(req);return Response()
+           opener=CapturingOpener();request(opener,ASSET_API,'synthetic-offline-token');request(opener,'https://objects.githubusercontent.com/asset')
+           assert opener.requests[0].get_header('Authorization')=='Bearer synthetic-offline-token'
+           assert opener.requests[1].get_header('Authorization') is None
+           try:request(opener,'https://objects.githubusercontent.com/asset','synthetic-offline-token')
+           except ValueError:pass
+           else:raise AssertionError('credential_origin_not_enforced')
+           with tempfile.TemporaryDirectory(prefix='knowhub-uv-offline-') as tmp:
+            try:copy_verified(io.BytesIO(b'invalid'),pathlib.Path(tmp)/'invalid.tar.gz')
+            except ValueError:pass
+            else:raise AssertionError('bad_archive_accepted')
+           print(json.dumps({'offline_self_test':'PASS','network_requests':0,'real_credentials_used':False}))
+          
+          def main():
+           global PHASE
+           if os.environ.get('GITHUB_ACTIONS')!='true':raise ValueError('requires_disposable_GHA_runner')
+           run=os.environ['GITHUB_RUN_ID'];assert re.fullmatch(r'[0-9]+',run)
+           runner=pathlib.Path(os.environ['RUNNER_TEMP']).resolve(strict=True);assert runner.is_dir()
+           token=os.environ.get('GITHUB_TOKEN','');assert token and '\r' not in token and '\n' not in token
+           github_env=pathlib.Path(os.environ['GITHUB_ENV']);assert github_env.is_file()
+           context=pathlib.Path(tempfile.mkdtemp(prefix='knowhub-uv-verified-',dir=runner)).resolve();assert context.parent==runner
+           archive=context/'uv.tar.gz';success=False
+           try:
+            PHASE='official_release_metadata'
+            opener=urllib.request.build_opener(RefuseRedirect())
+            with request(opener,API,token,'application/vnd.github+json') as response:
+             raw=response.read(512*1024+1);assert len(raw)<=512*1024
+            check_metadata(json.loads(raw))
+            PHASE='official_asset_download'
+            response,host=api_asset_response(opener,token)
+            with response:
+             length=response.headers.get('Content-Length')
+             if length is not None and (not length.isdigit() or int(length)!=SIZE):raise ValueError('declared_size_mismatch')
+             size,digest=copy_verified(response,archive)
+            PHASE='safe_provenance_and_context_export'
+            package=pathlib.Path('package');package.mkdir(exist_ok=True)
+            provenance={'release_tag':TAG,'asset_id':ASSET_ID,'asset_name':NAME,'expected_size':SIZE,'actual_size':size,'expected_sha256':SHA256,'actual_sha256':digest,'official_api_origin':'api.github.com','download_origin':host,'authorization_scope':'api.github.com_only','credential_forwarded_cross_origin':False,'token_in_build_context':False,'github_run_id':run,'dependency_version_changed':False}
+            out=package/'uv-provenance.json'
+            with out.open('x',encoding='utf-8') as file:json.dump(provenance,file,indent=2)
+            assert set(p.name for p in context.iterdir())=={'uv.tar.gz'}
+            value=str(context);assert '\r' not in value and '\n' not in value
+            with github_env.open('a',encoding='utf-8') as file:file.write('UV_ASSET_CONTEXT='+value+'\n')
+            success=True
+            print(json.dumps({'fixed_uv_prefetch':'PASS','asset_id':ASSET_ID,'sha256':digest,'actual_size':size,'credential_exported':False}))
+           finally:
+            if not success:
+             if archive.exists():archive.unlink()
+             context.rmdir()
+          
+          if __name__=='__main__':
+           parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--self-test',action='store_true');args=parser.parse_args()
+           try:
+            if args.self_test:self_test()
+            else:main()
+           except Exception as error:
+            # HTTPError strings contain signed redirect URLs; never print them/tracebacks.
+            print(json.dumps({'fixed_uv_prefetch':'FAIL','phase':PHASE,'error_class':type(error).__name__}),file=sys.stderr)
+            raise SystemExit(1)
+          PY
       - name: Build complete Bookworm runtime with native AnyDoc
         uses: docker/build-push-action@v7
         with:
@@ -38,6 +197,8 @@ jobs:
           file: docker/Dockerfile.app.knowhub-release
           platforms: linux/amd64
           target: validation
+          build-contexts: |
+            verified-release-assets=${{ env.UV_ASSET_CONTEXT }}
           push: false
           load: true
           tags: knowhub-consumer-native-validation:ci
@@ -64,6 +225,7 @@ jobs:
         run: |
           set -euo pipefail
           docker buildx build --load --platform linux/amd64 --target runtime \
+            --build-context verified-release-assets="$UV_ASSET_CONTEXT" \
             -f docker/Dockerfile.app.knowhub-release \
             --cache-from type=gha,scope=consumer-wiki-native \
             --build-arg WITH_ANYDOC=1 --build-arg VERSION_ARG=consumer-wiki-diagnostics \
