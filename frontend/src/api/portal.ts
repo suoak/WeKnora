@@ -50,6 +50,7 @@ export interface TenantAccessRequest {
   tenant_name?: string
   reviewer_name?: string
   applicant_user_id: string
+  applicant_name?: string
   source: 'portal'
   status: 'pending' | 'approved' | 'rejected' | 'cancelled'
   reason: string

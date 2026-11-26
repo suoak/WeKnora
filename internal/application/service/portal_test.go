@@ -193,6 +193,7 @@ func TestUpdatePortalConfigRejectsMissingOrSoftDeletedOrganization(t *testing.T)
 func TestListTenantAccessRequestsRequiresTargetActiveOwner(t *testing.T) {
 	db := newPortalApprovalTestDB(t, "portal-list-owner")
 	seedPortalApproval(t, db, types.TenantMemberStatusActive)
+	require.NoError(t, db.Exec("UPDATE users SET username = ? WHERE id = ?", "Alice", "applicant").Error)
 	audit := NewAuditLogService(repository.NewAuditLogRepository(db))
 	svc := &portalService{
 		db:        db,
@@ -203,6 +204,7 @@ func TestListTenantAccessRequestsRequiresTargetActiveOwner(t *testing.T) {
 	rows, err := svc.ListTenantAccessRequests(context.Background(), "owner", 7)
 	require.NoError(t, err)
 	require.Len(t, rows, 1)
+	require.Equal(t, "Alice", rows[0].ApplicantName)
 	_, err = svc.ListTenantAccessRequests(context.Background(), "system-admin-without-membership", 7)
 	require.ErrorIs(t, err, ErrPortalReviewForbidden)
 }
