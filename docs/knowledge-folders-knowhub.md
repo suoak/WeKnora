@@ -66,14 +66,14 @@
 
 目录表保全：升级前尚无该表时记录这一事实；升级后任何回退前，额外用 `pg_dump -Fc --table=public.knowledge_folders` 导出，并记录行数、tenant/KB 范围和备份 SHA-256。目录名称可能敏感，备份不提交到 Git，也不放入公开 CI artifact。
 
-2026-11-26 对测试入口的只读核查：80/8080 指向 `knowhub-mvp-p3` 的 APP/Frontend，该 APP 同时运行后台任务；没有其他正在运行的容器使用同一 `WeKnora-postgres/WeKnora` 数据库。数据库为 3037、clean，有 34 份有效文档、5,033 个有效分块、22 个有效 KB，受管飞书资源为 active 6 / HOLD 2。该目标不是紧邻的 3051 基线，必须先在备份副本上演练 3037→3052 全链升级与完整恢复；不能将 003052 的兼容性证明直接当作这次跨版本升级的证明。
+2026-11-26 正式验收以正在监听 80/8080 的容器和 `nginx -T` 为准：实际项目为 `knowhub-feishu-v2-d6e99d894d3a`，包括 APP、Worker2 和 Frontend；数据库是 `knowhub_feishu_v2_test`，升级前为 3042、clean。QA 账号和检索基线文档已在该库核实。此前读取的 `knowhub-mvp-p3` 配置属于历史站点，不能用于定位当前入口；该历史库未迁移，旧 APP 已恢复原样运行。实际站点已完成备份副本 3042→3052 迁移演练、停写后的新备份与恢复验证，以及同一 main SHA 的统一部署。详见[真实站点验收与发布门槛](qa/knowledge-folders/acceptance-20261126.md)。
 
-本地实际验证：41 项前端目录测试、Vue 类型检查、生产 handler/service/repository 的 HTTP 测试通过；Playwright 两项端到端组件验收通过（使用真实磁盘数据库）。[三层空目录刷新截图](qa/knowledge-folders/nested-empty.png)、[Viewer 页面截图](qa/knowledge-folders/viewer.png) 均来自合成组件验收环境。统一测试环境的最终页面/API、文档摘要、检索与飞书任务验收仍须在完成上述发布步骤后单独记录。
+本地组件验收与真实站点验收分别留证。组件截图见[三级空目录](qa/knowledge-folders/nested-empty.png)和[Viewer](qa/knowledge-folders/viewer.png)；真实 172.30.232.42 页面、鉴权 API、数据摘要和检索结果见[2026-11-26 验收记录](qa/knowledge-folders/acceptance-20261126.md)。飞书真实同步的原有安全停止仍保留，不能记为同步成功或生产发布已获批准。
 
 ## 回滚
 
 首选回滚 APP/Worker/Frontend 到保存的兼容镜像组合，数据库保持 3052 并保留新表。旧代码继续使用 `folder_path`，忽略新增表，因此新建空目录数据不会丢失；它们会在再次升级后恢复展示。不要为代码回滚盲目执行 down。
 
-上述保留 schema 的代码回滚只适用于已经验证兼容的紧邻版本组合。当前测试环境的历史 3037 运行时不能默认兼容 main 的其他新增迁移；在该环境回退时，需要使用已验证的完整数据库快照恢复到新库，保留失败库和独立目录表导出，再把 APP/Worker/Frontend 一起切回原镜像和数据库连接。
+上述保留 schema 的代码回滚只适用于已经验证兼容的紧邻版本组合。当前测试环境的历史 3042 运行时不能默认兼容 main 的其他新增迁移；在该环境回退时，需要使用已验证的完整数据库快照恢复到新库，保留失败库和独立目录表导出，再把 APP/Worker/Frontend 一起切回原镜像和数据库连接。
 
 只有确认必须回退 schema 时，先停全部写入、验证全库备份及目录表独立备份可恢复，再执行 003052 down。down 会删除目录表，不能撤销已发生的文档目录移动；要求恢复文档原位置时应使用部署前完整备份恢复到新库并切换，保留失败库取证。再次 up 后用目录表备份恢复，先验证其 tenant/KB 身份和唯一性，再开放流量。严禁无备份 DROP、修改既有 migration checksum 或强制修改版本号。

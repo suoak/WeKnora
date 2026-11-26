@@ -1,0 +1,128 @@
+[
+  {
+    "name": "build (app)",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824085054/job/139930722829"
+  },
+  {
+    "name": "build (frontend)",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824085054/job/139930720400"
+  },
+  {
+    "name": "Docker image and production startup smoke",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059178/job/139930052691"
+  },
+  {
+    "name": "build-app",
+    "status": "completed",
+    "conclusion": "skipped",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059072/job/139923571676"
+  },
+  {
+    "name": "merge",
+    "status": "completed",
+    "conclusion": "skipped",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059072/job/139923571175"
+  },
+  {
+    "name": "build-ui",
+    "status": "completed",
+    "conclusion": "skipped",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059072/job/139923555805"
+  },
+  {
+    "name": "build-sandbox",
+    "status": "completed",
+    "conclusion": "skipped",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059072/job/139923509768"
+  },
+  {
+    "name": "postgres-and-sqlite",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059361/job/139923509518"
+  },
+  {
+    "name": "build-docreader",
+    "status": "completed",
+    "conclusion": "skipped",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059072/job/139923508543"
+  },
+  {
+    "name": "M1 Linux backend and MCP compatibility",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059119/job/139923507597"
+  },
+  {
+    "name": "Portal contracts, RBAC, race, and branding",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059119/job/139923507530"
+  },
+  {
+    "name": "Format, vet, test, and build",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059178/job/139923507376"
+  },
+  {
+    "name": "warm lint cache (.)",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059139/job/139923507349"
+  },
+  {
+    "name": "Test, type-check, and build",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059158/job/139923507339"
+  },
+  {
+    "name": "warm lint cache (cli)",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059139/job/139923507251"
+  },
+  {
+    "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059119/job/139923507167"
+  },
+  {
+    "name": "Docker multi-stage image",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059158/job/139923506957"
+  },
+  {
+    "name": "Personal document deletion and lease regression",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059045/job/139923506824"
+  },
+  {
+    "name": "warm lint cache (client)",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059139/job/139923506800"
+  },
+  {
+    "name": "accounting",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059083/job/139923506666"
+  },
+  {
+    "name": "Personal MCP authenticated concurrency and SSE isolation",
+    "status": "completed",
+    "conclusion": "success",
+    "url": "https://github.com/suoak/WeKnora/actions/runs/45824059083/job/139923506185"
+  }
+]

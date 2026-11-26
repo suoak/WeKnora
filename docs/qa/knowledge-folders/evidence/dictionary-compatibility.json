@@ -1,0 +1,13 @@
+{
+  "old_path": "/app/jieba-dict",
+  "new_path": "/go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict",
+  "original_file_hashes": {
+    "idf.utf8": "dbd1e03d72b2263cc8d84a4304ed77677eed9e7deaf43a1a5133bbba9733b535",
+    "jieba.dict.utf8": "3043b77068e09c9904f27cad82f12b6ebe9dbdb5aeff3b25e45ab7f9c1122b55",
+    "user.dict.utf8": "495bbf49270408a1234690e1e6a97328f30a482a7a72aa769e8a12e8714b0c62",
+    "hmm_model.utf8": "f17790586ac86dd048c8adffed052c4bd2b28ed0682972c1275e59040c0589a7",
+    "stop_words.utf8": "b788b8a939d2e2fe079abd579ea98f12f9fb84370bfd0dddd81bb9381f7ab42c",
+    "README.md": "8bcc7c2ed7dff082d9a99c09de0bfd72249bf3b5c4298a3af328da40cbd8cfd1"
+  },
+  "all_original_files_identical": true
+}

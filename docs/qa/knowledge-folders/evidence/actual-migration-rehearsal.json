@@ -1,0 +1,92 @@
+{
+  "status": "PASS",
+  "project": "knowhub-feishu-v2-d6e99d894d3a",
+  "target": "172.30.232.42",
+  "source_sha": "642bbe7f18c4512a8623be84c385abf0862f43ec",
+  "original_version": "3042|f",
+  "copy_version": "3052|f",
+  "backup": {
+    "file": "rehearsal-3042.dump",
+    "bytes": 1684478,
+    "sha256": "d67f1938d36d73241a5c18e1add323ed8d9cf8c6afca70db559f526fc1d1add6"
+  },
+  "before": {
+    "knowledges": {
+      "count": 7,
+      "digest": "76c889f5cfbab37b16225de1caa9334b"
+    },
+    "chunks": {
+      "count": 241,
+      "digest": "2527d9b303c51fa3203257fce6b14987"
+    },
+    "embeddings": {
+      "count": 57,
+      "digest": "77ca8c5ea804a598cf0a6399a7dff2ce"
+    },
+    "data_sources": {
+      "count": 4,
+      "digest": "b575b4700ed0189a76d9191e47b7a6c7"
+    },
+    "feishu_legacy_resources": {
+      "count": 2,
+      "digest": "6512c277028ffa76fee1f7e5fb4899d8"
+    },
+    "models": {
+      "count": 3,
+      "digest": "2332005052ae50eb98644fbd411c65f5"
+    },
+    "users": {
+      "count": 4,
+      "digest": "71a2f1b6cb3aa8712b3faed172a4f686"
+    },
+    "knowledge_bases": {
+      "count": 6,
+      "digest": "168bd8414ca5ac33aaa710716990d26c"
+    },
+    "feishu_personal_imports": {
+      "count": 5,
+      "digest": "a1ca45e6cc532c018aee801921fe825f"
+    }
+  },
+  "after": {
+    "knowledges": {
+      "count": 7,
+      "digest": "76c889f5cfbab37b16225de1caa9334b"
+    },
+    "chunks": {
+      "count": 241,
+      "digest": "2527d9b303c51fa3203257fce6b14987"
+    },
+    "embeddings": {
+      "count": 57,
+      "digest": "77ca8c5ea804a598cf0a6399a7dff2ce"
+    },
+    "data_sources": {
+      "count": 4,
+      "digest": "b575b4700ed0189a76d9191e47b7a6c7"
+    },
+    "feishu_legacy_resources": {
+      "count": 2,
+      "digest": "6512c277028ffa76fee1f7e5fb4899d8"
+    },
+    "models": {
+      "count": 3,
+      "digest": "2332005052ae50eb98644fbd411c65f5"
+    },
+    "users": {
+      "count": 4,
+      "digest": "71a2f1b6cb3aa8712b3faed172a4f686"
+    },
+    "knowledge_bases": {
+      "count": 6,
+      "digest": "168bd8414ca5ac33aaa710716990d26c"
+    },
+    "feishu_personal_imports": {
+      "count": 5,
+      "digest": "a1ca45e6cc532c018aee801921fe825f"
+    }
+  },
+  "restore_verified": true,
+  "old_fields_unchanged": true,
+  "original_still_3042": true
+}

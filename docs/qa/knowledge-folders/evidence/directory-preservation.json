@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "source_sha": "642bbe7f18c4512a8623be84c385abf0862f43ec",
+  "table_rows": 5,
+  "directory_table_backup": {
+    "file": "knowledge-folders-3052.dump",
+    "bytes": 2701,
+    "sha256": "ad17bcb7091e637b00e21f6547bfb4a98c6ab145b16dcf0a773728f5be172d37"
+  },
+  "directory_rows_restored_identically": true,
+  "full_post_acceptance_backup": {
+    "file": "after-3052.dump",
+    "bytes": 1704453,
+    "sha256": "d9ca4f767056d2244c222d914672505b382dafd84b0d77c05f7b4ff5892b2b32"
+  },
+  "rollback_snapshot": "folders_live_rollback_642bbe7f1",
+  "rollback_version": "3042|f"
+}
