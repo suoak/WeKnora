@@ -114,8 +114,14 @@ func (r *knowledgeRepository) CreateKnowledgeFolder(ctx context.Context, tenantI
 		// Service authorization may predate KB deletion and its completed cleanup.
 		// Recheck liveness under the same lock as marker cleanup, and hold a row
 		// lock until insertion commits so a concurrent soft-delete runs afterwards.
-		var kb types.KnowledgeBase
-		if err := tx.Clauses(clause.Locking{Strength: "SHARE"}).Select("id").
+		if err := types.CheckPrivateKBRead(tx, "", kbID); err != nil {
+			return err
+		}
+		// Liveness and private-owner checks are metadata checks. A partial KB
+		// projection must not run the content-verification AfterFind hook.
+		var kb struct{ ID string }
+		if err := tx.Model(&types.KnowledgeBase{}).
+			Clauses(clause.Locking{Strength: "SHARE"}).Select("id").
 			Where("id = ? AND tenant_id = ?", kbID, tenantID).Take(&kb).Error; err != nil {
 			if errors.Is(err, gorm.ErrRecordNotFound) {
 				return ErrKnowledgeFolderNotFound
