@@ -108,6 +108,11 @@ func (s *automaticService) health(ctx context.Context) (systemHealthProof, error
 		if c.consumerDiagnostic != nil {
 			c.consumerDiagnostic.ProbeClass = "health_" + strings.TrimPrefix(systemServiceRenewClass(err), "renew_")
 		}
+		if isSystemConsumerReadConflict(err) {
+			// This failed proof is only an identity comparison anchor for one
+			// bounded full revalidation. It is never executable authority.
+			return proof, err
+		}
 		return systemHealthProof{}, err
 	}
 	c.lastConsumerServerIDs = append([]string(nil), proof.ConsumerServerIDs...)
