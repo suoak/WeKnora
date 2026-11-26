@@ -358,8 +358,19 @@ func (r *knowledgeRepository) RenameKnowledgeFolderPath(ctx context.Context, ten
 		if !exists {
 			return nil
 		}
-		var rows []*types.Knowledge
-		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "folder_path").Where("tenant_id = ? AND knowledge_base_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE ?)", tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).Find(&rows).Error; err != nil {
+		// Folder placement consumes metadata only. Scanning this projection must
+		// not invoke Knowledge.AfterFind's Feishu content-verification hook.
+		var rows []struct {
+			ID         string
+			FolderPath string
+		}
+		if err := tx.Model(&types.Knowledge{}).
+			Clauses(clause.Locking{Strength: "UPDATE"}).
+			Select("id", "folder_path").
+			Where("tenant_id = ? AND knowledge_base_id = ? AND "+
+				"(folder_path = ? OR folder_path LIKE ? ESCAPE ?)",
+				tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).
+			Scan(&rows).Error; err != nil {
 			return err
 		}
 		byTarget := map[string][]string{}
