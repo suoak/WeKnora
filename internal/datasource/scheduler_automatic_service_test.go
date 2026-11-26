@@ -94,18 +94,21 @@ func newSchedulerAutomaticFixture(t *testing.T) schedulerAutomaticFixture {
 	t.Log("SQL: disposable PostgreSQL with full migrations; Redis: miniredis admission fixture; queue: capturing adapter, no consumer or outbound requests")
 	return f
 }
+
 func (f schedulerAutomaticFixture) source(t *testing.T) types.DataSource {
 	t.Helper()
 	ds := types.DataSource{ID: uuid.NewString(), TenantID: f.tenant.ID, KnowledgeBaseID: f.kb.ID, Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive, LegacyAccessState: "unmanaged", Config: types.JSON(`{"resource_ids":["fixture-root"],"settings":{}}`), SyncSchedule: "0 0 0 * * *", LastSyncCursor: types.JSON(`{"fixture":"unchanged"}`)}
 	require.NoError(t, f.db.Create(&ds).Error)
 	return ds
 }
+
 func (f schedulerAutomaticFixture) logs(t *testing.T, source string) []types.SyncLog {
 	t.Helper()
 	var logs []types.SyncLog
 	require.NoError(t, f.db.Where("data_source_id=?", source).Find(&logs).Error)
 	return logs
 }
+
 func (f schedulerAutomaticFixture) closed(t *testing.T, source string) {
 	t.Helper()
 	require.Zero(t, f.redis.Exists(context.Background(), f.guard.PermitKey()).Val())
@@ -136,7 +139,7 @@ func TestSchedulerAutomaticServicePersistsIntentAndApprovedQueue(t *testing.T) {
 	require.Len(t, f.logs(t, ds.ID), 1)
 	var saved types.DataSource
 	require.NoError(t, f.db.First(&saved, "id=?", ds.ID).Error)
-	require.Equal(t, string(ds.LastSyncCursor), string(saved.LastSyncCursor))
+	require.JSONEq(t, string(ds.LastSyncCursor), string(saved.LastSyncCursor))
 	fingerprint, err := feishusafety.SourceConfigFingerprint(ds.ID, ds.KnowledgeBaseID, ds.Type, ds.LegacyAccessState, ds.TenantID, ds.Config)
 	require.NoError(t, err)
 	http := context.WithValue(context.Background(), types.UserIDContextKey, f.owner.ID)

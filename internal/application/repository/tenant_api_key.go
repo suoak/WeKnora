@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm/clause"
 )
 
-var ErrTenantAPIKeyNotFound = errors.New("tenant api key not found")
+var ErrTenantAPIKeyNotFound = types.ErrTenantAPIKeyNotFound
 
 type tenantAPIKeyRepository struct {
 	db *gorm.DB

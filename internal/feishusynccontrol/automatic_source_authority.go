@@ -137,7 +137,8 @@ func automaticResourceAuthority(ctx context.Context, db, publication *gorm.DB, s
 	} else {
 		err = access.AuthorizeSourceWrite(authContext, target, loader)
 	}
-	if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) || errors.Is(err, access.ErrNotFound) {
+	if errors.Is(err, access.ErrForbidden) || errors.Is(err, access.ErrUnauthorized) ||
+		errors.Is(err, access.ErrNotFound) || errors.Is(err, types.ErrTenantAPIKeyNotFound) || errors.Is(err, gorm.ErrRecordNotFound) {
 		err = errors.Join(ErrRecoveryRejected, err)
 	}
 	return authority, err
@@ -264,6 +265,9 @@ func (l automaticSourceFacts) key(ctx context.Context, tenant uint64) (*access.S
 	key := &access.SourceWriteKey{TenantID: tenant, Scope: current, Revoked: row.RevokedAt != nil, ExpiresAt: row.ExpiresAt}
 	if row.OwnerUserID != nil {
 		key.OwnerUserID = *row.OwnerUserID
+	}
+	if key.Revoked || key.ExpiresAt != nil && !key.ExpiresAt.After(time.Now()) {
+		return nil, ErrRecoveryRejected
 	}
 	switch row.ScopeType {
 	case types.APIKeyScopeTenant:

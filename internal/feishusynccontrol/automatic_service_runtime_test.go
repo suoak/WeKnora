@@ -153,3 +153,92 @@ func TestAutomaticServiceNativeSQLPreparedRestartCreatesNewEpoch(t *testing.T) {
 	require.NoError(t, json.Unmarshal(retained.Value, &immutable))
 	require.Equal(t, *prepared, immutable, "superseding a known preparation preserves its complete immutable evidence")
 }
+
+func TestAutomaticServiceNativeSQLCommittedRestartAcknowledgesThenRequalifies(t *testing.T) {
+	f := newAutomaticAuthorityFixture(t)
+	health, r, opt := nativeAutomaticService(t)
+	consumer := startNativeAutomaticConsumer(t, opt)
+	c := health.c
+	m, err := NewAutomaticServiceManager(c, f.db, repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
+	require.NoError(t, err)
+	nativeAutomaticStable(t, m.system)
+	var fail atomic.Bool
+	fail.Store(true)
+	const callback = "test:committed_restart_ack"
+	require.NoError(t, f.db.Callback().Update().Before("gorm:update").Register(callback, func(tx *gorm.DB) {
+		if values, ok := tx.Statement.Dest.(map[string]interface{}); ok {
+			if value, ok := values["value"].(types.JSON); ok && strings.Contains(string(value), `"phase":"active"`) && fail.CompareAndSwap(true, false) {
+				tx.AddError(errors.New("controlled committed restart acknowledgment failure"))
+			}
+		}
+	}))
+	t.Cleanup(func() { require.NoError(t, f.db.Callback().Update().Remove(callback)) })
+	ctx := context.Background()
+	require.ErrorContains(t, c.Step(ctx), "controlled committed restart acknowledgment failure")
+	prepared, err := readSystemReceipt(ctx, f.db)
+	require.NoError(t, err)
+	require.NotNil(t, prepared)
+	require.Equal(t, "prepared", prepared.Phase)
+	old, err := systemState(r.Get(ctx, c.prefix+"system_service").Val())
+	require.NoError(t, err)
+	consumer.Shutdown()
+	require.NoError(t, c.Drain(ctx), "normal fenced departure retains the prepared receipt")
+	guard, err := feishusafety.New(r, feishusafety.Config{
+		Namespace:    strings.TrimSuffix(strings.TrimPrefix(c.prefix, "feishu:safety:{"), "}:"),
+		EndpointHost: "gateway.invalid", InFlight: 1, RPM: 30, RPS: 1, TPM: 30000,
+		WaitBudgetDuration: time.Second, TokenBoundVerified: true,
+	})
+	require.NoError(t, err)
+	replacement, err := New(r, guard, c.Config, c.Stop, c.Audit)
+	require.NoError(t, err)
+	replacement.ApprovedConsumers = ApprovedConsumers(r)
+	next, err := NewAutomaticServiceManager(replacement, f.db, repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
+	require.NoError(t, err)
+	startNativeAutomaticConsumer(t, opt)
+	nativeAutomaticStable(t, next.system)
+	require.ErrorIs(t, replacement.Step(ctx), ErrNotReady,
+		"acknowledging predecessor durability does not authorize its identity")
+	acknowledged, err := readSystemReceipt(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, "active", acknowledged.Phase)
+	require.Equal(t, old.Epoch, acknowledged.Epoch)
+	require.Zero(t, r.Exists(ctx, guard.PermitKey()).Val())
+	require.NoError(t, replacement.Step(ctx))
+	state, _, err := next.system.current(ctx)
+	require.NoError(t, err)
+	require.NotEqual(t, old.Epoch, state.Epoch)
+	require.NotEqual(t, old.WorkerValue, state.WorkerValue)
+	require.NotEqual(t, old.ConsumerServerID, state.ConsumerServerID)
+	require.Equal(t, "canary", state.Phase)
+	require.Empty(t, state.CanarySourceID)
+	require.Equal(t, guard.Fingerprint(), r.Get(ctx, guard.PermitKey()).Val())
+}
+
+func TestAutomaticServiceNativeSQLSameIncarnationConsumerConflictStaysClosed(t *testing.T) {
+	f := newAutomaticAuthorityFixture(t)
+	health, r, opt := nativeAutomaticService(t)
+	first := startNativeAutomaticConsumer(t, opt)
+	c := health.c
+	m, err := NewAutomaticServiceManager(c, f.db, repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
+	require.NoError(t, err)
+	nativeAutomaticStable(t, m.system)
+	ctx := context.Background()
+	require.NoError(t, c.Step(ctx))
+	before, _, err := m.system.current(ctx)
+	require.NoError(t, err)
+	first.Shutdown()
+	require.ErrorIs(t, c.Step(ctx), ErrNotReady)
+	require.Zero(t, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	startNativeAutomaticConsumer(t, opt)
+	replacement := nativeAutomaticStable(t, m.system)
+	require.NotEqual(t, before.ConsumerServerID, replacement.ConsumerServerIDs[0])
+	require.Equal(t, before.WorkerValue, replacement.WorkerValue, "this is a consumer conflict, not an orderly worker incarnation change")
+	require.ErrorIs(t, c.Step(ctx), ErrNotReady)
+	require.Equal(t, "system_consumer_identity_conflict", r.Get(ctx, c.prefix+"trip").Val())
+	require.Zero(t, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	receipt, err := readSystemReceipt(ctx, f.db)
+	require.NoError(t, err)
+	require.Equal(t, before.Epoch, receipt.Epoch)
+	require.ErrorIs(t, c.Step(ctx), ErrNotReady)
+	require.Equal(t, "system_consumer_identity_conflict", r.Get(ctx, c.prefix+"trip").Val(), "further healthy reads cannot erase a real identity conflict")
+}

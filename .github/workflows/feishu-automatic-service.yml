@@ -11,8 +11,10 @@ on:
       - internal/application/access/source_write*
       - internal/application/service/datasource*
       - internal/application/repository/datasource*
+      - internal/application/repository/tenant_api_key.go
       - internal/datasource/scheduler*
       - internal/types/sync_admission.go
+      - internal/types/tenant_api_key_errors.go
       - internal/container/feishu_sync*
       - .github/workflows/feishu-automatic-service.yml
 permissions:

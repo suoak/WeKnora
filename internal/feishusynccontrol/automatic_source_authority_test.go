@@ -239,9 +239,10 @@ func TestAutomaticSourcePostgresKeyIntersectionAndDynamicScope(t *testing.T) {
 		require.Error(t, err, "repository-resolved scope changes take effect")
 		if mode == "dynamic_all" {
 			require.NoError(t, f.db.Table("tenant_members").Where("tenant_id=? AND user_id=?", f.tenant.ID, f.owner.ID).Update("status", "active").Error)
-			require.NoError(t, f.db.Table("tenant_api_keys").Where("id=?", id).Update("personal_scope_mode", "unknown").Error)
+			require.Error(t, f.db.Table("tenant_api_keys").Where("id=?", id).Update("personal_scope_mode", "unknown").Error,
+				"the real schema rejects an unknown mode without disabling its constraint")
 			_, err = automaticSourceAuthority(ctx, f.db, nil, f.source.ID, f.config, repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
-			require.Error(t, err, "unknown dynamic mode is never inferred as full scope")
+			require.NoError(t, err, "the rejected write preserves the existing legitimate mode and grant")
 		}
 	}
 	_, err = automaticSourceAuthority(context.WithValue(context.Background(), types.UserIDContextKey, f.owner.ID), f.db, nil, f.source.ID, f.config, repository.NewTenantAPIKeyRepository(f.db).(AutomaticSourceKeyScopes))
