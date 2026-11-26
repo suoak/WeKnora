@@ -12,6 +12,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/application/service"
+	"github.com/Tencent/WeKnora/internal/config"
 	"github.com/Tencent/WeKnora/internal/middleware"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
@@ -36,7 +37,8 @@ func persistentFolderHTTP(t *testing.T) *gin.Engine {
 	kb := &stubFolderKBService{}
 	svc, err := service.NewKnowledgeService(nil, repo, nil, kb, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
-	h := &KnowledgeHandler{kbService: kb, kgService: svc}
+	cfg := &config.Config{}
+	h := &KnowledgeHandler{kbService: kb, kgService: svc, cfg: cfg}
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
 	r.Use(middleware.ErrorHandler())
@@ -55,9 +57,9 @@ func persistentFolderHTTP(t *testing.T) *gin.Engine {
 	})
 	p := "/api/v1/knowledge-bases/:id/knowledge/folders"
 	r.GET(p, h.ListKnowledgeFolders)
-	r.POST(p, middleware.RequireRole(types.TenantRoleContributor, nil), h.CreateKnowledgeFolder)
-	r.PUT(p, middleware.RequireRole(types.TenantRoleContributor, nil), h.RenameKnowledgeFolder)
-	r.DELETE(p+"/empty", middleware.RequireRole(types.TenantRoleContributor, nil), h.DeleteKnowledgeFolder)
+	r.POST(p, middleware.RequireRole(types.TenantRoleContributor, cfg), h.CreateKnowledgeFolder)
+	r.PUT(p, middleware.RequireRole(types.TenantRoleContributor, cfg), h.RenameKnowledgeFolder)
+	r.DELETE(p+"/empty", middleware.RequireRole(types.TenantRoleContributor, cfg), h.DeleteKnowledgeFolder)
 	return r
 }
 

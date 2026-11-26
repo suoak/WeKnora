@@ -226,6 +226,14 @@ func TestKnowledgeDerivedWritePostgres(t *testing.T) {
 	t.Run("folder-and-deletion-fences-survive", func(t *testing.T) {
 		k, _, _ := fixture(t)
 		require.NoError(t, db.Exec("UPDATE knowledges SET folder_path='classified' WHERE id=?", k.ID).Error)
+		require.NoError(t, repo.CreateKnowledgeFolder(ctx, tenant.ID, kb.ID, "persistent-held"))
+		moved, err := repo.UpdateKnowledgeFolderPath(ctx, tenant.ID, kb.ID, []string{k.ID}, "persistent-held")
+		require.NoError(t, err)
+		require.EqualValues(t, 1, moved)
+		moved, err = repo.RenameKnowledgeFolderPath(ctx, tenant.ID, kb.ID, "persistent-held", "held-renamed")
+		require.NoError(t, err)
+		require.EqualValues(t, 1, moved)
+		require.ErrorIs(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "held-renamed"), ErrKnowledgeFolderNotEmpty)
 		require.Error(t, db.Exec("UPDATE knowledges SET description='no ticket' WHERE id=?", k.ID).Error)
 		require.NoError(
 			t,

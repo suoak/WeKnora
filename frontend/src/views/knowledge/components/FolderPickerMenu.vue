@@ -45,6 +45,7 @@
           <input
             ref="newFolderInputRef"
             v-model.trim="newFolderName"
+            :disabled="creatingPending"
             class="folder-picker__input"
             :placeholder="t('knowledgeBase.moveToFolder.newFolderPlaceholder')"
             @keydown.enter.stop="commitNewFolder"
@@ -203,6 +204,7 @@ const choose = (path: string) => {
 }
 
 const startCreatingUnder = (parentPath: string) => {
+  if (creatingPending.value) return
   if (creatingUnder.value === parentPath) {
     cancelCreating()
     return
@@ -212,6 +214,7 @@ const startCreatingUnder = (parentPath: string) => {
 }
 
 const cancelCreating = () => {
+  if (creatingPending.value) return
   creatingUnder.value = null
   newFolderName.value = ''
 }
@@ -370,8 +373,8 @@ const commitNewFolder = async () => {
   border-radius: var(--app-radius-xs);
   background: transparent;
   color: var(--td-text-color-placeholder);
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.6;
+  pointer-events: auto;
   cursor: pointer;
   transition: opacity var(--app-motion-fast) ease, color var(--app-motion-fast) ease, background var(--app-motion-fast) ease;
 

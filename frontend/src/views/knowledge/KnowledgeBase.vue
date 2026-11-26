@@ -942,6 +942,7 @@ const loadFolderTree = async (kbIdValue: string) => {
     if (!isCurrentKb(kbIdValue) || requestGeneration !== folderTreeRequestGeneration) return;
     console.error('Failed to load knowledge folders', error);
     MessagePlugin.error(t('loadState.genericTitle'));
+    return false;
   } finally {
     if (isCurrentKb(kbIdValue) && requestGeneration === folderTreeRequestGeneration) {
       folderTreeLoading.value = false;
