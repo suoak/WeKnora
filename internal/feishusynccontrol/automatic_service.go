@@ -105,6 +105,9 @@ func (s *automaticService) health(ctx context.Context) (systemHealthProof, error
 	if err := redis.NewScript(systemHealthLua+"return 1").
 		Run(ctx, c.Client, s.healthKeys(), args...).
 		Err(); err != nil {
+		if c.consumerDiagnostic != nil {
+			c.consumerDiagnostic.ProbeClass = "health_" + strings.TrimPrefix(systemServiceRenewClass(err), "renew_")
+		}
 		return systemHealthProof{}, err
 	}
 	c.lastConsumerServerIDs = append([]string(nil), proof.ConsumerServerIDs...)
@@ -130,7 +133,11 @@ func (s *automaticService) withdraw(ctx context.Context, reason string) error {
 	stop, cancel := context.WithTimeout(context.WithoutCancel(ctx), time.Second)
 	defer cancel()
 	err := c.Client.Del(stop, c.Guard.PermitKey()).Err()
-	if c.lastEvent != "system_wait:"+reason {
+	waitKey := "system_wait:" + reason
+	if c.consumerDiagnostic != nil {
+		waitKey += ":" + c.probeStage + ":" + c.consumerDiagnostic.ProbeClass
+	}
+	if c.lastEvent != waitKey {
 		diagnostic := ""
 		if c.consumerDiagnostic != nil {
 			diagnostic = c.consumerDiagnostic.snapshot(stop, c, reason)
@@ -146,7 +153,7 @@ func (s *automaticService) withdraw(ctx context.Context, reason string) error {
 			WorkerID: c.Config.WorkerID, ConsumerDiagnostic: diagnostic, ProbeStage: c.probeStage,
 		})
 		if err == nil && journal == nil && audit == nil {
-			c.lastEvent = "system_wait:" + reason
+			c.lastEvent = waitKey
 		}
 		err = errors.Join(err, journal, audit)
 	}

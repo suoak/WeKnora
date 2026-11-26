@@ -112,7 +112,11 @@ func (s *automaticService) step(ctx context.Context) error {
 	if state.Phase == "canary" && state.CanaryRunID != "" &&
 		time.Since(s.lastCanaryRead) >= time.Second {
 		s.lastCanaryRead = time.Now()
+		c.stage(ctx, "system_canary_receipt")
 		if err := s.advanceCanary(ctx, state, raw); err != nil {
+			if c.consumerDiagnostic != nil {
+				c.consumerDiagnostic.ProbeClass = systemServiceCanaryClass(err)
+			}
 			return s.withdraw(ctx, "canary_receipt_unavailable")
 		}
 		state, raw, err = s.current(ctx)
@@ -120,6 +124,30 @@ func (s *automaticService) step(ctx context.Context) error {
 			return s.withdraw(ctx, "canary_state_unavailable")
 		}
 	}
+	// SQL receipt/witness reads and legitimate source registration may take
+	// place after the stable probe. Refresh the verified root BEFORE the final
+	// health read; no SQL, audit, delay or retry belongs between it and the CAS.
+	state, raw, err = s.current(ctx)
+	if err != nil {
+		return s.withdraw(ctx, "pre_renew_epoch_unavailable")
+	}
+	fresh, err := s.health(ctx)
+	if err != nil {
+		s.stable = stableServiceHealth{}
+		if s.missingSince.IsZero() {
+			s.missingSince = time.Now()
+		}
+		return s.withdraw(ctx, "pre_renew_consumer_unavailable")
+	}
+	if fresh.stabilityIdentity() != proof.stabilityIdentity() {
+		s.stable = stableServiceHealth{}
+		if fresh.WorkerValue == state.WorkerValue && fresh.ConsumerServerIDs[0] != state.ConsumerServerID {
+			return c.freeze(ctx, "system_consumer_identity_conflict", true)
+		}
+		return s.withdraw(ctx, "pre_renew_identity_changed")
+	}
+	proof = fresh
+	c.stage(ctx, "system_service_renew")
 	metadataKey := "asynq:servers:{" + proof.WorkerID + ":" + proof.ConsumerServerIDs[0] + "}"
 	state.ConsumerMetadataSHA1 = proof.Metadata[metadataKey]
 	updated, err := json.Marshal(state)
@@ -135,12 +163,38 @@ func (s *automaticService) step(ctx context.Context) error {
 		c.prefix+"system_journal", "asynq:{approved_sync}:paused", "asynq:{sync}:paused")
 	err = renewSystemService.Run(ctx, c.Client, keys, args...).Err()
 	if err != nil {
+		if c.consumerDiagnostic != nil {
+			c.consumerDiagnostic.ProbeClass = systemServiceRenewClass(err)
+		}
 		return s.withdraw(ctx, "runtime_or_queue_changed")
 	}
 	c.admitted = true
 	c.Guard.SetProviderFailureIsolation(true)
 	c.lastEvent = ""
 	return nil
+}
+
+// Only fixed labels enter diagnostics; Redis errors may contain sensitive
+// data. A read conflict is still rejected, never assumed safe or retried.
+func systemServiceRenewClass(err error) string {
+	switch strings.TrimPrefix(err.Error(), "ERR ") {
+	case "SYSTEM_CONSUMER_READ_CONFLICT":
+		return "renew_consumer_read_conflict"
+	case "SYSTEM_CONSUMER_CHANGED":
+		return "renew_consumer_unavailable"
+	case "SYSTEM_STATE_CHANGED":
+		return "renew_root_read_conflict"
+	case "SYSTEM_IDENTITY_CHANGED", "SYSTEM_INCARNATION_CONFLICT":
+		return "renew_identity_changed"
+	case "SYSTEM_LEASE_EXPIRED":
+		return "renew_lease_expired"
+	case "SYSTEM_PHASE_CLOSED":
+		return "renew_phase_closed"
+	case "SYSTEM_OPERATOR_QUEUE_PAUSE":
+		return "renew_operator_queue_pause"
+	default:
+		return "renew_" + consumerReadClass(err)
+	}
 }
 
 var renewSystemService = redis.NewScript(systemHealthLua + `

@@ -122,8 +122,9 @@ for key,digest in pairs(meta) do
  count=count+1
  local raw=redis.call('GET',key);local ttl=redis.call('PTTL',key)
  local score=redis.call('ZSCORE',KEYS[5],key)
- if not raw or ttl<=0 or ttl>15000 or redis.sha1hex(raw)~=digest or
+ if not raw or ttl<=0 or ttl>15000 or
   not score or tonumber(score)*1000<=now then return redis.error_reply('SYSTEM_CONSUMER_CHANGED') end
+ if redis.sha1hex(raw)~=digest then return redis.error_reply('SYSTEM_CONSUMER_READ_CONFLICT') end
 end
 if count<1 or count>32 then return redis.error_reply('SYSTEM_CONSUMER_PROOF_INVALID') end
 `
