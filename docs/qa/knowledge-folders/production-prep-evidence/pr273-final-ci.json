@@ -1,0 +1,42 @@
+[
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685553/job/139953362236",
+    "name": "verify",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685230/job/139953267769",
+    "name": "accounting",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685565/job/139953270764",
+    "name": "Portal contracts, RBAC, race, and branding",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685230/job/139953268306",
+    "name": "Personal MCP authenticated concurrency and SSE isolation",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685565/job/139953270025",
+    "name": "M1 Linux backend and MCP compatibility",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685565/job/139953270469",
+    "name": "PostgreSQL fresh and existing KnowHub upgrade governance",
+    "state": "SUCCESS"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685553/job/139953272144",
+    "name": "postgres",
+    "state": "SKIPPED"
+  },
+  {
+    "link": "https://github.com/suoak/WeKnora/actions/runs/45832685553/job/139953270984",
+    "name": "Complete resilience race (${{ matrix.repetition }})",
+    "state": "SKIPPED"
+  }
+]

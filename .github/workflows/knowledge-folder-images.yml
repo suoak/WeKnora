@@ -75,6 +75,8 @@ jobs:
               -f /tmp/Dockerfile.folder-release -t "$image" .
           else
             docker build --progress=plain --platform linux/amd64 \
+              --label "org.opencontainers.image.revision=$SOURCE_SHA" \
+              --label "org.opencontainers.image.source=https://github.com/suoak/WeKnora" \
               --build-arg "VITE_FRONTEND_COMMIT=$SOURCE_SHA" \
               -f frontend/Dockerfile -t "$image" frontend
           fi
@@ -84,6 +86,8 @@ jobs:
         run: |
           set -euo pipefail
           image="knowhub-folder-release/$COMPONENT:${SOURCE_SHA:0:9}"
+          test "$(docker image inspect --format '{{ index .Config.Labels "org.opencontainers.image.revision" }}' "$image")" = "$SOURCE_SHA"
+          docker image inspect "$image" > /tmp/folder-image-results/image-inspect.json
           if [ "$COMPONENT" = app ]; then
             docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -x /app/scripts/docker-entrypoint.sh && test ! -e /usr/local/bin/anydoc-runtime-tests && test -f /app/migrations/versioned/003052_knowledge_folders.up.sql && test -f /app/migrations/versioned/003052_knowledge_folders.down.sql'
           else

@@ -1,0 +1,8 @@
+{
+  "production_frontend_equals_baseline": true,
+  "validated_test_runtime_equals_main": true,
+  "changed_sync_control_files": [],
+  "main_at_check": "f3573b6f52ca11cdb6eb41cd70623faaf630db3f",
+  "migration_3052_up_sha256": "3cc05b30026dbe8747f01e8f58d1466d88cef7c976d39d095f51eed845bc562b",
+  "checksum_basis": "canonical Git blob, not working-tree line endings"
+}

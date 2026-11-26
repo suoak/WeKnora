@@ -1,0 +1,56 @@
+package repository
+
+import (
+ "context"
+ "net/url"
+ "os"
+ "testing"
+
+ "github.com/stretchr/testify/require"
+ "gorm.io/driver/postgres"
+ "gorm.io/gorm"
+)
+
+// Compile this test against the production baseline source 556657a92.
+// It admits only the dedicated synthetic rehearsal DB, never a live source DB.
+func TestOld3051RepositoryWithFolderSchema3052(t *testing.T) {
+ dsn := os.Getenv("FOLDERS_ROLLBACK_TEST_DSN")
+ if dsn == "" { t.Skip("requires the dedicated synthetic SSH-forwarded PostgreSQL") }
+ parsed, err := url.Parse(dsn)
+ require.NoError(t, err)
+ require.Equal(t, "127.0.0.1", parsed.Hostname())
+ require.Equal(t, "/folders_prepare_primary_20261126", parsed.Path)
+ db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+ require.NoError(t, err)
+ pool, err := db.DB(); require.NoError(t, err)
+ defer func() { require.NoError(t, pool.Close()) }()
+ var version int
+ require.NoError(t, db.Raw("SELECT version FROM schema_migrations WHERE NOT dirty").Scan(&version).Error)
+ require.Equal(t, 3052, version)
+ var sources int64
+ require.NoError(t, db.Raw("SELECT count(*) FROM data_sources").Scan(&sources).Error)
+ require.Zero(t, sources, "no external source or Canary may enter this test")
+ const tenantID = uint64(809954)
+ const kbID = "d7c4ec31-f9cc-43fd-b4c8-e3566e1fb053"
+ const knowledgeID = "6ff12890-b761-4ff4-8e99-2beb16e41faa"
+ repo := NewKnowledgeRepository(db)
+ ctx := context.Background()
+ original, err := repo.GetKnowledgeByID(ctx, tenantID, knowledgeID)
+ require.NoError(t, err)
+ var before, after string
+ require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", knowledgeID).Scan(&before).Error)
+ counts, err := repo.ListKnowledgeFolderCounts(ctx, tenantID, kbID)
+ require.NoError(t, err)
+ require.NotEmpty(t, counts, "old queries continue to see the retained document")
+ moved, err := repo.UpdateKnowledgeFolderPath(ctx, tenantID, kbID, []string{knowledgeID}, "legacy-classified")
+ require.NoError(t, err); require.EqualValues(t, 1, moved)
+ moved, err = repo.RenameKnowledgeFolderPath(ctx, tenantID, kbID, "legacy-classified", "legacy-final")
+ require.NoError(t, err); require.EqualValues(t, 1, moved)
+ var markers int64
+ require.NoError(t, db.Raw("SELECT count(*) FROM knowledge_folders").Scan(&markers).Error)
+ require.EqualValues(t, 3, markers, "old code must leave explicit empty folder rows intact")
+ // Restore this synthetic fixture exactly after exercising old write paths.
+ require.NoError(t, db.Exec("UPDATE knowledges SET folder_path=?,updated_at=? WHERE id=?", original.FolderPath, original.UpdatedAt, knowledgeID).Error)
+ require.NoError(t, db.Raw("SELECT to_jsonb(k)::text FROM knowledges k WHERE id=?", knowledgeID).Scan(&after).Error)
+ require.Equal(t, before, after)
+}

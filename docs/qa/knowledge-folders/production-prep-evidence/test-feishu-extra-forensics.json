@@ -1,0 +1,138 @@
+{
+  "read_only": true,
+  "queue_archived_counts": {
+    "sync": 9,
+    "approved_sync": 0
+  },
+  "latency_latest": [
+    [
+      "fork",
+      1795701408,
+      11,
+      22492
+    ],
+    [
+      "aof-rename",
+      1795692273,
+      1,
+      25
+    ],
+    [
+      "aof-write-active-child",
+      1795698547,
+      8,
+      1816
+    ],
+    [
+      "fast-command",
+      1795703086,
+      9,
+      486
+    ],
+    [
+      "aof-write-pending-fsync",
+      1795699224,
+      289,
+      2044
+    ],
+    [
+      "aof-write",
+      1795703353,
+      1,
+      3489
+    ],
+    [
+      "command",
+      1795703086,
+      9,
+      1386
+    ],
+    [
+      "aof-write-alone",
+      1795703353,
+      1,
+      3489
+    ],
+    [
+      "expire-cycle",
+      1795651889,
+      2,
+      104373
+    ],
+    [
+      "expire-del",
+      1795297398,
+      1,
+      11779
+    ]
+  ],
+  "slowlog": [
+    {
+      "id": 938,
+      "utc": "2026-11-26T14:01:13+00:00",
+      "duration_us": 25877,
+      "operation": "INFO"
+    },
+    {
+      "id": 937,
+      "utc": "2026-11-26T14:01:13+00:00",
+      "duration_us": 39148,
+      "operation": "INFO"
+    },
+    {
+      "id": 936,
+      "utc": "2026-11-26T13:40:56+00:00",
+      "duration_us": 15508,
+      "operation": "evalsha"
+    },
+    {
+      "id": 935,
+      "utc": "2026-11-26T07:43:37+00:00",
+      "duration_us": 13220,
+      "operation": "evalsha"
+    },
+    {
+      "id": 934,
+      "utc": "2026-11-26T03:17:39+00:00",
+      "duration_us": 13987,
+      "operation": "evalsha"
+    },
+    {
+      "id": 933,
+      "utc": "2026-11-26T01:39:47+00:00",
+      "duration_us": 10918,
+      "operation": "hvals"
+    },
+    {
+      "id": 932,
+      "utc": "2026-11-26T00:04:26+00:00",
+      "duration_us": 11175,
+      "operation": "evalsha"
+    },
+    {
+      "id": 931,
+      "utc": "2026-11-25T23:14:16+00:00",
+      "duration_us": 10850,
+      "operation": "evalsha"
+    },
+    {
+      "id": 930,
+      "utc": "2026-11-25T19:22:22+00:00",
+      "duration_us": 24918,
+      "operation": "evalsha"
+    },
+    {
+      "id": 929,
+      "utc": "2026-11-25T19:22:16+00:00",
+      "duration_us": 19558,
+      "operation": "evalsha"
+    }
+  ],
+  "error_counters": {
+    "errorstat_ERR": "count=18294458",
+    "errorstat_LOADING": "count=1",
+    "errorstat_MISCONF": "count=17043958567",
+    "errorstat_NOAUTH": "count=2",
+    "errorstat_NOSCRIPT": "count=35"
+  }
+}
