@@ -43,6 +43,8 @@
 
 生产自然调度观察期间approved_sync归档从22增至23。只读解析最近任务元数据得到 **feishu controller not ready / ERR SYSTEM_CANARY_OTHER_SOURCE**（重试5次），对应既有automatic_service_sources.go中canary绑定来源及run不匹配时的拒绝；未触发生产trip。不能据此认为完整同步通过，也不能直接归因于目录迁移。[实际错误回执](production-release-evidence/production-natural-sync-observation.json)。只读保留现有来源范围，不扩Canary、不重放归档。错误字段来自Asynq TaskMessage字段7，依据[上游proto定义](https://github.com/hibiken/asynq/blob/master/internal/proto/asynq.proto)，未导出任务payload或凭据。
 
+补充自然观察（北京时间01:22—01:23）：生产控制已进入 **normal**，trip=false、permit和真实Worker租约持续正常。[控制回执](production-release-evidence/production-final-observation.json)。数据库4个既有飞书来源在重启后更新了成功同步时间，total/created/updated/failed均为0、cursor存在，见[仅元数据SQL回执](production-release-evidence/production-natural-sync-success-observation.json)。这是**零变更增量轮次完成**的证据，不代表非空新文档抓取→发布→检索完整链路通过；新legacy attempts另有3个staging、1个obsolete，不冒充published。期间approved_sync归档累计25，既有归档未重放；历史错误与后续normal状态都保留，不以最终状态抹去失败。
+
 ## 回滚、数据保全与发布判断
 
 本次是带明确备份豁免和在线同步限制的受限发布，目录/权限/检索实际验收通过、公开服务恢复；**不是全部验收项无条件完成**。未获即时3051全库恢复点，若发生数据层事故，将无法保证无损全库回退。新目录表独立归档仅保护目录标记，不保护其他业务数据。

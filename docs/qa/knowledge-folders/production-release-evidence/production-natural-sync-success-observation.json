@@ -1,0 +1,85 @@
+{
+  "observed_utc": "2026-11-26T17:23:37.929391+00:00",
+  "source_type_counts": [
+    {
+      "type": "feishu_drive",
+      "count": 5
+    },
+    {
+      "type": "feishu",
+      "count": 53
+    },
+    {
+      "type": "confluence",
+      "count": 3
+    },
+    {
+      "type": "gitlab",
+      "count": 5
+    }
+  ],
+  "sources_with_success_timestamp_after_restart": [
+    {
+      "id": "e0316c6f-5fa6-4fa6-93fd-dd6e6310ffad",
+      "type": "feishu",
+      "status": "active",
+      "last_sync_at": "2026-11-26T17:22:25.588888",
+      "total": "0",
+      "created": "0",
+      "updated": "0",
+      "skipped": "0",
+      "failed": "0",
+      "deferred": null,
+      "cursor_present": true
+    },
+    {
+      "id": "c84a9fd0-0c1f-4118-beb3-fc3648a081d1",
+      "type": "feishu",
+      "status": "active",
+      "last_sync_at": "2026-11-26T17:18:24.101338",
+      "total": "0",
+      "created": "0",
+      "updated": "0",
+      "skipped": "0",
+      "failed": "0",
+      "deferred": null,
+      "cursor_present": true
+    },
+    {
+      "id": "410f2c5c-90a3-4227-bad3-4f08feaec4dd",
+      "type": "feishu",
+      "status": "active",
+      "last_sync_at": "2026-11-26T17:17:06.41452",
+      "total": "0",
+      "created": "0",
+      "updated": "0",
+      "skipped": "0",
+      "failed": "0",
+      "deferred": null,
+      "cursor_present": true
+    },
+    {
+      "id": "f28af5e1-59ee-47cd-8959-3faf37a98840",
+      "type": "feishu",
+      "status": "active",
+      "last_sync_at": "2026-11-26T17:16:16.826589",
+      "total": "0",
+      "created": "0",
+      "updated": "0",
+      "skipped": "0",
+      "failed": "0",
+      "deferred": null,
+      "cursor_present": true
+    }
+  ],
+  "new_legacy_attempts_by_status": [
+    {
+      "status": "obsolete",
+      "count": 1
+    },
+    {
+      "status": "staging",
+      "count": 3
+    }
+  ]
+}

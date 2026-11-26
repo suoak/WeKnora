@@ -1,0 +1,30 @@
+{
+  "namespace": "feishu-prod-080f7bb6a01f",
+  "trip": false,
+  "permit_ttl_ms": 594,
+  "live_workers": [
+    {
+      "worker_id": "8f59c4315511:1",
+      "fingerprint_prefix": "51e32e8d5026",
+      "lease_remaining_ms": 1830
+    }
+  ],
+  "system_service": {
+    "phase": "normal",
+    "epoch": "3438d4bb-6a7c-4b5a-af6c-cc9a0e52ba6a",
+    "canary_started_ms": 1795713425457,
+    "last_transition_ms": null,
+    "canary_source_bound": true,
+    "canary_run_bound": true
+  },
+  "approved_queue": {
+    "active": 1,
+    "pending": 0,
+    "archived": 25,
+    "paused": null
+  },
+  "schema": "3052|f",
+  "app_health": true,
+  "frontend_running": true,
+  "observed_utc": "2026-11-26T17:22:49.147957+00:00"
+}
