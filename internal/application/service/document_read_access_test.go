@@ -15,6 +15,35 @@ import (
 	"gorm.io/gorm"
 )
 
+func TestDocumentFoldersDoNotExpandScopedReads(t *testing.T) {
+	f := fixture.New(t)
+	require.NoError(t, f.DB.AutoMigrate(&types.KnowledgeFolder{}))
+	for _, kb := range []string{"public-kb", "private-kb"} {
+		require.NoError(t, f.DB.Create(&types.KnowledgeFolder{
+			TenantID: 99, KnowledgeBaseID: kb, Path: "unpublished-empty-folder-name",
+		}).Error)
+	}
+	knowledge := &knowledgeService{
+		repo:        repository.NewKnowledgeRepository(f.DB),
+		documentACL: NewDocumentReadPolicy(true, f.Reader),
+	}
+	for _, tc := range []struct {
+		ctx   context.Context
+		kb    string
+		count int64
+	}{
+		{fixture.Key("A", 1, 1, true), "public-kb", 1},
+		{fixture.Key("C", 99, 2, false), "private-kb", 0},
+	} {
+		tree, err := knowledge.ListKnowledgeFolderTree(tc.ctx, tc.kb)
+		require.NoError(t, err)
+		require.Equal(t, tc.count, tree.TotalDocumentCount)
+		encoded, err := json.Marshal(tree)
+		require.NoError(t, err)
+		require.NotContains(t, string(encoded), "unpublished-empty-folder-name")
+	}
+}
+
 func TestDocumentM5ActualKnowledgeChunkServices(t *testing.T) {
 	f := fixture.New(t)
 	policy := NewDocumentReadPolicy(true, f.Reader)

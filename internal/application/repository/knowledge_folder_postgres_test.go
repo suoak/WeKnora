@@ -95,6 +95,30 @@ func TestPersistentKnowledgeFoldersPostgres(t *testing.T) {
 		}
 	}
 	require.Equal(t, 1, winners)
+	// Deleting a leaf and creating its child serialize as one of two complete
+	// outcomes; a stale parent check must never leave a dangling child marker.
+	require.NoError(t, repo.CreateKnowledgeFolder(ctx, tenant.ID, kb.ID, "race-delete"))
+	start := make(chan struct{})
+	var deleted, created error
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		<-start
+		deleted = repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "race-delete")
+	}()
+	go func() {
+		defer wg.Done()
+		<-start
+		created = repo.CreateKnowledgeFolder(ctx, tenant.ID, kb.ID, "race-delete/child")
+	}()
+	close(start)
+	wg.Wait()
+	if deleted == nil {
+		require.ErrorIs(t, created, ErrKnowledgeFolderNotFound)
+	} else {
+		require.ErrorIs(t, deleted, ErrKnowledgeFolderNotEmpty)
+		require.NoError(t, created)
+	}
 	// Export markers before destructive down; restore after up. Documents survive both.
 	var preserved []types.KnowledgeFolder
 	require.NoError(t, db.Find(&preserved).Error)
