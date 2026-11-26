@@ -177,7 +177,9 @@ func TestExplicitKnowledgeFolderSubtreeEscapesWildcards(t *testing.T) {
 
 func setupExplicitFolderTestDB(t *testing.T) *gorm.DB {
 	db := setupKnowledgeTestDB(t)
-	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases (id TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, deleted_at DATETIME)").Error)
-	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id) VALUES ('kb',1),('other',1),('kb-tenant-2',2)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases "+
+		"(id TEXT PRIMARY KEY, tenant_id INTEGER NOT NULL, deleted_at DATETIME)").Error)
+	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id) "+
+		"VALUES ('kb',1),('other',1),('kb-tenant-2',2)").Error)
 	return db
 }

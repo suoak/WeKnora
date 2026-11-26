@@ -56,17 +56,24 @@ func TestPersistentKnowledgeFoldersPostgres(t *testing.T) {
 	require.NoError(t, repo.CreateKnowledgeFolder(ctx, tenant.ID, kb.ID, "target"))
 	_, err = repo.RenameKnowledgeFolderPath(ctx, tenant.ID, kb.ID, "renamed", "target")
 	require.NoError(t, err)
-	k := &types.Knowledge{ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID, Type: "file", Title: "unchanged", FileName: "original.md", FolderPath: "target/child/deep", ParseStatus: types.ParseStatusCompleted}
+	k := &types.Knowledge{
+		ID: uuid.NewString(), TenantID: tenant.ID, KnowledgeBaseID: kb.ID,
+		Type: "file", Title: "unchanged", FileName: "original.md",
+		FolderPath: "target/child/deep", ParseStatus: types.ParseStatusCompleted,
+	}
 	require.NoError(t, db.Create(k).Error)
 	var before string
-	require.NoError(t, db.Raw("SELECT (to_jsonb(k) - 'folder_path' - 'updated_at')::text FROM knowledges k WHERE id=?", k.ID).Scan(&before).Error)
+	const documentProjection = "SELECT (to_jsonb(k) - 'folder_path' - 'updated_at')::text " +
+		"FROM knowledges k WHERE id=?"
+	require.NoError(t, db.Raw(documentProjection, k.ID).Scan(&before).Error)
 	n, err = repo.RenameKnowledgeFolderPath(ctx, tenant.ID, kb.ID, "target", "final")
 	require.NoError(t, err)
 	require.EqualValues(t, 1, n)
 	var after string
-	require.NoError(t, db.Raw("SELECT (to_jsonb(k) - 'folder_path' - 'updated_at')::text FROM knowledges k WHERE id=?", k.ID).Scan(&after).Error)
+	require.NoError(t, db.Raw(documentProjection, k.ID).Scan(&after).Error)
 	require.Equal(t, before, after, "all document fields except placement/timestamp remain identical")
-	require.ErrorIs(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "final/child/deep"), ErrKnowledgeFolderNotEmpty)
+	require.ErrorIs(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "final/child/deep"),
+		ErrKnowledgeFolderNotEmpty)
 	require.NoError(t, db.Delete(k).Error)
 	require.NoError(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "final/child/deep"))
 	require.ErrorIs(t, repo.CreateKnowledgeFolder(ctx, tenant.ID+1, kb.ID, "foreign"), ErrKnowledgeFolderNotFound)

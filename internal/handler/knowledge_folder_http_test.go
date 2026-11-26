@@ -29,13 +29,20 @@ func persistentFolderHTTP(t *testing.T) *gin.Engine {
 	require.NoError(t, err)
 	pool.SetMaxOpenConns(1)
 	t.Cleanup(func() { pool.Close() })
-	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases (id TEXT PRIMARY KEY, tenant_id INTEGER, deleted_at DATETIME)").Error)
+	require.NoError(t, db.Exec("CREATE TABLE knowledge_bases "+
+		"(id TEXT PRIMARY KEY, tenant_id INTEGER, deleted_at DATETIME)").Error)
 	require.NoError(t, db.Exec("INSERT INTO knowledge_bases(id,tenant_id) VALUES ('kb-1',1)").Error)
-	require.NoError(t, db.Exec("CREATE TABLE knowledges (id TEXT PRIMARY KEY, tenant_id INTEGER, knowledge_base_id TEXT, folder_path TEXT NOT NULL DEFAULT '', parse_status TEXT, deleted_at DATETIME, updated_at DATETIME)").Error)
+	require.NoError(t, db.Exec(`CREATE TABLE knowledges (
+		id TEXT PRIMARY KEY, tenant_id INTEGER, knowledge_base_id TEXT,
+		folder_path TEXT NOT NULL DEFAULT '', parse_status TEXT,
+		deleted_at DATETIME, updated_at DATETIME)`).Error)
 	require.NoError(t, db.AutoMigrate(&types.KnowledgeFolder{}))
 	repo := repository.NewKnowledgeRepository(db)
 	kb := &stubFolderKBService{}
-	svc, err := service.NewKnowledgeService(nil, repo, nil, kb, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	svc, err := service.NewKnowledgeService(
+		nil, repo, nil, kb, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
 	require.NoError(t, err)
 	cfg := &config.Config{}
 	h := &KnowledgeHandler{kbService: kb, kgService: svc, cfg: cfg}
@@ -77,7 +84,11 @@ func TestPersistentFolderHTTP(t *testing.T) {
 		return w
 	}
 	require.Equal(t, 403, call("POST", p, `{"name":"denied"}`, true).Code)
-	for _, body := range []string{`{"name":"empty"}`, `{"parent_path":"empty","name":"child"}`, `{"parent_path":"empty/child","name":"deep"}`} {
+	for _, body := range []string{
+		`{"name":"empty"}`,
+		`{"parent_path":"empty","name":"child"}`,
+		`{"parent_path":"empty/child","name":"deep"}`,
+	} {
 		w := call("POST", p, body, false)
 		require.Equal(t, 201, w.Code, w.Body.String())
 	}
