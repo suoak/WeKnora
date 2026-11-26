@@ -20,6 +20,7 @@
           <span class="folder-picker__name">{{ row.label }}</span>
           <button
             type="button"
+            v-if="kbId"
             class="folder-picker__add"
             :title="row.isRoot
               ? t('knowledgeBase.moveToFolder.newFolderAddRoot')
@@ -44,6 +45,7 @@
           <input
             ref="newFolderInputRef"
             v-model.trim="newFolderName"
+            :disabled="creatingPending"
             class="folder-picker__input"
             :placeholder="t('knowledgeBase.moveToFolder.newFolderPlaceholder')"
             @keydown.enter.stop="commitNewFolder"
@@ -57,6 +59,8 @@
 
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue'
+import { createKnowledgeFolder } from '@/api/knowledge-base'
+import { validateDocumentFolderName } from '../folderCreateState'
 import { MessagePlugin } from 'tdesign-vue-next'
 import { useI18n } from 'vue-i18n'
 import { folderOptionFromPath, joinFolderPath, normalizeFolderPath, sortFolderOptions } from '../folderTree'
@@ -82,6 +86,7 @@ type CreateRow = {
 type RenderRow = FolderRow | CreateRow
 
 const props = withDefaults(defineProps<{
+  kbId?: string
   options: FolderOption[]
   currentPath?: string
   showBack?: boolean
@@ -106,10 +111,13 @@ const newFolderInputRef = ref<HTMLInputElement | null>(null)
 const listRef = ref<HTMLElement | null>(null)
 const localCreatedPaths = ref<string[]>([])
 const selectedPath = ref<string | null>(null)
+const creatingPending = ref(false)
 
 const effectiveCurrentPath = computed(() =>
   selectedPath.value !== null ? selectedPath.value : (props.currentPath ?? ''),
 )
+
+watch(() => props.kbId, () => { localCreatedPaths.value = []; selectedPath.value = null; creatingUnder.value = null })
 
 const displayOptions = computed(() => {
   const byPath = new Map<string, FolderOption>()
@@ -196,6 +204,7 @@ const choose = (path: string) => {
 }
 
 const startCreatingUnder = (parentPath: string) => {
+  if (creatingPending.value) return
   if (creatingUnder.value === parentPath) {
     cancelCreating()
     return
@@ -205,6 +214,7 @@ const startCreatingUnder = (parentPath: string) => {
 }
 
 const cancelCreating = () => {
+  if (creatingPending.value) return
   creatingUnder.value = null
   newFolderName.value = ''
 }
@@ -216,15 +226,26 @@ const scrollToFolder = async (path: string) => {
 }
 
 const commitNewFolder = async () => {
-  if (creatingUnder.value === null) return
-  const name = normalizeFolderPath(newFolderName.value)
-  if (!name) return
-  const path = joinFolderPath(creatingUnder.value, name)
+  if (creatingUnder.value === null || creatingPending.value || !props.kbId) return
+  const parent = creatingUnder.value
+  const targetKbId = props.kbId
+  const name = newFolderName.value.trim()
+  const validation = validateDocumentFolderName(name, parent, displayOptions.value.map(option => option.path))
+  if (validation) { MessagePlugin.warning(t(`knowledgeBase.folderCreate.${validation}`)); return }
+  const path = joinFolderPath(parent, name)
   if (displayOptions.value.some((option) => option.path === path)) {
     MessagePlugin.warning(t('knowledgeBase.moveToFolder.duplicate'))
     return
   }
 
+  creatingPending.value = true
+  try {
+    await createKnowledgeFolder(targetKbId, { parent_path: parent, name })
+    if (props.kbId !== targetKbId) return
+  } catch (error: any) {
+    MessagePlugin.error(error?.message || t('knowledgeBase.folderCreate.failed'))
+    return
+  } finally { creatingPending.value = false }
   if (!localCreatedPaths.value.includes(path)) {
     localCreatedPaths.value = [...localCreatedPaths.value, path]
   }
@@ -352,8 +373,8 @@ const commitNewFolder = async () => {
   border-radius: var(--app-radius-xs);
   background: transparent;
   color: var(--td-text-color-placeholder);
-  opacity: 0;
-  pointer-events: none;
+  opacity: 0.6;
+  pointer-events: auto;
   cursor: pointer;
   transition: opacity var(--app-motion-fast) ease, color var(--app-motion-fast) ease, background var(--app-motion-fast) ease;
 

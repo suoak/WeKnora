@@ -606,6 +606,9 @@ func TestKnowledgeBatchWriteRoutesDeclareIngestCapability(t *testing.T) {
 		method string
 		path   string
 	}{
+		{http.MethodPost, "/api/v1/knowledge-bases/:id/knowledge/folders"},
+		{http.MethodDelete, "/api/v1/knowledge-bases/:id/knowledge/folders/empty"},
+		{http.MethodPut, "/api/v1/knowledge-bases/:id/knowledge/folders"},
 		{http.MethodPost, "/api/v1/knowledge/move"},
 		{http.MethodPost, "/api/v1/knowledge/batch-delete"},
 		{http.MethodPost, "/api/v1/knowledge/batch-reparse"},
@@ -619,6 +622,9 @@ func TestKnowledgeBatchWriteRoutesDeclareIngestCapability(t *testing.T) {
 			}
 			if !policyHasCapability(policy, types.APIKeyCapabilityIngest) {
 				t.Fatalf("policy capabilities = %#v, want ingest", policy.Capabilities)
+			}
+			if policyHasCapability(policy, types.APIKeyCapabilityRetrieve) {
+				t.Fatal("retrieve-only keys must not gain folder or document writes")
 			}
 		})
 	}

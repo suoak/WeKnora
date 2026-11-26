@@ -27,6 +27,7 @@ func newMVPFixture(t *testing.T) *personalRecoveryFixture {
 	t.Helper()
 	t.Setenv("FEISHU_PERSONAL_MVP_FIRST_CREATE", "1")
 	f := newPersonalRecoveryFixture(t)
+	require.NoError(t, f.db.AutoMigrate(&types.KnowledgeFolder{}))
 	f.ks.fileSvc = fileService.NewLocalFileService(t.TempDir(), "")
 	f.ks.chunkRepo = repository.NewChunkRepository(f.db)
 	return f

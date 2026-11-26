@@ -42,6 +42,7 @@ import {
   listKnowledgeFolders,
   moveKnowledgeToFolder,
   renameKnowledgeFolder,
+  deleteEmptyKnowledgeFolder,
   downKnowledgeDetails,
   type KnowledgeFolderTree,
 } from "@/api/knowledge-base/index";
@@ -55,6 +56,10 @@ import DocumentBatchBar from './components/DocumentBatchBar.vue';
 import KnowledgeProcessingSummary from './components/KnowledgeProcessingSummary.vue';
 import KbUploadSourceDropdown from './components/KbUploadSourceDropdown.vue';
 import KbFolderTree from './components/KbFolderTree.vue';
+import FolderPickerMenu from './components/FolderPickerMenu.vue';
+import CreateDocumentFolderDialog from './components/CreateDocumentFolderDialog.vue';
+import type { CreatedDocumentFolder } from './folderCreateState';
+import { createEmptyFolderDeleteController, createEmptyFolderDeleteState } from './folderDeleteState';
 import DocumentScopeSummary from './components/DocumentScopeSummary.vue';
 import BatchTagDialog from './components/BatchTagDialog.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
@@ -74,6 +79,7 @@ import { resolveKnowledgeDownloadFileName } from './knowledgeDownloadFileName';
 import {
   buildUploadFileName,
   canMoveFolderTo,
+  joinFolderPath,
   folderBreadcrumbs as buildFolderBreadcrumbs,
   folderPathExists as folderExistsInTree,
   isFilteringDocuments,
@@ -812,6 +818,28 @@ const writeStoredFlag = (key: string, value: boolean) => {
 };
 const folderTree = ref<KnowledgeFolderTree | null>(null);
 const folderTreeLoading = ref(false);
+const folderCreateVisible = ref(false);
+const folderCreateParent = ref('');
+const folderMoveFrom = ref('');
+const folderMoveVisible = ref(false);
+let folderMoveKbId = '';
+const openFolderMove = (path: string) => {
+  if (!canEdit.value) return;
+  folderMoveKbId = kbId.value;
+  folderMoveFrom.value = path;
+  folderMoveVisible.value = true;
+};
+const handleFolderMove = async (parent: string) => {
+  folderMoveVisible.value = false;
+  if (!canEdit.value || folderMoveKbId !== kbId.value) return;
+  const from = folderMoveFrom.value;
+  const name = from.split('/').pop() || '';
+  await handleFolderRename({ from, to: joinFolderPath(parent, name) });
+};
+watch(kbId, () => { folderMoveVisible.value = false; folderMoveFrom.value = ''; });
+const openFolderCreate = (parent = selectedFolderPath.value) => { if (!canEdit.value) return; folderCreateParent.value = parent; folderCreateVisible.value = true; };
+const handleFolderCreated = async ({ kbId: targetKbId }: CreatedDocumentFolder) => { if (kbId.value === targetKbId) await loadFolderTree(targetKbId); };
+
 // The folder being browsed; ROOT_FOLDER_PATH ('') is the knowledge base top
 // level, a real node of the tree rather than a separate mode.
 const selectedFolderPath = ref<string>(ROOT_FOLDER_PATH);
@@ -819,7 +847,7 @@ const folderTreeCollapsed = ref(readStoredFlag(FOLDER_TREE_COLLAPSED_KEY));
 const hasFolders = computed(() => (folderTree.value?.folders?.length ?? 0) > 0);
 // The folder column only earns its space once the knowledge base actually has
 // folders, so knowledge bases filled with single-file uploads look unchanged.
-const showFolderTree = computed(() => !isFAQ.value && hasFolders.value);
+const showFolderTree = computed(() => !isFAQ.value && (hasFolders.value || canEdit.value));
 // Browsing lists one folder's own contents; filtering searches its whole
 // subtree. There is no mode switch: the list follows what the user is doing.
 const isFiltering = computed(() =>
@@ -905,7 +933,9 @@ const loadKnowledgeFiles = (kbIdValue: string): Promise<void> => {
 
 const isCurrentKb = (targetKbId: string) => targetKbId === kbId.value;
 
+let folderTreeRequestGeneration = 0;
 const loadFolderTree = async (kbIdValue: string) => {
+  const requestGeneration = ++folderTreeRequestGeneration;
   if (!kbIdValue || isFAQ.value) {
     folderTree.value = null;
     return;
@@ -913,19 +943,21 @@ const loadFolderTree = async (kbIdValue: string) => {
   folderTreeLoading.value = true;
   try {
     const res: any = await listKnowledgeFolders(kbIdValue);
-    if (!isCurrentKb(kbIdValue)) return;
+    if (!isCurrentKb(kbIdValue) || requestGeneration !== folderTreeRequestGeneration) return;
     folderTree.value = (res?.data as KnowledgeFolderTree) || null;
     // A folder can disappear (its last document was deleted or moved); fall
     // back to the root instead of leaving an empty, unreachable view.
     if (!folderExistsInTree(folderTree.value?.folders || [], selectedFolderPath.value)) {
       selectedFolderPath.value = ROOT_FOLDER_PATH;
     }
+    return true;
   } catch (error) {
-    if (!isCurrentKb(kbIdValue)) return;
+    if (!isCurrentKb(kbIdValue) || requestGeneration !== folderTreeRequestGeneration) return;
     console.error('Failed to load knowledge folders', error);
     MessagePlugin.error(t('loadState.genericTitle'));
+    return false;
   } finally {
-    if (isCurrentKb(kbIdValue)) {
+    if (isCurrentKb(kbIdValue) && requestGeneration === folderTreeRequestGeneration) {
       folderTreeLoading.value = false;
     }
   }
@@ -942,16 +974,46 @@ const handleFolderSelect = (path: string) => {
 
 // Flat folder list shared by every "move to folder" picker.
 const folderOptions = computed(() => {
-  const result: Array<{ path: string; name: string; depth: number }> = [];
+  const result: Array<{ path: string; name: string; depth: number; totalCount: number; hasChildren: boolean }> = [];
   const walk = (nodes: KnowledgeFolderTree['folders'], depth: number) => {
     nodes.forEach((node) => {
-      result.push({ path: node.path, name: node.name, depth });
+      result.push({ path: node.path, name: node.name, depth, totalCount: node.total_count, hasChildren: !!node.children?.length });
       walk(node.children || [], depth + 1);
     });
   };
   walk(folderTree.value?.folders || [], 0);
   return result;
 });
+
+const folderDeleteState = reactive(createEmptyFolderDeleteState());
+const folderDeletion = createEmptyFolderDeleteController(folderDeleteState, {
+  currentContext: () => ({ kbId: kbId.value, canEdit: canEdit.value }),
+  folderForPath: path => folderOptions.value.find(folder => folder.path === path),
+  remove: deleteEmptyKnowledgeFolder,
+  onDeleted: async ({ kbId: targetKbId, path, parentPath }) => {
+    if (!isCurrentKb(targetKbId)) return;
+    if (selectedFolderPath.value === path) selectedFolderPath.value = parentPath;
+    resetPage();
+    const [, treeLoaded] = await Promise.all([loadKnowledgeFiles(targetKbId), loadFolderTree(targetKbId)]);
+    if (isCurrentKb(targetKbId) && treeLoaded === false) throw new Error('Folder deleted but directory refresh failed');
+  },
+});
+const handleFolderDelete = async (path: string) => {
+  const targetKbId = kbId.value;
+  const result = await folderDeletion.remove(path);
+  if (result === 'deleted') MessagePlugin.success(t('knowledgeBase.folderDelete.success'));
+  else if (result === 'refreshFailed') MessagePlugin.warning(t('knowledgeBase.folderDelete.refreshFailed'));
+  else if (result === 'failed') {
+    const messages = {
+      notEmpty: t('knowledgeBase.folderDelete.notEmpty'),
+      missing: t('knowledgeBase.folderDelete.missing'),
+      forbidden: t('knowledgeBase.folderDelete.forbidden'),
+      failed: t('knowledgeBase.folderDelete.failed'),
+    };
+    MessagePlugin.error(messages[folderDeleteState.error || 'failed']);
+    if (isCurrentKb(targetKbId) && ['notEmpty', 'missing'].includes(folderDeleteState.error || '')) void loadFolderTree(targetKbId);
+  }
+};
 
 const moveKnowledgeIntoFolder = async (ids: string[], folderPath: string) => {
   if (!kbId.value || ids.length === 0) return;
@@ -975,13 +1037,7 @@ const handleFolderRename = async ({ from, to }: { from: string; to: string }) =>
     return;
   }
   try {
-    const res: any = await renameKnowledgeFolder(kbId.value, from, to);
-    const movedCount = res?.data?.moved_count ?? 0;
-    if (movedCount === 0) {
-      MessagePlugin.warning(t('knowledgeBase.folderTree.renameFailed'));
-      await loadFolderTree(kbId.value);
-      return;
-    }
+    await renameKnowledgeFolder(kbId.value, from, to);
     MessagePlugin.success(t('knowledgeBase.folderTree.renameSuccess'));
     // Follow the folder to its new path so the user stays where they were.
     if (selectedFolderPath.value === from) {
@@ -2463,10 +2519,11 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
           <KbFolderTree v-if="showFolderTree && !folderTreeCollapsed" :tree="folderTree" :selected-path="selectedFolderPath"
             :loading="folderTreeLoading" :can-edit="canEdit" :root-label="kbInfo?.name"
             @select="handleFolderSelect" @update:collapsed="handleFolderTreeCollapsedChange"
-            @rename="handleFolderRename" />
+            @rename="handleFolderRename" @create="openFolderCreate" @move="openFolderMove" @delete-empty="handleFolderDelete" />
           <div class="tag-content">
             <div class="doc-card-area">
               <div class="doc-filter-bar">
+                <t-button v-if="canEdit && !isFAQ" variant="outline" @click="openFolderCreate()"><template #icon><t-icon name="folder-add" /></template>{{ t('knowledgeBase.folderCreate.title') }}</t-button>
                 <nav class="doc-folder-path" :aria-label="$t('knowledgeBase.folderTree.title')">
                   <button v-if="showFolderTree && folderTreeCollapsed" type="button" class="doc-folder-path__tree-toggle"
                     :aria-expanded="false" :title="$t('knowledgeBase.folderTree.expand')"
@@ -2720,7 +2777,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
                 </template>
               </div>
               <div class="doc-batch-bar-anchor" v-show="batchMode || selectedIds.size > 0">
-                <DocumentBatchBar :count="selectedIds.size" :delete-loading="batchDeleting"
+                <DocumentBatchBar :kb-id="kbId" :count="selectedIds.size" :delete-loading="batchDeleting"
                   :can-reparse="!Array.from(selectedIds).some(id => cardList.find(item => item.id === id)?.channel === 'feishu_personal')"
                   :source-reparse-only="selectedIds.size > 0 && Array.from(selectedIds).every(id => { const item = cardList.find(c => c.id === id); return item && feishuSourceId(item); })"
                   :reparse-loading="batchReparsing" :tag-loading="batchTagging" :download-loading="batchDownloading"
@@ -2754,6 +2811,11 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
   <KnowledgeBaseEditorModal :visible="uiStore.showKBEditorModal" :mode="uiStore.kbEditorMode"
     :kb-id="uiStore.currentKBId || undefined" :initial-type="uiStore.kbEditorType"
     @update:visible="(val) => val ? null : uiStore.closeKBEditor()" @success="handleKBEditorSuccess" />
+
+  <t-dialog v-model:visible="folderMoveVisible" :header="t('knowledgeBase.moveToFolder.action')" :footer="false" width="360px" destroy-on-close>
+    <FolderPickerMenu :options="folderOptions.filter(folder => folder.path !== folderMoveFrom && !folder.path.startsWith(folderMoveFrom + '/'))" allow-reselect @confirm="handleFolderMove" />
+  </t-dialog>
+  <CreateDocumentFolderDialog v-model:visible="folderCreateVisible" :kb-id="kbId" :kb-name="kbInfo?.name" :parent-path="folderCreateParent" :can-edit="canEdit && !isFAQ" :folder-paths="folderOptions.map(folder => folder.path)" :after-create="handleFolderCreated" />
 
   <ContextualGuide tour="kbDetail" :when="showKbDetailContextualGuide" />
 

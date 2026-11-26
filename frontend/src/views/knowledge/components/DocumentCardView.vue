@@ -394,7 +394,7 @@ const handleAction = (action: 'download' | 'edit' | 'view-trace' | 'reparse' | '
             <template #content>
               <!-- Move: folder picker (must win over the normal menu while open) -->
               <div v-if="folderPickerItemId === item.id" class="card-menu move-menu">
-                <FolderPickerMenu
+                <FolderPickerMenu :kb-id="kbId"
                   :options="folderOptions || []"
                   :current-path="item.folder_path || ''"
                   show-back

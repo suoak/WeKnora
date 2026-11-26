@@ -802,11 +802,14 @@ func (s *knowledgeService) MoveKnowledgeToFolder(ctx context.Context,
 func (s *knowledgeService) RenameKnowledgeFolder(ctx context.Context,
 	kbID string, from string, to string,
 ) (int64, error) {
-	source := types.NormalizeKnowledgeFolderPath(from)
+	source, err := normalizeRenameFolderPath(from)
+	if err != nil {
+		return 0, err
+	}
 	if source == "" {
 		return 0, werrors.NewBadRequestError("源文件夹路径不能为空")
 	}
-	target, err := normalizeTargetFolderPath(ctx, to)
+	target, err := normalizeRenameFolderPath(to)
 	if err != nil {
 		return 0, err
 	}
@@ -836,7 +839,7 @@ func (s *knowledgeService) RenameKnowledgeFolder(ctx context.Context,
 	affected, err := s.repo.RenameKnowledgeFolderPath(ctx, tenantID, kbID, source, target)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to rename folder %q to %q: %v", source, target, err)
-		return 0, err
+		return 0, knowledgeFolderError(err)
 	}
 	logger.Infof(ctx, "Renamed folder %q to %q in kb %s, %d entries affected",
 		source, target, kbID, affected)

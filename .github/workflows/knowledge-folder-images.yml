@@ -1,0 +1,102 @@
+name: Knowledge folder release candidate images
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: knowledge-folder-images-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  SOURCE_SHA: ${{ github.sha }}
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        component: [app, frontend]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Verify fixed source and prepare build recipe
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$SOURCE_SHA"
+          mkdir -p /tmp/folder-image-results
+          git rev-parse HEAD > /tmp/folder-image-results/source-sha.txt
+          docker --version > /tmp/folder-image-results/docker-version.txt
+          if [ "$COMPONENT" = app ]; then
+            python3 - <<'PY'
+          from pathlib import Path
+          recipe = Path('docker/Dockerfile.app.knowhub-release').read_text()
+          old = 'FROM golang:1.26.7-bookworm@sha256:e8c859f5632dcfde7b32d2012b4351728f6437930887c2f6a91ea242459e5514 AS builder'
+          assert recipe.count(old) == 1
+          recipe = recipe.replace(old, 'FROM golang:1.26.8-bookworm AS builder')
+          recipe = recipe.replace('ARG GO_VERSION_ARG=1.26.7', 'ARG GO_VERSION_ARG=1.26.8')
+          recipe = recipe.replace("grep -F 'go1.26.7'", "grep -F 'go1.26.8'")
+          # Public GitHub runners receive HTTP 403 from the regional mirror.
+          # Keep the release recipe and locked sources; use the official index
+          # for the browser-skill stage, which predates CARGO_SOURCE_ARG.
+          start = recipe.index('RUN mkdir -p /usr/local/cargo && printf')
+          end = recipe.index('COPY scripts/build_browserskill.sh', start)
+          recipe = recipe[:start] + 'RUN mkdir -p /usr/local/cargo\n' + recipe[end:]
+          Path('/tmp/Dockerfile.folder-release').write_text(recipe)
+          PY
+            sha256sum /tmp/Dockerfile.folder-release > /tmp/folder-image-results/recipe-sha256.txt
+          else
+            sha256sum frontend/Dockerfile > /tmp/folder-image-results/recipe-sha256.txt
+          fi
+      - name: Build image without deployment credentials
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          image="knowhub-folder-release/$COMPONENT:${SOURCE_SHA:0:9}"
+          if [ "$COMPONENT" = app ]; then
+            docker build --progress=plain --platform linux/amd64 --target runtime \
+              --build-arg VERSION_ARG=0.8.0-knowhub-folders-${SOURCE_SHA:0:9} \
+              --build-arg "COMMIT_ID_ARG=$SOURCE_SHA" \
+              --build-arg "REVISION_ARG=$SOURCE_SHA" \
+              --build-arg "BUILD_TIME_ARG=$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+              --build-arg GO_VERSION_ARG=1.26.8 \
+              --build-arg APT_MIRROR_ARG=deb.debian.org \
+              --build-arg GOPROXY_ARG=https://proxy.golang.org,direct \
+              --build-arg CARGO_SOURCE_ARG=crates-io \
+              -f /tmp/Dockerfile.folder-release -t "$image" .
+          else
+            docker build --progress=plain --platform linux/amd64 \
+              --build-arg "VITE_FRONTEND_COMMIT=$SOURCE_SHA" \
+              -f frontend/Dockerfile -t "$image" frontend
+          fi
+      - name: Check packaging without network or service startup
+        env:
+          COMPONENT: ${{ matrix.component }}
+        run: |
+          set -euo pipefail
+          image="knowhub-folder-release/$COMPONENT:${SOURCE_SHA:0:9}"
+          if [ "$COMPONENT" = app ]; then
+            docker run --rm --network none --entrypoint sh "$image" -c 'test -x /app/WeKnora && test -x /app/scripts/docker-entrypoint.sh && test ! -e /usr/local/bin/anydoc-runtime-tests && test -f /app/migrations/versioned/003052_knowledge_folders.up.sql && test -f /app/migrations/versioned/003052_knowledge_folders.down.sql'
+          else
+            docker run --rm --network none --entrypoint sh "$image" -c 'test -s /usr/share/nginx/html/index.html && test -f /etc/nginx/api-proxy.conf'
+          fi
+          docker image ls --no-trunc --digests --filter "reference=$image" \
+            --format 'image={{.Repository}}:{{.Tag}} id={{.ID}} digest={{.Digest}}' > /tmp/folder-image-results/image.txt
+          docker save "$image" | gzip -1 > "/tmp/folder-image-results/$COMPONENT-${SOURCE_SHA:0:9}.tar.gz"
+          cd /tmp/folder-image-results
+          sha256sum "$COMPONENT-${SOURCE_SHA:0:9}.tar.gz" > archive-sha256.txt
+      - uses: actions/upload-artifact@v6
+        with:
+          name: knowledge-folder-release-${{ matrix.component }}-${{ github.sha }}
+          path: /tmp/folder-image-results
+          compression-level: 0
+          retention-days: 7

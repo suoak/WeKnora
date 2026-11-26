@@ -19,6 +19,7 @@ defineProps<{
   visible?: boolean;
   /** Hidden when the knowledge base has no folder structure to file into. */
   showMoveToFolder?: boolean;
+  kbId?: string;
   folderOptions?: FolderOption[];
 }>();
 
@@ -92,7 +93,7 @@ const folderPickerVisible = ref(false);
             </t-button>
             <template #content>
               <div class="card-menu">
-                <FolderPickerMenu :options="folderOptions || []"
+                <FolderPickerMenu :kb-id="kbId" :options="folderOptions || []"
                   @confirm="(path: string) => { folderPickerVisible = false; emit('moveToFolder', path) }" />
               </div>
             </template>

@@ -844,3 +844,12 @@ export function batchReparseKnowledge(kbId: string, ids: string[], processConfig
     process_config: processConfig,
   });
 }
+
+export function createKnowledgeFolder(kbId: string, data: { parent_path: string; name: string }): Promise<{ success: boolean; data: KnowledgeFolderNode }> {
+  return post(`/api/v1/knowledge-bases/${encodeURIComponent(kbId)}/knowledge/folders`, data);
+}
+
+/** Remove an empty explicit directory; the server rejects files and descendants. */
+export function deleteEmptyKnowledgeFolder(kbId: string, path: string) {
+  return del(`/api/v1/knowledge-bases/${encodeURIComponent(kbId)}/knowledge/folders/empty?${new URLSearchParams({ path })}`);
+}
