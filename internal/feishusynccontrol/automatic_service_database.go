@@ -298,12 +298,12 @@ func systemCanaryOutcome(
  LEFT JOIN feishu_legacy_attempts a ON a.id=r.active_attempt
  WHERE r.data_source_id=? AND r.state='active' AND
  (a.id IS NULL OR a.resource_id<>r.id OR a.generation<>r.generation OR a.status<>'published' OR
- a.receipt->>'ResourceID' IS DISTINCT FROM r.id OR a.receipt->>'KnowledgeID' IS DISTINCT FROM k.id OR
- a.receipt->>'AttemptID' IS DISTINCT FROM a.id OR
- a.receipt->>'Generation' IS DISTINCT FROM r.generation::text OR
- a.receipt->>'Chunks' IS DISTINCT FROM
+ a.receipt->>'resource_id' IS DISTINCT FROM r.id OR a.receipt->>'knowledge_id' IS DISTINCT FROM k.id OR
+ a.receipt->>'attempt_id' IS DISTINCT FROM a.id OR
+ a.receipt->>'generation' IS DISTINCT FROM r.generation::text OR
+ a.receipt->>'chunks' IS DISTINCT FROM
  (SELECT count(*)::text FROM chunks c WHERE c.knowledge_id=k.id AND c.deleted_at IS NULL) OR
- a.receipt->>'Vectors' IS DISTINCT FROM
+ a.receipt->>'vectors' IS DISTINCT FROM
  (SELECT count(*)::text FROM embeddings e WHERE e.knowledge_id=k.id AND e.knowledge_base_id=k.knowledge_base_id) OR
  EXISTS(SELECT 1 FROM chunks c WHERE c.knowledge_id=k.id AND c.deleted_at IS NULL AND c.chunk_type<>'parent_text'
  AND NOT EXISTS(SELECT 1 FROM embeddings e WHERE e.chunk_id=c.id AND e.knowledge_id=k.id

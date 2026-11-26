@@ -85,9 +85,10 @@ Actual qualification to date (2026-11-26, Asia/Shanghai):
 | Linux run 45735034346, source `c83f8f6fd` | FAIL: race 770 PASS / 3 SKIP / 2 FAIL; claim/scheduler 12 PASS / 1 FAIL | Revoked Personal MCP scope was safely denied but misclassified as infrastructure failure. Two fixture assertions also failed: a real database CHECK correctly rejected an invalid mode, and JSONB normalized whitespace. Fixes retain the constraint and compare cursor JSON semantically. APP admission 22 PASS; vet PASS. |
 | Linux run 45736914623, source `948ebcddd` | PASS | Includes actual Redis/Asynq + PostgreSQL bootstrap, SQL acknowledgment failures/restarts, same-incarnation Consumer conflict and incident CAS races. The later live-byte proof correction still requires its own exact-head run. |
 | Linux run 45740113710, source `bcbd544cf` | PASS: race/control/access 812, SQL/claim/scheduler 13, APP wiring 22; zero skips | Includes live protobuf validation/read-use CAS and all real Redis/Asynq gates. Final review subsequently added explicit rejection of legacy reconciliation purposes; that final head requires another exact-source run. |
+| Linux run 45746293501, source `4989a509d` | PASS: race/control/access 814, SQL/claim/scheduler 13, APP wiring 22; zero skips | Includes retained legacy-purpose rejection and final lint corrections. A later positive-publication review found the Canary receipt key mismatch below; these earlier denial/zero-source checks do not qualify that success path. |
 | Native Windows control/safety/access regression | PASS | Real CGO and stack protection retained by linking the installed libssp. No configured private PostgreSQL or Redis executable; gated cases are not database/native-consumer acceptance. Later changes need rerun. |
 | Final candidate Linux race, SQL, real Redis/Asynq and APP wiring | Pending | Use the exact committed head; earlier run results cannot qualify uncommitted runtime changes. |
-| Full native APP run 45742983624, source `bcbd544cf` | PASS: 16 HTTP/MCP/Wiki cases, actual Worker/lease/heartbeat, 600ms metadata-gap diagnostic and stable recovery, ClamAV/EICAR | Fresh isolated PostgreSQL/Redis/storage/network/accounts; no signing credentials. Zero remote Feishu sources, so real Feishu export/publication remains NOT_RUN. Later legacy-purpose rejection and build-input changes require final-source qualification. |
+| Full native APP runs 45742983624 (`bcbd544cf`) and 45744284333 (`eb85619ba`) | PASS: 16 HTTP/MCP/Wiki cases, actual Worker/lease/heartbeat, 600ms metadata-gap diagnostic and stable recovery, ClamAV/EICAR | Fresh isolated PostgreSQL/Redis/storage/network/accounts; no signing credentials. Zero remote Feishu sources, so real Feishu export/publication remains NOT_RUN. The later receipt-contract fix requires final-source qualification. |
 | Production ordinary-service restoration | NOT_RUN | No production safety-state migration, archived replay or forced finalization. |
 
 PR #266 is separately merged into `6ee9f128c4fc5ea62974995a0c725213f8f2c56b`;
@@ -133,3 +134,17 @@ into new authority. Missing current content must use a fresh authorized ordinary
 increment. Regression tests retain a real signed fixture and ticket, verify its
 legacy behavior first, then verify all new-protocol entry points reject it
 without changing the ticket, recovery record or queue.
+
+## Positive Canary receipt contract
+
+Pre-merge review found that Canary SQL read Pascal-case field names while the
+real publisher serializes `types.FeishuLegacyReceipt` using snake_case JSON tags.
+This would reject a genuine publication and prevent the Canary from promoting;
+the zero-source full APP qualification and missing-publication denial test did
+not cover it. Merge was paused. The minimal fix uses the actual six serialized
+field names, retaining every identity, generation, count and vector comparison.
+A real PostgreSQL/Redis/Asynq regression is being added that calls the actual
+repository Begin/Prepare/Publish and claim settlement instead of fabricating a
+success receipt, then exercises Canary witness/promotion and gradual admission.
+Its source inputs/model vectors are explicitly synthetic test data; this is not
+remote Feishu or real-model quality acceptance. Final-source results are pending.
