@@ -49,7 +49,11 @@
 
 优先仅回切原始兼容代码镜像，保留Schema3052及knowledge_folders，禁止migration down、Force或恢复旧库覆盖新业务写入。生产私有 `/home/aqyfzx/knowhub-folders-release-61130bc80/rollback-compose.json` 已保存原始镜像、保护挂载和用户批准的SID到期；文件0600、目录0700。候选及原镜像均保留。旧前端可能暂不显示空目录，目录数据继续保留。
 
-**通用rollback脚本不能直接当成本次执行命令**：它默认新做全库备份且当前main对Docker29 engine/manifest ID缺少适配，会安全拒绝。以下为当前实际私有配置的代码回退入口，需另开维护窗口、检查SID尚有效、确认原镜像存在，停外部写入口并排空旧Worker，确认无活租约/在途写入，再独立保存当时目录表并按需全库备份后执行；不能直接粘贴绕过这些检查：
+**61130bc80版通用rollback脚本不能直接当成本次执行命令**：它默认新做全库备份且缺少Docker29 engine/manifest身份适配。本收尾PR已新增严格来源/config/manifest/层映射和SID至少15分钟有效期预检；真实POSIX十四项测试、bash语法及无操作dry-run通过。[实际生产只读预检](production-release-evidence/production-rollback-preflight-only.json)也确认原镜像、映射、SID、挂载、额外写进程和备份容量通过，未停服务或执行回滚。
+
+所需四份私有元数据已同样保全至 `/mnt/sata0/knowhub-folders-release-61130bc80`，库49.25GB、该盘可用105.75GB，[材料回执](production-release-evidence/production-rollback-materials.json)。新脚本仍要求回滚时新做全库和目录表备份，本次发布豁免不会自动扩展至未来回滚。
+
+完整回退入口为本收尾PR经CI的 `CONFIRMED_ROLLBACK_RELEASE_SHA=61130bc80160853a435aca0d23164ccb46cec2ef bash scripts/ops/rollback_knowledge_folders.sh --execute /mnt/sata0/knowhub-folders-release-61130bc80`。脚本会安全拒绝在途工作/空间不足/策略到期等不满足条件的现场，不自动解除安全停止。以下列出同一私有配置的底层代码回退入口；需另开维护窗口、检查SID有效、原镜像存在、正常排空Worker并保全当时数据后才执行，不能粘贴绕过检查：
 
 ```bash
 # 检查，不打印任何环境变量或凭据。

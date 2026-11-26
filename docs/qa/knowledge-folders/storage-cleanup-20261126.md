@@ -8,4 +8,4 @@
 
 首次收尾断言因Docker挂载数组顺序不同而失败；随后对照原始加密快照规范化挂载后独立审计通过。不能将第一次失败写成通过。
 
-[签名摘要与保留备份SHA](production-release-evidence/production-storage-cleanup-summary.json)。根分区空间仍不适合大型备份，后续私有备份位置使用 `/mnt/sata0/knowhub-folders-release-<SHA>`，目录0700、文件0600。回滚脚本新增容量和路径保护，POSIX十项测试、bash语法及无操作dry-run通过，见[回执](production-release-evidence/production-backup-guard-tests.json)。
+[签名摘要与保留备份SHA](production-release-evidence/production-storage-cleanup-summary.json)。根分区空间仍不适合大型备份，后续私有备份位置使用 `/mnt/sata0/knowhub-folders-release-<SHA>`，目录0700、文件0600。回滚脚本新增容量和路径保护，POSIX十四项测试（含镜像映射和SID到期保护）、bash语法及无操作dry-run通过，见[回执](production-release-evidence/production-backup-guard-tests.json)。
