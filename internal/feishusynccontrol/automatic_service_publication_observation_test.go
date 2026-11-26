@@ -18,8 +18,8 @@ import (
 // Pause the REAL Publish after it acquires its normal source execution fence,
 // rather than replacing publication with a manual success row or fake receipt.
 func publishWithCanaryObservation(
-	t *testing.T, s *automaticService, db *gorm.DB, store *repository.FeishuLegacyStore,
-	work context.Context, source *types.DataSource, attempt *types.FeishuLegacyAttempt,
+	work context.Context, t *testing.T, s *automaticService, db *gorm.DB, store *repository.FeishuLegacyStore,
+	source *types.DataSource, attempt *types.FeishuLegacyAttempt,
 ) *types.FeishuLegacyReceipt {
 	t.Helper()
 	locked, release, done := make(chan struct{}), make(chan struct{}), make(chan struct{})

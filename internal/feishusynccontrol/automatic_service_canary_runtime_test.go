@@ -166,7 +166,7 @@ func TestAutomaticServiceNativeSQLCanaryAtomicPublicationRampAndNormal(t *testin
 	step()
 	require.NoError(t, store.Prepare(work, &f.source, attempt, manifest, [][]float32{{1, 0, 0}}))
 	step()
-	receipt := publishWithCanaryObservation(t, s, f.db, store, work, &f.source, attempt)
+	receipt := publishWithCanaryObservation(work, t, s, f.db, store, &f.source, attempt)
 	require.EqualValues(t, 1, receipt.Chunks)
 	require.EqualValues(t, 1, receipt.Vectors)
 	require.Equal(t, attempt.ID, receipt.AttemptID)
