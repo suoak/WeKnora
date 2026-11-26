@@ -15,6 +15,7 @@ import (
 // an operator/integrity stop as a temporary consumer-read problem.
 func (s *automaticService) step(ctx context.Context) error {
 	c := s.c
+	c.consumerDiagnostic = nil
 	if err := ctx.Err(); err != nil {
 		s.stable = stableServiceHealth{}
 		return s.withdraw(ctx, "controller_context_unavailable")

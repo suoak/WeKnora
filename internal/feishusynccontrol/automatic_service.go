@@ -56,18 +56,29 @@ func (s *automaticService) health(ctx context.Context) (systemHealthProof, error
 	if c.ApprovedConsumers == nil {
 		return proof, ErrNotReady
 	}
+	c.consumerDiagnostic = newConsumerEvidence(ctx, c.Client, true)
 	registryCount, err := c.Client.ZCard(ctx, "asynq:servers").Result()
 	if err != nil || registryCount < 1 || registryCount > consumerEvidenceLimit {
+		c.consumerDiagnostic.ProbeClass = consumerReadClass(err)
+		if err == nil {
+			c.consumerDiagnostic.ProbeClass = "registry_members_absent_or_limit"
+		}
 		return proof, errors.Join(ErrNotReady, err)
 	}
 	revision, err := c.Client.Get(ctx, c.prefix+"membership_revision").Result()
 	if err != nil {
+		c.consumerDiagnostic.ProbeClass = consumerReadClass(err)
 		return proof, err
 	}
+	c.consumerRevision = revision
+	c.stage(ctx, "asynq_consumer")
 	var evidence *consumerEvidence
 	probe := context.WithValue(ctx, consumerEvidenceKey{}, &evidence)
 	ids, err := c.ApprovedConsumers(probe)
 	c.consumerDiagnostic = evidence
+	if evidence != nil {
+		evidence.PreviousConsumerServerIDs = append([]string(nil), c.lastConsumerServerIDs...)
+	}
 	if err != nil || len(ids) != 1 || ids[0] != c.Config.WorkerID || evidence == nil ||
 		evidence.Truncated || len(evidence.ConsumerServerIDs) != 1 {
 		return proof, errors.Join(ErrNotReady, err)
@@ -90,6 +101,7 @@ func (s *automaticService) health(ctx context.Context) (systemHealthProof, error
 	if err := redis.NewScript(systemHealthLua+"return 1").Run(ctx, c.Client, s.healthKeys(), args...).Err(); err != nil {
 		return systemHealthProof{}, err
 	}
+	c.lastConsumerServerIDs = append([]string(nil), proof.ConsumerServerIDs...)
 	return proof, nil
 }
 
@@ -107,72 +119,96 @@ func (s *automaticService) withdraw(ctx context.Context, reason string) error {
 	defer cancel()
 	err := c.Client.Del(stop, c.Guard.PermitKey()).Err()
 	if c.lastEvent != "system_wait:"+reason {
-		audit := c.audit(stop, Event{Kind: "feishu_automatic_wait", Reason: reason, WorkerID: c.Config.WorkerID})
-		if err == nil && audit == nil {
+		diagnostic := ""
+		if c.consumerDiagnostic != nil {
+			diagnostic = c.consumerDiagnostic.snapshot(stop, c, reason)
+		}
+		journal := c.Client.XAdd(stop, &redis.XAddArgs{
+			Stream: c.prefix + "system_journal", Values: map[string]any{
+				"event": "automatic_service_wait", "reason": reason, "worker_id": c.Config.WorkerID,
+				"incarnation": c.incarnation, "consumer_diagnostic": diagnostic,
+			},
+		}).Err()
+		audit := c.audit(stop, Event{
+			Kind: "feishu_automatic_wait", Reason: reason,
+			WorkerID: c.Config.WorkerID, ConsumerDiagnostic: diagnostic, ProbeStage: c.probeStage,
+		})
+		if err == nil && journal == nil && audit == nil {
 			c.lastEvent = "system_wait:" + reason
 		}
-		err = errors.Join(err, audit)
+		err = errors.Join(err, journal, audit)
 	}
 	return errors.Join(ErrNotReady, err)
 }
 
 // Incident evidence is bounded, content-free and pinned by latest stream IDs.
 // No Inspector cleanup is used to obtain additional historical diagnostics.
-func (s *automaticService) incidentEvidence(ctx context.Context, trip string) (string, string, string, string, error) {
-	guard, err := s.readIncidentStream(ctx, "audit")
-	if err != nil {
-		return "", "", "", "", errors.Join(ErrNotReady, err)
-	}
-	control, err := s.readIncidentStream(ctx, "control_audit")
-	if err != nil {
-		return "", "", "", "", errors.Join(ErrNotReady, err)
-	}
-	matched := trip == ""
-	incidentMS := ""
-	incidentID := ""
-	for _, e := range guard {
-		if e.Values["event"] == "trip" && e.Values["reason"] == trip {
-			matched = true
-			incidentMS, _, _ = strings.Cut(e.ID, "-")
-			incidentID = e.ID
-			break
+func (s *automaticService) incidentEvidence(ctx context.Context, trip string, previous ...*systemServiceReceipt) (string, string, string, string, error) {
+	guardStart, controlStart, guardID, controlID, incidentID := "-", "-", "", "", ""
+	if trip != "" {
+		var err error
+		incidentID, err = s.currentIncidentID(ctx, trip)
+		if err != nil {
+			return "", "", "", "", err
+		}
+		guardStart = incidentID
+		incidentMS, _, _ := strings.Cut(incidentID, "-")
+		controlStart = incidentMS + "-0"
+		// Prove coverage across the incident boundary, rather than reading
+		// unrelated older signed recoveries or assuming a trimmed window is whole.
+		before, err := s.c.Client.XRevRangeN(ctx, s.c.prefix+"control_audit", "("+controlStart, "-", 1).Result()
+		if err != nil || len(before) != 1 {
+			return "", "", "", "", errors.Join(ErrNotReady, err)
+		}
+		controlID = before[0].ID
+	} else if len(previous) == 1 && previous[0] != nil {
+		guardID, controlID = previous[0].GuardAuditID, previous[0].ControlAuditID
+		for name, id := range map[string]string{"audit": guardID, "control_audit": controlID} {
+			if id == "" {
+				continue
+			}
+			entry, err := s.c.Client.XRangeN(ctx, s.c.prefix+name, id, id, 1).Result()
+			if err != nil || len(entry) != 1 {
+				return "", "", "", "", errors.Join(ErrNotReady, err)
+			}
+		}
+		if guardID != "" {
+			guardStart = "(" + guardID
+		}
+		if controlID != "" {
+			controlStart = "(" + controlID
 		}
 	}
-	if !matched {
+	guard, err := s.readIncidentStream(ctx, "audit", guardStart)
+	if err != nil {
+		return "", "", "", "", errors.Join(ErrNotReady, err)
+	}
+	control, err := s.readIncidentStream(ctx, "control_audit", controlStart)
+	if err != nil {
+		return "", "", "", "", errors.Join(ErrNotReady, err)
+	}
+	if trip != "" && (len(guard) == 0 || guard[0].ID != incidentID ||
+		guard[0].Values["event"] != "trip" || guard[0].Values["reason"] != trip) {
 		return "", "", "", "", ErrNotReady
 	}
-	if trip != "" {
-		// Legacy streams are trimmed. A control entry preceding the incident
-		// proves that the retained window covers every later operator stop;
-		// an empty/truncated window is not evidence of no operator intent.
-		if len(control) == 0 {
-			return "", "", "", "", ErrNotReady
-		}
-		firstMS, _, _ := strings.Cut(control[0].ID, "-")
-		if len(firstMS) > len(incidentMS) || len(firstMS) == len(incidentMS) && firstMS >= incidentMS {
-			return "", "", "", "", ErrNotReady
-		}
-	}
 	for _, e := range append(append([]redis.XMessage(nil), guard...), control...) {
-		ms, _, _ := strings.Cut(e.ID, "-")
-		// Redis stream IDs use canonical millisecond decimal values. Compare
-		// lengths first, not lexicographic numbers of different lengths.
-		after := incidentMS == "" || len(ms) > len(incidentMS) || len(ms) == len(incidentMS) && ms >= incidentMS
 		reason, _ := e.Values["reason"].(string)
 		// Trip is first-writer-wins. Later hard failures may only exist in the
 		// audit stream and must not be hidden by the first recoverable reason.
 		hard := e.Values["event"] == "trip" && !automaticServiceRecoverableTrip(reason)
 		hard = hard || e.Values["event"] == "feishu_safety_stop" &&
 			!automaticServiceRecoverableTrip(reason) && reason != "automatic_permit_tripped"
-		if after && (hard || e.Values["event"] == "emergency_stop" || reason == "operator_emergency_stop") {
+		if hard || e.Values["event"] == "emergency_stop" || reason == "operator_emergency_stop" {
 			return "", "", "", "", ErrNotReady
 		}
 	}
-	raw, err := json.Marshal(map[string]any{"guard": guard, "control": control})
+	raw, err := json.Marshal(map[string]any{
+		"guard": guard, "control": control,
+		"prior_guard_id": guardID, "prior_control_id": controlID, "original_trip_audit_id": incidentID,
+	})
 	if err != nil || len(raw) > 256*1024 {
 		return "", "", "", "", ErrNotReady
 	}
-	guardID, controlID := "", ""
 	if len(guard) > 0 {
 		guardID = guard[len(guard)-1].ID
 	}
@@ -182,9 +218,39 @@ func (s *automaticService) incidentEvidence(ctx context.Context, trip string) (s
 	return string(raw), guardID, controlID, incidentID, nil
 }
 
-func (s *automaticService) readIncidentStream(ctx context.Context, name string) ([]redis.XMessage, error) {
+// The current first-cause latch belongs to the most recent matching trip, not
+// an identically named incident previously resolved by the old protocol.
+func (s *automaticService) currentIncidentID(ctx context.Context, trip string) (string, error) {
+	end, size := "+", 0
+	for scanned := 0; scanned < 64; scanned += 16 {
+		page, err := s.c.Client.XRevRangeN(ctx, s.c.prefix+"audit", end, "-", 16).Result()
+		if err != nil {
+			return "", err
+		}
+		for _, row := range page {
+			raw, err := json.Marshal(row)
+			if err != nil || size+len(raw) > 128*1024 {
+				return "", ErrNotReady
+			}
+			size += len(raw)
+			if row.Values["event"] == "trip" {
+				if row.Values["reason"] == trip {
+					return row.ID, nil
+				}
+				return "", ErrNotReady
+			}
+		}
+		if len(page) < 16 {
+			break
+		}
+		end = "(" + page[len(page)-1].ID
+	}
+	return "", ErrNotReady
+}
+
+func (s *automaticService) readIncidentStream(ctx context.Context, name, start string) ([]redis.XMessage, error) {
 	var entries []redis.XMessage
-	start, size := "-", 0
+	size := 0
 	for {
 		page, err := s.c.Client.XRangeN(ctx, s.c.prefix+name, start, "+", 16).Result()
 		if err != nil {
@@ -257,7 +323,7 @@ func (s *automaticService) migrate(ctx context.Context, proof systemHealthProof,
 		if receipt != nil && receipt.Phase != "prepared" && rawState == "" {
 			return ErrNotReady // state loss is not a clean installation.
 		}
-		evidence, guardID, controlID, incidentID, err := s.incidentEvidence(ctx, trip)
+		evidence, guardID, controlID, incidentID, err := s.incidentEvidence(ctx, trip, receipt)
 		if err != nil {
 			return err
 		}
@@ -306,7 +372,7 @@ func (s *automaticService) migrate(ctx context.Context, proof systemHealthProof,
 	keys := append(s.healthKeys(), c.prefix+"trip", c.prefix+"system_service", c.prefix+"normal_service",
 		c.prefix+"recovery", c.prefix+"observation_required", c.prefix+"inflight", "asynq:{approved_sync}:active",
 		"asynq:{sync}:active", c.prefix+"system_journal", c.prefix+"audit", c.prefix+"control_audit",
-		c.prefix+"recovery_required", c.Guard.PermitKey())
+		c.prefix+"recovery_required", c.Guard.PermitKey(), c.prefix+"system_commit:"+receipt.Epoch)
 	if err := migrateSystemService.Run(ctx, c.Client, keys, args...).Err(); err != nil {
 		return err
 	}
@@ -331,14 +397,19 @@ func (s *automaticService) verifyPreparedCommit(ctx context.Context, proof syste
 	}
 	args = append(args, receipt.StateJSON, receipt.RetiredNormal, receipt.Epoch, digest)
 	keys := append(s.healthKeys(), s.c.prefix+"system_service", s.c.prefix+"normal_service",
-		s.c.prefix+"trip", s.c.prefix+"recovery_required", s.c.prefix+"system_journal", s.c.Guard.PermitKey())
+		s.c.prefix+"trip", s.c.prefix+"recovery_required", s.c.prefix+"system_journal", s.c.Guard.PermitKey(),
+		s.c.prefix+"system_commit:"+receipt.Epoch)
 	return redis.NewScript(systemHealthLua+`
 if redis.call('GET',KEYS[6])~=ARGV[5] or (redis.call('GET',KEYS[7]) or '')~=ARGV[6] or
  redis.call('EXISTS',KEYS[8])~=0 or redis.call('GET',KEYS[9])~='system-service-v1:'..ARGV[7] or
  redis.call('EXISTS',KEYS[11])~=0 then return redis.error_reply('SYSTEM_PREPARED_COMMIT_CHANGED') end
-local last=redis.call('XREVRANGE',KEYS[10],'+','-','COUNT',1)
-if #last~=1 then return redis.error_reply('SYSTEM_COMMIT_AUDIT_MISSING') end
-local fields={};for i=1,#last[1][2],2 do fields[last[1][2][i]]=last[1][2][i+1] end
+local reference=redis.call('GET',KEYS[12])
+if not reference or string.sub(reference,1,65)~=ARGV[8]..':' then
+ return redis.error_reply('SYSTEM_COMMIT_REFERENCE_CHANGED') end
+local id=string.sub(reference,66)
+local committed=redis.call('XRANGE',KEYS[10],id,id,'COUNT',1)
+if #committed~=1 then return redis.error_reply('SYSTEM_COMMIT_AUDIT_MISSING') end
+local fields={};for i=1,#committed[1][2],2 do fields[committed[1][2][i]]=committed[1][2][i+1] end
 if fields.event~='automatic_service_migrated' or fields.epoch~=ARGV[7] or
  fields.sql_receipt_sha256~=ARGV[8] then return redis.error_reply('SYSTEM_COMMIT_AUDIT_CHANGED') end
 return 1`).Run(ctx, s.c.Client, keys, args...).Err()

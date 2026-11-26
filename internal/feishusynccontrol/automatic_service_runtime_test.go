@@ -54,6 +54,7 @@ func TestAutomaticServiceNativeSQLBootstrapClaimAndMissingPublication(t *testing
 	require.NotNil(t, prepared)
 	require.Equal(t, "prepared", prepared.Phase)
 	require.Zero(t, r.Exists(ctx, c.Guard.PermitKey()).Val())
+	require.ErrorIs(t, s.withdraw(ctx, "controlled_backoff"), ErrNotReady, "a later diagnostic must not hide the exact committed migration receipt")
 	require.NoError(t, c.Step(ctx), "healthy ordinary startup needs no approval key or signature")
 	state, _, err := s.current(ctx)
 	require.NoError(t, err)
@@ -74,10 +75,9 @@ func TestAutomaticServiceNativeSQLBootstrapClaimAndMissingPublication(t *testing
 	require.ErrorIs(t, err, ErrRecoveryRejected, "an HTTP principal cannot choose the scheduler authority branch")
 	_, err = QueueNormalSource(ctx, f.source.ID, f.config)
 	require.ErrorIs(t, err, ErrRecoveryRejected, "an absent session does not gain user import authority")
-	key := f.rawKey(t, types.APIKeyScopeUserMCP, false,
-		types.StringArray{types.APIKeyCapabilityManageDataSources, types.APIKeyCapabilityIngest}, "dynamic_all")
-	keyCtx := f.keyContext(key, types.APIKeyScopeUserMCP, false,
-		types.StringArray{types.APIKeyCapabilityManageDataSources, types.APIKeyCapabilityIngest}, false)
+	capabilities := types.StringArray{string(types.APIKeyCapabilityManageDataSources), string(types.APIKeyCapabilityIngest)}
+	key := f.rawKey(t, types.APIKeyScopeUserMCP, false, capabilities, "dynamic_all")
+	keyCtx := f.keyContext(key, types.APIKeyScopeUserMCP, false, capabilities, false)
 	require.Equal(t, "sync_service_rechecking", AdmissionFailureReason(keyCtx, f.source.ID, f.config))
 	require.NoError(t, f.db.Table("tenant_api_keys").Where("id=?", key).Update("revoked_at", time.Now().UTC()).Error)
 	require.Equal(t, "sync_source_permission_denied", AdmissionFailureReason(keyCtx, f.source.ID, f.config))

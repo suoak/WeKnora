@@ -127,6 +127,13 @@ func TestAutomaticServiceNativeHealthyMetadataGapStableWindow(t *testing.T) {
 	require.NoError(t, r.Del(ctx, key).Err()) // Only this owned consumer's actual metadata.
 	require.ErrorIs(t, s.step(ctx), ErrNotReady)
 	require.Zero(t, s.stable.samples)
+	journal, err := r.XRange(ctx, s.c.prefix+"system_journal", "-", "+").Result()
+	require.NoError(t, err)
+	require.NotEmpty(t, journal)
+	diagnostic, ok := journal[len(journal)-1].Values["consumer_diagnostic"].(string)
+	require.True(t, ok)
+	require.Contains(t, diagnostic, "metadata_get_missing")
+	require.NotContains(t, diagnostic, raw, "audit must never contain the captured raw protobuf")
 	assertNativeAutomaticClosed(t, s)
 	// Restore exactly the captured real heartbeat, not forged consumer metadata.
 	// The real consumer continues its own heartbeat while recovery is observed.

@@ -56,6 +56,7 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 				prefix + "recovery", prefix + "observation_required", prefix + "inflight",
 				"asynq:{approved_sync}:active", "asynq:{sync}:active", prefix + "system_journal",
 				prefix + "audit", prefix + "control_audit", prefix + "recovery_required", prefix + "permit",
+				prefix + "system_commit:test-epoch",
 			}
 			serverID := uuid.NewString()
 			metadataKey := "asynq:servers:{test:1:" + serverID + "}"
@@ -77,6 +78,7 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 				reason = "automatic_permit_consumer_lost"
 			}
 			require.NoError(t, client.Set(ctx, keys[5], reason, 0).Err())
+			require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: keys[15], ID: "1-0", Values: map[string]any{"event": "bootstrap"}}).Err())
 			incidentID, err := client.XAdd(ctx, &redis.XAddArgs{Stream: keys[14], Values: map[string]any{"event": "trip", "reason": reason}}).Result()
 			require.NoError(t, err)
 			proof := systemHealthProof{
@@ -93,8 +95,9 @@ func TestSystemServiceMigrationAtomicEvidenceAndFaults(t *testing.T) {
 			}
 			raw, err := json.Marshal(state)
 			require.NoError(t, err)
+			keys[18] = prefix + "system_commit:" + state.Epoch
 			args = append(args, reason, "", "", "", "", string(raw), "sql-receipt-digest",
-				`{"original_audit_id":"retained"}`, incidentID, "", "", "", incidentID)
+				`{"prior_guard_id":"","prior_control_id":"1-0"}`, incidentID, "1-0", "", "", incidentID)
 			switch fault {
 			case "membership":
 				require.NoError(t, client.Set(ctx, keys[2], "8", 0).Err())

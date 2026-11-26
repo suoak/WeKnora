@@ -13,7 +13,7 @@ import (
 )
 
 func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
-	for _, fault := range []string{"none", "second-emergency", "later-identity-stop", "missing-control-coverage", "context-canceled"} {
+	for _, fault := range []string{"none", "unrelated-old-history", "second-emergency", "later-identity-stop", "missing-control-coverage", "context-canceled"} {
 		t.Run(fault, func(t *testing.T) {
 			ctx := context.Background()
 			server := miniredis.RunT(t)
@@ -30,6 +30,18 @@ func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
 				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", ID: "1-0", Values: map[string]any{"event": "bootstrap"}}).Err())
 			}
 			trip := "automatic_asynq_consumer_consumer_absent"
+			if fault == "unrelated-old-history" {
+				// Historical audit fixtures are not live trip/permit writes. A
+				// previous incident had the same reason and a later operator stop.
+				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "audit", ID: "2-0", Values: map[string]any{"event": "trip", "reason": trip}}).Err())
+				require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", ID: "3-0", Values: map[string]any{"event": "feishu_safety_stop", "reason": "operator_emergency_stop"}}).Err())
+				for i := 0; i < 1001; i++ {
+					require.NoError(t, client.XAdd(ctx, &redis.XAddArgs{Stream: prefix + "control_audit", Values: map[string]any{"event": "historical_normal_source_registered"}}).Err())
+				}
+				// Keep the complete fixture history before the current incident's
+				// common millisecond boundary, independent of stream sequence IDs.
+				time.Sleep(2 * time.Millisecond)
+			}
 			require.NoError(t, guard.Trip(ctx, trip))
 			switch fault {
 			case "second-emergency":
@@ -42,11 +54,17 @@ func TestAutomaticServiceIncidentRetainsIndependentStops(t *testing.T) {
 				cancel()
 			}
 			evidence, guardID, controlID, originalID, err := s.incidentEvidence(ctx, trip)
-			if fault == "none" {
+			if fault == "none" || fault == "unrelated-old-history" {
 				require.NoError(t, err)
 				require.NotEmpty(t, evidence)
 				require.Equal(t, guardID, originalID)
-				require.Equal(t, "1-0", controlID)
+				if fault == "none" {
+					require.Equal(t, "1-0", controlID)
+				} else {
+					require.NotEqual(t, "2-0", originalID, "bind the current incident, not the old matching reason")
+					require.NotContains(t, evidence, "operator_emergency_stop")
+					require.Greater(t, client.XLen(ctx, prefix+"control_audit").Val(), int64(1000))
+				}
 			} else {
 				require.Error(t, err)
 			}
