@@ -31,7 +31,8 @@ func (s *automaticService) step(ctx context.Context) error {
 		}
 		return s.withdraw(ctx, "registry_unavailable")
 	}
-	proof, err := s.health(ctx)
+	reprobeAvailable := true // One extra complete health read for this entire Step.
+	proof, err := s.healthWithReadBoundaryReprobe(ctx, &reprobeAvailable)
 	stable := s.stable.observe(time.Now(), proof, err)
 	if err != nil {
 		if s.missingSince.IsZero() {
@@ -131,7 +132,7 @@ func (s *automaticService) step(ctx context.Context) error {
 	if err != nil {
 		return s.withdraw(ctx, "pre_renew_epoch_unavailable")
 	}
-	fresh, err := s.health(ctx)
+	fresh, err := s.healthWithReadBoundaryReprobe(ctx, &reprobeAvailable)
 	if err != nil {
 		s.stable = stableServiceHealth{}
 		if s.missingSince.IsZero() {
