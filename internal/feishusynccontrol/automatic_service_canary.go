@@ -88,6 +88,25 @@ func (s *automaticService) advanceCanary(
 	var witness systemCanaryWitness
 	outcome := "pending"
 	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		// A live execution/publication legitimately owns the source row fence.
+		// Observing that its exact run is still pending needs no competing row
+		// lock. This never promotes a Canary or signs off a publication.
+		if err := checkSystemReceipt(ctx, tx, state); err != nil {
+			return err
+		}
+		var running types.SyncLog
+		read := tx.Table("sync_logs AS s").Select("s.status, s.execution_claimed").
+			Joins("JOIN data_sources d ON d.id=s.data_source_id AND d.deleted_at IS NULL").
+			Where("s.id=? AND s.data_source_id=?", state.CanaryRunID, state.CanarySourceID).
+			Limit(1).Find(&running)
+		if read.Error != nil {
+			return read.Error
+		}
+		if read.RowsAffected == 1 && systemCanaryRunOutcome(running, state) == "pending" {
+			return nil
+		}
+		// Potential terminal outcomes retain the original source lock and all
+		// receipt, current-run, authority and atomic publication revalidation.
 		var locked string
 		if err := tx.Raw(
 			"SELECT id FROM data_sources WHERE id=? AND deleted_at IS NULL FOR UPDATE",
