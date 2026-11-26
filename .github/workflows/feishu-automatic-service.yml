@@ -51,6 +51,9 @@ jobs:
       SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:disposable-automatic-test@localhost:5432/feishu_atomic_test?sslmode=disable
       REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
       FEISHU_RECOVERY_REAL_REDIS_ADDR: knowhub-recovery-redis-abcdef123456:6379
+      FEISHU_CONTROL_REAL_REDIS: '1'
+      FEISHU_CONTROL_DISPOSABLE_REDIS: '1'
+      FEISHU_P0_REDIS_ADDR: 127.0.0.1:6379
       FEISHU_SAFETY_REDIS_ADDR: 127.0.0.1:6379
     steps:
       - uses: actions/checkout@v6

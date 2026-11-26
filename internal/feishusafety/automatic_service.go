@@ -19,7 +19,7 @@ func (g *Guard) RequireAutomaticService() {
 // Called by both check and budget allocation, so a successful pre-check cannot
 // race a source/epoch/phase change and spend a stale authorization afterward.
 func automaticServiceGateLua(stateKey, sourceKey, workersKey, leasesKey, revisionKey,
-	sourceArg, epochArg, configArg, runArg, generationArg, validatedArg, requiredArg int,
+	sourceArg, epochArg, configArg, runArg, generationArg, validatedArg, requiredArg, metadataArg int,
 ) string {
 	return fmt.Sprintf(`
 if ARGV[%d]=='true' or ARGV[%d]=='1' then
@@ -52,15 +52,17 @@ if ARGV[%d]=='true' or ARGV[%d]=='1' then
  local serverkey='asynq:servers:{'..s.worker_id..':'..s.consumer_server_id..'}'
  local meta=redis.call('GET',serverkey);local ttl=redis.call('PTTL',serverkey)
  local score=redis.call('ZSCORE','asynq:servers',serverkey)
- if not meta or ttl<=0 or not score or tonumber(score)*1000<=now or
-  redis.sha1hex(meta)~=s.consumer_metadata_sha1 then return redis.error_reply('SYSTEM_CONSUMER_UNCONFIRMED') end
+ if not meta or ttl<=0 or ttl>15000 or not score or tonumber(score)*1000<=now or
+  type(ARGV[%d])~='string' or #ARGV[%d]~=40 or redis.sha1hex(meta)~=ARGV[%d] then
+  return redis.error_reply('SYSTEM_CONSUMER_UNCONFIRMED') end
  if ARGV[%d]~='' and (not tonumber(ARGV[%d]) or tonumber(ARGV[%d])<1) then
   return redis.error_reply('SYSTEM_GENERATION_INVALID') end
  normal=true
 end
 `, requiredArg, requiredArg, stateKey, stateKey, validatedArg, validatedArg, epochArg,
 		sourceKey, sourceArg, sourceArg, configArg, sourceArg, runArg, runArg,
-		leasesKey, workersKey, workersKey, revisionKey, runArg, generationArg, generationArg)
+		leasesKey, workersKey, workersKey, revisionKey, metadataArg, metadataArg, metadataArg,
+		runArg, generationArg, generationArg)
 }
 
 // Denial remains fail-closed in every branch. A known observation gap is not

@@ -135,7 +135,7 @@ end
 local raw=redis.call('GET',KEYS[3])
 local required=redis.call('GET',KEYS[4])
 local normal=false
-` + automaticServiceGateLua(8, 9, 10, 11, 12, 2, 3, 4, 5, 6, 8, 9) + `
+` + automaticServiceGateLua(8, 9, 10, 11, 12, 2, 3, 4, 5, 6, 8, 9, 10) + `
 local normalraw=redis.call('GET',KEYS[6])
 if normalraw and not normal then
  local n=cjson.decode(normalraw)
@@ -206,6 +206,10 @@ func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
 	if g.DependencySuspended() {
 		return ErrControlTemporarilyUnavailable
 	}
+	metadata, err := g.automaticConsumerDigest(ctx)
+	if err != nil {
+		return err
+	}
 	scope, _ := ctx.Value(scopeKey{}).(Scope)
 	i := recoveryIdentity(ctx)
 	if err := checkScript.Run(ctx,
@@ -226,7 +230,7 @@ func (g *Guard) checkRuntime(ctx context.Context, validated bool) error {
 		},
 
 		g.fingerprint, scope.SourceID, i.Plan, i.Config, i.Run, i.Generation,
-		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load()).Err(); err != nil {
+		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load(), metadata).Err(); err != nil {
 		return g.automaticAdmissionError(ctx, err)
 	}
 	return nil
@@ -326,7 +330,7 @@ end
 local raw=redis.call('GET',KEYS[5])
 local required=redis.call('GET',KEYS[6])
 local normal=false
-` + automaticServiceGateLua(10, 11, 12, 13, 14, 8, 9, 10, 11, 12, 14, 15) + `
+` + automaticServiceGateLua(10, 11, 12, 13, 14, 8, 9, 10, 11, 12, 14, 15, 16) + `
 local normalraw=redis.call('GET',KEYS[8])
 if normalraw and not normal then
  local n=cjson.decode(normalraw)
@@ -396,7 +400,11 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 	if liveErr != nil {
 		return nil, liveErr
 	}
-	err := acquireScript.Run(
+	metadata, err := g.automaticConsumerDigest(ctx)
+	if err != nil {
+		return nil, err
+	}
+	err = acquireScript.Run(
 		ctx,
 		g.client,
 		[]string{
@@ -427,7 +435,7 @@ func (g *Guard) tryBegin(ctx context.Context, tokens int) (func(), error) {
 		identity.Config,
 		identity.Run,
 		identity.Generation,
-		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load(),
+		g.recoveryRequired.Load(), validated, g.automaticServiceRequired.Load(), metadata,
 	).
 		Err()
 	if err != nil {
