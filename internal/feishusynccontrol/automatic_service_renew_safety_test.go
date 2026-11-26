@@ -123,6 +123,8 @@ func TestAutomaticServiceRenewDiagnosticsNeverExposeUnderlyingErrors(t *testing.
 		{diagnosticSQLState("40001"), "canary_sql_concurrency"},
 		{diagnosticSQLState("secret_token_value"), "canary_sql_query"},
 		{errors.New("ERR SYSTEM_STATE_CHANGED"), "canary_root_read_conflict"},
+		{errors.New("ERR SYSTEM_CANARY_CHANGED"), "canary_root_read_conflict"},
+		{redis.Nil, "canary_source_registration_absent"},
 		{errors.New("unknown token=private-secret SQL(body)"), "canary_internal_error"},
 	} {
 		require.Equal(t, tc.want, systemServiceCanaryClass(tc.err))

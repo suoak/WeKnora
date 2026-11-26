@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 )
 
@@ -23,6 +24,11 @@ func systemServiceCanaryClass(err error) string {
 		return "canary_evidence_limit"
 	case errors.Is(err, ErrNotReady), errors.Is(err, ErrRecoveryRejected):
 		return "canary_evidence_not_ready"
+	case errors.Is(err, redis.Nil):
+		return "canary_source_registration_absent"
+	}
+	if strings.TrimPrefix(err.Error(), "ERR ") == "SYSTEM_CANARY_CHANGED" {
+		return "canary_root_read_conflict"
 	}
 	var state interface{ SQLState() string }
 	if errors.As(err, &state) {
