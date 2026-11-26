@@ -243,15 +243,8 @@ func systemCanaryOutcome(
 		First(&log, "id=? AND data_source_id=?", state.CanaryRunID, state.CanarySourceID).Error; err != nil {
 		return "", err
 	}
-	if log.ExecutionClaimed || log.Status == types.SyncLogStatusRunning {
-		if !log.ExecutionClaimed && state.CanaryStartedMS > 0 &&
-			time.Now().UnixMilli()-state.CanaryStartedMS >= 300000 {
-			return "candidate_timeout", nil
-		}
-		return "pending", nil
-	}
-	if log.Status != types.SyncLogStatusSuccess {
-		return "source_failed", nil
+	if outcome := systemCanaryRunOutcome(log, state); outcome != "" {
+		return outcome, nil
 	}
 	var count struct{ Total, Pending, Failed int64 }
 	if err := db.WithContext(ctx).Raw(`SELECT count(*) AS total,
@@ -315,4 +308,20 @@ func systemCanaryOutcome(
 		return "source_failed", nil
 	}
 	return "success", nil
+}
+
+// Shared by the non-locking pending observation and the original terminal
+// transaction. The timeout and decision rules are identical in both places.
+func systemCanaryRunOutcome(log types.SyncLog, state systemServiceState) string {
+	if log.ExecutionClaimed || log.Status == types.SyncLogStatusRunning {
+		if !log.ExecutionClaimed && state.CanaryStartedMS > 0 &&
+			time.Now().UnixMilli()-state.CanaryStartedMS >= 300000 {
+			return "candidate_timeout"
+		}
+		return "pending"
+	}
+	if log.Status != types.SyncLogStatusSuccess {
+		return "source_failed"
+	}
+	return ""
 }
