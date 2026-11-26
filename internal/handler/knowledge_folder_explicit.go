@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"net/http"
+	"strings"
+
 	"github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/gin-gonic/gin"
-	"net/http"
-	"strings"
 )
 
 // CreateKnowledgeFolderRequest creates one empty child of ParentPath.

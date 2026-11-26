@@ -272,7 +272,7 @@ func TestKnowledgeDerivedWritePostgres(t *testing.T) {
 		require.NoError(t, database.RunMigrations(dsn))
 		version, dirty, err = runner.Version()
 		require.NoError(t, err)
-		require.EqualValues(t, 3051, version)
+		require.EqualValues(t, 3052, version)
 		require.False(t, dirty)
 		v, _, err := repo.KnowledgeDerivedVersion(ctx, k.ID)
 		require.NoError(t, err)

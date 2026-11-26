@@ -55,9 +55,9 @@ func persistentFolderHTTP(t *testing.T) *gin.Engine {
 	})
 	p := "/api/v1/knowledge-bases/:id/knowledge/folders"
 	r.GET(p, h.ListKnowledgeFolders)
-	r.POST(p, h.CreateKnowledgeFolder)
-	r.PUT(p, h.RenameKnowledgeFolder)
-	r.DELETE(p+"/empty", h.DeleteKnowledgeFolder)
+	r.POST(p, middleware.RequireRole(types.TenantRoleContributor, nil), h.CreateKnowledgeFolder)
+	r.PUT(p, middleware.RequireRole(types.TenantRoleContributor, nil), h.RenameKnowledgeFolder)
+	r.DELETE(p+"/empty", middleware.RequireRole(types.TenantRoleContributor, nil), h.DeleteKnowledgeFolder)
 	return r
 }
 
