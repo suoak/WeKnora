@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/access"
@@ -160,11 +159,4 @@ func TestDeleteKnowledgeFolderRejectsRootAndNoncanonicalPath(t *testing.T) {
 	require.Zero(t, repo.calls)
 	require.NoError(t, svc.DeleteKnowledgeFolder(explicitFolderGrant(types.OrgRoleEditor), "kb", "docs/child"))
 	require.Equal(t, "docs/child", repo.path)
-}
-
-func explicitFolderDeleteTask(t *testing.T, payload types.KnowledgeListDeletePayload) *asynq.Task {
-	t.Helper()
-	data, err := json.Marshal(payload)
-	require.NoError(t, err)
-	return asynq.NewTask(types.TypeKnowledgeListDelete, data)
 }

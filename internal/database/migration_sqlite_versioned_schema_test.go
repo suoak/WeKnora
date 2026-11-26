@@ -81,7 +81,7 @@ var versionedSQLiteColumns = map[string][]string{
 
 // The full migration runner applies the already accepted personal recovery and
 // application-principal migrations too. Keep their schema assertions above.
-const expectedSQLiteMigrationVersion = 3051
+const expectedSQLiteMigrationVersion = 3052
 
 func TestSQLiteMigrationsCreateVersionedSchema(t *testing.T) {
 	repoRoot := sqliteRepoRoot(t)

@@ -13,6 +13,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrKnowledgeNotFound = errors.New("knowledge not found")
@@ -358,7 +359,7 @@ func (r *knowledgeRepository) RenameKnowledgeFolderPath(ctx context.Context, ten
 			return nil
 		}
 		var rows []*types.Knowledge
-		if err := tx.Select("id", "folder_path").Where("tenant_id = ? AND knowledge_base_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE ?)", tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).Find(&rows).Error; err != nil {
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).Select("id", "folder_path").Where("tenant_id = ? AND knowledge_base_id = ? AND (folder_path = ? OR folder_path LIKE ? ESCAPE ?)", tenantID, kbID, from, escapeLikeKeyword(from)+"/%", likeEscapeChar).Find(&rows).Error; err != nil {
 			return err
 		}
 		byTarget := map[string][]string{}

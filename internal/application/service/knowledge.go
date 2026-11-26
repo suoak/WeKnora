@@ -802,7 +802,10 @@ func (s *knowledgeService) MoveKnowledgeToFolder(ctx context.Context,
 func (s *knowledgeService) RenameKnowledgeFolder(ctx context.Context,
 	kbID string, from string, to string,
 ) (int64, error) {
-	source := from
+	source, err := normalizeRenameFolderPath(from)
+	if err != nil {
+		return 0, err
+	}
 	if source == "" {
 		return 0, werrors.NewBadRequestError("源文件夹路径不能为空")
 	}

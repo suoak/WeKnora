@@ -125,6 +125,7 @@
                   <div class="popup-menu kb-folder-row__menu" @click.stop>
                     <div class="popup-menu-item" @click="menuOpenPath = null; emit('create', row.path)"><t-icon name="folder-add" class="menu-icon" /><span>{{ t('knowledgeBase.folderCreate.title') }}</span></div>
                     <div v-if="!row.hasChildren && row.totalCount === 0" class="popup-menu-item" @click="menuOpenPath = null; emit('delete-empty', row.path)"><t-icon name="delete" class="menu-icon" /><span>{{ t('knowledgeBase.folderDelete.action') }}</span></div>
+                    <div class="popup-menu-item" @click="menuOpenPath = null; emit('move', row.path)"><t-icon name="folder-move" class="menu-icon" /><span>{{ t('knowledgeBase.moveToFolder.action') }}</span></div>
                     <div class="popup-menu-item" @click="onFolderMenuRename(row)">
                       <t-icon name="edit" class="menu-icon" />
                       <span>{{ t('knowledgeBase.folderTree.rename') }}</span>
@@ -170,6 +171,7 @@ const props = withDefaults(defineProps<{
 const emit = defineEmits<{
   select: [path: string]
   'update:collapsed': [collapsed: boolean]
+  move: [path: string]
   create: [parentPath: string]
   'delete-empty': [path: string]
   rename: [payload: { from: string; to: string }]

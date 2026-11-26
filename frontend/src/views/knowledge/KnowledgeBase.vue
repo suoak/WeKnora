@@ -56,6 +56,7 @@ import DocumentBatchBar from './components/DocumentBatchBar.vue';
 import KnowledgeProcessingSummary from './components/KnowledgeProcessingSummary.vue';
 import KbUploadSourceDropdown from './components/KbUploadSourceDropdown.vue';
 import KbFolderTree from './components/KbFolderTree.vue';
+import FolderPickerMenu from './components/FolderPickerMenu.vue';
 import CreateDocumentFolderDialog from './components/CreateDocumentFolderDialog.vue';
 import type { CreatedDocumentFolder } from './folderCreateState';
 import DocumentScopeSummary from './components/DocumentScopeSummary.vue';
@@ -77,6 +78,7 @@ import { resolveKnowledgeDownloadFileName } from './knowledgeDownloadFileName';
 import {
   buildUploadFileName,
   canMoveFolderTo,
+  joinFolderPath,
   folderBreadcrumbs as buildFolderBreadcrumbs,
   folderPathExists as folderExistsInTree,
   isFilteringDocuments,
@@ -817,6 +819,10 @@ const folderTree = ref<KnowledgeFolderTree | null>(null);
 const folderTreeLoading = ref(false);
 const folderCreateVisible = ref(false);
 const folderCreateParent = ref('');
+const folderMoveFrom = ref('');
+const folderMoveVisible = ref(false);
+const openFolderMove = (path: string) => { if (!canEdit.value) return; folderMoveFrom.value = path; folderMoveVisible.value = true; };
+const handleFolderMove = async (parent: string) => { const from = folderMoveFrom.value; const name = from.split('/').pop() || ''; folderMoveVisible.value = false; await handleFolderRename({ from, to: joinFolderPath(parent, name) }); };
 const openFolderCreate = (parent = selectedFolderPath.value) => { if (!canEdit.value) return; folderCreateParent.value = parent; folderCreateVisible.value = true; };
 const handleFolderCreated = async ({ kbId: targetKbId }: CreatedDocumentFolder) => { if (kbId.value === targetKbId) await loadFolderTree(targetKbId); };
 const handleFolderDelete = async (path: string) => {
@@ -2470,7 +2476,7 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
           <KbFolderTree v-if="showFolderTree && !folderTreeCollapsed" :tree="folderTree" :selected-path="selectedFolderPath"
             :loading="folderTreeLoading" :can-edit="canEdit" :root-label="kbInfo?.name"
             @select="handleFolderSelect" @update:collapsed="handleFolderTreeCollapsedChange"
-            @rename="handleFolderRename" @create="openFolderCreate" @delete-empty="handleFolderDelete" />
+            @rename="handleFolderRename" @create="openFolderCreate" @move="openFolderMove" @delete-empty="handleFolderDelete" />
           <div class="tag-content">
             <div class="doc-card-area">
               <div class="doc-filter-bar">
@@ -2763,6 +2769,9 @@ const handleKBEditorSuccess = (kbIdValue: string) => {
     :kb-id="uiStore.currentKBId || undefined" :initial-type="uiStore.kbEditorType"
     @update:visible="(val) => val ? null : uiStore.closeKBEditor()" @success="handleKBEditorSuccess" />
 
+  <t-dialog v-model:visible="folderMoveVisible" :header="t('knowledgeBase.moveToFolder.action')" :footer="false" width="360px" destroy-on-close>
+    <FolderPickerMenu :options="folderOptions.filter(folder => folder.path !== folderMoveFrom && !folder.path.startsWith(folderMoveFrom + '/'))" allow-reselect @confirm="handleFolderMove" />
+  </t-dialog>
   <CreateDocumentFolderDialog v-model:visible="folderCreateVisible" :kb-id="kbId" :kb-name="kbInfo?.name" :parent-path="folderCreateParent" :can-edit="canEdit && !isFAQ" :folder-paths="folderOptions.map(folder => folder.path)" :after-create="handleFolderCreated" />
 
   <ContextualGuide tour="kbDetail" :when="showKbDetailContextualGuide" />
