@@ -1,5 +1,5 @@
 <template>
-  <t-dialog :visible="visible" :footer="false" width="420px" dialog-class-name="batch-tag-dialog"
+  <t-dialog :visible="visible" :footer="false" width="420px" dialog-class-name="batch-tag-dialog kb-compact-dialog"
     :close-on-overlay-click="false" destroy-on-close @close="handleClose">
     <template #header>
       <div class="batch-tag-heading">
@@ -32,6 +32,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import './knowledgeCompactDialog.css';
 import KnowledgeTagPicker from './KnowledgeTagPicker.vue';
 
 const props = defineProps<{
@@ -61,44 +62,6 @@ function handleClose() {
   emit('update:visible', false);
 }
 </script>
-
-<style>
-.batch-tag-dialog {
-  overflow: hidden;
-  padding: 0;
-  border-radius: var(--app-radius-xs);
-}
-
-.batch-tag-dialog .t-dialog__header {
-  min-height: auto;
-  padding: 20px 20px 0;
-}
-
-.batch-tag-dialog .t-dialog__body {
-  padding: 0 20px 20px;
-}
-
-.batch-tag-dialog .t-dialog__close {
-  top: 16px;
-  right: 16px;
-  width: 28px;
-  height: 28px;
-  border-radius: var(--app-radius-xs);
-  color: var(--td-text-color-secondary);
-  transition: background 0.18s ease;
-}
-
-.batch-tag-dialog .t-dialog__close:hover {
-  color: var(--td-text-color-primary);
-  background: var(--td-bg-color-container-hover);
-}
-
-@media (max-width: 480px) {
-  .batch-tag-dialog {
-    width: calc(100vw - 24px) !important;
-  }
-}
-</style>
 
 <style scoped>
 .batch-tag-heading {

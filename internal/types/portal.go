@@ -68,6 +68,7 @@ const (
 )
 
 type TenantAccessRequest struct {
+	ApplicantName   string                    `json:"applicant_name,omitempty" gorm:"->;-:migration"`
 	TenantName      string                    `json:"tenant_name" gorm:"->;-:migration"`
 	ReviewerName    string                    `json:"reviewer_name,omitempty" gorm:"->;-:migration"`
 	ID              string                    `json:"id" gorm:"type:varchar(36);primaryKey"`

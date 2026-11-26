@@ -1,0 +1,2 @@
+/* Mirror App.vue's page typography for faithful component previews. */
+body { margin: 0; font-size: 14px; font-family: var(--app-font-family); -webkit-font-smoothing: antialiased; background: var(--td-bg-color-page); color: var(--td-text-color-primary); }

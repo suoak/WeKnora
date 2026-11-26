@@ -153,7 +153,7 @@ export default {
     },
     requests: {
       title: '访问申请', description: '仅工作空间所有者可审批；通过后固定授予 Viewer 只读权限。',
-      loading: '正在加载访问申请…', empty: '当前没有待审核的门户访问申请。', applicant: '申请人 {id}',
+      loading: '正在加载访问申请…', empty: '当前没有待审核的门户访问申请。', applicant: '申请人 {name}', unknownApplicant: '姓名暂不可用',
       approve: '批准', reject: '拒绝', approveSuccess: '已授予 Viewer 权限', rejectSuccess: '已拒绝申请',
       applicantUnavailable: '当前申请人账号不可用，无法授予空间权限。', loadFailed: '访问申请加载失败', reviewFailed: '处理访问申请失败'
     },
@@ -7095,6 +7095,8 @@ export default {
     tagUpdateSuccess: '标签已更新',
     tagEditDialogHeading: '编辑标签',
     folderCreate: {
+      submit: '创建',
+      placeholder: '请输入文件夹名称',
       title: "新建文件夹",
       parent: "创建位置",
       name: "文件夹名称",

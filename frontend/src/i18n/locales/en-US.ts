@@ -153,7 +153,7 @@ export default {
     },
     requests: {
       title: 'Access requests', description: 'Only workspace Owners can review requests. Approval always grants Viewer read-only access.',
-      loading: 'Loading access requests…', empty: 'There are no pending Portal access requests.', applicant: 'Applicant {id}',
+      loading: 'Loading access requests…', empty: 'There are no pending Portal access requests.', applicant: 'Applicant {name}', unknownApplicant: 'Name unavailable',
       approve: 'Approve', reject: 'Reject', approveSuccess: 'Viewer access granted', rejectSuccess: 'Request rejected',
       applicantUnavailable: 'The applicant account is unavailable, so workspace access cannot be granted.', loadFailed: 'Failed to load access requests', reviewFailed: 'Failed to process the access request'
     },
@@ -577,6 +577,8 @@ export default {
     tagUpdateSuccess: 'Tag updated successfully',
     tagEditDialogHeading: 'Edit tags',
     folderCreate: {
+      submit: 'Create',
+      placeholder: 'Enter a folder name',
       title: "New folder",
       parent: "Location",
       name: "Folder name",

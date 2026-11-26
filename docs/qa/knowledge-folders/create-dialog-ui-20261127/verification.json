@@ -1,0 +1,20 @@
+{
+  "backend_tests": "PASS",
+  "backend_test_count": 2,
+  "builder": "golang:1.26-bookworm",
+  "go_toolchain": "go1.26.7 linux/amd64",
+  "network": "none",
+  "synthetic_sqlite_only": true,
+  "host_system_libraries_modified": false,
+  "source_sha256": {
+    "internal/types/portal.go": "8a81d620f9530edabbf7cc23f4d88ffe4250d7b8cb4308a912590f0a7106638e",
+    "internal/application/repository/portal.go": "464062516a0d867a070f1f2a1d71c10de7f0af5010cdbbb8cc057b18e4130855",
+    "internal/application/repository/portal_applicant_test.go": "58aac5eac21478fa2495e809315220686925f83e3cc0176522209d6133fee050",
+    "internal/application/service/portal_test.go": "69b9e54112a12691aceb993ab94c9c65525058cf0462278783c0cb502790fd47"
+  },
+  "frontend_node_tests": 86,
+  "browser_tests": 5,
+  "type_check": "PASS",
+  "production_build": "PASS",
+  "production_deployed": false
+}

@@ -1,0 +1,14 @@
+=== RUN   TestPortalAccessRequestsProjectApplicantNamesWithinTenant
+
+2026/11/26 22:53:30 /tmp/knowhub-applicant-ui-a38e1179b4/internal/application/repository/portal_applicant_test.go:36 SLOW SQL >= 200ms
+[225.825ms] [rows:1] INSERT INTO `tenant_access_requests` (`id`,`tenant_id`,`applicant_user_id`,`source`,`status`,`reason`,`requested_role`,`reviewed_by`,`reviewed_at`,`review_note`,`created_at`,`updated_at`) VALUES ("active",7,"alice","portal","pending","","viewer","owner",NULL,"","2026-11-26 22:53:29.952","2026-11-26 22:53:29.952")
+--- PASS: TestPortalAccessRequestsProjectApplicantNamesWithinTenant (0.25s)
+PASS
+ok  	github.com/Tencent/WeKnora/internal/application/repository	3.085s
+=== RUN   TestListTenantAccessRequestsRequiresTargetActiveOwner
+
+2026/11/26 22:56:32 /tmp/knowhub-applicant-ui-a38e1179b4/internal/application/repository/tenant_member.go:58 record not found
+[0.067ms] [rows:0] SELECT * FROM `tenant_members` WHERE (user_id = "system-admin-without-membership" AND tenant_id = 7) AND `tenant_members`.`deleted_at` IS NULL ORDER BY `tenant_members`.`id` LIMIT 1
+--- PASS: TestListTenantAccessRequestsRequiresTargetActiveOwner (0.18s)
+PASS
+ok  	github.com/Tencent/WeKnora/internal/application/service	1.640s

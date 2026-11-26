@@ -555,8 +555,9 @@ func (r *portalRepository) ListAccessRequestsByUser(ctx context.Context, userID 
 func (r *portalRepository) ListAccessRequestsByTenant(ctx context.Context, tenantID uint64) ([]*types.TenantAccessRequest, error) {
 	var rows []*types.TenantAccessRequest
 	err := r.db.WithContext(ctx).Table("tenant_access_requests AS ar").
-		Select("ar.*, COALESCE(u.username, '') AS reviewer_name").
+		Select("ar.*, COALESCE(u.username, '') AS reviewer_name, COALESCE(applicant.username, '') AS applicant_name").
 		Joins("LEFT JOIN users AS u ON u.id = ar.reviewed_by AND u.deleted_at IS NULL").
+		Joins("LEFT JOIN users AS applicant ON applicant.id = ar.applicant_user_id AND applicant.deleted_at IS NULL").
 		Where("ar.tenant_id = ?", tenantID).Order("ar.created_at DESC").Scan(&rows).Error
 	return rows, err
 }

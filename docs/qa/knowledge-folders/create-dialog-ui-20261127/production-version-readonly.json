@@ -1,0 +1,15 @@
+{
+  "observed_utc": "2026-11-26T22:16:02.413234+00:00",
+  "services": {
+    "WeKnora-app": {
+      "image": "sha256:4ab0b3ea82462715d1557b1e417e59d1f3e93236abe5f8a3bce5a84a8764ae42",
+      "source_revision": "61130bc80160853a435aca0d23164ccb46cec2ef",
+      "running": true
+    },
+    "WeKnora-frontend": {
+      "image": "sha256:52205d741b73c9dbd6bb165c43ca6cf309272d1b164e9549c21249da874f7305",
+      "source_revision": "61130bc80160853a435aca0d23164ccb46cec2ef",
+      "running": true
+    }
+  }
+}

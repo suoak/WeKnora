@@ -52,6 +52,7 @@ async function fixture() {
         onSelect: (ids: string[]) => emit('update:selectedIds', ids), onBusy: (busy: boolean) => emit('busy-change', busy),
       }),
     }) }
+    if (name === './knowledgeCompactDialog.css') return {}
     throw new Error(name)
   } })
   const root = node('root')
