@@ -106,6 +106,14 @@ Qualification prefetch confines the token to the official API request and uses
 a fresh unauthenticated request after validating the release-asset redirect.
 Neither the token nor an alternate unverified dependency enters the build.
 
+Native run 45740834211 passed for `bcbd544cf`; the later source's run
+45743522530 failed because the configured USTC Cargo registry returned 403.
+Its paired full-APP run 45743912482 correctly refused a failed upstream build
+before deployment. The release recipe therefore has an explicit build-only
+`CARGO_SOURCE_ARG=crates-io` alternative to its unchanged `ustc` default. Both
+retain Cargo `--locked`, the committed dependency checksums and the independently
+verified pinned AnyDoc source. Final-source native qualification is still needed.
+
 ## Historical task purpose boundary
 
 The system protocol explicitly rejects legacy signed reconciliation purposes

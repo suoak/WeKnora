@@ -45,6 +45,7 @@ ARG REVISION_ARG
 ARG BUILD_TIME_ARG
 ARG GO_VERSION_ARG=1.26.7
 ARG WITH_ANYDOC=1
+ARG CARGO_SOURCE_ARG=ustc
 ARG ANYDOC_VERSION=0.2.4
 ARG ANYDOC_SHA256=cf0d78e4cfe3654eb3ea04422ec5a94352000ee56e97902125e68e51f7527062
 
@@ -67,14 +68,21 @@ RUN test "$TARGETARCH" = "amd64" && test "$WITH_ANYDOC" = "1" && \
     rustc --version | grep -F 'rustc 1.98.1 ' && \
     go version | grep -F 'go1.26.7'
 
-# Cargo uses the established USTC sparse mirror. The AnyDoc crate itself is
-# fetched and verified separately below before it can enter the build.
-RUN mkdir -p /usr/local/cargo && printf '%s\n' \
+# Preserve the established mirror by default; external runners can select the
+# official registry when that mirror denies access. Cargo --locked and crate
+# checksums remain mandatory for both choices.
+RUN mkdir -p /usr/local/cargo && \
+    case "$CARGO_SOURCE_ARG" in \
+    ustc) printf '%s\n' \
       '[source.crates-io]' \
       'replace-with = "ustc"' \
       '[source.ustc]' \
       'registry = "sparse+https://mirrors.ustc.edu.cn/crates.io-index/"' \
-      > /usr/local/cargo/config.toml
+      > /usr/local/cargo/config.toml ;; \
+    crates-io) printf '%s\n' '[registries.crates-io]' 'protocol = "sparse"' \
+      > /usr/local/cargo/config.toml ;; \
+    *) echo 'Unsupported Cargo source selection' >&2; exit 1 ;; \
+    esac
 
 RUN go install -tags postgres github.com/golang-migrate/migrate/v4/cmd/migrate@v4.20.1
 
