@@ -1,0 +1,15 @@
+{
+  "status": "PRIVATE_ROLLBACK_METADATA_READY",
+  "backup_capable_directory": "/mnt/sata0/knowhub-folders-release-61130bc80",
+  "files": [
+    "production-baseline.json",
+    "rollback-compose.json",
+    "release-provenance.json",
+    "runtime-image-resolution.json"
+  ],
+  "sid_expiry": "2026-11-28T01:00:00+08:00",
+  "database_bytes": 49250703027,
+  "available_bytes": 105754230784,
+  "rollback_executed": false,
+  "service_restarted": false
+}

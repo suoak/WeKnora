@@ -1,0 +1,43 @@
+{
+  "status": "PASS",
+  "public_site": "http://10.51.134.114",
+  "ordinary_qa": true,
+  "runtime": "61130bc80160853a435aca0d23164ccb46cec2ef",
+  "tree": {
+    "root_document_count": 0,
+    "total_document_count": 0,
+    "folders": [
+      {
+        "path": "三级已重命名",
+        "name": "三级已重命名",
+        "document_count": 0,
+        "total_count": 0
+      },
+      {
+        "path": "空目录验收",
+        "name": "空目录验收",
+        "document_count": 0,
+        "total_count": 0,
+        "children": [
+          {
+            "path": "空目录验收/二级空目录",
+            "name": "二级空目录",
+            "document_count": 0,
+            "total_count": 0,
+            "children": [
+              {
+                "path": "空目录验收/二级空目录/三级持久保留",
+                "name": "三级持久保留",
+                "document_count": 0,
+                "total_count": 0
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "http_errors": [],
+  "screenshot": "production-public-three-levels.png",
+  "utc": "2026-11-26T17:12:29.325Z"
+}

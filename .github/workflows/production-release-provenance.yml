@@ -5,12 +5,16 @@ on:
     paths:
       - scripts/ops/verify_release_provenance.py
       - scripts/ops/test_verify_release_provenance.py
+      - scripts/ops/rollback_knowledge_folders.sh
+      - scripts/ops/test_knowledge_folder_backup_safety.py
       - .github/workflows/production-release-provenance.yml
   push:
     branches: [main]
     paths:
       - scripts/ops/verify_release_provenance.py
       - scripts/ops/test_verify_release_provenance.py
+      - scripts/ops/rollback_knowledge_folders.sh
+      - scripts/ops/test_knowledge_folder_backup_safety.py
       - .github/workflows/production-release-provenance.yml
   workflow_dispatch:
 
@@ -27,6 +31,8 @@ jobs:
           python-version: '3.11'
       - name: Reject stale main and mismatched paired images
         run: python -m unittest discover -s scripts/ops -p test_verify_release_provenance.py -v
+      - name: Validate private backup directories and capacity guards
+        run: python -m unittest discover -s scripts/ops -p test_knowledge_folder_backup_safety.py -v
 
   integration-safety:
     if: >-

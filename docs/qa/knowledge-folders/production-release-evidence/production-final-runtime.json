@@ -1,0 +1,104 @@
+{
+  "status": "PASS",
+  "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+  "isolated_probes": [
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": "404",
+      "tls_verified": true,
+      "expected": 404
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/mcp/personal",
+      "status": "401",
+      "tls_verified": true,
+      "expected": 401
+    }
+  ],
+  "private_preflight_frontend_removed": true,
+  "app_running": true,
+  "public_frontend_running": true,
+  "control": {
+    "namespace": "feishu-prod-080f7bb6a01f",
+    "trip_is_set": false,
+    "permit_ttl_ms": 663,
+    "inflight": 0,
+    "critical_queue_pauses": {
+      "sync": null,
+      "approved_sync": null
+    },
+    "live_workers": [
+      {
+        "worker_id": "8f59c4315511:1",
+        "fingerprint_prefix": "51e32e8d5026",
+        "lease_remaining_ms": 1906
+      }
+    ],
+    "queues": {
+      "default": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "wiki": {
+        "active": 6,
+        "pending": 0,
+        "archived": 2330,
+        "paused": null
+      },
+      "sync": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "question": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "summary": {
+        "active": 0,
+        "pending": 0,
+        "archived": 1,
+        "paused": null
+      },
+      "multimodal": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "general_sync": {
+        "active": 0,
+        "pending": 0,
+        "archived": 1,
+        "paused": null
+      },
+      "approved_sync": {
+        "active": 1,
+        "pending": 0,
+        "archived": 23,
+        "paused": null
+      },
+      "postprocess": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "low": {
+        "active": 0,
+        "pending": 0,
+        "archived": 2,
+        "paused": null
+      }
+    }
+  },
+  "schema": "3052|f",
+  "utc": "2026-11-26T17:13:10.760646+00:00"
+}

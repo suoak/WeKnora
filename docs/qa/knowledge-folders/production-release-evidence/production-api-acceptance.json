@@ -1,0 +1,279 @@
+{
+  "target": "http://127.0.0.1:4229",
+  "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+  "tenant_id": 10023,
+  "kb_id": "b047b14d-2252-4ee9-9bf5-3fd1b592d128",
+  "root": "API-1795712415179",
+  "started_utc": "2026-11-26T17:00:15.179Z",
+  "results": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/login",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/system/info",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 409,
+      "expected": 409,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 400,
+      "expected": 400,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 404,
+      "expected": 404,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders/empty?path=API-1795712415179",
+      "status": 409,
+      "expected": 409,
+      "pass": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders/empty?path=API-1795712415179-destination%2Flevel-3",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders/empty?path=API-1795712415179-destination",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders/empty?path=API-1795712415179",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 401,
+      "expected": 401,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/mcp-api-keys",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders/empty?path=any",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/b047b14d-2252-4ee9-9bf5-3fd1b592d128/knowledge/folders",
+      "status": 403,
+      "expected": 403,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/mcp-api-keys/199",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/knowledge/folders",
+      "status": 201,
+      "expected": 201,
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/dcc7139a-74d6-4614-8bb9-8ac3ea007adb",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/folder",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/knowledge/folders/empty?path=Baseline-empty-delete-1795712415621",
+      "status": 409,
+      "expected": 409,
+      "pass": true
+    },
+    {
+      "method": "PUT",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/knowledge/folders",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "GET",
+      "path": "/api/v1/knowledge/dcc7139a-74d6-4614-8bb9-8ac3ea007adb",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge/folder",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/knowledge/folders/empty?path=Baseline-empty-delete-1795712415621-moved",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/hybrid-search",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/knowledge-bases/8e04dafa-6724-4e98-a357-81ccd2e47360/hybrid-search",
+      "status": 200,
+      "expected": 200,
+      "pass": true
+    }
+  ],
+  "runtime": {
+    "commit_id": "61130bc80160853a435aca0d23164ccb46cec2ef",
+    "version": "0.8.0-knowhub-folders-61130bc80"
+  },
+  "empty_rename_moved_count": 0,
+  "paths": [
+    "API-1795712415179",
+    "API-1795712415179-destination",
+    "API-1795712415179-destination/level-3"
+  ],
+  "baseline_document_fields_unchanged": true,
+  "retrieval_after": [
+    {
+      "kind": "keyword",
+      "result_count": 1,
+      "baseline_document_found": true
+    },
+    {
+      "kind": "vector",
+      "result_count": 1,
+      "baseline_document_found": true
+    }
+  ],
+  "status": "PASS"
+}
