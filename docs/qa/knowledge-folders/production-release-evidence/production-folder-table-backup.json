@@ -1,0 +1,11 @@
+{
+  "status": "PASS_ARCHIVE_CREATED_AND_LISTED",
+  "path": "/mnt/sata0/knowhub-folders-release-61130bc80/knowledge-folders-after-acceptance.dump",
+  "bytes": 2645,
+  "sha256": "a772acf6bf645a1c0d6a19311e7531ed0042ba9dc76ff8e012a58b5adedcbf9f",
+  "folder_rows": 6,
+  "schema": "3052|f",
+  "full_database_backup": false,
+  "actual_restore_not_yet_run": true,
+  "utc": "2026-11-26T17:12:15.813534+00:00"
+}

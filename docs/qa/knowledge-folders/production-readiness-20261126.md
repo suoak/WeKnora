@@ -1,6 +1,8 @@
 # 多级目录生产发布准备与限定发布方案
 
-本文件是供用户决定的方案，**不是生产执行授权**。生产迄今仅作只读核查；未停写、迁移、替换镜像或执行恢复操作。目录验收与测试站点的历史飞书停止分别结论，见[兼容项](compatibility-20261126.md)和[独立诊断](sync-incident-20261126.md)。
+> 历史准备快照（2026-11-26）：以下3051基线和发布前门槛描述当时状态。用户随后批准发布、豁免新全库备份/恢复，并单独批准SID限时续期；生产现已61130bc80 / Schema3052。以[2026-11-27实际发布验收](production-acceptance-20261127.md)为最新状态。通用回滚脚本不应未经Docker29适配直接用于此次生产。
+
+本文件是供用户决定的方案，**不是生产执行授权**。在该准备快照时点，生产应用和数据库保持原状；随后按用户新增授权清理了历史存储，见[清理回执](storage-cleanup-20261126.md)。未停写、迁移、替换运行镜像或执行飞书恢复操作。目录验收与测试站点的历史飞书停止分别结论，见[兼容项](compatibility-20261126.md)和[独立诊断](sync-incident-20261126.md)。
 
 ## 当前基线与候选选择
 
@@ -30,6 +32,10 @@
 
 ## 发布检查清单与顺序
 
+发布材料和全库/目录备份应使用 `/mnt/sata0/knowhub-folders-release-<SHA>` 的真实私有目录（0700；文件 0600），不能用符号链接跳转。根盘 `/home` 本次采样仅约 10.2 GiB 空余，小于现有历史全库 dump 的约 21 GB。回滚工具保留旧 `/home/aqyfzx` 目录兼容性，但本次方案使用数据盘；工具在停服务前要求空余量至少覆盖当前数据库大小、目录表独立备份及 `max(5 GiB, 数据库大小的 10%)` 余量。此检查不代替新鲜备份、恢复演练、WAL/临时空间及两次备份同时保留的预算。
+
+历史 3049 备份记录明确 `full_restore_verified=false`，其过去的豁免不适用于本次发布。旧 3042 归档的恢复证明也不能冒充当前 3051 的生产鲜备份及恢复验证。恢复演练通过后，可核对归档 SHA 并清理本次可重建的演练副本，再重新测量发布与回滚空间；不得删除原始归档或生产数据卷凑空间。
+
 | 阶段 | 门槛 | 当前状态 |
 | --- | --- | --- |
 | 交付收尾 | #273 全部 CI 完成并正常合入，证据和实际部署对应 | 已完成，f3573b6f5；运行测试版仍为 642bbe7f1 |
@@ -45,7 +51,7 @@
 
 生产审批后的具体顺序：
 
-1. 重新取 remote main、CI 和实际 image inspect，校验候选字节；核对运行镜像/网络/挂载/端口/环境未漂移。生成只包含 app/frontend 的新 Compose 与原组合 `rollback-compose.json`；对照原 inspect 确认无权限或挂载差异。保存配对回执为 `release-provenance.json`、原镜像摘要为 `production-baseline.json`，置于 `/home/aqyfzx/knowhub-folders-release-<SHA>` 私有目录。
+1. 重新取 remote main、CI 和实际 image inspect，校验候选字节；核对运行镜像/网络/挂载/端口/环境未漂移。生成只包含 app/frontend 的新 Compose 与原组合 `rollback-compose.json`；对照原 inspect 确认无权限或挂载差异。保存配对回执为 `release-provenance.json`、原镜像摘要为 `production-baseline.json`，置于 `/mnt/sata0/knowhub-folders-release-<SHA>` 私有目录。
 2. 审批后先做生产一致性全备份及离线恢复演练并测耗时。恢复副本留在生产侧受控目录/独立库，不能连接 APP/Worker 或外网；不得把 production test03 来源移入测试站点。恢复校验失败或磁盘/维护窗口不足则终止，不迁移。
 3. 进入经批准的维护窗口，阻止新写入，核查现有飞书执行/发布、Asynq active、pending-op fresh claim 和文档解析。正常停止全部写进程，包含 APP 内所有 Worker pool；使用无限等待的正常 TERM，不设置超时强杀。等待在途任务结束，保留未领取任务、Redis、游标和既有停止记录。
 4. 停写后做新的 `pg_dump -Fc --no-owner --no-acl`，记录 SHA 和关键表摘要；验证恢复点与演练的差异。目录表尚不存在时记录此事实。保留原镜像、配置、文件卷及权限、队列和来源状态。超过批准维护窗口则中止，正常恢复原服务，不强迁移。
@@ -63,7 +69,7 @@
 # 仅在明确批准该候选的回滚、且私有材料已验证并落盘后执行。
 CONFIRMED_ROLLBACK_RELEASE_SHA=<已批准候选完整SHA> \
   bash rollback_knowledge_folders.sh --execute \
-  /home/aqyfzx/knowhub-folders-release-<SHA>
+  /mnt/sata0/knowhub-folders-release-<SHA>
 ```
 
 脚本的环境变量只是防误触门槛，不等于业务/安全审批。私有 `rollback-compose.json` 必须来自经确认的原快照，不能随意拼接 249 层历史 override，也不能拉取浮动 tag。原镜像仍须完整保留；旧前端标签不一致的事实见基线说明，不能伪造配对证明。

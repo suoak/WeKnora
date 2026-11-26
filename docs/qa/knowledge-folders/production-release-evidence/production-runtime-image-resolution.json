@@ -1,0 +1,30 @@
+{
+  "status": "VERIFIED",
+  "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+  "observed_utc": "2026-11-26T16:29:52.485767+00:00",
+  "images": {
+    "app": {
+      "engine_image_id": "sha256:4ab0b3ea82462715d1557b1e417e59d1f3e93236abe5f8a3bce5a84a8764ae42",
+      "image_config_digest": "sha256:3aba2726b3f8d9b112ea846b6e780c3ec0ba572300cd6a541c7c85e9c1c5c316",
+      "image_manifest_digest": "sha256:4ab0b3ea82462715d1557b1e417e59d1f3e93236abe5f8a3bce5a84a8764ae42",
+      "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+      "archive_sha256": "60e2a08c8d70a61a5619e225d2fa1cb25a1d2ed57bdb5c0733a2800baa31603d",
+      "raw_config_digest_verified": true,
+      "raw_manifest_digest_verified": true,
+      "rootfs_diff_ids_verified": 15
+    },
+    "frontend": {
+      "engine_image_id": "sha256:52205d741b73c9dbd6bb165c43ca6cf309272d1b164e9549c21249da874f7305",
+      "image_config_digest": "sha256:9fe8f39ab663c630706c99e9f4aca8c001c9d6ee25f3b0b8213aff00a34c661f",
+      "image_manifest_digest": "sha256:52205d741b73c9dbd6bb165c43ca6cf309272d1b164e9549c21249da874f7305",
+      "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+      "archive_sha256": "432f6b58d6a0db2c3a04aca3f0eb241e7b9e80d137280069666fe04dd190a864",
+      "raw_config_digest_verified": true,
+      "raw_manifest_digest_verified": true,
+      "rootfs_diff_ids_verified": 14
+    }
+  },
+  "image_content_changed": false,
+  "source_labels_overridden": false,
+  "reason": "Production Docker containerd store identifies images by OCI manifest digest; configuration and rootfs remain byte-identical to build artifacts."
+}

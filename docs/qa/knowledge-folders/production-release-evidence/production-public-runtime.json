@@ -1,0 +1,89 @@
+{
+  "status": "PUBLIC_FRONTEND_RESTORED",
+  "source_sha": "61130bc80160853a435aca0d23164ccb46cec2ef",
+  "schema": "3052|f",
+  "app_native_health": true,
+  "app_image": "sha256:4ab0b3ea82462715d1557b1e417e59d1f3e93236abe5f8a3bce5a84a8764ae42",
+  "frontend_image": "sha256:52205d741b73c9dbd6bb165c43ca6cf309272d1b164e9549c21249da874f7305",
+  "worker_control": {
+    "namespace": "feishu-prod-080f7bb6a01f",
+    "trip_is_set": false,
+    "permit_ttl_ms": 737,
+    "inflight": 0,
+    "critical_queue_pauses": {
+      "sync": null,
+      "approved_sync": null
+    },
+    "live_workers": [
+      {
+        "worker_id": "8f59c4315511:1",
+        "fingerprint_prefix": "51e32e8d5026",
+        "lease_remaining_ms": 1973
+      }
+    ],
+    "queues": {
+      "default": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "wiki": {
+        "active": 6,
+        "pending": 0,
+        "archived": 2330,
+        "paused": null
+      },
+      "sync": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "question": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "summary": {
+        "active": 0,
+        "pending": 0,
+        "archived": 1,
+        "paused": null
+      },
+      "multimodal": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "general_sync": {
+        "active": 0,
+        "pending": 0,
+        "archived": 1,
+        "paused": null
+      },
+      "approved_sync": {
+        "active": 1,
+        "pending": 0,
+        "archived": 22,
+        "paused": null
+      },
+      "postprocess": {
+        "active": 0,
+        "pending": 0,
+        "archived": 0,
+        "paused": null
+      },
+      "low": {
+        "active": 0,
+        "pending": 0,
+        "archived": 2,
+        "paused": null
+      }
+    }
+  },
+  "sid_expiry": "2026-11-28T01:00:00+08:00",
+  "utc": "2026-11-26T17:11:21.390243+00:00"
+}

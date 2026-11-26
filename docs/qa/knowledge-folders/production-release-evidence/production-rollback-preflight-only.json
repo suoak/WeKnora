@@ -1,0 +1,9 @@
+{
+  "status": "PASS",
+  "actual_readonly_preflight": true,
+  "image_mapping_sid_mounts_extra_writers_backup_capacity_checked": true,
+  "services_stopped": false,
+  "backup_created": false,
+  "rollback_executed": false,
+  "output": "Original immutable images and protected mounts verified; no extra writer detected.\n"
+}

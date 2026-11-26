@@ -1,0 +1,36 @@
+{
+  "status": "PASS",
+  "kb_id": "8e04dafa-6724-4e98-a357-81ccd2e47360",
+  "folder": "Picker-persisted-1795713070215",
+  "document_move_via_picker_verified": true,
+  "empty_marker_retained_after_document_restored": true,
+  "folder_events": [
+    {
+      "method": "POST",
+      "status": 201
+    },
+    {
+      "method": "POST",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "status": 200
+    }
+  ],
+  "retrieval": [
+    {
+      "kind": "keyword",
+      "baseline_found": true
+    },
+    {
+      "kind": "vector",
+      "baseline_found": true
+    }
+  ],
+  "screenshot": "production-picker-persisted.png"
+}

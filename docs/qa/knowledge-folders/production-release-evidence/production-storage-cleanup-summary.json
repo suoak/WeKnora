@@ -1,0 +1,54 @@
+{
+  "status": "VERIFIED",
+  "authorization": "User explicitly requested historical backup and unused Docker cleanup; no application release, migration or Feishu recovery authorized.",
+  "observed_utc": "2026-11-26T15:46:57.260063+00:00",
+  "historical_images_removed": 141,
+  "disposable_stopped_restore_containers_and_volumes_removed": 2,
+  "superseded_schema3033_cold_backup_removed_bytes": 23769026560,
+  "retained_restored_3042_backup_archives": [
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/feishu-lifecycle-bb3e85d1214a-20261029/production-before.dump",
+      "sha256": "35e2084bc5df3c3692c7a0b2d84a015612d3c4d7ae5358e395018d337c3663bb",
+      "bytes": 9073785257,
+      "mtime_ns": 1793203622955809096
+    },
+    {
+      "path": "/mnt/sata0/knowhub-bc-full-enable-5b1c78896b0d-20261023/private/knowledge-delete-1dde249f1238-20261028/production-before.dump",
+      "sha256": "a12937d7a618a16e0051ee386eafb270678470c01673878f534d4c2b2167d9b5",
+      "bytes": 8833316241,
+      "mtime_ns": 1793183679476978863
+    }
+  ],
+  "retired_cold_backup_sha256": "3fc94dcfe8e3f90f0f85cdae813701808470a357118d157b6508c86dcfce2c53",
+  "all_original_document_and_neo4j_archives_retained": true,
+  "all_seven_running_container_ids_images_creation_and_start_times_unchanged": true,
+  "app_and_frontend_all_mounts_normalized_match_encrypted_original_snapshot": true,
+  "all_production_data_volumes_retained": true,
+  "active_services_restarted": false,
+  "production_application_deployed": false,
+  "production_schema": "3051|f",
+  "production_database_modified_by_cleanup": false,
+  "first_disk_snapshot": [
+    "/dev/mapper/data--vg-data--lv0",
+    "514834688",
+    "482007640",
+    "27568808",
+    "95%",
+    "/mnt/sata0"
+  ],
+  "final_disk_snapshot": [
+    "/dev/mapper/data--vg-data--lv0",
+    "514834688",
+    "401761540",
+    "107814908",
+    "79%",
+    "/mnt/sata0"
+  ],
+  "observed_available_space_increase_bytes": 82172006400,
+  "final_available_bytes": 110402465792,
+  "final_available_gib": 102.82,
+  "root_home_backup_destination_still_unsuitable": true,
+  "latest_3049_backup_full_restore_previously_verified": false,
+  "fresh_production_3051_backup_restore_run_this_turn": false,
+  "verification_note": "The initial final assertion compared Docker mount arrays in iteration order and failed. A separate audit matched mounts by destination against the encrypted original APP/Frontend snapshot and all seven live identities/start times against the pre-cleanup inventory."
+}

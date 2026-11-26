@@ -1,0 +1,36 @@
+{
+  "namespace": "feishu-prod-080f7bb6a01f",
+  "trip": false,
+  "recent_approved_archive": [
+    {
+      "task_id": "dssync:f67f1ebf-96f1-470e-99ad-6b726b7c55ad:202611261700",
+      "retried": 5,
+      "last_error": "feishu controller not ready\nERR SYSTEM_CANARY_OTHER_SOURCE",
+      "last_failed_at": 1795713120,
+      "fields": [
+        "msg",
+        "state"
+      ]
+    },
+    {
+      "task_id": "dssync:410f2c5c-90a3-4227-bad3-4f08feaec4dd:202611261658",
+      "retried": 5,
+      "last_error": "feishu controller not ready\nERR SYSTEM_CANARY_OTHER_SOURCE",
+      "last_failed_at": 1795713075,
+      "fields": [
+        "msg",
+        "state"
+      ]
+    },
+    {
+      "task_id": "dssync:f28af5e1-59ee-47cd-8959-3faf37a98840:202611261658",
+      "retried": 5,
+      "last_error": "feishu controller not ready\nERR SYSTEM_CANARY_OTHER_SOURCE",
+      "last_failed_at": 1795712980,
+      "fields": [
+        "msg",
+        "state"
+      ]
+    }
+  ]
+}
