@@ -204,6 +204,7 @@ jobs:
           tags: knowhub-consumer-native-validation:ci
           build-args: |
             WITH_ANYDOC=1
+            CARGO_SOURCE_ARG=crates-io
             VERSION_ARG=consumer-wiki-diagnostics
             COMMIT_ID_ARG=${{ env.SOURCE_SHA }}
             REVISION_ARG=${{ env.SOURCE_SHA }}
@@ -228,7 +229,7 @@ jobs:
             --build-context verified-release-assets="$UV_ASSET_CONTEXT" \
             -f docker/Dockerfile.app.knowhub-release \
             --cache-from type=gha,scope=consumer-wiki-native \
-            --build-arg WITH_ANYDOC=1 --build-arg VERSION_ARG=consumer-wiki-diagnostics \
+            --build-arg WITH_ANYDOC=1 --build-arg CARGO_SOURCE_ARG=crates-io --build-arg VERSION_ARG=consumer-wiki-diagnostics \
             --build-arg COMMIT_ID_ARG="$SOURCE_SHA" --build-arg REVISION_ARG="$SOURCE_SHA" \
             --build-arg GO_VERSION_ARG=1.26.7 --build-arg APT_MIRROR_ARG=deb.debian.org \
             --build-arg GOPROXY_ARG=https://proxy.golang.org,direct \
