@@ -336,7 +336,9 @@ func (r *knowledgeRepository) UpdateKnowledgeFolderPath(
 // RenameKnowledgeFolderPath rewrites folder_path for a folder and every folder
 // below it, which is how a folder rename or move is applied. Renaming onto an
 // existing path merges the two folders. Returns the number of affected rows.
-func (r *knowledgeRepository) RenameKnowledgeFolderPath(ctx context.Context, tenantID uint64, kbID, from, to string) (int64, error) {
+func (r *knowledgeRepository) RenameKnowledgeFolderPath(
+	ctx context.Context, tenantID uint64, kbID, from, to string,
+) (int64, error) {
 	if err := validateKnowledgeFolderRewrite(from); err != nil {
 		return 0, err
 	}
@@ -385,7 +387,9 @@ func (r *knowledgeRepository) RenameKnowledgeFolderPath(ctx context.Context, ten
 			return err
 		}
 		for target, ids := range byTarget {
-			result := tx.Model(&types.Knowledge{}).Where("tenant_id = ? AND knowledge_base_id = ? AND id IN (?)", tenantID, kbID, ids).Updates(map[string]interface{}{"folder_path": target, "updated_at": time.Now()})
+			result := tx.Model(&types.Knowledge{}).
+				Where("tenant_id = ? AND knowledge_base_id = ? AND id IN (?)", tenantID, kbID, ids).
+				Updates(map[string]interface{}{"folder_path": target, "updated_at": time.Now()})
 			if result.Error != nil {
 				return result.Error
 			}

@@ -236,7 +236,8 @@ func TestKnowledgeDerivedWritePostgres(t *testing.T) {
 		moved, err = repo.RenameKnowledgeFolderPath(ctx, tenant.ID, kb.ID, "persistent-held", "held-renamed")
 		require.NoError(t, err)
 		require.EqualValues(t, 1, moved)
-		require.ErrorIs(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "held-renamed"), ErrKnowledgeFolderNotEmpty)
+		require.ErrorIs(t, repo.DeleteKnowledgeFolder(ctx, tenant.ID, kb.ID, "held-renamed"),
+			ErrKnowledgeFolderNotEmpty)
 		_, readErr = repo.GetKnowledgeByID(ctx, tenant.ID, k.ID)
 		require.ErrorIs(t, readErr, types.ErrLegacySourceRestricted)
 		require.Error(t, db.Exec("UPDATE knowledges SET description='no ticket' WHERE id=?", k.ID).Error)
