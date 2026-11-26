@@ -60,9 +60,21 @@ func TestAutomaticSourcePostgresPrivatePolicyMetadataKeepsOwnerGuard(t *testing.
 					Type: "feishu", Status: "error", LegacyAccessState: "hold", Config: raw,
 				}
 				require.NoError(t, f.db.Create(&sibling).Error)
-				var bodyRead types.KnowledgeBase
+				held := types.Knowledge{
+					ID: uuid.NewString(), TenantID: f.tenant.ID, KnowledgeBaseID: f.source.KnowledgeBaseID,
+					Title: "held-fixture", Type: "file", ParseStatus: types.ParseStatusCompleted,
+				}
+				require.NoError(t, f.db.Create(&held).Error)
+				require.NoError(t, f.db.Create(&types.FeishuLegacyResource{
+					ID: uuid.NewString(), TenantID: f.tenant.ID, KnowledgeBaseID: f.source.KnowledgeBaseID,
+					DataSourceID: sibling.ID, ExternalID: "held-fixture", KnowledgeID: held.ID,
+					State: "hold", QuarantineSnapshot: []byte(`{}`),
+				}).Error)
+				// The normal owner can still list KB metadata. Actual held document
+				// content must remain denied, independently from source A's facts.
+				var bodyRead types.Knowledge
 				require.ErrorIs(t, f.db.WithContext(f.userContext(f.owner)).
-					Where("id=?", f.source.KnowledgeBaseID).Take(&bodyRead).Error, types.ErrLegacySourceRestricted)
+					Where("id=?", held.ID).Take(&bodyRead).Error, types.ErrLegacySourceRestricted)
 			case "source_hold":
 				f.source.LegacyAccessState = "hold"
 				require.NoError(t, f.db.Model(&f.source).Update("legacy_access_state", "hold").Error)
