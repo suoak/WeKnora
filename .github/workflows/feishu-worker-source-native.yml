@@ -136,7 +136,7 @@ jobs:
           printf '%s\n' "$network" > evidence/disposable-network.txt
           pattern='^TestFeishuWorkerIdentity'
           if test "$QUALIFICATION_MODE" = baseline; then
-            pattern='^TestFeishuWorkerIdentityProcessSyncUsesGuardedOwnerCredential$'
+            pattern='^TestFeishuWorkerIdentity(ProcessSyncUsesGuardedOwnerCredential|ApplicationGrantUsesGuardedTenantToken)$'
           fi
           set +e
           docker run --rm --network "$network" --read-only --cap-drop ALL \
@@ -160,7 +160,7 @@ jobs:
           skipped=[r['Test'] for r in rows if r.get('Action')=='skip']
           failed=[r.get('Test','package') for r in rows if r.get('Action')=='fail']
           import os
-          expected=1 if os.environ['QUALIFICATION_MODE']=='baseline' else 14
+          expected=2 if os.environ['QUALIFICATION_MODE']=='baseline' else 14
           summary={'passed':passed,'skipped':skipped,'failed':failed,'minimum_cases':expected}
           open('evidence/worker-summary.json','w').write(json.dumps(summary,indent=2))
           assert len(passed)>=expected and not skipped and not failed, 'native qualification incomplete'
