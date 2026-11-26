@@ -36,7 +36,8 @@ func (h healthBoundaryJournalFailure) ProcessHook(next redis.ProcessHook) redis.
 func TestAutomaticServiceNativeSQLHealthReadReprobeStillFailsClosed(t *testing.T) {
 	for _, mode := range []string{
 		"second_conflict", "second_missing_metadata", "second_corrupt_metadata",
-		"second_membership", "second_incarnation", "audit_failure", "audit_deadline", "journal_failure", "both_boundaries",
+		"second_membership", "second_incarnation", "audit_failure",
+		"audit_deadline", "journal_failure", "both_boundaries",
 	} {
 		t.Run(mode, func(t *testing.T) {
 			_, s, r := renewableSQLService(t)
@@ -110,7 +111,10 @@ func TestAutomaticServiceNativeSQLHealthReadReprobeStillFailsClosed(t *testing.T
 }
 
 func TestAutomaticServiceNativeSQLNonConflictHealthFailuresAreNotReprobed(t *testing.T) {
-	for _, mode := range []string{"missing", "registry_expired", "identity", "redis_read", "deadline", "canceled", "similar_plain_error"} {
+	for _, mode := range []string{
+		"missing", "registry_expired", "identity", "redis_read",
+		"deadline", "canceled", "similar_plain_error",
+	} {
 		t.Run(mode, func(t *testing.T) {
 			_, s, r := renewableSQLService(t)
 			ctx := context.Background()
@@ -137,11 +141,10 @@ func TestAutomaticServiceNativeSQLNonConflictHealthFailuresAreNotReprobed(t *tes
 				case "missing":
 					require.NoError(t, r.Del(ctx, key).Err())
 				case "registry_expired":
-					require.NoError(
-						t,
-						r.ZAdd(ctx, "asynq:servers", redis.Z{Score: float64(time.Now().Add(-time.Second).Unix()), Member: key}).
-							Err(),
-					)
+					require.NoError(t, r.ZAdd(ctx, "asynq:servers", redis.Z{
+						Score:  float64(time.Now().Add(-time.Second).Unix()),
+						Member: key,
+					}).Err())
 				case "identity":
 					require.NoError(t, r.Incr(ctx, s.c.prefix+"membership_revision").Err())
 				}

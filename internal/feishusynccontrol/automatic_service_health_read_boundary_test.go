@@ -17,6 +17,9 @@ func TestAutomaticServiceNativeSQLSingleHealthReadBoundaryReprobe(t *testing.T) 
 		name := map[int]string{1: "initial_health", 2: "pre_renew_health"}[boundary]
 		t.Run(name, func(t *testing.T) {
 			_, s, r := renewableSQLService(t)
+			// Use the real controller cadence rather than sampling twice in the
+			// same instant; the revalidation must contribute no extra sample.
+			time.Sleep(200 * time.Millisecond)
 			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 			defer cancel()
 			before, _, err := s.current(ctx)
