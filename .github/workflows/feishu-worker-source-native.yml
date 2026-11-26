@@ -68,11 +68,13 @@ jobs:
           # Qualification only: real production builder and verified native archive.
           # No production runtime or Dockerfile is modified or exported by this job.
           FROM builder AS worker-source-validation
+          COPY --from=builder /app/yanyiwu/ /go/pkg/mod/github.com/yanyiwu/
           RUN --mount=type=cache,target=/go/pkg/mod \
               test "$WITH_ANYDOC" = 1 && \
               CGO_ENABLED=1 go test -race -tags anydoc -c -o /worker-source-tests ./internal/application/service && \
               CGO_ENABLED=1 go test -race -tags anydoc -c -o /feishu-core-tests ./internal/datasource/connector/feishu/core
-          RUN useradd -m -u 10001 worker-test && \
+          RUN test -s /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict/jieba.dict.utf8 && \
+              useradd -m -u 10001 worker-test && \
               sha256sum /worker-source-tests /feishu-core-tests \
                 /app/third_party/anydoc-go/lib/linux_amd64_gnu/libanydoc_go.a > /native-test-binaries.sha256
           LABEL knowhub.qualification-only="true"
@@ -117,7 +119,7 @@ jobs:
           image=knowhub-worker-source-qualification:ci
           docker image inspect --format '{{.Id}}' "$image" > evidence/qualification-image-id.txt
           docker run --rm --network none --read-only --cap-drop ALL --entrypoint sh "$image" -c \
-            'cat /etc/os-release; cat /native-test-binaries.sha256; ldd /worker-source-tests; ldd /feishu-core-tests' \
+            'cat /etc/os-release; cat /native-test-binaries.sha256; test -s /go/pkg/mod/github.com/yanyiwu/gojieba@v1.4.7/deps/cppjieba/dict/jieba.dict.utf8; ldd /worker-source-tests; ldd /feishu-core-tests' \
             | tee evidence/native-linkage.log
           ! grep -F 'not found' evidence/native-linkage.log
           grep -F bookworm evidence/native-linkage.log
@@ -171,7 +173,7 @@ jobs:
           docker run --rm --network none --read-only --cap-drop ALL --tmpfs /tmp:size=256m,mode=1777 \
             --workdir /app/internal/datasource/connector/feishu/core --entrypoint /feishu-core-tests \
             knowhub-worker-source-qualification:ci -test.v -test.timeout=5m \
-            | tee evidence/core-native.log
+            2>&1 | tee evidence/core-native.log
       - uses: actions/upload-artifact@v4
         if: always()
         with:
