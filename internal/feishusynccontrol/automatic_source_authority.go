@@ -225,7 +225,18 @@ func (l automaticSourceFacts) LoadSourceWriteFacts(
 		return facts, err
 	}
 	var kb types.KnowledgeBase
-	if err := l.query("knowledge_bases").
+	metadata := types.WithLegacyKBAdminMetadata(l.db.Statement.Context, target.KnowledgeBaseID)
+	if kind == access.SourceWriteBackground {
+		// Read only KB policy metadata as its DB-resolved source actor. Keep the
+		// private-owner DB filter enabled; this local read context is never
+		// returned as worker/HTTP authority or attached to an outbound request.
+		metadata = types.WithCaller(metadata, types.Caller{
+			TenantID: target.TenantID, UserID: l.authority.ActorID,
+			Role: types.TenantRole(l.authority.ActorRole),
+		})
+		metadata = context.WithValue(metadata, types.UserIDContextKey, l.authority.ActorID)
+	}
+	if err := l.query("knowledge_bases").WithContext(metadata).
 		Select("id,tenant_id,deleted_at").
 		Where("id=?", target.KnowledgeBaseID).
 		Take(&kb).Error; err != nil {

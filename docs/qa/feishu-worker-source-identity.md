@@ -17,6 +17,15 @@ transport failures without changing API categories, error causes or retry rules.
 This static conflict does not establish the unique cause of previous production
 failures whose underlying errors were not retained.
 
+The first real SQL execution also exposed an earlier policy-facts read: the
+background adapter removed the user identity before querying private KB metadata,
+so the enabled private-owner DB filter correctly returned no row. The correction
+uses the database-resolved source actor only for that local three-column policy
+query. It leaves the private filter active and does not change the original
+context or install an outbound HTTP principal. Actual member, delegation, private
+owner and source-write checks still decide admission. SQL regressions cover the
+real private filter, wrong owner, suspended member, HTTP identity and nonleakage.
+
 The isolated tests use a non-system-admin Contributor as the source owner with
 write access to their own KB. A separate real database system administrator
 configures the test application; no worker receives that administrator identity.
