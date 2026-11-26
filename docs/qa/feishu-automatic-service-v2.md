@@ -47,6 +47,10 @@ authorization can instead send them back through the incident path.
    edits are part of migration or recovery.
 7. Keep original incident evidence in an untrimmed migration journal; bounded
    live diagnostic streams alone are not permanent incident retention.
+8. Validate live Consumer identity/queues using the pinned Asynq descriptor,
+   then compare that read's exact bytes in the admission/budget CAS. Protobuf
+   ordering and ordinary active-count changes are not incarnation changes.
+   This still rejects a read/use race; it never reuses an unverified heartbeat.
 
 ## Qualification status
 
@@ -79,9 +83,24 @@ Actual qualification to date (2026-11-26, Asia/Shanghai):
 | Linux run 45732230651, source `29133116f` | FAIL: native SQL bootstrap stopped the control package | An immediate additional healthy read incorrectly invalidated an established stable window. The test now checks the exact injected SQL error rather than accepting any precondition failure; remaining tests after the panic were not executed. APP admission 22 cases, claim 3 cases and vet passed separately. |
 | Linux run 45733572901, source `c8fb86d0a` | FAIL | A new test's typed capability constants needed explicit string conversion. No runtime qualification claimed. |
 | Linux run 45735034346, source `c83f8f6fd` | FAIL: race 770 PASS / 3 SKIP / 2 FAIL; claim/scheduler 12 PASS / 1 FAIL | Revoked Personal MCP scope was safely denied but misclassified as infrastructure failure. Two fixture assertions also failed: a real database CHECK correctly rejected an invalid mode, and JSONB normalized whitespace. Fixes retain the constraint and compare cursor JSON semantically. APP admission 22 PASS; vet PASS. |
+| Linux run 45736914623, source `948ebcddd` | PASS | Includes actual Redis/Asynq + PostgreSQL bootstrap, SQL acknowledgment failures/restarts, same-incarnation Consumer conflict and incident CAS races. The later live-byte proof correction still requires its own exact-head run. |
 | Native Windows control/safety/access regression | PASS | Real CGO and stack protection retained by linking the installed libssp. No configured private PostgreSQL or Redis executable; gated cases are not database/native-consumer acceptance. Later changes need rerun. |
 | Final candidate Linux race, SQL, real Redis/Asynq and APP wiring | Pending | Use the exact committed head; earlier run results cannot qualify uncommitted runtime changes. |
 | Full native APP acceptance and production restoration | NOT_RUN | No production safety-state changes, archived replay, forced finalization, or Wiki tuning. |
 
 PR #266 is separately merged into `6ee9f128c4fc5ea62974995a0c725213f8f2c56b`;
 no batch/map increase or production change is implied by that merge.
+
+## Native build input availability
+
+Native run 45735356985 failed while downloading the existing fixed uv 0.12.15
+browser release URL (HTTP 403); native runtime tests and packaging did not run.
+Its official GitHub Release API asset identifies the same pinned SHA-256.
+The release Dockerfile now supports an optional read-only
+`verified-release-assets` context. Its default empty stage keeps the previous
+download behavior; a prefetched archive still passes the identical hard-coded
+version/hash checks. No dependency version, native build or scanner is disabled.
+This uses Docker's documented [named context stage override](https://docs.docker.com/build/ci/github-actions/named-contexts/).
+Qualification prefetch confines the token to the official API request and uses
+a fresh unauthenticated request after validating the release-asset redirect.
+Neither the token nor an alternate unverified dependency enters the build.
