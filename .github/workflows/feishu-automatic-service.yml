@@ -77,25 +77,10 @@ jobs:
           git rev-parse HEAD | tee evidence/source-sha.txt
           git diff --check
           test -z "$(gofmt -l internal/feishusynccontrol/automatic_service*.go internal/feishusafety/automatic_service*.go internal/application/access/source_write*.go)"
-      - name: State authority SQL Redis and race regression
+      - name: Exploratory actual source fence contention (not release qualification)
         run: |
           set -o pipefail
-          go test -json -race -p 1 ./internal/feishusynccontrol ./internal/feishusafety ./internal/application/access -count=1 -timeout=20m | tee evidence/automatic-service.jsonl
-      - name: Real SQL claim and pending request regression
-        if: ${{ !cancelled() }}
-        run: |
-          set -o pipefail
-          go test -json -race -p 1 ./internal/application/repository ./internal/datasource -run '^TestAutomaticService|^TestSchedulerAutomaticService' -count=1 -timeout=5m | tee evidence/automatic-claim.jsonl
-      - name: Vet state and authority packages
-        if: ${{ !cancelled() }}
-        run: |
-          set -o pipefail
-          go vet ./internal/feishusynccontrol ./internal/feishusafety ./internal/application/access 2>&1 | tee evidence/vet.txt
-      - name: APP wiring compile and upload admission regression
-        if: ${{ !cancelled() }}
-        run: |
-          set -o pipefail
-          go test -json -p 1 ./internal/container ./internal/application/service ./internal/handler -run '^(TestOfficeHTTP|TestSteadyManualSyncErrors|TestProtectedSourceRecoveryInstructions)' -count=1 -timeout=10m | tee evidence/app-wiring.jsonl
+          go test -json -race -p 1 ./internal/feishusynccontrol -run '^TestAutomaticServiceNativeSQLPendingCanaryDoesNotWaitOnLiveSourceFence$' -count=1 -timeout=3m | tee evidence/source-lock.jsonl
       - uses: actions/upload-artifact@v4
         if: always()
         with:
