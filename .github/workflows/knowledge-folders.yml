@@ -50,7 +50,7 @@ jobs:
         run: |
           mkdir -p evidence
           set -o pipefail
-          go test -p 2 -tags sqlite_fts5 ./internal/types ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/database -run 'Folder|KnowledgeSubmitter|MigrationNumbers|MigrationGovernance|TestFeishuLegacyAtomicPostgres|TestKnowledgeDerivedWritePostgres' -count=1 -timeout=15m -v 2>&1 | tee evidence/backend.log
+          go test -p 2 -tags sqlite_fts5 ./internal/types ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/database -run 'Folder|UploadTagCreate|FAQAndTagWrites|KnowledgeSubmitter|MigrationNumbers|MigrationGovernance|TestFeishuLegacyAtomicPostgres|TestKnowledgeDerivedWritePostgres' -count=1 -timeout=15m -v 2>&1 | tee evidence/backend.log
       - name: Historical submitter attribution on disposable PostgreSQL
         run: |
           set -o pipefail
@@ -60,6 +60,7 @@ jobs:
         run: |
           npm ci --ignore-scripts --no-audit --no-fund
           npx tsx --test src/views/knowledge/folderCreateState.test.ts src/views/knowledge/folderDeleteState.test.ts src/views/knowledge/folderTree.test.ts src/views/knowledge/components/KbFolderTree.test.ts
+          npx tsx --test src/views/knowledge/components/KnowledgeTagPicker.test.ts src/views/knowledge/components/KnowledgeTagPopover.test.ts src/views/knowledge/components/KnowledgeTagFilter.test.ts src/views/knowledge/components/BatchTagDialog.test.ts src/views/knowledge/components/UploadConfirmDialog.test.ts
           npm run type-check
       - name: Browser against real Go handler, service and disk database
         env:

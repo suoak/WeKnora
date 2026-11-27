@@ -6,6 +6,8 @@ import (
 	"errors"
 	"strings"
 	"time"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/Tencent/WeKnora/internal/application/service/retriever"
 	werrors "github.com/Tencent/WeKnora/internal/errors"
@@ -141,6 +143,9 @@ func (s *knowledgeTagService) CreateTag(
 	if kbID == "" || name == "" {
 		return nil, werrors.NewBadRequestError("知识库ID和标签名称不能为空")
 	}
+	if utf8.RuneCountInString(name) > 128 || strings.ContainsFunc(name, unicode.IsControl) {
+		return nil, werrors.NewBadRequestError("标签名称不能超过128个字符或包含控制字符")
+	}
 	kb, err := s.kbService.GetKnowledgeBaseByID(ctx, kbID)
 	if err != nil {
 		return nil, err
@@ -175,6 +180,12 @@ func (s *knowledgeTagService) CreateTag(
 		UpdatedAt:       now,
 	}
 	if err := s.repo.Create(ctx, tag); err != nil {
+		// The existing unique index is authoritative when concurrent callers
+		// both pass the preflight lookup. Keep the API's 409 contract so the
+		// picker can query and reuse the winning tag, without hiding DB errors.
+		if existing, lookupErr := s.repo.GetByName(ctx, kb.TenantID, kbID, name); lookupErr == nil && existing != nil {
+			return nil, werrors.NewConflictError("标签名称已存在")
+		}
 		return nil, err
 	}
 	recordKBActivity(ctx, s.audit, tag.TenantID, tag.KnowledgeBaseID, types.AuditActionTagCreated,

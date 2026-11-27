@@ -6914,6 +6914,10 @@ const messages = {
     }
   },
   uploadConfirm: {
+    tagsCreateHint: '태그가 없습니다. “+ 새 태그”를 클릭하고 이름을 입력하세요.',
+    tagsCreateForbidden: '이 지식 베이스에서 태그를 만들 권한이 없습니다.',
+    tagsPersistHint: '업로드를 취소해도 만든 태그는 지식 베이스에 저장됩니다.',
+
     documentSummary: "문서 요약",
     documentSummaryDescription: "이번에 가져오는 문서의 요약을 자동으로 생성할지 선택합니다.",
     generateSummary: "문서 요약 생성",

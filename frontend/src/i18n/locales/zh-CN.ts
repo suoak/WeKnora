@@ -7001,6 +7001,10 @@ export default {
     }
   },
   uploadConfirm: {
+    tagsCreateHint: '暂无标签，点击“+ 新建标签”并输入名称即可创建。',
+    tagsCreateForbidden: '你没有在此知识库创建标签的权限。',
+    tagsPersistHint: '新建标签会保存在知识库中；取消上传不会删除标签。',
+
     documentSummary: "文档摘要",
     documentSummaryDescription: "为本次导入的文档选择是否自动生成摘要。",
     generateSummary: "生成文档摘要",

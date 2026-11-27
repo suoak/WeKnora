@@ -170,21 +170,16 @@
                             <label>{{ t('uploadConfirm.tagsPlaceholder') }}</label>
                           </div>
                           <div class="setting-control setting-control-full">
-                            <t-select
-                              v-model="selectedTagIds"
-                              :options="tagOptions"
-                              :loading="tagsLoading"
-                              multiple
-                              filterable
-                              clearable
-                              :placeholder="t('uploadConfirm.tagsPlaceholder')"
+                            <KnowledgeTagPicker
+                              v-if="dialogVisible && mode !== 'reparse'"
+                              :kb-id="String(kbInfo?.id || '')"
+                              v-model:selected-ids="selectedTagIds"
+                              select-create-only
+                              :allow-create="canCreateTags"
+                              @busy-change="tagCreating = $event"
+                              @changed="onTagCreated"
                             />
-                            <p v-if="tagsLoadFailed" class="field-hint field-hint--error">
-                              {{ t('uploadConfirm.tagsLoadFailed') }}
-                            </p>
-                            <p v-else-if="!tagsLoading && tagOptions.length === 0" class="field-hint">
-                              {{ t('uploadConfirm.tagsEmpty') }}
-                            </p>
+                            <p class="field-hint">{{ t('uploadConfirm.tagsPersistHint') }}</p>
                           </div>
                         </div>
                       </div>
@@ -650,8 +645,12 @@ import { useUIStore } from '@/stores/ui'
 import { formatFileSize, getFileIcon } from '@/utils/files'
 import { getUploadFileKey } from '../utils/uploadSources'
 import { preflightOfficeFiles } from '@/utils/officeEncryption'
-import { listKnowledgeTags, mergeImageActions, fetchImageAttrSchema, FALLBACK_IMAGE_ATTR_SCHEMA, type ImageActionsConfig, type ImageAttrSchema } from '@/api/knowledge-base'
+import { mergeImageActions, fetchImageAttrSchema, FALLBACK_IMAGE_ATTR_SCHEMA, type ImageActionsConfig, type ImageAttrSchema } from '@/api/knowledge-base'
 import { imageAttrDisplay, imageAttrConditionDisplay } from '@/utils/imageAttrDisplay'
+import KnowledgeTagPicker from './KnowledgeTagPicker.vue'
+import { useUploadConfirmStore } from '@/stores/uploadConfirm'
+import { useAuthStore } from '@/stores/auth'
+import { useOrganizationStore } from '@/stores/organization'
 import KbUploadSourceDropdown from './KbUploadSourceDropdown.vue'
 import FolderPickerMenu, { type FolderOption } from './FolderPickerMenu.vue'
 import { folderOptionFromPath, sortFolderOptions } from '../folderTree'
@@ -794,10 +793,20 @@ watch(localFiles, async (files) => {
   }
 })
 const localUrls = ref<string[]>([])
-const availableTags = ref<Array<{ id: string; name: string }>>([])
 const selectedTagIds = ref<string[]>([])
-const tagsLoading = ref(false)
-const tagsLoadFailed = ref(false)
+const tagCreating = ref(false)
+const uploadConfirmStore = useUploadConfirmStore()
+const authStore = useAuthStore()
+const orgStore = useOrganizationStore()
+const canCreateTags = computed(() => {
+  const kb = props.kbInfo
+  const permission = orgStore.getKBPermission(String(kb?.id || '')) || kb?.my_permission
+  if (permission) return ['owner', 'admin', 'editor'].includes(permission)
+  return !!kb?.creator_id && kb.creator_id === authStore.user?.id || authStore.hasRole('admin')
+})
+function onTagCreated(payload?: { kbId?: string }) {
+  uploadConfirmStore.notifyTagCatalogChanged(payload?.kbId || String(props.kbInfo?.id || ''))
+}
 const chunkingMoreOpen = ref(false)
 const activeSection = ref<ConfigSectionKey>('tags')
 const uiState = ref<UploadUIState>(createDefaultUIState())
@@ -975,11 +984,6 @@ const languageOptions = computed(() => [
   { label: t('knowledgeEditor.chunking.languageOptions.en'), value: 'en' },
   { label: t('knowledgeEditor.chunking.languageOptions.zh'), value: 'zh' },
 ])
-
-const tagOptions = computed(() => availableTags.value.map(tag => ({
-  label: tag.name,
-  value: tag.id,
-})))
 
 const llmModelId = computed(() => props.kbInfo?.summary_model_id || '')
 
@@ -1164,6 +1168,7 @@ function getSectionNavStatus(
 }
 
 const canConfirm = computed(() => {
+  if (tagCreating.value) return false
   if (checkingOffice.value) return false
   if (props.mode === 'file' && batchItemCount.value === 0) return false
   if (props.mode === 'manual' && !props.manualPreview?.content?.trim()) return false
@@ -1431,27 +1436,6 @@ async function loadSystemInfo() {
   }
 }
 
-async function loadTags() {
-  const kbId = props.kbInfo?.id
-  availableTags.value = []
-  tagsLoadFailed.value = false
-  if (!kbId || props.mode === 'reparse') return
-
-  tagsLoading.value = true
-  try {
-    const response: any = await listKnowledgeTags(kbId, { page: 1, page_size: 1000 })
-    const tags = response?.data?.data || []
-    availableTags.value = tags.map((tag: any) => ({
-      id: String(tag.id),
-      name: String(tag.name || ''),
-    }))
-  } catch {
-    tagsLoadFailed.value = true
-  } finally {
-    tagsLoading.value = false
-  }
-}
-
 watch(
   () => props.visible,
   (visible) => {
@@ -1470,7 +1454,7 @@ watch(
     chunkingMoreOpen.value = false
     loadModels()
     loadSystemInfo()
-    loadTags()
+    tagCreating.value = false
   },
 )
 
@@ -1582,6 +1566,7 @@ const handleCancel = () => {
 }
 
 const handleConfirm = () => {
+  if (tagCreating.value) return
   if (checkingOffice.value) return
   if (props.mode === 'file' && batchItemCount.value === 0) {
     MessagePlugin.warning(t('uploadConfirm.noItems'))

@@ -1,6 +1,7 @@
 <template>
   <div class="knowledge-tag-picker">
-    <t-input v-model="query" :disabled="busy" :placeholder="$t('knowledgeBase.tagPickerSearch')" :maxlength="40" clearable>
+    <t-button v-if="selectCreateOnly && allowCreate && !creationForbidden" variant="outline" :disabled="busy" @click="focusCreate"><template #icon><t-icon name="add" /></template>{{ $t('knowledgeBase.tagCreateAction') }}</t-button>
+    <t-input ref="searchInput" v-model="query" :disabled="busy" :placeholder="$t('knowledgeBase.tagPickerSearch')" :maxlength="40" clearable @enter="createTag">
       <template #prefix-icon><t-icon name="search" size="16px" /></template>
     </t-input>
     <div class="tag-picker-list" :aria-label="$t('knowledgeBase.columnTag')">
@@ -20,7 +21,7 @@
           </template>
           <template v-else>
             <t-checkbox :checked="selectedIds.includes(tag.id)" :disabled="busy" @change="toggle(tag.id)"><span :title="tag.name">{{ tag.name }}</span></t-checkbox>
-            <t-popup attach="body" trigger="click" placement="bottom-right" :visible="menuTagId === tag.id"
+            <t-popup v-if="!selectCreateOnly" attach="body" trigger="click" placement="bottom-right" :visible="menuTagId === tag.id"
               @visible-change="(visible: boolean) => { if (visible) menuTagId = tag.id; else if (menuTagId === tag.id) menuTagId = '' }">
               <button type="button" class="tag-picker-more" :class="{ 'is-open': menuTagId === tag.id }" :disabled="busy"
                 :aria-label="`${tag.name} · ${$t('knowledgeBase.columnActions')}`" :aria-expanded="menuTagId === tag.id"><t-icon name="ellipsis" size="16px" /></button>
@@ -41,33 +42,39 @@
           </template>
         </div>
       </template>
-      <button v-if="canCreate && !loading" type="button" class="tag-picker-create" :disabled="busy" @click="createTag">
+      <button v-if="canCreate && !loading && !loadFailed" type="button" class="tag-picker-create" :disabled="busy" @click="createTag">
         <t-icon :name="busy ? 'loading' : 'add'" size="16px" />
         <span :title="query.trim()">{{ $t('knowledgeBase.tagCreateAction') }} “{{ query.trim() }}”</span>
       </button>
-      <p v-if="!loading && !tags.length && !canCreate" class="tag-picker-empty">{{ $t(query.trim() ? 'knowledgeBase.tagEmptyResult' : 'knowledgeBase.noTags') }}</p>
+      <p v-if="loadFailed" class="tag-picker-empty" role="alert">{{ $t('uploadConfirm.tagsLoadFailed') }} <t-button variant="text" @click="load()">{{ $t('common.retry') }}</t-button></p>
+      <p v-else-if="!loading && !tags.length" class="tag-picker-empty">{{ $t(query.trim() ? 'knowledgeBase.tagEmptyResult' : (selectCreateOnly && allowCreate && !creationForbidden ? 'uploadConfirm.tagsCreateHint' : 'knowledgeBase.noTags')) }}</p>
+      <p v-if="!allowCreate || creationForbidden" class="tag-picker-empty" role="status">{{ $t('uploadConfirm.tagsCreateForbidden') }}</p>
       <t-button v-if="hasMore" variant="text" theme="default" size="small" :loading="loading" @click="load(false)">{{ $t('tenant.loadMore') }}</t-button>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { MessagePlugin } from 'tdesign-vue-next';
 import { listKnowledgeTags, createKnowledgeBaseTag, updateKnowledgeBaseTag, deleteKnowledgeBaseTag } from '@/api/knowledge-base';
 
 type Tag = { id: string; seq_id: number; name: string; knowledge_count?: number; chunk_count?: number };
-const props = defineProps<{ kbId: string; selectedIds: string[] }>();
+const props = withDefaults(defineProps<{ kbId: string; selectedIds: string[]; selectCreateOnly?: boolean; allowCreate?: boolean }>(), { selectCreateOnly: false, allowCreate: true });
 const emit = defineEmits<{
   'update:selectedIds': [ids: string[]];
   'busy-change': [busy: boolean];
-  changed: [payload?: { deletedTagId?: string }];
+  changed: [payload?: { deletedTagId?: string; kbId?: string }];
 }>();
 const { t } = useI18n();
 const query = ref('');
 const tags = ref<Tag[]>([]);
 const loading = ref(false);
+const loadFailed = ref(false);
+const creationForbidden = ref(false);
+const searchInput = ref<{ focus: () => void }>();
+function focusCreate() { searchInput.value?.focus(); }
 const busy = ref(false);
 const page = ref(1);
 const hasMore = ref(false);
@@ -75,8 +82,9 @@ const editingId = ref('');
 const menuTagId = ref('');
 const editingName = ref('');
 let requestVersion = 0;
+let active = true;
 let debounce: ReturnType<typeof setTimeout> | undefined;
-const canCreate = computed(() => query.value.trim() && !tags.value.some(tag => tag.name === query.value.trim()));
+const canCreate = computed(() => props.allowCreate && !creationForbidden.value && query.value.trim() && !tags.value.some(tag => tag.name === query.value.trim()));
 const selectedTagIds = computed(() => new Set(props.selectedIds));
 const selectedTags = computed(() => tags.value.filter(tag => selectedTagIds.value.has(tag.id)));
 const unselectedTags = computed(() => tags.value.filter(tag => !selectedTagIds.value.has(tag.id)));
@@ -90,14 +98,15 @@ async function load(reset = true) {
   const version = ++requestVersion;
   if (reset) { page.value = 1; tags.value = []; hasMore.value = false; }
   loading.value = true;
+  loadFailed.value = false;
   try {
     const res: any = await listKnowledgeTags(props.kbId, { page: page.value, page_size: 50, keyword: query.value.trim() || undefined });
     if (version !== requestVersion) return;
     const rows = (res.data?.data || []).map((tag: Tag) => ({ ...tag, id: String(tag.id) }));
-    tags.value = reset ? rows : [...tags.value, ...rows];
+    tags.value = reset ? rows : [...new Map([...tags.value, ...rows].map(tag => [tag.id, tag])).values()];
     hasMore.value = tags.value.length < (res.data?.total || 0);
     page.value++;
-  } catch (error) { if (version === requestVersion) reportError(error); }
+  } catch (error) { if (version === requestVersion) { loadFailed.value = true; reportError(error); } }
   finally { if (version === requestVersion) loading.value = false; }
 }
 watch(query, () => {
@@ -108,8 +117,8 @@ watch(query, () => {
   menuTagId.value = '';
   debounce = setTimeout(() => { void load(); }, 250);
 });
-watch(() => props.kbId, () => { void load(); }, { immediate: true });
-onBeforeUnmount(() => { clearTimeout(debounce); requestVersion++; emit('busy-change', false); });
+watch(() => props.kbId, () => { creationForbidden.value = false; void load(); }, { immediate: true });
+onBeforeUnmount(() => { active = false; clearTimeout(debounce); requestVersion++; emit('busy-change', false); });
 
 function toggle(id: string) {
   emit('update:selectedIds', props.selectedIds.includes(id) ? props.selectedIds.filter(value => value !== id) : [...props.selectedIds, id]);
@@ -118,14 +127,36 @@ function startEdit(tag: Tag) { menuTagId.value = ''; editingId.value = tag.id; e
 function cancelEdit() { if (!busy.value) { editingId.value = ''; editingName.value = ''; } }
 async function createTag() {
   const name = query.value.trim();
-  if (!name || busy.value || loading.value) return;
+  if (!canCreate.value || busy.value || loading.value || loadFailed.value) return;
+  const kbId = props.kbId;
   busy.value = true;
   try {
-    const res: any = await createKnowledgeBaseTag(props.kbId, { name });
+    let res: any;
+    try { res = await createKnowledgeBaseTag(kbId, { name }); }
+    catch (error: any) {
+      const status = error?.response?.status || error?.status;
+      if (status === 403) creationForbidden.value = true;
+      if (status !== 409) throw error;
+      // Another tab or uploader may have created this name after the search.
+      for (let page = 1; ; page++) {
+        const existing: any = await listKnowledgeTags(kbId, { page, page_size: 50, keyword: name });
+        const rows: Tag[] = existing.data?.data || [];
+        const tag = rows.find(tag => tag.name === name);
+        if (tag) { res = { data: tag }; break; }
+        if (rows.length < 50 || page * 50 >= (existing.data?.total || 0)) throw error;
+      }
+    }
     const tag = res.data || res;
+    emit('changed', { kbId });
+    if (!active || kbId !== props.kbId) return;
     emit('update:selectedIds', [...new Set([...props.selectedIds, String(tag.id)])]);
-    emit('changed');
     query.value = '';
+    await nextTick();
+    clearTimeout(debounce);
+    await load();
+    if (active && kbId === props.kbId && !tags.value.some(row => row.id === String(tag.id))) {
+      tags.value = [{ ...tag, id: String(tag.id) }, ...tags.value];
+    }
     MessagePlugin.success(t('knowledgeBase.tagCreateSuccess'));
   } catch (error) { reportError(error); }
   finally { busy.value = false; }

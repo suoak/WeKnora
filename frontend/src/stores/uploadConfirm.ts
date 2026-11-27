@@ -53,6 +53,8 @@ export interface OpenUploadConfirmOptions {
 
 export const useUploadConfirmStore = defineStore('uploadConfirm', {
   state: () => ({
+    tagCatalogRevision: 0,
+    tagCatalogKbId: '',
     visible: false,
     mode: 'file' as UploadConfirmMode,
     kbInfo: null as any,
@@ -70,6 +72,10 @@ export const useUploadConfirmStore = defineStore('uploadConfirm', {
   }),
 
   actions: {
+    notifyTagCatalogChanged(kbId: string) {
+      this.tagCatalogKbId = kbId
+      this.tagCatalogRevision++
+    },
     open(options: OpenUploadConfirmOptions): Promise<UploadConfirmResult> {
       return new Promise((resolve, reject) => {
         this.visible = true
