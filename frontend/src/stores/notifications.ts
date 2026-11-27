@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import { notificationUnreadCount } from '@/api/notifications'
+import { invalidatePortalAssets } from './portalEvents'
 
 export const useNotificationsStore = defineStore('notifications', () => {
   const unreadCount = ref(0)
@@ -14,6 +15,7 @@ export const useNotificationsStore = defineStore('notifications', () => {
     try {
       const response = await notificationUnreadCount()
       if (session === currentSession && fetchVersion === version && response.success) {
+        if (unreadCount.value !== response.data.unread_count) invalidatePortalAssets()
         unreadCount.value = response.data.unread_count
         // A request may be resolved after its reminder was already read. Count
         // equality must not prevent open inboxes and approval panels refreshing.

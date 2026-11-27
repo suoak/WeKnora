@@ -11,7 +11,7 @@ test('portal routes allow tenantless auth and admin route requires system admin'
 })
 
 test('portal homepage uses only Portal summary data and tenant switch invalidates Portal state', () => {
-  const combined = [source('./PortalHome.vue'), source('../../stores/portal.ts')].join('\n')
+  const combined = [source('./PortalHome.vue'), source('../../stores/portalStoreState.ts')].join('\n')
   assert.match(combined, /listPortalSpaces/)
   for (const forbidden of ['listKnowledgeBases', 'listAgents', '@/stores/knowledge', '@/stores/chat', '@/api/datasource', '@/api/mcp']) {
     assert.doesNotMatch(combined, new RegExp(forbidden.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i'))
@@ -20,10 +20,10 @@ test('portal homepage uses only Portal summary data and tenant switch invalidate
 })
 
 test('stage and overview loading are isolated and access requests refresh overview state', () => {
-  const store = source('../../stores/portal.ts')
+  const store = source('../../stores/portalStoreState.ts')
   assert.match(store, /Promise\.allSettled\(\[[\s\S]*?loadStages\(\)[\s\S]*?loadOverviewSpaces\(\)/)
-  assert.match(store, /overviewSpaces\.value = uniquePortalSpaces/)
-  assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*access_request_pending = true[\s\S]*Promise\.allSettled\(\[loadOverviewSpaces\(\), loadSpaces\(\)\]\)/)
+  assert.match(store, /return uniquePortalSpaces\(response.data \|\| \[\]\)/)
+  assert.match(store, /createPortalAccessRequest\(tenantId, reason\.trim\(\)\)[\s\S]*access_request_pending = true[\s\S]*initialize\(true\)/)
 })
 
 test('portal renders the IPD and public surfaces without the legacy hero', () => {

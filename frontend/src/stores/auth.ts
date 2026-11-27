@@ -302,6 +302,8 @@ export const useAuthStore = defineStore('auth', () => {
   const setMemberships = (
     list: Array<{ tenant_id: number; tenant_name?: string; role: string }>
   ) => {
+    const next = Array.isArray(list) ? list : []
+    if (memberships.value.some(previous => !next.some(item => item.tenant_id === previous.tenant_id && item.role === previous.role))) resetPortalSession()
     memberships.value = Array.isArray(list) ? list : []
     localStorage.setItem('weknora_memberships', JSON.stringify(memberships.value))
   }

@@ -24,7 +24,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, onUnmounted, onActivated, onDeactivated, watch, ref } from 'vue'
-import { portalAssetRevision } from '@/stores/portalEvents'
+import { portalSessionRevision } from '@/stores/portalEvents'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { MessagePlugin } from 'tdesign-vue-next'
@@ -96,32 +96,46 @@ async function submitRequest(reason:string){
   catch(error:any){MessagePlugin.error(error?.message||t('portal.requestFailed'))}
 }
 async function retryIpd(){
-  const tasks:Promise<unknown>[]=[]
-  if(portal.stagesError)tasks.push(portal.loadStages())
-  if(portal.overviewError)tasks.push(portal.loadOverviewSpaces())
-  await Promise.allSettled(tasks)
+  await portal.initialize(true)
 }
 
 let active = true
-let refreshTimer: ReturnType<typeof setInterval> | undefined
-function refreshVisiblePortal() {
-  if (active && authStore.isLoggedIn && document.visibilityState !== 'hidden') void portal.initialize()
+let refreshTimer: ReturnType<typeof setTimeout> | undefined
+function pauseRefresh() { clearTimeout(refreshTimer); refreshTimer = undefined }
+function scheduleRefresh() {
+  pauseRefresh()
+  if (active && authStore.isLoggedIn && document.visibilityState !== 'hidden') {
+    refreshTimer = setTimeout(refreshVisiblePortal, Math.max(0, portal.nextRefreshAt - Date.now()))
+  }
+}
+async function refreshVisiblePortal() {
+  pauseRefresh()
+  if (!active || !authStore.isLoggedIn || document.visibilityState === 'hidden') return
+  await portal.initialize()
+  scheduleRefresh()
 }
 onMounted(() => {
   refreshVisiblePortal()
   window.addEventListener('focus', refreshVisiblePortal)
   document.addEventListener('visibilitychange', refreshVisiblePortal)
-  refreshTimer = setInterval(refreshVisiblePortal, 60_000)
 })
 onActivated(() => { active = true; refreshVisiblePortal() })
-onDeactivated(() => { active = false })
+onDeactivated(() => { active = false; pauseRefresh() })
 onUnmounted(() => {
   active = false
-  clearInterval(refreshTimer)
+  pauseRefresh()
   window.removeEventListener('focus', refreshVisiblePortal)
   document.removeEventListener('visibilitychange', refreshVisiblePortal)
 })
-watch(portalAssetRevision, refreshVisiblePortal)
+watch(() => portal.nextRefreshAt, scheduleRefresh)
+watch(portalSessionRevision, () => { accessSpace.value = null; scheduleRefresh() })
+watch(() => authStore.isLoggedIn, scheduleRefresh)
+// Resolve the selected space against current authorization without replacing
+// the open dialog during an unchanged background response.
+watch(() => portal.overviewSpaces, spaces => {
+  if (!accessSpace.value) return
+  accessSpace.value = spaces.find(space => space.tenant_id === accessSpace.value?.tenant_id && space.access_state === 'discoverable') || null
+})
 </script>
 
 <style scoped lang="less">

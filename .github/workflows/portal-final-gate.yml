@@ -78,6 +78,7 @@ jobs:
             src/config/branding.test.ts \
             src/views/portal/portalContracts.test.ts \
             src/stores/portalState.test.ts \
+            src/stores/portalStoreState.test.ts \
             src/stores/portalEvents.test.ts \
             src/config/portalAssetSummary.test.ts \
             src/config/portalKnowledgeSummary.test.ts \

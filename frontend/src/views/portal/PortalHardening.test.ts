@@ -90,7 +90,7 @@ test('space cards use an icon-led hierarchy and divided real actions without fak
 })
 
 test('loading, empty, and error states remain distinct and retry only failed sources', () => {
-  const store = source('../../stores/portal.ts')
+  const store = source('../../stores/portalStoreState.ts')
   const home = source('./PortalHome.vue')
   const map = source('../../components/portal/IpdKnowledgeMap.vue')
   const publicSection = source('../../components/portal/PublicKnowledgeSection.vue')
@@ -105,7 +105,7 @@ test('loading, empty, and error states remain distinct and retry only failed sou
 })
 
 test('Portal initialization stays batch-based and does not add resource requests', () => {
-  const store = source('../../stores/portal.ts')
+  const store = source('../../stores/portalStoreState.ts')
   const home = source('./PortalHome.vue')
   assert.match(store, /Promise\.allSettled\(\[/)
   assert.match(store, /if \(refreshPromise\) return refreshPromise/)
@@ -117,7 +117,7 @@ test('Portal initialization stays batch-based and does not add resource requests
 test('access controls retain keyboard gate and real-request duplicate protection', () => {
   const summary = source('../../components/portal/SpaceSummary.vue')
   const dialog = source('../../components/portal/SpaceAccessDialog.vue')
-  const store = source('../../stores/portal.ts')
+  const store = source('../../stores/portalStoreState.ts')
   const home = source('./PortalHome.vue')
   const api = source('../../api/portal.ts')
   assert.match(summary, /@keydown\.space\.prevent="activate"/)
