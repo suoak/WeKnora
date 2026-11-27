@@ -18,6 +18,13 @@ func TestKnowledgeSubmitterProjectionUsesOriginalEvidenceWithoutChangingDocument
 	addWikiSelectionDocument(t, db, "audit-upload", "web", "completed", "enabled")
 	addWikiSelectionDocument(t, db, "system-upload", "gitlab", "completed", "enabled")
 	addWikiSelectionDocument(t, db, "unknown-upload", "web", "completed", "enabled")
+	addWikiSelectionDocument(t, db, "tenant-key-upload", "web", "completed", "enabled")
+	require.NoError(t, db.Create(&types.AuditLog{
+		TenantID: 1, ActorUserID: "B", Action: types.AuditActionKnowledgeCreated,
+		ScopeType: "knowledge_base", ScopeID: "public-two", TargetType: "knowledge",
+		TargetID: "tenant-key-upload", Outcome: types.AuditOutcomeSuccess,
+		Details: types.JSON(`{"api_key_id":7}`),
+	}).Error)
 	require.NoError(t, db.Create(&types.FeishuPersonalImport{
 		ID: "submitter-import", UserID: "A", AppID: "cli_test", OpenID: "open-A",
 		KBID: "public-two", KnowledgeID: "public-two-doc",
@@ -38,7 +45,7 @@ func TestKnowledgeSubmitterProjectionUsesOriginalEvidenceWithoutChangingDocument
 	reader := repository.NewKnowledgeRepository(db).(interface {
 		ReadKnowledgeSubmitters(context.Context, uint64, string, []string) (map[string]*types.KnowledgeSubmitter, error)
 	})
-	ids := []string{"public-two-doc", "audit-upload", "system-upload", "unknown-upload"}
+	ids := []string{"public-two-doc", "audit-upload", "system-upload", "unknown-upload", "tenant-key-upload"}
 	rows, err := reader.ReadKnowledgeSubmitters(context.Background(), 1, "public-two", ids)
 	require.NoError(t, err)
 	require.Equal(t, "A", rows["public-two-doc"].UserID)
@@ -46,6 +53,7 @@ func TestKnowledgeSubmitterProjectionUsesOriginalEvidenceWithoutChangingDocument
 	require.Equal(t, "B", rows["audit-upload"].UserID)
 	require.Equal(t, "system_sync", rows["system-upload"].Kind)
 	require.Nil(t, rows["unknown-upload"], "the current viewer or KB owner is not an attribution fallback")
+	require.Nil(t, rows["tenant-key-upload"], "legacy API audit actors are compatibility users, not uploaders")
 	wrong, err := reader.ReadKnowledgeSubmitters(context.Background(), 2, "public-two", ids)
 	require.NoError(t, err)
 	require.Empty(t, wrong)
