@@ -235,7 +235,7 @@ const assert = require('node:assert/strict');
         await expect(page.locator('.upload-confirm-modal')).toBeHidden();
       }
       passed('URL and manual confirmation create tags; reparse confirmation keeps tag creation hidden');
-      for (const name of (config.mode === 'dev' ? ['', '   '] : ['', '   ', 'bad\u0000name', 'x'.repeat(129)])) {
+      for (const name of (config.mode === 'dev' ? ['', '   '] : ['', '   ', '\u0000', 'x'.repeat(129)])) {
         const response = await request(owner, 'POST', '/api/v1/knowledge-bases/' + kb + '/tags', { name }, tenant);
         assert.equal(response.status, 400);
       }
