@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -104,6 +105,7 @@ func PrepareWikiPreservingRecovery(
 			return errors.New("pending operation bound exceeded")
 		}
 		existing := map[string]bool{}
+		existingPayload := map[string]json.RawMessage{}
 		var retracts []types.TaskPendingOp
 		for _, op := range pending {
 			if op.TenantID != tenant || op.ClaimedAt != nil || op.TaskType != "wiki:ingest" ||
@@ -122,10 +124,15 @@ func PrepareWikiPreservingRecovery(
 				retracts = append(retracts, op)
 				continue
 			}
-			if existing[op.DedupKey] {
+			// The durable queue permits repeated keys. Preserve identical
+			// deliveries for normal worker consumption; conflicting versions
+			// still require an operator decision. Every original row remains
+			// part of the preview/apply snapshot, including retry counters.
+			if existing[op.DedupKey] && !bytes.Equal(existingPayload[op.DedupKey], op.Payload) {
 				return errors.New("pending Wiki replacement is ambiguous")
 			}
 			existing[op.DedupKey] = true
+			existingPayload[op.DedupKey] = op.Payload
 		}
 		deletedEvidence := make(map[string]string)
 		for _, op := range retracts {
