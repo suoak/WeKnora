@@ -193,11 +193,15 @@ export const useAuthStore = defineStore('auth', () => {
   // 操作方法
   const setUser = (userData: UserInfo) => {
     const previousId = user.value?.id
+    const authorizationChanged = user.value && (
+      (user.value.is_system_admin === true) !== (userData.is_system_admin === true)
+      || (user.value.can_access_all_tenants === true) !== (userData.can_access_all_tenants === true)
+    )
     user.value = userData
     // 保存到localStorage
     localStorage.setItem('weknora_user', JSON.stringify(userData))
+    if (previousId !== userData.id || authorizationChanged) resetPortalSession()
     if (previousId !== userData.id) {
-      resetPortalSession()
       reloadUserPreferences()
     }
   }

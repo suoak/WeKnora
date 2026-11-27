@@ -105,3 +105,26 @@ test('empty success, denial and session change never restore old authorized data
   await expect(page.locator('.space-summary')).toHaveCount(0)
   expect(await store(page, 'return portal.overviewSpaces.length')).toBe(0)
 })
+
+test('confirmed global privilege downgrade clears snapshots even when the user identity is unchanged', async ({ page }) => {
+  const api = await setup(page)
+  await page.evaluate(() => {
+    const auth = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia._s.get('auth')
+    auth.setUser({ ...auth.user, is_system_admin: true, can_access_all_tenants: true })
+  })
+  await expect.poll(() => store(page, 'return portal.overviewSpaces.length')).toBe(12)
+  const before = api.reads()
+  api.mode('slow'); await store(page, 'void portal.initialize(true)')
+  await expect.poll(() => api.reads()).toBe(before + 1)
+  const cleared = await page.evaluate(() => {
+    const pinia = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia
+    const auth = pinia._s.get('auth')
+    auth.setUser({ ...auth.user, is_system_admin: false, can_access_all_tenants: false })
+    return pinia._s.get('portal').overviewSpaces.length
+  })
+  expect(cleared).toBe(0)
+  api.mode('empty'); api.release()
+  await expect.poll(() => api.reads()).toBe(before + 2)
+  await expect.poll(() => store(page, 'return portal.initialLoading')).toBe(false)
+  await expect(page.locator('.space-summary')).toHaveCount(0)
+})
