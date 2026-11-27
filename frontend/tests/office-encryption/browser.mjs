@@ -35,7 +35,7 @@ try {
   await page.locator('input[type=file]').first().setInputFiles([fixture('normal.docx'), fixture('encrypted.xlsx'), fixture('sheet-protected.xlsx')])
   await page.waitForFunction(() => document.querySelector('#status')?.textContent === 'normal.docx,sheet-protected.xlsx')
   assert.equal(uploads, 0, 'selection must not send upload requests')
-  assert.match(await page.locator('body').innerText(), /已跳过 1 个加密文件/)
+  assert.match(await page.locator('body').innerText(), /已跳过 1 个受限文件/)
   await page.locator('#send').click()
   await page.waitForFunction(() => document.querySelector('#status')?.textContent === '上传完成')
   assert.equal(uploads, 2)
@@ -43,6 +43,11 @@ try {
   const result = await page.evaluate(bytes => window.uploadOfficeTest(bytes, 'renamed.txt'), data)
   assert.equal(result, 2400)
   assert.equal(uploads, 2, 'direct API wrapper call must also be blocked')
+  for (const name of ['classic-irm.doc', 'classic-irm-viewer.doc', 'classic-irm-disguised.txt']) {
+    const result = await page.evaluate(bytes => window.uploadOfficeTest(bytes, 'classic.doc'), [...await readFile(fixture(name))])
+    assert.equal(result, 2400)
+    assert.equal(uploads, 2, 'classic IRM must be rejected before HTTP')
+  }
   assert.deepEqual(errors, [])
   console.log('PASS Chromium: local selection skips encrypted; protected files upload; API wrapper sends zero encrypted requests')
 } finally {

@@ -110,6 +110,7 @@ func TestOfficeHTTPMultipartBypassReturns400And2400(t *testing.T) {
 	for _, name := range []string{
 		"encrypted.docx", "encrypted.xlsx", "encrypted.pptx", "encrypted.xlsm",
 		"encrypted.doc", "encrypted.xls", "encrypted.ppt", "disguised.txt",
+		"classic-irm.doc", "classic-irm-viewer.doc", "classic-irm-disguised.txt",
 	} {
 		t.Run(name, func(t *testing.T) {
 			data, e := os.ReadFile("../officeguard/testdata/" + name)

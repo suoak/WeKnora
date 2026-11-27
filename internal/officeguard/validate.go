@@ -28,6 +28,15 @@ func IsEncryptedError(err error) bool {
 	return errors.As(err, &app) && app.Code == werrors.ErrOfficeEncrypted
 }
 
+// RestrictionMessage retains the DRM explanation without exposing parser errors.
+func RestrictionMessage(err error) string {
+	var app *werrors.AppError
+	if errors.As(err, &app) && app.Code == werrors.ErrOfficeEncrypted && app.Message == DRMMessage {
+		return DRMMessage
+	}
+	return Message
+}
+
 // ValidateBytes applies the same bounded inspection to an in-memory source body.
 func ValidateBytes(ctx context.Context, data []byte, name string) error {
 	return Validate(ctx, bytes.NewReader(data), int64(len(data)), name)

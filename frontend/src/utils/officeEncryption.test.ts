@@ -42,3 +42,14 @@ test('DRM uses a distinct explanation, rejects before HTTP, and skips only restr
   assert.match(result.rejectionMessage, /DRM/)
   assert.match(result.rejectionMessage, /打开密码/)
 })
+
+test('classic IRM preflight excludes only protected siblings and sends no upload', async () => {
+  let uploads = 0
+  const send = async (file: globalThis.File) => { await assertOfficeUploadable(file); uploads++ }
+  for (const name of ['classic-irm.doc', 'classic-irm-viewer.doc', 'classic-irm-disguised.txt']) {
+    await assert.rejects(send(fixture(name)), { code: 2400, message: officeDRMMessage })
+  }
+  assert.equal(uploads, 0)
+  const result = await preflightOfficeFiles(['normal.doc', 'classic-irm.doc', 'modify-protected.docx', 'classic-irm-viewer.doc', 'normal.pptx'].map(fixture))
+  assert.deepEqual(result.accepted.map(f => f.name), ['normal.doc', 'modify-protected.docx', 'normal.pptx'])
+})

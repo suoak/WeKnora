@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/hibiken/asynq"
 )
@@ -30,6 +31,9 @@ func documentDispatchFailureTerminal(ctx context.Context, current *types.Knowled
 // Only diagnosed permanent conditions stop early. Unknown parser errors keep
 // the existing finite task retry budget; they never imply corrupt source data.
 func classifyKnowledgeParseFailure(err error) (code, action string, permanent bool) {
+	if officeguard.IsEncryptedError(err) {
+		return "encrypted_file", "provide_unencrypted_copy", true
+	}
 	text := strings.ToLower(err.Error())
 	switch {
 	case strings.Contains(text, "encryptedpackage"), strings.Contains(text, "file is encrypted"),
@@ -69,6 +73,9 @@ func knowledgeParseFailureState(
 	switch code {
 	case "encrypted_file":
 		message = "文件已加密或受保护，请提供未加密版本。"
+		if officeguard.IsEncryptedError(err) {
+			message = officeguard.RestrictionMessage(err)
+		}
 	case "file_format_mismatch":
 		message = "文件内容与声明格式不符，请检查文件格式或重新导出。"
 	case "semantic_chunk_limit":

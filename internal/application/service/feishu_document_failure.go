@@ -82,6 +82,9 @@ func feishuDocumentParserRefusal(parsed *types.ReadResult, fileType string) erro
 	if parsed == nil {
 		return &feishuStagingRefusal{reason: "parser_result_unavailable"}
 	}
+	if err := officeguard.ValidateParsedText(fileType, parsed.MarkdownContent); err != nil {
+		return err
+	}
 	if parsed.Error == "" {
 		return nil
 	}

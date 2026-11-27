@@ -131,4 +131,82 @@ stale=bytearray(drm);struct.pack_into('<I',stale,1024+128+72,0xffffffff)
 save('drm-stale.xlsx',stale,'invalid')
 spoof=bytearray(drm);spoof[(10+1)*512+12]^=1
 save('drm-spoof.xlsx',spoof,'invalid')
+
+# Fully synthetic classic binary IRM structures, no production bytes/licenses.
+def classic_fixture(viewer=False, embedded=False):
+    def lp(s):
+        b=s.encode('utf-16le'); return struct.pack('<I',len(b))+b+bytes((-len(b))%4)
+    def mapping(stream,space):
+        b=struct.pack('<II',1,0)+lp(stream)+lp(space)
+        return struct.pack('<I',len(b)+4)+b
+    m=mapping('\x09DRMContent','\x09DRMDataSpace')
+    if viewer:m+=mapping('\x09DRMViewerContent','\x09LZXDRMDataSpace')
+    m=struct.pack('<II',8,2 if viewer else 1)+m
+    primary=struct.pack('<II',88,1)+lp('{C73DFACD-061F-43B0-8B64-0C620D2A8B50}')+lp('Microsoft.Metadata.DRMTransform')+struct.pack('<III',1,1,1)
+    fib=struct.pack('<H',0xa5ec)+bytes(30)
+    data={('WordDocument',):fib.ljust(4096,b'\0'), ('\x09DRMContent',):b'opaque'.ljust(4096,b'\0'),
+          ('\x06DataSpaces','DataSpaceInfo','\x09DRMDataSpace'):struct.pack('<II',8,1)+lp('\x09DRMTransform'),
+          ('\x06DataSpaces','DataSpaceMap'):m,
+          ('\x06DataSpaces','TransformInfo','\x09DRMTransform','\x06Primary'):primary}
+    if viewer:data[('\x09DRMViewerContent',)]=bytes(4096)
+    if embedded:data={('Embedded',)+k:v for k,v in data.items() if k!=('WordDocument',)}|{('WordDocument',):fib.ljust(4096,b'\0')}
+    paths=[()]
+    for path in data:
+        for i in range(1,len(path)+1):
+            if path[:i] not in paths:paths.append(path[:i])
+    nd=(len(paths)+3)//4;fat=[0xffffffff]*128;fat[0]=0xfffffffd
+    for i in range(1,nd+1):fat[i]=i+1 if i<nd else 0xfffffffe
+    chunks=[];sid=nd+1;small=bytearray();mf=[0xffffffff]*128;locations={}
+    for path,b in data.items():
+        if len(b)<4096:
+            start=len(small)//64;count=(len(b)+63)//64
+            for j in range(count):mf[start+j]=start+j+1 if j+1<count else 0xfffffffe
+            locations[path]=(start,len(b));small+=b+bytes((-len(b))%64)
+        else:
+            count=(len(b)+511)//512;locations[path]=(sid,len(b))
+            for j in range(count):fat[sid+j]=sid+j+1 if j+1<count else 0xfffffffe
+            chunks.append(b+bytes((-len(b))%512));sid+=count
+    root_start=sid;root_size=len(small);count=(len(small)+511)//512
+    for j in range(count):fat[sid+j]=sid+j+1 if j+1<count else 0xfffffffe
+    chunks.append(small+bytes((-len(small))%512));sid+=count
+    mini_start=sid;fat[sid]=0xfffffffe;chunks.append(struct.pack('<128I',*mf))
+    directory=bytearray(nd*512)
+    for i,path in enumerate(paths):
+        kind=5 if not path else 2 if path in data else 1
+        siblings=[x for x,p in enumerate(paths) if p and p[:-1]==path[:-1]] if path else []
+        right=siblings[siblings.index(i)+1] if path and siblings.index(i)+1<len(siblings) else 0xffffffff
+        children=[x for x,p in enumerate(paths) if p and p[:-1]==path]
+        start,size=(root_start,root_size) if not path else locations.get(path,(0xfffffffe,0))
+        name=('Root Entry' if not path else path[-1])+'\0';name=name.encode('utf-16le');off=i*128
+        directory[off:off+len(name)]=name
+        struct.pack_into('<HBBIII',directory,off+64,len(name),kind,1,0xffffffff,right,children[0] if children else 0xffffffff)
+        struct.pack_into('<IQ',directory,off+116,start,size)
+    h=bytearray(512);h[:8]=bytes.fromhex('d0cf11e0a1b11ae1')
+    struct.pack_into('<HHHHH',h,24,62,3,65534,9,6)
+    struct.pack_into('<IIIIIIIII',h,40,0,1,1,0,4096,mini_start,1,0xfffffffe,0)
+    for i in range(109):struct.pack_into('<I',h,76+i*4,0 if i==0 else 0xffffffff)
+    return bytearray(h)+struct.pack('<128I',*fat)+directory+b''.join(chunks)
+classic=classic_fixture()
+save('classic-irm.doc',classic,'drm')
+save('classic-irm-viewer.doc',classic_fixture(True),'drm')
+save('classic-irm-disguised.txt',classic,'drm')
+save('classic-irm-embedded.doc',classic_fixture(embedded=True),'readable')
+# A same-named root stream is insufficient without a valid relationship.
+spoof=bytearray(classic);where=spoof.index('\x09DRMDataSpace'.encode('utf-16le'),(1+struct.unpack_from('<I',spoof,48)[0])*512)
+# Rename the live definition; leave the stream and map intact.
+spoof[where+2]^=1
+save('classic-irm-spoof.doc',spoof,'readable')
+stale=bytearray(classic);struct.pack_into('<I',stale,1024+128+72,0xffffffff)
+save('classic-irm-stale.doc',stale,'readable')
+
+for ext in ['docx','pptx']:
+    save('drm.'+ext,drm,'drm')
+# Mismatched map/transform must not manufacture a DRM verdict.
+for label,needle in [('bad-map','\x09DRMContent'),('bad-primary','Microsoft.Metadata.DRMTransform')]:
+    bad=bytearray(classic)
+    # Both strings occur in payload only after all directory sectors.
+    offset=bad.rfind(needle.encode('utf-16le'))
+    assert offset>1024
+    bad[offset+2]^=1
+    save('classic-irm-'+label+'.doc',bad,'readable')
 (ROOT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')

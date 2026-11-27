@@ -471,6 +471,11 @@ func (s *temporaryDocumentService) parse(ctx context.Context, document *types.Te
 	if err != nil {
 		return "", nil, nil, fmt.Errorf("parse document: %w", err)
 	}
+	if result != nil {
+		if err := officeguard.ValidateParsedText(request.FileType, result.MarkdownContent); err != nil {
+			return "", nil, nil, err
+		}
+	}
 	if result != nil && result.MarkdownContent != "" {
 		result.MarkdownContent = chunker.NormalizeLineEndings(result.MarkdownContent)
 		result.MarkdownContent = docparser.NormalizeHTMLTables(result.MarkdownContent)
