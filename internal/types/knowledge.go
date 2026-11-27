@@ -339,7 +339,13 @@ func (k *Knowledge) BeforeCreate(tx *gorm.DB) (err error) {
 		ctx := tx.Statement.Context
 		user, _ := ctx.Value(UserContextKey).(*User)
 		caller := CallerFromContext(ctx)
-		if user != nil && user.ID == caller.UserID && !IsSyntheticUserID(user.ID) {
+		// Tenant/platform keys carry a compatibility user for legacy guards.
+		// That user is not evidence of who actually submitted the document.
+		scope, machine := TenantAPIKeyScopeFromContext(ctx)
+		principal, hasPrincipal := PrincipalFromContext(ctx)
+		human := (!machine || scope.ScopeType == APIKeyScopeUserMCP) &&
+			(!hasPrincipal || (principal.Type == PrincipalWebUser && principal.ID == caller.UserID))
+		if human && user != nil && user.ID == caller.UserID && !IsSyntheticUserID(user.ID) {
 			name := strings.TrimSpace(user.Username)
 			if name != "" {
 				fields["submitter"] = map[string]string{"user_id": user.ID, "name": name}
