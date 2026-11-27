@@ -76,4 +76,13 @@ jobs:
           go test -race -count=1 -timeout=15m ./internal/application/service
           -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres|TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres)$'
       - name: Build operator regeneration command
-        run: go build -o /tmp/wiki-regenerate ./cmd/wiki-regenerate
+        run: |
+          mkdir -p operator-artifacts
+          go build -o operator-artifacts/wiki-regenerate ./cmd/wiki-regenerate
+          git rev-parse HEAD > operator-artifacts/source-sha.txt
+          go version > operator-artifacts/go-version.txt
+          sha256sum operator-artifacts/wiki-regenerate > operator-artifacts/SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: wiki-operator-${{ github.sha }}
+          path: operator-artifacts/
