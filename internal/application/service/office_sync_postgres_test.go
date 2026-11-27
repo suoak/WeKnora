@@ -102,6 +102,7 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 	for _, name := range []string{
 		"encrypted.docx", "encrypted.xlsx", "encrypted.xlsm", "encrypted.pptx",
 		"encrypted.doc", "encrypted.xls", "encrypted.ppt",
+		"classic-irm.doc", "classic-irm-viewer.doc",
 	} {
 		item := &types.FetchedItem{
 			ExternalID:      "parent#office",
@@ -116,7 +117,7 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 		require.NoError(t, e)
 		require.Equal(t, oldBytes, got)
 	}
-	require.Equal(t, 7, result.Failed)
+	require.Equal(t, 9, result.Failed)
 	// A download adapter's content refusal cannot be reinterpreted as a tombstone.
 	refused := &types.FetchedItem{
 		ExternalID: "parent#office", IsDeleted: true,
@@ -126,7 +127,7 @@ func TestOfficeSyncPostgresRetainsOldVersionAndContinuesBatch(t *testing.T) {
 		),
 	}
 	require.NoError(t, svc.applyFetchedItem(ctx, ds, refused, nil, result))
-	require.Equal(t, 8, result.Failed)
+	require.Equal(t, 10, result.Failed)
 	require.JSONEq(t, before, snapshot())
 	require.Zero(t, result.Deleted)
 	require.Zero(t, queue.calls)

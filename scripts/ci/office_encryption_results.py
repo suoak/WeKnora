@@ -7,6 +7,7 @@ failures = [event for event in events if event.get('Action') == 'fail']
 required = {
     'TestMVPFirstCreateRedisRecoveryUsesOriginalKnowledge',
     'TestOfficeCreateRejectsBeforeStorageDatabaseAndQueue',
+    'TestOfficePlaceholderStopsParserResultAndRetry',
     'TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation',
     'TestOfficeMCPErrorUsesControlledCodeAndMessage',
     'TestOfficeHTTPMultipartBypassReturns400And2400',
