@@ -53,8 +53,9 @@ async function fixture(options: { selectCreateOnly?: boolean; allowCreate?: bool
     if (name === '@/api/knowledge-base') return {
       listKnowledgeTags: async (_kb: string, params: { keyword?: string; page?: number }) => {
         options.list?.()
-        if (options.pagedConflict && params.keyword && calls.create.length) {
-          const matches = params.page === 1 ? Array.from({ length: 50 }, (_, index) => ({ id: 'similar-' + index, name: params.keyword + index })) : rows.filter(row => row.name === params.keyword)
+        const keyword = params.keyword
+        if (options.pagedConflict && keyword && calls.create.length) {
+          const matches = params.page === 1 ? Array.from({ length: 50 }, (_, index) => ({ id: 'similar-' + index, name: keyword + index })) : rows.filter(row => row.name === keyword)
           return { data: { data: matches, total: 51 } }
         }
         const filtered = rows.filter(r => !params.keyword || r.name.includes(params.keyword))
