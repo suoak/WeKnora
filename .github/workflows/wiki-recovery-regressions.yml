@@ -74,7 +74,7 @@ jobs:
           REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
         run: >-
           go test -race -count=1 -timeout=15m ./internal/application/service
-          -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres|TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres)$'
+          -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres|TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres|TestWikiPreservingIdenticalPendingDeliveriesPostgres)$'
       - name: Build operator regeneration command
         run: |
           mkdir -p operator-artifacts

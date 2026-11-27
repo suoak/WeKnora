@@ -198,7 +198,9 @@ func TestWikiPreservingRecoveryArchivesOnlyVerifiedReplacementRetractions(t *tes
 					db.Model(&types.Knowledge{}).Where("id='public-two-doc'").Update("enable_status", "disabled").Error,
 				)
 			case "duplicate_ingest":
-				makeOp("ingest")
+				conflict := makeOp("ingest")
+				require.NoError(t, db.Model(conflict).Update("payload",
+					json.RawMessage(`{"op":"ingest","knowledge_id":"public-two-doc","attempt":2}`)).Error)
 			}
 			ctx := context.Background()
 			plan, err := repository.PrepareWikiPreservingRecovery(ctx, db, 1, "public-two", "", false)
