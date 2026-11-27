@@ -38,8 +38,8 @@ const assert = require('node:assert/strict');
       }
       result.result = 'passed'; return;
     }
-    const model = (await api(owner, 'POST', '/api/v1/models', { name: 'Upload tag acceptance embedding', type: 'Embedding', source: 'remote', parameters: { embedding_parameters: { dimension: 3 }, provider: 'generic' } }, tenant)).data.id;
-    const summary = (await api(owner, 'POST', '/api/v1/models', { name: 'Upload tag acceptance summary', type: 'KnowledgeQA', source: 'remote', parameters: { provider: 'generic' } }, tenant)).data.id;
+    const model = (await api(owner, 'POST', '/api/v1/models', { name: 'Upload tag acceptance embedding', type: 'Embedding', source: 'remote', parameters: { base_url: config.modelBaseURL || '', api_key: 'synthetic-only', embedding_parameters: { dimension: 3 }, provider: 'generic' } }, tenant)).data.id;
+    const summary = (await api(owner, 'POST', '/api/v1/models', { name: 'Upload tag acceptance summary', type: 'KnowledgeQA', source: 'remote', parameters: { base_url: config.modelBaseURL || '', api_key: 'synthetic-only', provider: 'generic' } }, tenant)).data.id;
     const kb = (await api(owner, 'POST', '/api/v1/knowledge-bases', {
       name: 'Upload tags acceptance ' + config.mode + ' ' + Date.now(), type: 'document',
       indexing_strategy: { vector_enabled: false, keyword_enabled: false }, embedding_model_id: model, summary_model_id: summary,
@@ -173,6 +173,17 @@ const assert = require('node:assert/strict');
       }
       passed('all eleven uploaded documents have exactly the three selected persistent tag relations');
       passed('multi-level directory paths and the selected destination survive tag creation');
+      if (config.modelBaseURL) {
+        for (let attempt = 0; attempt < 90; attempt++) {
+          const details = await Promise.all(result.documents.map(async document => (await api(owner, 'GET', '/api/v1/knowledge/' + document.id, undefined, tenant)).data));
+          result.parse_results = details.map(detail => ({ id: detail.id, status: detail.parse_status, error: detail.error_message }));
+          if (details.every(detail => detail.parse_status === 'completed')) break;
+          if (details.some(detail => detail.parse_status === 'failed')) break;
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+        assert.ok(result.parse_results.every(detail => detail.status === 'completed'), JSON.stringify(result.parse_results));
+        passed('all eleven real uploaded files complete parsing and indexing with the isolated model fixture');
+      }
       await page.reload({ waitUntil: 'domcontentloaded' });
       const parts = result.documents[0].folder.split('/');
       for (let index = 0; index < parts.length; index++) {
