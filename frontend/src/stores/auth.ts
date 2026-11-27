@@ -14,7 +14,7 @@ import { useOrganizationStore } from '@/stores/organization'
 import { createSequencedRefresh } from '@/stores/sequencedRefresh'
 import { useNotificationsStore } from '@/stores/notifications'
 import { clearPortalIntent } from '@/utils/portalIntent'
-import { resetPortalSession } from './portalEvents'
+import { invalidatePortalAssets, resetPortalSession } from './portalEvents'
 
 /** 登出时丢弃 Pinia 内的空间级资源缓存，避免 SPA 重登复用上一账号数据。 */
 function clearSessionResourceCaches() {
@@ -308,6 +308,7 @@ export const useAuthStore = defineStore('auth', () => {
   ) => {
     const next = Array.isArray(list) ? list : []
     if (memberships.value.some(previous => !next.some(item => item.tenant_id === previous.tenant_id && item.role === previous.role))) resetPortalSession()
+    else if (next.some(item => !memberships.value.some(previous => item.tenant_id === previous.tenant_id && item.role === previous.role))) invalidatePortalAssets()
     memberships.value = Array.isArray(list) ? list : []
     localStorage.setItem('weknora_memberships', JSON.stringify(memberships.value))
   }

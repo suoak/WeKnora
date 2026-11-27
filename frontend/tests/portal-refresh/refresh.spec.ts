@@ -128,3 +128,24 @@ test('confirmed global privilege downgrade clears snapshots even when the user i
   await expect.poll(() => store(page, 'return portal.initialLoading')).toBe(false)
   await expect(page.locator('.space-summary')).toHaveCount(0)
 })
+
+test('confirmed membership grants refresh immediately and revocation clears synchronously', async ({ page }) => {
+  const api = await setup(page), before = api.reads()
+  const retained = await page.evaluate(() => {
+    const pinia = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia
+    pinia._s.get('auth').setMemberships([{ tenant_id: 2, role: 'viewer' }])
+    return pinia._s.get('portal').overviewSpaces.length
+  })
+  expect(retained).toBe(12)
+  await expect.poll(() => api.reads()).toBe(before + 1)
+  await expect.poll(() => store(page, 'return portal.refreshing')).toBe(false)
+  await expect(page.locator('.portal-page .t-skeleton')).toHaveCount(0)
+  api.mode('empty')
+  const cleared = await page.evaluate(() => {
+    const pinia = (document.querySelector('#app') as any).__vue_app__.config.globalProperties.$pinia
+    pinia._s.get('auth').setMemberships([])
+    return pinia._s.get('portal').overviewSpaces.length
+  })
+  expect(cleared).toBe(0)
+  await expect.poll(() => api.reads()).toBe(before + 2)
+})
