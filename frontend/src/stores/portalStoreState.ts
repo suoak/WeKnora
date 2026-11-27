@@ -6,8 +6,11 @@ import { createPortalResource } from './portalResource'
 
 export const PORTAL_REFRESH_MS = 300_000
 const RETRY_DELAYS = [5_000, 15_000, 30_000]
+type PortalMethod = 'listPortalStages' | 'listPortalSpaces' | 'listMyPortalSpaces' | 'createPortalAccessRequest'
+type PortalStoreAPI = { [K in PortalMethod]: (...args: Parameters<typeof PortalAPI[K]>) =>
+  Promise<Pick<Awaited<ReturnType<typeof PortalAPI[K]>>, 'success' | 'data'>> }
 
-export function createPortalStoreState(api: Pick<typeof PortalAPI, 'listPortalStages' | 'listPortalSpaces' | 'listMyPortalSpaces' | 'createPortalAccessRequest'>,
+export function createPortalStoreState(api: PortalStoreAPI,
   sessionKey: () => string, translate: (key: string) => string, changed: () => void, now = Date.now) {
   const { listPortalStages, listPortalSpaces, listMyPortalSpaces, createPortalAccessRequest } = api
   const stageResource = createPortalResource(async () => {
