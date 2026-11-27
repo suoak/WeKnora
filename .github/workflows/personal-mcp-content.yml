@@ -35,6 +35,6 @@ jobs:
       - name: Full related package regression
         run: go test -tags sqlite_fts5 -p 2 -count=1 ./internal/application/access ./internal/mcpserver ./internal/application/service ./internal/application/repository ./internal/handler ./internal/router ./internal/middleware ./internal/config
       - name: Content admission race regression
-        run: go test -race -tags sqlite_fts5 -p 2 -count=1 ./internal/application/service ./internal/mcpserver -run 'TestPersonalContent|TestPersonalFile|TestClamdScanner|TestIsolatedPersonal'
+        run: go test -race -tags sqlite_fts5 -p 2 -count=1 ./internal/application/service ./internal/mcpserver -run 'TestPersonalContent|TestPersonalFile|TestClamdScanner|TestIsolatedPersonal|TestPersonalAdmissionSnapshotPhaseHasIndependentOutputFence'
       - name: Vet
         run: go vet -tags sqlite_fts5 -p 2 ./internal/application/access ./internal/mcpserver ./internal/application/service ./internal/handler
