@@ -98,7 +98,11 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 		var pages []*types.WikiPage
 		var partial bool
 		var err error
-		if bounded, ok := s.Wiki.(interface {
+		if search, ok := s.Wiki.(interface {
+			VerifiedSearchPages(context.Context, uint64, string, []string, string) ([]*types.WikiPage, bool, error)
+		}); ok && operation == "wiki_search" {
+			pages, partial, err = search.VerifiedSearchPages(ctx, d.TenantID, d.ID, target.DocumentIDs(), query)
+		} else if bounded, ok := s.Wiki.(interface {
 			VerifiedPagesWindow(context.Context, uint64, string, []string, string, int) ([]*types.WikiPage, bool, error)
 		}); ok && operation != "wiki_search" {
 			take := min(200, offset+limit+1)
