@@ -55,7 +55,8 @@ func TestKnowledgeSubmitterDoesNotImpersonateAPICompatibilityUser(t *testing.T) 
 		{"platform key", APIKeyScopePlatform, Principal{Type: PrincipalAPIPlatform, ID: "7"}, false},
 		{
 			"external id is not a local account", APIKeyScopeTenant,
-			Principal{Type: PrincipalAPIExternalUser, ID: "10003:alice"}, false,
+			Principal{Type: PrincipalAPIExternalUser, ID: "10003:alice"},
+			false,
 		},
 		{"personal MCP key", APIKeyScopeUserMCP, Principal{Type: PrincipalWebUser, ID: "alice"}, true},
 		{"personal key mismatched principal", APIKeyScopeUserMCP, Principal{Type: PrincipalWebUser, ID: "bob"}, false},
