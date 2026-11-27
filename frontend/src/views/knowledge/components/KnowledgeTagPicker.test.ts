@@ -165,9 +165,10 @@ test('used tags cannot be deleted; unused deletion never requests cascading cont
 test('upload mode exposes create and multi-selection but no management actions', async t => {
   const f = await fixture({ selectCreateOnly: true }); t.after(f.close)
   assert.equal(all(f.root, el => el.type === 'popup').length, 0)
-  assert.ok(textOf(f.root).includes('knowledgeBase.tagCreateAction'))
+  assert.equal(all(f.root, el => el.type === 'button' && textOf(el) === 'knowledgeBase.tagCreateAction').length, 0)
   await f.search(' First ')
-  await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
+  assert.equal(all(f.root, el => hasClass(el, 'tag-picker-create')).length, 1)
+  await f.fire(f.find(el => el.type === 'input'), 'onEnter')
   assert.deepEqual(JSON.parse(JSON.stringify(f.calls.create)), [['kb', { name: 'First' }]])
   assert.deepEqual([...f.selectedIds.value], ['new'])
   assert.ok(textOf(f.root).includes('First'))

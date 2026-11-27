@@ -933,7 +933,7 @@ export default {
   tagDeleteDesc: 'Delete tag {name}?',
 },
   uploadConfirm: {
-    tagsCreateHint: 'No tags yet. Click “+ New tag” and enter a name to create one.',
+    tagsCreateHint: 'No tags yet. Enter a name above to create one.',
     tagsCreateForbidden: 'You do not have permission to create tags in this knowledge base.',
     tagsPersistHint: 'Created tags are saved in the knowledge base, even if you cancel this upload.',
 

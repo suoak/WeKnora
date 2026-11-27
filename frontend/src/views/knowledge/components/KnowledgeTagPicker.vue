@@ -1,7 +1,6 @@
 <template>
   <div class="knowledge-tag-picker">
-    <t-button v-if="selectCreateOnly && allowCreate && !creationForbidden" variant="outline" :disabled="busy" @click="focusCreate"><template #icon><t-icon name="add" /></template>{{ $t('knowledgeBase.tagCreateAction') }}</t-button>
-    <t-input ref="searchInput" v-model="query" :disabled="busy" :placeholder="$t('knowledgeBase.tagPickerSearch')" :maxlength="40" clearable @enter="createTag">
+    <t-input v-model="query" :disabled="busy" :placeholder="$t('knowledgeBase.tagPickerSearch')" :maxlength="40" clearable @enter="createTag">
       <template #prefix-icon><t-icon name="search" size="16px" /></template>
     </t-input>
     <div class="tag-picker-list" :aria-label="$t('knowledgeBase.columnTag')">
@@ -73,8 +72,6 @@ const tags = ref<Tag[]>([]);
 const loading = ref(false);
 const loadFailed = ref(false);
 const creationForbidden = ref(false);
-const searchInput = ref<{ focus: () => void }>();
-function focusCreate() { searchInput.value?.focus(); }
 const busy = ref(false);
 const page = ref(1);
 const hasMore = ref(false);

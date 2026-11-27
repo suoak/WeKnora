@@ -6914,7 +6914,7 @@ const messages = {
     }
   },
   uploadConfirm: {
-    tagsCreateHint: '태그가 없습니다. “+ 새 태그”를 클릭하고 이름을 입력하세요.',
+    tagsCreateHint: '태그가 없습니다. 위에 이름을 입력하여 만들 수 있습니다.',
     tagsCreateForbidden: '이 지식 베이스에서 태그를 만들 권한이 없습니다.',
     tagsPersistHint: '업로드를 취소해도 만든 태그는 지식 베이스에 저장됩니다.',
 
