@@ -204,3 +204,22 @@ test('failed and duplicate in-flight creates preserve the query and selection', 
   assert.equal(f.find(el => el.type === 'input').props.modelValue, 'Retry me')
   assert.deepEqual([...f.selectedIds.value], ['used'])
 })
+
+test('a late creation result after closing does not select into the next upload draft', async () => {
+  let resolve!: (value: unknown) => void
+  const f = await fixture({ create: () => new Promise(done => { resolve = done }) })
+  await f.search('Late tag')
+  const pending = f.find(el => hasClass(el, 'tag-picker-create')).props.onClick()
+  f.close()
+  resolve({ data: { id: 'late', name: 'Late tag' } }); await pending
+  assert.deepEqual([...f.selectedIds.value], [])
+})
+
+test('HTTP 403 retains the name and exposes denied creation instead of an empty catalog', async t => {
+  const f = await fixture({ selectCreateOnly: true, create: async () => { throw { status: 403 } } }); t.after(f.close)
+  await f.search('Denied tag')
+  await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
+  assert.equal(f.find(el => el.type === 'input').props.modelValue, 'Denied tag')
+  assert.ok(textOf(f.root).includes('uploadConfirm.tagsCreateForbidden'))
+  assert.equal(all(f.root, el => hasClass(el, 'tag-picker-create')).length, 0)
+})
