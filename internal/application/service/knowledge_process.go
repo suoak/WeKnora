@@ -4434,7 +4434,8 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	// they can be re-aimed after the rewrites below.
 	if convertResult != nil {
 		if err := officeguard.ValidateParsedText(knowledge.FileType, convertResult.MarkdownContent); err != nil {
-			s.failStage(ctx, knowledge.ID, types.StageDocReader, werrors.ErrCodeDocReaderParseFailed, officeguard.DRMMessage, err)
+			s.failStage(ctx, knowledge.ID, types.StageDocReader,
+				werrors.ErrCodeDocReaderParseFailed, officeguard.DRMMessage, err)
 			_, failure := s.recordKnowledgeParseFailure(ctx, knowledge, err, isLastRetry)
 			return failure
 		}

@@ -67,7 +67,8 @@ func (c *compound) hasClassicDRM() bool {
 		}
 		if bytes.Equal(stream, wide("\x09DRMContent")) && bytes.Equal(space, wide("\x09DRMDataSpace")) && !found {
 			found = true
-		} else if !bytes.Equal(stream, wide("\x09DRMViewerContent")) || !bytes.Equal(space, wide("\x09LZXDRMDataSpace")) {
+		} else if !bytes.Equal(stream, wide("\x09DRMViewerContent")) ||
+			!bytes.Equal(space, wide("\x09LZXDRMDataSpace")) {
 			return false
 		}
 		pos += n

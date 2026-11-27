@@ -17,7 +17,9 @@ func (s *DataSourceService) rejectEncryptedSyncItem(ctx context.Context, ds *typ
 	result.Failed++
 	recordSyncError(
 		result,
-		types.SyncItemError{Title: item.Title, Code: "office_encrypted", Message: officeguard.RestrictionMessage(cause)},
+		types.SyncItemError{
+			Title: item.Title, Code: "office_encrypted", Message: officeguard.RestrictionMessage(cause),
+		},
 	)
 	if local := feishuDocumentFailureCode(ds, item, cause); local != "" {
 		if err := s.retainVerifiedFeishuItem(ctx, ds, item); err != nil {

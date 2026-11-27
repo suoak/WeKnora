@@ -27,7 +27,8 @@ func ValidateParsedText(fileType, text string) error {
 			return unicode.ToLower(r)
 		}, s)
 	}
-	const notice = "对此文档的权限当前受到限制。只有使用 Microsoft Office 2003 或更高版本才能打开该文档。您可以向文档的作者申请一份可以使用用于 Internet Explorer 的权限管理加载项阅读的文档副本。"
+	const notice = "对此文档的权限当前受到限制。只有使用 Microsoft Office 2003 或更高版本才能打开该文档。" +
+		"您可以向文档的作者申请一份可以使用用于 Internet Explorer 的权限管理加载项阅读的文档副本。"
 	value := normalize(text)
 	template := normalize(notice)
 	if value != "" && strings.Contains(value, template) && strings.ReplaceAll(value, template, "") == "" {

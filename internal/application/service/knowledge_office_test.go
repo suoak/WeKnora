@@ -2,11 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/Tencent/WeKnora/internal/officeguard"
 	"os"
 	"testing"
 
 	werrors "github.com/Tencent/WeKnora/internal/errors"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
@@ -70,7 +70,8 @@ func TestOfficeReplaceRejectsBeforeDequeueOrOldVersionMutation(t *testing.T) {
 }
 
 func TestOfficePlaceholderStopsParserResultAndRetry(t *testing.T) {
-	const notice = "对此文档的权限当前受到限制。只有使用 Microsoft Office 2003 或更高版本才能打开该文档。您可以向文档的作者申请一份可以使用用于 Internet Explorer 的权限管理加载项阅读的文档副本。"
+	const notice = "对此文档的权限当前受到限制。只有使用 Microsoft Office 2003 或更高版本才能打开该文档。" +
+		"您可以向文档的作者申请一份可以使用用于 Internet Explorer 的权限管理加载项阅读的文档副本。"
 	reader := feishuPDFTestReader(func(context.Context, *types.ReadRequest) (*types.ReadResult, error) {
 		return &types.ReadResult{MarkdownContent: notice}, nil
 	})
@@ -84,5 +85,6 @@ func TestOfficePlaceholderStopsParserResultAndRetry(t *testing.T) {
 	require.True(t, permanent)
 	_, message := knowledgeParseFailureState(context.Background(), err, false)
 	require.Equal(t, officeguard.DRMMessage, message)
-	require.True(t, officeguard.IsEncryptedError(feishuDocumentParserRefusal(&types.ReadResult{MarkdownContent: notice}, "doc")))
+	refusal := feishuDocumentParserRefusal(&types.ReadResult{MarkdownContent: notice}, "doc")
+	require.True(t, officeguard.IsEncryptedError(refusal))
 }
