@@ -82,5 +82,7 @@ func TestOfficePlaceholderStopsParserResultAndRetry(t *testing.T) {
 	require.Equal(t, "encrypted_file", code)
 	require.Equal(t, "provide_unencrypted_copy", action)
 	require.True(t, permanent)
+	_, message := knowledgeParseFailureState(context.Background(), err, false)
+	require.Equal(t, officeguard.DRMMessage, message)
 	require.True(t, officeguard.IsEncryptedError(feishuDocumentParserRefusal(&types.ReadResult{MarkdownContent: notice}, "doc")))
 }

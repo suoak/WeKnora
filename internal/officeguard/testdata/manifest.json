@@ -203,5 +203,25 @@
     "name": "classic-irm-stale.doc",
     "state": "readable",
     "frontend": "readable"
+  },
+  {
+    "name": "drm.docx",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "drm.pptx",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "classic-irm-bad-map.doc",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "classic-irm-bad-primary.doc",
+    "state": "readable",
+    "frontend": "readable"
   }
 ]

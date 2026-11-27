@@ -73,6 +73,9 @@ func knowledgeParseFailureState(
 	switch code {
 	case "encrypted_file":
 		message = "文件已加密或受保护，请提供未加密版本。"
+		if officeguard.IsEncryptedError(err) {
+			message = officeguard.RestrictionMessage(err)
+		}
 	case "file_format_mismatch":
 		message = "文件内容与声明格式不符，请检查文件格式或重新导出。"
 	case "semantic_chunk_limit":

@@ -21,7 +21,7 @@ func ValidateParsedText(fileType, text string) error {
 	}
 	normalize := func(s string) string {
 		return strings.Map(func(r rune) rune {
-			if unicode.IsSpace(r) || unicode.IsPunct(r) || unicode.IsSymbol(r) {
+			if unicode.IsSpace(r) || unicode.IsPunct(r) {
 				return -1
 			}
 			return unicode.ToLower(r)

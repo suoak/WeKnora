@@ -198,4 +198,15 @@ spoof[where+2]^=1
 save('classic-irm-spoof.doc',spoof,'readable')
 stale=bytearray(classic);struct.pack_into('<I',stale,1024+128+72,0xffffffff)
 save('classic-irm-stale.doc',stale,'readable')
+
+for ext in ['docx','pptx']:
+    save('drm.'+ext,drm,'drm')
+# Mismatched map/transform must not manufacture a DRM verdict.
+for label,needle in [('bad-map','\x09DRMContent'),('bad-primary','Microsoft.Metadata.DRMTransform')]:
+    bad=bytearray(classic)
+    # Both strings occur in payload only after all directory sectors.
+    offset=bad.rfind(needle.encode('utf-16le'))
+    assert offset>1024
+    bad[offset+2]^=1
+    save('classic-irm-'+label+'.doc',bad,'readable')
 (ROOT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n', encoding='utf-8')
