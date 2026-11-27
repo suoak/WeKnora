@@ -188,7 +188,7 @@ func (s *automaticService) bindSource(
 	},
 		rawState, source, run, string(encoded), s.c.Guard.Fingerprint()).Err()
 	if err != nil {
-		return ctx, errors.Join(ErrNotReady, err)
+		return ctx, automaticSourceAdmissionError(err)
 	}
 	ctx = feishusafety.WithRecoveryContext(
 		ctx,

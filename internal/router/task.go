@@ -12,6 +12,7 @@ import (
 
 	"github.com/Tencent/WeKnora/internal/application/service"
 	"github.com/Tencent/WeKnora/internal/common"
+	"github.com/Tencent/WeKnora/internal/feishusynccontrol"
 	"github.com/Tencent/WeKnora/internal/logger"
 	"github.com/Tencent/WeKnora/internal/middleware/asynqdl"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
@@ -123,6 +124,9 @@ const wikiIngestRetryDelay = 15 * time.Second
 // progress for 7–10 minutes while the orphan lock expires AND the retry
 // schedule catches up.
 func asynqRetryDelayFunc(n int, e error, t *asynq.Task) time.Duration {
+	if errors.Is(e, feishusynccontrol.ErrAutomaticCanaryPending) {
+		return 30 * time.Second
+	}
 	if errors.Is(e, service.ErrWikiIngestConcurrent) {
 		return wikiIngestRetryDelay
 	}
@@ -131,9 +135,12 @@ func asynqRetryDelayFunc(n int, e error, t *asynq.Task) time.Duration {
 
 // Lease contention is a deferred Wiki trigger, not a failed execution. Keep
 // its retry budget so a coalesced finalize task cannot be archived while an
-// ingest batch holds the shared lease. All other errors retain default policy.
+// ingest batch holds the shared lease. Authorized source intents waiting for
+// another automatic-service Canary also retain their original retry count;
+// they have not entered a connector. All other errors retain default policy.
 func asynqIsFailure(err error) bool {
-	return err != nil && !errors.Is(err, service.ErrWikiIngestConcurrent)
+	return err != nil && !errors.Is(err, service.ErrWikiIngestConcurrent) &&
+		!errors.Is(err, feishusynccontrol.ErrAutomaticCanaryPending)
 }
 
 // Worker defaults live in types so server construction and runtime reporting

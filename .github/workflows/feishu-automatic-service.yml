@@ -2,7 +2,13 @@ name: Feishu automatic service qualification
 on:
   workflow_dispatch:
   push:
-    branches: [fix/feishu-self-recovery-20261126]
+    branches: [main, fix/feishu-self-recovery-20261126]
+    paths:
+      - internal/feishusynccontrol/**
+      - internal/feishusafety/**
+      - internal/router/task.go
+      - internal/router/sync_canary_admission_test.go
+      - .github/workflows/feishu-automatic-service.yml
   pull_request:
     branches: [main]
     paths:
@@ -16,6 +22,8 @@ on:
       - internal/types/sync_admission.go
       - internal/types/tenant_api_key_errors.go
       - internal/container/feishu_sync*
+      - internal/router/task.go
+      - internal/router/sync_canary_admission_test.go
       - .github/workflows/feishu-automatic-service.yml
 permissions:
   contents: read
@@ -24,6 +32,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   isolated:
+    name: Automatic Feishu service admission and authority
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     services:
@@ -91,6 +100,11 @@ jobs:
         run: |
           set -o pipefail
           go vet ./internal/feishusynccontrol ./internal/feishusafety ./internal/application/access 2>&1 | tee evidence/vet.txt
+      - name: Preserve Canary admission identity and source retry budgets
+        if: ${{ !cancelled() }}
+        run: |
+          set -o pipefail
+          go test -json -race -p 1 ./internal/router -run '^(TestAutomaticCanaryAdmissionPreservesOriginalTaskAndBusinessRetryBudget|TestWikiLeaseContentionPreservesOriginalTriggerAndRetryBudget)$' -count=1 -timeout=2m | tee evidence/admission-queue.jsonl
       - name: APP wiring compile and upload admission regression
         if: ${{ !cancelled() }}
         run: |
