@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -140,7 +141,20 @@ func TestWikiReadWindowServiceUsesWindowAndKeepsFinalProof(t *testing.T) {
 }
 
 func TestWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T) {
-	f, store, _, _, _ := wikiReadSessionFixture(t)
+	testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t, fixture.New(t))
+}
+
+func TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres(t *testing.T) {
+	if os.Getenv("WIKI_HISTORY_POSTGRES_DSN") == "" {
+		t.Skip("requires isolated migrated PostgreSQL")
+	}
+	testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t, wikiPendingRegenerationFixture(t))
+}
+
+func testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T, f *fixture.Fixture) {
+	t.Helper()
+	f.PreparePublished(t)
+	store := &repository.PersonalWikiStore{DB: f.DB}
 	r := repository.NewWikiPageRepository(f.DB)
 	gen, err := repository.BeginWikiMCPGeneration(context.Background(), r, "public-two")
 	require.NoError(t, err)
