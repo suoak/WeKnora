@@ -194,7 +194,9 @@ func testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T, f *fixtu
 	require.Empty(t, pages, "query syntax stays literal data")
 	require.NoError(t, f.DB.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
 	ctx = repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
-	pages, partial, err := store.VerifiedSearchPages(ctx, 1, "public-two", []string{"public-two-doc"}, "verified searchable")
+	pages, partial, err := store.VerifiedSearchPages(
+		ctx, 1, "public-two", []string{"public-two-doc"}, "verified searchable",
+	)
 	require.NoError(t, err)
 	require.True(t, partial)
 	require.Empty(t, pages, "matching text cannot bypass the current source proof")
