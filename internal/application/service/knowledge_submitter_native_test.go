@@ -1,4 +1,4 @@
-//go:build anydoc && personal_exact_live
+//go:build personal_exact_live
 
 package service
 
