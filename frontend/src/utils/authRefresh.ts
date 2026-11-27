@@ -7,6 +7,7 @@
  */
 
 import { rememberAuthReturnTarget } from './authRedirect'
+import { resetPortalSession } from '../stores/portalEvents'
 
 const AUTH_STORAGE_KEYS = [
   'weknora_token',
@@ -72,6 +73,7 @@ export function redirectToLogin() {
 }
 
 export function clearAuthStorage() {
+  resetPortalSession()
   for (const key of AUTH_STORAGE_KEYS) {
     localStorage.removeItem(key)
   }

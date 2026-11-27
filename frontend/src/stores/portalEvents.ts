@@ -8,5 +8,5 @@ export const resetPortalSession = () => { portalSessionRevision.value++; portalA
 
 export function isAssetMutation(method: string | undefined, url: string | undefined): boolean {
   return /^(post|put|patch|delete)$/i.test(method || '')
-    && /\/api\/v1\/(?:knowledge(?:-bases)?(?:\/|$)|data-sources(?:\/|$))/.test(url || '')
+    && /\/api\/v1\/(?:knowledge(?:-bases)?(?:\/|$)|data-sources(?:\/|$)|system\/admin\/portal\/|portal\/spaces\/\d+\/access-requests|tenants\/\d+\/(?:members|access-requests)|me\/tenant-access-requests\/)/.test(url || '')
 }

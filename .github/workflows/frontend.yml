@@ -58,6 +58,9 @@ jobs:
       - name: Type-check
         run: npm run type-check
 
+      - name: Portal silent refresh browser regression
+        run: npx playwright test --config tests/portal-refresh/playwright.config.ts
+
       - name: Build
         run: npm run build
 

@@ -16,9 +16,9 @@ async function setup(page: Page) {
       if (state.fail) return route.fulfill({ status: 503, json: { error: 'synthetic failure' } })
       const value: any = row(state.count)
       if (state.hidden) { delete value.document_entry_count; delete value.uploaded_file_count; value.asset_count_scope = 'hidden' }
-      return route.fulfill({ json: { data: [value] } })
+      return route.fulfill({ json: { success: true, data: [value] } })
     }
-    if (path === '/api/v1/portal/stages') return route.fulfill({ json: { data: [{ key: 'insight', name: '洞察', display_order: 10 }] } })
+    if (path === '/api/v1/portal/stages') return route.fulfill({ json: { success: true, data: [{ key: 'insight', name: '洞察', display_order: 10 }] } })
     return route.fulfill({ json: { success: true, data: [] } })
   })
   await page.goto('/tests/portal-assets/index.html', { waitUntil: 'domcontentloaded' })
@@ -27,17 +27,23 @@ async function setup(page: Page) {
   return state
 }
 
-test('real Portal component refreshes after SPA return and browser focus for external writes', async ({ page }) => {
+test('SPA return and focus share freshness; external writes appear on the five-minute fallback', async ({ page }) => {
+  await page.clock.install()
   const state = await setup(page)
   await expect(page.locator('.space-summary small').first()).toHaveText('1 个知识库 · 3 篇文档')
   const initial = state.calls
   await page.evaluate(() => (window as any).portalHarness.router.push('/knowledge'))
   state.count = 4 // represents an external MCP/Feishu write, no browser mutation event
   await page.evaluate(() => (window as any).portalHarness.router.push('/portal'))
+  expect(state.calls).toBe(initial)
+  await page.clock.runFor(300_001)
   await expect.poll(() => state.calls).toBeGreaterThan(initial)
   await expect(page.locator('.space-summary small').first()).toHaveText('1 个知识库 · 4 篇文档')
   state.count = 5
+  const fresh = state.calls
   await page.evaluate(() => window.dispatchEvent(new Event('focus')))
+  expect(state.calls).toBe(fresh)
+  await page.clock.runFor(300_001)
   await expect(page.locator('.space-summary small').first()).toHaveText('1 个知识库 · 5 篇文档')
 })
 
@@ -58,7 +64,7 @@ test('logout and user/tenant changes clear data immediately, including late resp
   await page.route('**/api/v1/portal/spaces*', async route => {
     requested = true
     await held
-    await route.fulfill({ json: { data: [row(77)] } })
+    await route.fulfill({ json: { success: true, data: [row(77)] } })
   })
   await page.evaluate(() => { void (window as any).portalHarness.portal.loadOverviewSpaces() })
   await expect.poll(() => requested).toBe(true)
@@ -75,11 +81,11 @@ test('logout and user/tenant changes clear data immediately, including late resp
 })
 
 test('visibility activation refreshes external changes and hidden-tab polling stays bounded', async ({ page }) => {
-  const state = await setup(page)
   await page.clock.install()
+  const state = await setup(page)
   await page.evaluate(() => Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' }))
   const before = state.calls
-  await page.clock.fastForward(60_000)
+  await page.clock.fastForward(600_000)
   expect(state.calls).toBe(before)
   state.count = 9
   await page.evaluate(() => {
@@ -89,13 +95,14 @@ test('visibility activation refreshes external changes and hidden-tab polling st
   await expect(page.locator('.space-summary small').first()).toHaveText('1 个知识库 · 9 篇文档')
 })
 
-test('failed initialization is retryable and hidden totals are never replaced by legacy file_count', async ({ page }) => {
+test('background failure retains data and hidden totals are never replaced by legacy file_count', async ({ page }) => {
   const state = await setup(page)
   state.fail = true
-  await page.evaluate(() => (window as any).portalHarness.portal.initialize())
+  await page.evaluate(() => (window as any).portalHarness.portal.initialize(true))
   expect(await page.evaluate(() => (window as any).portalHarness.portal.initialized)).toBe(false)
+  expect(await page.evaluate(() => (window as any).portalHarness.portal.overviewError)).toBe(false)
   state.fail = false; state.hidden = true
-  await page.evaluate(() => (window as any).portalHarness.portal.initialize())
+  await page.evaluate(() => (window as any).portalHarness.portal.initialize(true))
   await expect(page.locator('.space-summary small').first()).toHaveText('1 个知识库 · — 篇文档')
   expect(await page.evaluate(() => (window as any).portalHarness.portal.initialized)).toBe(true)
 })
@@ -105,13 +112,15 @@ test('late overview requests cannot overwrite a newer overview or filtered list'
   const held: Array<(value: any) => void> = []
   await page.route('**/api/v1/portal/spaces*', async route => {
     const count = await new Promise<number>(resolve => held.push(resolve))
-    await route.fulfill({ json: { data: [row(count)] } })
+    await route.fulfill({ json: { success: true, data: [row(count)] } })
   })
   await page.evaluate(() => { const p = (window as any).portalHarness.portal; void p.loadOverviewSpaces(); void p.loadOverviewSpaces() })
+  await expect.poll(() => held.length).toBe(1)
+  await page.evaluate(() => { const p = (window as any).portalHarness.portal; p.invalidate(); void p.loadOverviewSpaces() })
+  held[0](1)
   await expect.poll(() => held.length).toBe(2)
   held[1](7)
   await expect.poll(() => page.evaluate(() => (window as any).portalHarness.portal.overviewSpaces[0]?.document_entry_count)).toBe(7)
-  held[0](1)
   await page.waitForTimeout(100)
   expect(await page.evaluate(() => (window as any).portalHarness.portal.overviewSpaces[0]?.document_entry_count)).toBe(7)
   await page.evaluate(() => {
