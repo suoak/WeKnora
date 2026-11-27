@@ -88,7 +88,7 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
         const id = todo.pop()!
         if (id === 0xffffffff) continue
         const d = dirs[id]
-        if (!d || seen.has(id)) return 'invalid'
+        if (!d || seen.has(id) || ![1, 2].includes(d.kind)) return 'invalid'
         seen.add(id); todo.push(d.left, d.right)
         if (d.kind === 2) { if (streams.has(d.name)) return 'invalid'; streams.set(d.name, d) }
       }
@@ -113,7 +113,7 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
         return out
       }
       const info = streams.get('EncryptionInfo'), pkg = streams.get('EncryptedPackage')
-      if (pkg && !info && pkg.size >= 8) {
+      if ((pkg && !info && pkg.size >= 8) || (streams.get('\x09DRMContent')?.size ?? 0) >= 8) {
         const findPath = (names: string[]): Entry | undefined => {
           let parent = dirs[0]!
           for (let i = 0; i < names.length; i++) {
@@ -122,7 +122,7 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
               const id = todo.pop()!
               if (id === 0xffffffff) continue
               const d = dirs[id]
-              if (!d || seen.has(id)) return undefined
+              if (!d || seen.has(id) || ![1, 2].includes(d.kind)) return undefined
               seen.add(id); todo.push(d.left, d.right)
               if (d.name === names[i] && d.kind === (i === names.length - 1 ? 2 : 1)) matches.push(d)
             }
@@ -131,9 +131,49 @@ async function detect(file: Blob & { name?: string }): Promise<OfficeState> {
           }
           return parent
         }
+        // Classic binary Office IRM has a readable compatibility FIB.
+        // Validate the root content mapping and transform before examining it.
+        const wide = (v: Uint8Array, off: number, value: string) =>
+          off + value.length * 2 <= v.length && [...value].every((c, i) => u16(v, off + i * 2) === c.charCodeAt(0))
+        const classicDef = findPath(['\x06DataSpaces', 'DataSpaceInfo', '\x09DRMDataSpace'])
+        const classicMap = findPath(['\x06DataSpaces', 'DataSpaceMap'])
+        const classicPrimary = findPath(['\x06DataSpaces', 'TransformInfo', '\x09DRMTransform', '\x06Primary'])
+        if ((streams.get('\x09DRMContent')?.size ?? 0) >= 8 && classicDef && classicDef.size >= 40 &&
+            classicMap && classicMap.size >= 80 && classicMap.size <= 4096 && classicPrimary && classicPrimary.size >= 168) {
+          const d = await prefix(classicDef, 40), m = await prefix(classicMap, classicMap.size), p = await prefix(classicPrimary, 168)
+          let validMap = u32(m, 0) === 8 && u32(m, 4) >= 1 && u32(m, 4) <= 2
+          let found = false, pos = 8
+          for (let i = 0; validMap && i < u32(m, 4); i++) {
+            if (pos + 12 > m.length) { validMap = false; break }
+            const n = u32(m, pos)
+            if (n < 12 || n > m.length - pos || u32(m, pos + 4) !== 1 || u32(m, pos + 8) !== 0) { validMap = false; break }
+            let offset = pos + 12
+            const readName = () => {
+              if (offset + 4 > pos + n) return undefined
+              const size = u32(m, offset), padded = Math.ceil(size / 4) * 4
+              if (size % 2 || padded > pos + n - offset - 4) return undefined
+              const v = m.subarray(offset + 4, offset + 4 + size)
+              offset += 4 + padded
+              return v
+            }
+            const stream = readName(), space = readName()
+            const equals = (v: Uint8Array | undefined, text: string) => !!v && v.length === text.length * 2 && wide(v, 0, text)
+            if (!stream || !space || offset !== pos + n) { validMap = false; break }
+            if (equals(stream, '\x09DRMContent') && equals(space, '\x09DRMDataSpace') && !found) found = true
+            else if (!equals(stream, '\x09DRMViewerContent') || !equals(space, '\x09LZXDRMDataSpace')) validMap = false
+            pos += n
+          }
+          if (validMap && found && pos === m.length && u32(d, 0) === 8 && u32(d, 4) === 1 && u32(d, 8) === 26 &&
+              wide(d, 12, '\x09DRMTransform') && u32(p, 0) === 88 && u32(p, 4) === 1 && u32(p, 8) === 76 &&
+              wide(p, 12, '{C73DFACD-061F-43B0-8B64-0C620D2A8B50}') && u32(p, 88) === 62 &&
+              wide(p, 92, 'Microsoft.Metadata.DRMTransform') && [156, 160, 164].every(off => u32(p, off) === 1)) {
+            await prefix(streams.get('\x09DRMContent')!, 8)
+            return 'drm'
+          }
+        }
         const definition = findPath(['\x06DataSpaces', 'DataSpaceInfo', 'DRMEncryptedDataSpace'])
         const primary = findPath(['\x06DataSpaces', 'TransformInfo', 'DRMEncryptedTransform', '\x06Primary'])
-        if (definition && primary && definition.size >= 56) {
+        if (pkg && !info && pkg.size >= 8 && definition && primary && definition.size >= 56) {
           const p = await prefix(definition, 56), q = await prefix(primary, 512)
           const text = (v: Uint8Array) => {
             let s = ''

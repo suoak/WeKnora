@@ -21,6 +21,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/models/asr"
 	"github.com/Tencent/WeKnora/internal/models/chat"
 	"github.com/Tencent/WeKnora/internal/models/embedding"
+	"github.com/Tencent/WeKnora/internal/officeguard"
 	"github.com/Tencent/WeKnora/internal/searchutil"
 	"github.com/Tencent/WeKnora/internal/sourceloc"
 	"github.com/Tencent/WeKnora/internal/tracing/langfuse"
@@ -4431,6 +4432,13 @@ func (s *knowledgeService) processDocument(ctx context.Context, t *asynq.Task) e
 	// breaks are plain LF.
 	// Source blocks were recorded against the parser's markdown; keep it so
 	// they can be re-aimed after the rewrites below.
+	if convertResult != nil {
+		if err := officeguard.ValidateParsedText(knowledge.FileType, convertResult.MarkdownContent); err != nil {
+			s.failStage(ctx, knowledge.ID, types.StageDocReader, werrors.ErrCodeDocReaderParseFailed, officeguard.DRMMessage, err)
+			_, failure := s.recordKnowledgeParseFailure(ctx, knowledge, err, isLastRetry)
+			return failure
+		}
+	}
 	var parsedMarkdown string
 	var sourceBlocks []types.SourceBlock
 	if convertResult != nil {
@@ -4799,6 +4807,11 @@ func (s *knowledgeService) convert(
 			return s.failKnowledge(ctx, knowledge, isLastRetry, "failed to read file: %v", err)
 		}
 		req.FileContent = contentBytes
+		if err := officeguard.ValidateBytes(ctx, contentBytes, payload.FileName); err != nil {
+			s.failStage(ctx, knowledge.ID, types.StageDocReader,
+				werrors.ErrCodeDocReaderParseFailed, officeguard.DRMMessage, err)
+			return s.recordKnowledgeParseFailure(ctx, knowledge, err, isLastRetry)
+		}
 		req.FileName = payload.FileName
 		req.FileType = fileType
 	}
@@ -4885,6 +4898,11 @@ func (s *knowledgeService) callDocReaderWithTimeout(
 			return nil, fmt.Errorf("docreader call timeout after %s: %w", timeout, err)
 		}
 		return nil, err
+	}
+	if result != nil {
+		if err := officeguard.ValidateParsedText(req.FileType, result.MarkdownContent); err != nil {
+			return nil, err
+		}
 	}
 	logger.Infof(ctx, "[convert] docreader call ok in %s for %q", elapsed, req.FileName)
 	return result, nil

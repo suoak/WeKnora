@@ -173,5 +173,35 @@
     "name": "drm-spoof.xlsx",
     "state": "invalid",
     "frontend": "invalid"
+  },
+  {
+    "name": "classic-irm.doc",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "classic-irm-viewer.doc",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "classic-irm-disguised.txt",
+    "state": "drm",
+    "frontend": "drm"
+  },
+  {
+    "name": "classic-irm-embedded.doc",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "classic-irm-spoof.doc",
+    "state": "readable",
+    "frontend": "readable"
+  },
+  {
+    "name": "classic-irm-stale.doc",
+    "state": "readable",
+    "frontend": "readable"
   }
 ]

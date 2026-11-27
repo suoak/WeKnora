@@ -290,6 +290,9 @@ func detectCFB(b *budget) State {
 		}
 		seen[id] = true
 		d := c.dirs[id]
+		if d.kind != 1 && d.kind != 2 {
+			return Invalid
+		}
 		todo = append(todo, d.left, d.right)
 		if d.kind == 2 {
 			if _, ok := streams[d.name]; ok {
@@ -310,6 +313,14 @@ func detectCFB(b *budget) State {
 	}
 	info, ei := streams["EncryptionInfo"]
 	pkg, ep := streams["EncryptedPackage"]
+	// Binary Office IRM keeps an unencrypted compatibility document at the
+	// root. Its FIB says readable; the real content is in DRMContent instead.
+	if content, ok := streams["\x09DRMContent"]; ok && content.size >= 8 && c.hasClassicDRM() {
+		if _, err := c.prefix(content, 8); err != nil {
+			return Invalid
+		}
+		return DRM
+	}
 	if ep && !ei && pkg.size >= 8 && c.hasDRM() {
 		return DRM
 	}
@@ -391,52 +402,57 @@ func detectCFB(b *budget) State {
 	return Unknown
 }
 
+func (c *compound) findChild(parent uint32, name string, kind byte) (uint32, bool) {
+	if int64(parent) >= int64(len(c.dirs)) {
+		return 0, false
+	}
+	todo := []uint32{c.dirs[parent].child}
+	seen := map[uint32]bool{}
+	found, count := uint32(0), 0
+	for len(todo) > 0 {
+		id := todo[len(todo)-1]
+		todo = todo[:len(todo)-1]
+		if id == 0xffffffff {
+			continue
+		}
+		if int64(id) >= int64(len(c.dirs)) || seen[id] {
+			return 0, false
+		}
+		seen[id] = true
+		d := c.dirs[id]
+		if d.kind != 1 && d.kind != 2 {
+			return 0, false
+		}
+		todo = append(todo, d.left, d.right)
+		if d.name == name && d.kind == kind {
+			found = id
+			count++
+		}
+	}
+	return found, count == 1
+}
+
+func (c *compound) path(names []string) (entry, bool) {
+	id := uint32(0)
+	for i, name := range names {
+		kind := byte(1)
+		if i == len(names)-1 {
+			kind = 2
+		}
+		next, ok := c.findChild(id, name, kind)
+		if !ok {
+			return entry{}, false
+		}
+		id = next
+	}
+	return c.dirs[id], true
+}
+
 // hasDRM requires live IRM data-space paths and their transform definition.
 // Names elsewhere, stale entries, and a lone EncryptedPackage are insufficient.
 // MS-OFFCRYPTO 2.2.2 / 2.2.3 define these IRM-specific structures.
 func (c *compound) hasDRM() bool {
-	find := func(parent uint32, name string, kind byte) (uint32, bool) {
-		if int64(parent) >= int64(len(c.dirs)) {
-			return 0, false
-		}
-		todo := []uint32{c.dirs[parent].child}
-		seen := map[uint32]bool{}
-		found, count := uint32(0), 0
-		for len(todo) > 0 {
-			id := todo[len(todo)-1]
-			todo = todo[:len(todo)-1]
-			if id == 0xffffffff {
-				continue
-			}
-			if int64(id) >= int64(len(c.dirs)) || seen[id] {
-				return 0, false
-			}
-			seen[id] = true
-			d := c.dirs[id]
-			todo = append(todo, d.left, d.right)
-			if d.name == name && d.kind == kind {
-				found = id
-				count++
-			}
-		}
-		return found, count == 1
-	}
-	path := func(names []string) (entry, bool) {
-		id := uint32(0)
-		for i, name := range names {
-			kind := byte(1)
-			if i == len(names)-1 {
-				kind = 2
-			}
-			next, ok := find(id, name, kind)
-			if !ok {
-				return entry{}, false
-			}
-			id = next
-		}
-		return c.dirs[id], true
-	}
-	definition, ok := path([]string{"\x06DataSpaces", "DataSpaceInfo", "DRMEncryptedDataSpace"})
+	definition, ok := c.path([]string{"\x06DataSpaces", "DataSpaceInfo", "DRMEncryptedDataSpace"})
 	if !ok || definition.size < 56 {
 		return false
 	}
@@ -454,7 +470,7 @@ func (c *compound) hasDRM() bool {
 	if !bytes.Equal(p[12:54], encoded("DRMEncryptedTransform")) {
 		return false
 	}
-	primary, ok := path([]string{"\x06DataSpaces", "TransformInfo", "DRMEncryptedTransform", "\x06Primary"})
+	primary, ok := c.path([]string{"\x06DataSpaces", "TransformInfo", "DRMEncryptedTransform", "\x06Primary"})
 	if !ok {
 		return false
 	}
