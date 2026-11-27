@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"sync"
 
+	"github.com/Tencent/WeKnora/internal/types"
 	"gorm.io/gorm"
 )
 
@@ -13,8 +14,10 @@ type wikiReadProofSessionKey struct{}
 const wikiReadProofSessionMaxKBs = 8
 
 type wikiReadProofKey struct {
-	pool *sql.DB
-	kb   string
+	pool      *sql.DB
+	kb        string
+	selection string
+	local     bool
 }
 type wikiReadProofSession struct {
 	mu     sync.Mutex
@@ -33,24 +36,42 @@ func WithWikiReadProofSession(ctx context.Context) context.Context {
 }
 
 func wikiReadDependencies(db *gorm.DB, kb string) (*wikiGenerationProof, error) {
+	return wikiReadSelectedDependencies(db, kb, nil)
+}
+
+// Producer selections and local-read mode are separate proof identities. Only
+// content digests are reused; the existing verifier reloads source authority,
+// document input stamps and trigger coverage before and after every use.
+func wikiReadSelectedDependencies(db *gorm.DB, kb string, selected map[string]bool) (*wikiGenerationProof, error) {
+	verify := func(prior *wikiGenerationProof) (*wikiGenerationProof, error) {
+		if selected != nil {
+			if prior != nil {
+				return wikiDependenciesSelected(db, kb, nil, selected, prior)
+			}
+			return wikiDependenciesSelected(db, kb, nil, selected)
+		}
+		if prior != nil {
+			return wikiDependencies(db, kb, prior)
+		}
+		return wikiDependencies(db, kb)
+	}
 	session, ok := db.Statement.Context.Value(wikiReadProofSessionKey{}).(*wikiReadProofSession)
 	if !ok || session == nil {
-		return wikiDependencies(db, kb)
+		return verify(nil)
 	}
 	pool, err := db.DB()
 	if err != nil || pool == nil {
-		return wikiDependencies(db, kb)
+		return verify(nil)
 	}
-	key := wikiReadProofKey{pool, kb}
+	selection := ""
+	if selected != nil {
+		selection = wikiDigest(wikiSelectionIDs(selected))
+	}
+	key := wikiReadProofKey{pool: pool, kb: kb, selection: selection, local: types.LocalSourceContentRead(db.Statement.Context)}
 	session.mu.Lock()
 	prior := session.proofs[key]
 	session.mu.Unlock()
-	var proof *wikiGenerationProof
-	if prior == nil {
-		proof, err = wikiDependencies(db, kb)
-	} else {
-		proof, err = wikiDependencies(db, kb, prior)
-	}
+	proof, err := verify(prior)
 	if err != nil {
 		return nil, err
 	}
