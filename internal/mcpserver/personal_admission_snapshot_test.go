@@ -16,7 +16,9 @@ type admissionSnapshotStore struct {
 	loads int
 }
 
-func (s *admissionSnapshotStore) LoadDocumentReadSnapshot(ctx context.Context, user string, key uint64, kb string) (*types.EnterpriseReadSnapshot, error) {
+func (s *admissionSnapshotStore) LoadDocumentReadSnapshot(
+	ctx context.Context, user string, key uint64, kb string,
+) (*types.EnterpriseReadSnapshot, error) {
 	return access.ReadPortalSnapshot(ctx, s, user, key, kb, false, false, func() (*types.EnterpriseReadSnapshot, error) {
 		s.loads++
 		return s.selectedMCPStore.LoadDocumentReadSnapshot(ctx, user, key, kb)

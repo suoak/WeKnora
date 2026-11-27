@@ -20,7 +20,9 @@ func wikiReadSessionFixture(
 	return wikiReadSessionWithFixture(t, fixture.New(t))
 }
 
-func wikiReadSessionWithFixture(t *testing.T, f *fixture.Fixture) (*fixture.Fixture, *repository.PersonalWikiStore, context.Context, []*types.WikiPage, *int) {
+func wikiReadSessionWithFixture(
+	t *testing.T, f *fixture.Fixture,
+) (*fixture.Fixture, *repository.PersonalWikiStore, context.Context, []*types.WikiPage, *int) {
 	t.Helper()
 	f.PreparePublished(t)
 	r := repository.NewWikiPageRepository(f.DB)

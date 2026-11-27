@@ -67,7 +67,9 @@ func wikiReadSelectedDependencies(db *gorm.DB, kb string, selected map[string]bo
 	if selected != nil {
 		selection = wikiDigest(wikiSelectionIDs(selected))
 	}
-	key := wikiReadProofKey{pool: pool, kb: kb, selection: selection, local: types.LocalSourceContentRead(db.Statement.Context)}
+	key := wikiReadProofKey{
+		pool: pool, kb: kb, selection: selection, local: types.LocalSourceContentRead(db.Statement.Context),
+	}
 	session.mu.Lock()
 	prior := session.proofs[key]
 	session.mu.Unlock()
