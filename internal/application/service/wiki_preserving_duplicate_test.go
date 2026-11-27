@@ -44,7 +44,8 @@ func testWikiPreservingIdenticalPendingDeliveries(t *testing.T, newFixture func(
 					TenantID: 1, TaskType: "wiki:ingest", Scope: "knowledge_base", ScopeID: "public-two",
 					Op: "ingest", DedupKey: "public-two-doc", FailCount: i,
 					EnqueuedAt: time.Now().UTC().Add(time.Duration(i) * time.Second).Truncate(time.Second),
-					Payload:    json.RawMessage(`{"op":"ingest","knowledge_id":"public-two-doc","attempt":1,"language":"zh-CN"}`),
+					Payload: json.RawMessage(
+						`{"op":"ingest","knowledge_id":"public-two-doc","attempt":1,"language":"zh-CN"}`),
 				}
 				require.NoError(t, db.Create(&op).Error)
 			}
@@ -65,7 +66,8 @@ func testWikiPreservingIdenticalPendingDeliveries(t *testing.T, newFixture func(
 			require.NoError(t, db.Where("scope='knowledge_base'").Order("id").Find(&before).Error)
 			applied, err := repository.PrepareWikiPreservingRecovery(ctx, db, 1, "public-two", plan.Snapshot, true)
 			var markers int64
-			require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("scope='wiki_preserving_recovery'").Count(&markers).Error)
+			require.NoError(t, db.Model(&types.TaskPendingOp{}).
+				Where("scope='wiki_preserving_recovery'").Count(&markers).Error)
 			if scenario == "identical" {
 				require.NoError(t, err)
 				require.True(t, applied.Applied)
