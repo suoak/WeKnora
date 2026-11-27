@@ -35,7 +35,7 @@ try {
   await page.locator('input[type=file]').first().setInputFiles([fixture('normal.docx'), fixture('encrypted.xlsx'), fixture('sheet-protected.xlsx')])
   await page.waitForFunction(() => document.querySelector('#status')?.textContent === 'normal.docx,sheet-protected.xlsx')
   assert.equal(uploads, 0, 'selection must not send upload requests')
-  assert.match(await page.locator('body').innerText(), /已跳过 1 个加密文件/)
+  assert.match(await page.locator('body').innerText(), /已跳过 1 个受限文件/)
   await page.locator('#send').click()
   await page.waitForFunction(() => document.querySelector('#status')?.textContent === '上传完成')
   assert.equal(uploads, 2)

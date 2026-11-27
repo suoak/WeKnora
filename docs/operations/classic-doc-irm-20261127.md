@@ -95,3 +95,37 @@ Real private DOC classification Go/TypeScript: before readable, after drm.
 Further business regression, Chromium, native parser, CI, merge, image build,
 deployment and historical repair are pending; none is claimed PASS here.
 Private evidence directory: `E:/AIData/Codex/classic-irm-20261127`.
+
+
+## Development verification update
+
+Go detector regression and 10-second fuzz: PASS. Frontend final structural,
+classification, timeout, batch and admission tests: 62 PASS, 0 SKIP. Chromium
+harness: PASS after updating its pre-existing obsolete “encrypted file” label
+assertion to the current “restricted file” label. Both classic variants and a
+renamed classic file returned 2400 with zero extra HTTP requests. Initial local
+Chromium navigation timeout and obsolete-label failure are retained in private
+receipts; neither is counted as PASS.
+
+Windows service regression: BUILD_FAILED because the installed MinGW linker
+cannot find `-lrstrtmgr` required by DuckDB; service/HTTP/MCP verification must use
+the Linux workflows and cannot be inferred from the detector pass.
+
+Real production text chunk matches the full normalized notice with zero other
+body characters. Before repair, both actual Hybrid Search and Go Personal MCP
+keyword search recalled the selected knowledge and permission notice (two
+queries each). No production data has been modified at this point.
+
+Upstream/main was refreshed and checked for classic DRMContent/DRMDataSpace
+implementation; no matching implementation was found. PR:
+https://github.com/suoak/WeKnora/pull/283 . Exact-head Linux, native and general
+checks are still running. Merge, deployment, post-deploy real sample acceptance
+and historical repair remain pending.
+
+Changed runtime paths: `internal/officeguard/{detect,classic,validate,placeholder}.go`,
+`frontend/src/utils/officeEncryption.ts`,
+`internal/application/service/{knowledge_process,knowledge_parse_failure,feishu_document_failure,temporary_document,office_sync}.go`.
+Other changes are the generated synthetic fixtures, generator/manifest, focused
+Go/TypeScript/Chromium tests and this incident report. No schema migration,
+authorization model, source lease/cursor/lock, format allowlist or 8443 ingress
+configuration changes are included.
