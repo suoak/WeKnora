@@ -4809,7 +4809,7 @@ func (s *knowledgeService) convert(
 		req.FileContent = contentBytes
 		if err := officeguard.ValidateBytes(ctx, contentBytes, payload.FileName); err != nil {
 			s.failStage(ctx, knowledge.ID, types.StageDocReader,
-				werrors.ErrCodeDocReaderParseFailed, officeguard.DRMMessage, err)
+				werrors.ErrCodeDocReaderParseFailed, officeguard.RestrictionMessage(err), err)
 			return s.recordKnowledgeParseFailure(ctx, knowledge, err, isLastRetry)
 		}
 		req.FileName = payload.FileName
