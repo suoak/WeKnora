@@ -187,7 +187,9 @@ func testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T, f *fixtu
 	pages, _, err := store.VerifiedSearchPages(ctx, 1, "public-two", nil, "verified searchable")
 	require.NoError(t, err)
 	require.Empty(t, pages, "a matching page never authorizes an out-of-scope source")
-	pages, _, err = store.VerifiedSearchPages(ctx, 1, "public-two", []string{"public-two-doc"}, "%' OR 1=1 --")
+	pages, _, err = store.VerifiedSearchPages(
+		ctx, 1, "public-two", []string{"public-two-doc"}, "%' OR 1=1 --",
+	)
 	require.NoError(t, err)
 	require.Empty(t, pages, "query syntax stays literal data")
 	require.NoError(t, f.DB.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
