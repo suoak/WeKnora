@@ -1745,6 +1745,9 @@ const ensureDocumentKbReady = () => {
 };
 
 const uploadConfirmStore = useUploadConfirmStore();
+watch(() => uploadConfirmStore.tagCatalogRevision, () => {
+  if (uploadConfirmStore.tagCatalogKbId === kbId.value) void loadTags(kbId.value, true);
+});
 
 const uploadTasksStore = useUploadTasksStore();
 

@@ -41,9 +41,10 @@ const all = (el: Host, predicate: (node: Host) => boolean): Host[] => [
 const hasClass = (el: Host, name: string) => String(el.props.class || '').split(' ').includes(name)
 
 
-async function fixture() {
+async function fixture(options: { selectCreateOnly?: boolean; allowCreate?: boolean; empty?: boolean; conflict?: boolean; create?: (...args: any[]) => Promise<any>; list?: () => void } = {}) {
   const calls: { create: unknown[][]; rename: unknown[][]; remove: unknown[][] } = { create: [], rename: [], remove: [] }
   let rows = [{ id: 'used', seq_id: 1, name: 'Used', knowledge_count: 2 }, { id: 'free', seq_id: 2, name: 'Free', knowledge_count: 0 }]
+  if (options.empty) rows = []
   const exports: { default?: vue.Component } = {}
   runInNewContext(compiled, { exports, setTimeout, clearTimeout, require(name: string) {
     if (name === 'vue') return vue
@@ -51,13 +52,16 @@ async function fixture() {
     if (name === 'tdesign-vue-next') return { MessagePlugin: { success() {}, error() {}, warning() {} } }
     if (name === '@/api/knowledge-base') return {
       listKnowledgeTags: async (_kb: string, params: { keyword?: string }) => {
+        options.list?.()
         const filtered = rows.filter(r => !params.keyword || r.name.includes(params.keyword))
         return { data: { data: filtered.map(r => ({ ...r })), total: filtered.length } }
       },
       createKnowledgeBaseTag: async (...args: any[]) => {
         calls.create.push(args)
+        if (options.create) return options.create(...args)
         const tag = { id: 'new', seq_id: 3, name: args[1].name, knowledge_count: 0 }
         rows.push(tag)
+        if (options.conflict) throw { status: 409 }
         return { data: tag }
       },
       updateKnowledgeBaseTag: async (...args: any[]) => { calls.rename.push(args); rows.find(r => r.id === args[1])!.name = args[2].name },
@@ -69,7 +73,7 @@ async function fixture() {
   const changes: unknown[] = []
   const root = node('root')
   const app = renderer.createApp({ setup: () => () => vue.h(exports.default!, {
-    kbId: 'kb', selectedIds: selectedIds.value,
+    kbId: 'kb', selectedIds: selectedIds.value, selectCreateOnly: options.selectCreateOnly, allowCreate: options.allowCreate,
     'onUpdate:selectedIds': (ids: string[]) => { selectedIds.value = ids },
     onChanged: (payload: unknown) => changes.push(payload),
   }) })
@@ -151,4 +155,52 @@ test('used tags cannot be deleted; unused deletion never requests cascading cont
   assert.deepEqual(JSON.parse(JSON.stringify(f.calls.remove)), [['kb', 2]])
   assert.deepEqual([...f.selectedIds.value], ['used'])
   assert.equal(all(f.root, el => hasClass(el, 'tag-picker-row')).length, 1)
+})
+
+test('upload mode exposes create and multi-selection but no management actions', async t => {
+  const f = await fixture({ selectCreateOnly: true }); t.after(f.close)
+  assert.equal(all(f.root, el => el.type === 'popup').length, 0)
+  assert.ok(textOf(f.root).includes('knowledgeBase.tagCreateAction'))
+  await f.search(' First ')
+  await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
+  assert.deepEqual(JSON.parse(JSON.stringify(f.calls.create)), [['kb', { name: 'First' }]])
+  assert.deepEqual([...f.selectedIds.value], ['new'])
+  assert.ok(textOf(f.root).includes('First'))
+})
+
+test('empty, failed loading, and denied creation have distinct states', async t => {
+  const empty = await fixture({ selectCreateOnly: true, empty: true }); t.after(empty.close)
+  assert.ok(textOf(empty.root).includes('uploadConfirm.tagsCreateHint'))
+  await empty.search('First')
+  assert.ok(textOf(empty.root).includes('knowledgeBase.tagEmptyResult'))
+  const failed = await fixture({ list: () => { throw new Error('offline') } }); t.after(failed.close)
+  assert.ok(textOf(failed.root).includes('uploadConfirm.tagsLoadFailed'))
+  assert.ok(!textOf(failed.root).includes('knowledgeBase.noTags'))
+  const denied = await fixture({ selectCreateOnly: true, allowCreate: false }); t.after(denied.close)
+  await denied.search('New')
+  assert.ok(textOf(denied.root).includes('uploadConfirm.tagsCreateForbidden'))
+  assert.equal(all(denied.root, el => hasClass(el, 'tag-picker-create')).length, 0)
+})
+
+test('conflicting name is queried and reused without dropping prior selection', async t => {
+  const f = await fixture({ conflict: true }); t.after(f.close)
+  f.selectedIds.value = ['free']; await vue.nextTick()
+  await f.search('Raced')
+  await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
+  assert.deepEqual([...f.selectedIds.value], ['free', 'new'])
+  assert.equal(f.calls.create.length, 1)
+})
+
+test('failed and duplicate in-flight creates preserve the query and selection', async t => {
+  let reject!: (value: unknown) => void
+  const f = await fixture({ create: () => new Promise((_resolve, rejectCreate) => { reject = rejectCreate }) }); t.after(f.close)
+  f.selectedIds.value = ['used']; await vue.nextTick()
+  await f.search('Retry me')
+  const button = f.find(el => hasClass(el, 'tag-picker-create'))
+  const first = button.props.onClick()
+  await button.props.onClick()
+  assert.equal(f.calls.create.length, 1)
+  reject(new Error('timeout')); await first; await vue.nextTick()
+  assert.equal(f.find(el => el.type === 'input').props.modelValue, 'Retry me')
+  assert.deepEqual([...f.selectedIds.value], ['used'])
 })

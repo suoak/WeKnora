@@ -9,9 +9,9 @@ const platform = readFileSync(new URL('../../platform/index.vue', import.meta.ur
 
 test('selects multiple document tags and returns them with the confirmation result', () => {
   assert.match(host, /:tag-ids="uploadConfirmStore\.tagIds"/)
-  assert.match(dialog, /v-model="selectedTagIds"/)
-  assert.match(dialog, /multiple/)
-  assert.match(dialog, /listKnowledgeTags\(kbId, \{ page: 1, page_size: 1000 \}\)/)
+  assert.match(dialog, /v-model:selected-ids="selectedTagIds"/)
+  assert.match(dialog, /select-create-only/)
+  assert.match(dialog, /@busy-change="tagCreating = \$event"/)
   assert.match(dialog, /tagIds: \[\.\.\.selectedTagIds\.value\]/)
 })
 

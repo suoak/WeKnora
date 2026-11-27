@@ -6914,6 +6914,10 @@ const messages = {
     }
   },
   uploadConfirm: {
+    tagsCreateHint: 'Тегов пока нет. Нажмите «+ Новый тег» и введите имя.',
+    tagsCreateForbidden: 'У вас нет прав на создание тегов в этой базе знаний.',
+    tagsPersistHint: 'Созданные теги сохраняются даже при отмене загрузки.',
+
     documentSummary: "Сводка документа",
     documentSummaryDescription: "Выберите, создавать ли сводки документов при этом импорте.",
     generateSummary: "Создавать сводки документов",
