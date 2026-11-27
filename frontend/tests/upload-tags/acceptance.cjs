@@ -93,6 +93,13 @@ const assert = require('node:assert/strict');
       const picker = page.locator('.upload-confirm-modal .knowledge-tag-picker');
       await expect(picker).toBeVisible();
       await expect(picker.getByText('暂无标签', { exact: false })).toBeVisible();
+      let prematureUploads = 0;
+      page.on('request', request => { if (request.method() === 'POST' && request.url().includes('/knowledge/file')) prematureUploads++; });
+      await page.locator('.upload-confirm-modal input[type=file]:not([webkitdirectory])').setInputFiles(path.resolve(__dirname, '../../../internal/officeguard/testdata/encrypted.xlsx'));
+      await expect(page.getByText(/打开密码/).last()).toBeVisible();
+      await expect(page.locator('.files-count').first()).toHaveText('11');
+      assert.equal(prematureUploads, 0);
+      passed('encrypted Office file is rejected before upload without losing the eleven valid files');
       await expect(picker.locator('.tag-picker-more')).toHaveCount(0);
       await picker.getByRole('button', { name: '新建标签', exact: true }).click();
       const search = picker.locator('input').first();
@@ -205,6 +212,29 @@ const assert = require('node:assert/strict');
       assert.equal(filtered.length, 11);
       passed('real browser and API tag filtering work after refresh');
       await page.locator('button[aria-controls="document-filters"]').click();
+      const kbInfo = (await api(owner, 'GET', '/api/v1/knowledge-bases/' + kb, undefined, tenant)).data;
+      for (const mode of ['url', 'manual', 'reparse']) {
+        await page.evaluate(({ mode, kbInfo, kb, documentId, tagId }) => {
+          const store = document.querySelector('#app').__vue_app__.config.globalProperties.$pinia._s.get('uploadConfirm');
+          window.uploadTagModeResult = null;
+          const options = { mode: mode === 'url' ? 'file' : mode, kbInfo, tagIds: [tagId], urls: mode === 'url' ? ['https://example.invalid/synthetic-import'] : [], manual: mode === 'manual' ? { kbId: kb, title: 'Synthetic manual confirmation', content: 'Synthetic content for confirmation only.' } : undefined, reparse: mode === 'reparse' ? { knowledgeId: documentId, fileName: 'synthetic.txt' } : undefined };
+          store.open(options).then(value => { window.uploadTagModeResult = value }).catch(() => {});
+        }, { mode, kbInfo, kb, documentId: result.documents[0].id, tagId: ids[0] });
+        await expect(page.locator('.upload-confirm-modal')).toBeVisible();
+        if (mode === 'reparse') {
+          await expect(page.locator('.upload-confirm-modal .knowledge-tag-picker')).toHaveCount(0);
+          await page.locator('.upload-confirm-modal .close-btn').click();
+        } else {
+          const sharedPicker = page.locator('.upload-confirm-modal .knowledge-tag-picker');
+          await sharedPicker.locator('input').fill(mode + ' quick tag');
+          await sharedPicker.locator('.tag-picker-create').click();
+          await expect(sharedPicker.locator('input')).toHaveValue('');
+          await page.locator('.upload-confirm-modal .modal-footer').getByRole('button').last().click();
+          await expect.poll(() => page.evaluate(() => window.uploadTagModeResult?.tagIds?.length)).toBe(2);
+        }
+        await expect(page.locator('.upload-confirm-modal')).toBeHidden();
+      }
+      passed('URL and manual confirmation create tags; reparse confirmation keeps tag creation hidden');
       for (const name of (config.mode === 'dev' ? ['', '   '] : ['', '   ', 'bad\u0000name', 'x'.repeat(129)])) {
         const response = await request(owner, 'POST', '/api/v1/knowledge-bases/' + kb + '/tags', { name }, tenant);
         assert.equal(response.status, 400);
