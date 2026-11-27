@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"os"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -80,6 +81,7 @@ type wikiWindowObserver struct {
 	bounded     int
 	legacy      int
 	revalidated int
+	searched    int
 }
 
 func (w *wikiWindowObserver) VerifiedPagesWindow(
@@ -95,6 +97,13 @@ func (w *wikiWindowObserver) VerifiedPages(
 ) ([]*types.WikiPage, bool, error) {
 	w.legacy++
 	return w.PersonalWikiStore.VerifiedPages(ctx, tenant, kb, authorized)
+}
+
+func (w *wikiWindowObserver) VerifiedSearchPages(
+	ctx context.Context, tenant uint64, kb string, authorized []string, query string,
+) ([]*types.WikiPage, bool, error) {
+	w.searched++
+	return w.PersonalWikiStore.VerifiedSearchPages(ctx, tenant, kb, authorized, query)
 }
 
 func (w *wikiWindowObserver) RevalidatePages(
@@ -125,7 +134,70 @@ func TestWikiReadWindowServiceUsesWindowAndKeepsFinalProof(t *testing.T) {
 	result, err = s.PersonalWiki(ctx, "wiki_search", "verified", "public-two", "", 50, 0)
 	require.NoError(t, err)
 	require.Len(t, result.Pages, 1)
-	require.Equal(t, 1, observer.legacy, "search must retain its full candidate filter")
+	require.Equal(t, 0, observer.legacy, "search selects matching candidates before its proof window")
+	require.Equal(t, 1, observer.searched)
 	require.Equal(t, 2, observer.bounded)
 	require.Equal(t, 3, observer.revalidated)
+}
+
+func TestWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T) {
+	testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t, fixture.New(t))
+}
+
+func TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres(t *testing.T) {
+	if os.Getenv("WIKI_HISTORY_POSTGRES_DSN") == "" {
+		t.Skip("requires isolated migrated PostgreSQL")
+	}
+	testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t, wikiPendingRegenerationFixture(t))
+}
+
+func testWikiSearchFindsLiteralMatchBeyondCandidateWindow(t *testing.T, f *fixture.Fixture) {
+	t.Helper()
+	f.PreparePublished(t)
+	store := &repository.PersonalWikiStore{DB: f.DB}
+	r := repository.NewWikiPageRepository(f.DB)
+	gen, err := repository.BeginWikiMCPGeneration(context.Background(), r, "public-two")
+	require.NoError(t, err)
+	target := &types.WikiPage{
+		ID: "search-window-target", TenantID: 1, KnowledgeBaseID: "public-two",
+		Slug: "zzz/search-target", Title: "接口 Case_%", Summary: "literal\\path",
+		Content: "verified searchable target", Status: types.WikiPageStatusPublished,
+		PageType: types.WikiPageTypeConcept, SourceRefs: types.StringArray{"public-two-doc|source"}, Version: 1,
+	}
+	require.NoError(t, r.Create(gen, target))
+	for i := 0; i < 205; i++ {
+		page := &types.WikiPage{
+			ID: fmt.Sprintf("search-window-old-%03d", i), TenantID: 1,
+			KnowledgeBaseID: "public-two", Slug: fmt.Sprintf("aaa/%03d", i), Title: "irrelevant",
+			Content: "unsealed history", Status: types.WikiPageStatusPublished,
+			PageType: types.WikiPageTypeConcept, Version: 1,
+		}
+		require.NoError(t, f.DB.Create(page).Error)
+	}
+	for _, query := range []string{"接口 case_%", "literal\\path", "verified searchable", "Case_%\nliteral"} {
+		ctx := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+		pages, partial, err := store.VerifiedSearchPages(ctx, 1, "public-two", []string{"public-two-doc"}, query)
+		require.NoError(t, err)
+		require.False(t, partial)
+		require.Len(t, pages, 1)
+		require.Equal(t, target.ID, pages[0].ID)
+		require.NoError(t, store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages))
+	}
+	ctx := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+	pages, _, err := store.VerifiedSearchPages(ctx, 1, "public-two", nil, "verified searchable")
+	require.NoError(t, err)
+	require.Empty(t, pages, "a matching page never authorizes an out-of-scope source")
+	pages, _, err = store.VerifiedSearchPages(
+		ctx, 1, "public-two", []string{"public-two-doc"}, "%' OR 1=1 --",
+	)
+	require.NoError(t, err)
+	require.Empty(t, pages, "query syntax stays literal data")
+	require.NoError(t, f.DB.Exec("UPDATE chunks SET content='changed' WHERE knowledge_id='public-two-doc'").Error)
+	ctx = repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+	pages, partial, err := store.VerifiedSearchPages(
+		ctx, 1, "public-two", []string{"public-two-doc"}, "verified searchable",
+	)
+	require.NoError(t, err)
+	require.True(t, partial)
+	require.Empty(t, pages, "matching text cannot bypass the current source proof")
 }

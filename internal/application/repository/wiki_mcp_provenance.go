@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/Tencent/WeKnora/internal/perftrace"
@@ -653,6 +654,25 @@ func (s *PersonalWikiStore) VerifiedPages(
 func (s *PersonalWikiStore) VerifiedPagesWindow(
 	ctx context.Context, tenant uint64, kb string, authorized []string, slug string, limit int,
 ) ([]*types.WikiPage, bool, error) {
+	return s.verifiedPagesWindow(ctx, tenant, kb, authorized, slug, "", limit)
+}
+
+// VerifiedSearchPages selects literal matches before the bounded proof scan.
+// A page beyond the index window must not disappear merely because its slug
+// sorts later. Matching is only a candidate filter: every returned page still
+// passes the same seal, source closure and live output verification.
+func (s *PersonalWikiStore) VerifiedSearchPages(
+	ctx context.Context, tenant uint64, kb string, authorized []string, query string,
+) ([]*types.WikiPage, bool, error) {
+	if strings.TrimSpace(query) == "" || len(query) > 4096 {
+		return nil, false, ErrWikiMCPUnverified
+	}
+	return s.verifiedPagesWindow(ctx, tenant, kb, authorized, "", query, 200)
+}
+
+func (s *PersonalWikiStore) verifiedPagesWindow(
+	ctx context.Context, tenant uint64, kb string, authorized []string, slug, query string, limit int,
+) ([]*types.WikiPage, bool, error) {
 	defer perftrace.Measure(ctx, perftrace.WikiCandidates)()
 	if limit < 1 || limit > 200 || len(slug) > 255 {
 		return nil, false, ErrWikiMCPUnverified
@@ -671,6 +691,9 @@ func (s *PersonalWikiStore) VerifiedPagesWindow(
 		if slug != "" {
 			countQuery = countQuery.Where("slug=?", slug)
 		}
+		if query != "" {
+			countQuery = wikiLiteralSearchCandidates(countQuery, query)
+		}
 		if e = countQuery.Count(&total).Error; e != nil {
 			return e
 		}
@@ -682,6 +705,9 @@ func (s *PersonalWikiStore) VerifiedPagesWindow(
 		}
 		if slug != "" {
 			pageQuery = pageQuery.Where("slug=?", slug)
+		}
+		if query != "" {
+			pageQuery = wikiLiteralSearchCandidates(pageQuery, query)
 		}
 		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
 			"length(content)<=262144 AND length(title)<=4096 AND "+
@@ -766,4 +792,16 @@ func (s *PersonalWikiStore) VerifiedPagesWindow(
 		return nil
 	})
 	return result, partial, e
+}
+
+func wikiLiteralSearchCandidates(tx *gorm.DB, query string) *gorm.DB {
+	// Concatenation and parameter binding preserve %, _, backslashes and SQL
+	// metacharacters as literal text. Use the same newline separators as the
+	// service's final strings.Contains check, including cross-field matches.
+	text := "COALESCE(title,'') || char(10) || COALESCE(summary,'') || char(10) || COALESCE(content,'')"
+	if tx.Name() == "postgres" {
+		text = "COALESCE(title,'') || chr(10) || COALESCE(summary,'') || chr(10) || COALESCE(content,'')"
+		return tx.Where("strpos(lower("+text+"), lower(?)) > 0", query)
+	}
+	return tx.Where("instr(lower("+text+"), lower(?)) > 0", query)
 }
