@@ -836,7 +836,7 @@ const messages = {
   tagDeleteDesc: 'タグ {name} を削除しますか？',
 },
   uploadConfirm: {
-    tagsCreateHint: 'タグがありません。「+ 新規タグ」から名前を入力して作成できます。',
+    tagsCreateHint: 'タグがありません。上の入力欄に名前を入力して作成できます。',
     tagsCreateForbidden: 'このナレッジベースでタグを作成する権限がありません。',
     tagsPersistHint: '作成したタグはアップロードをキャンセルしても保存されます。',
 

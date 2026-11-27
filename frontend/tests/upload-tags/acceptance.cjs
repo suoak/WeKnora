@@ -101,7 +101,7 @@ const assert = require('node:assert/strict');
       assert.equal(prematureUploads, 0);
       passed('encrypted Office file is rejected before upload without losing the eleven valid files');
       await expect(picker.locator('.tag-picker-more')).toHaveCount(0);
-      await picker.getByRole('button', { name: '新建标签', exact: true }).click();
+      await expect(picker.getByRole('button', { name: '新建标签', exact: true })).toHaveCount(0);
       const search = picker.locator('input[type=text]').first();
       const tagPattern = new RegExp('/knowledge-bases/' + kb + '/tags(?:\\?|$)');
       await page.route(tagPattern, route => route.request().method() === 'GET' ? route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ message: 'Synthetic list failure' }) }) : route.continue());
@@ -122,15 +122,16 @@ const assert = require('node:assert/strict');
         await page.unroute(tagPattern);
       }
       passed('server failure and request timeout retain input and all files');
-      const create = async (name, race = false) => {
+      const create = async (name, race = false, enter = false) => {
         await search.fill(name);
         await expect(picker.locator('.tag-picker-create')).toBeVisible();
         if (race) await api(owner, 'POST', '/api/v1/knowledge-bases/' + kb + '/tags', { name: name.trim() }, tenant);
-        await picker.locator('.tag-picker-create').click();
+        if (enter) await search.press('Enter');
+        else await picker.locator('.tag-picker-create').click();
         await expect(search).toHaveValue('');
         await expect(picker.getByText(name.trim(), { exact: true })).toBeVisible();
       };
-      await create('  First tag  ');
+      await create('  First tag  ', false, true);
       passed('create the first tag from an empty knowledge base');
       await create('Second tag');
       await create('Third tag', true);
