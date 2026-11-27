@@ -38,7 +38,9 @@ type tagCreateRaceRepository struct {
 	err error
 }
 
-func (r tagCreateRaceRepository) GetByName(ctx context.Context, tenant uint64, kb, name string) (*types.KnowledgeTag, error) {
+func (r tagCreateRaceRepository) GetByName(
+	ctx context.Context, tenant uint64, kb, name string,
+) (*types.KnowledgeTag, error) {
 	return r.KnowledgeTagRepository.GetByName(ctx, tenant, kb, name)
 }
 
@@ -57,7 +59,9 @@ func (r tagCreateRaceRepository) Create(ctx context.Context, tag *types.Knowledg
 
 func TestUploadTagCreateConcurrentConflict(t *testing.T) {
 	f := newFAQWriteFixture(t)
-	require.NoError(t, f.db.Exec("CREATE UNIQUE INDEX idx_tag_create_test ON knowledge_tags(tenant_id, knowledge_base_id, name)").Error)
+	require.NoError(t, f.db.Exec(
+		"CREATE UNIQUE INDEX idx_tag_create_test ON knowledge_tags(tenant_id, knowledge_base_id, name)",
+	).Error)
 	f.tags.repo = tagCreateRaceRepository{KnowledgeTagRepository: f.tags.repo}
 	_, err := f.tags.CreateTag(f.ctx, "kb", "raced", "", 0)
 	var appErr *werrors.AppError
