@@ -3,6 +3,7 @@ import { batchQueryKnowledge, uploadKnowledgeFile } from '@/api/knowledge-base/i
 import { useAuthStore } from './auth'
 import type { KnowledgeStatusRow } from './uploadQueue'
 import { createUploadTasks } from './uploadTasksCore'
+import { invalidatePortalAssets } from './portalEvents'
 
 export type { UploadBatch } from './uploadQueue'
 export type { EnqueueUploadsInput } from './uploadTasksCore'
@@ -41,6 +42,7 @@ export const useUploadTasksStore = defineStore('uploadTasks', () => {
       }
     },
     emitListRefresh: (kbId, settled) => {
+      invalidatePortalAssets()
       window.dispatchEvent(new CustomEvent('knowledgeFileUploaded', { detail: { kbId, settled } }))
     },
     owner: [() => auth.user?.id, () => auth.effectiveTenantId],

@@ -64,6 +64,7 @@ import DocumentScopeSummary from './components/DocumentScopeSummary.vue';
 import BatchTagDialog from './components/BatchTagDialog.vue';
 import type { KnowledgeProcessOverrides } from '@/types/knowledgeProcess';
 import { useUploadConfirmStore, type UploadConfirmResult } from '@/stores/uploadConfirm';
+import { invalidatePortalAssets } from '@/stores/portalEvents';
 import { useUploadTasksStore } from '@/stores/uploadTasks';
 import WikiBrowser from './wiki/WikiBrowser.vue';
 import ImageGallery from './gallery/ImageGallery.vue';
@@ -2237,6 +2238,7 @@ const deleteKnowledgeDocuments = async (
     );
     if (!isActive() || result === 'cancelled') return;
     if (result === 'completed') {
+      invalidatePortalAssets();
       MessagePlugin.success(batch
         ? t('knowledgeBase.batchDeleteSuccess', { count: ids.length })
         : t('knowledgeBase.deleteSuccess'));

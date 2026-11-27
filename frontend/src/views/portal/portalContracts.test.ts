@@ -4,6 +4,11 @@ import test from 'node:test'
 
 const source = (relative: string) => readFileSync(new URL(relative, import.meta.url), 'utf8')
 
+test('asynchronous upload and delete completion invalidate Portal after server-side work settles', () => {
+  assert.match(source('../knowledge/KnowledgeBase.vue'), /result === 'completed'\) \{\s*invalidatePortalAssets\(\)/)
+  assert.match(source('../../stores/uploadTasks.ts'), /emitListRefresh: \(kbId, settled\) => \{\s*invalidatePortalAssets\(\)/)
+})
+
 test('portal routes allow tenantless auth and admin route requires system admin', () => {
   const router = source('../../router/index.ts')
   assert.match(router, /path:\s*["']\/portal["'][\s\S]*?requiresAuth:\s*true[\s\S]*?requiresTenant:\s*false/)
