@@ -80,13 +80,15 @@ func TestWikiCandidatePolicyPhaseKeepsFreshOutputAuthorization(t *testing.T) {
 	}
 }
 
-func TestWikiRepositoryOutputFenceDiscardsInheritedPolicyPhase(t *testing.T) {
+func TestWikiRepositoryOutputFenceRetainsLiveSourceAuthority(t *testing.T) {
 	f, store, _, _, _ := wikiReadSessionFixture(t)
 	_ = publishedServiceM7(t, f)
 	ctx := repository.WithWikiReadProofSession(access.WithPortalSnapshotReads(fixture.Key("A", 1, 1, true)))
 	pages, _, err := store.VerifiedPages(ctx, 1, "public-two", []string{"public-two-doc"})
 	require.NoError(t, err)
 	require.Len(t, pages, 1)
-	require.NoError(t, f.DB.Exec("UPDATE tenant_api_keys SET revoked_at=CURRENT_TIMESTAMP WHERE id=1").Error)
+	require.NoError(t, f.DB.Exec(`INSERT INTO data_sources
+(id,tenant_id,knowledge_base_id,name,type,config,legacy_access_state,status)
+VALUES('output-held',1,'public-two','held','feishu','{}','hold','active')`).Error)
 	require.Error(t, store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages))
 }
