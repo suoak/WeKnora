@@ -138,10 +138,13 @@ async function createTag() {
       if (status === 403) creationForbidden.value = true;
       if (status !== 409) throw error;
       // Another tab or uploader may have created this name after the search.
-      const existing: any = await listKnowledgeTags(kbId, { page: 1, page_size: 50, keyword: name });
-      const tag = existing.data?.data?.find((tag: Tag) => tag.name === name);
-      if (!tag) throw error;
-      res = { data: tag };
+      for (let page = 1; ; page++) {
+        const existing: any = await listKnowledgeTags(kbId, { page, page_size: 50, keyword: name });
+        const rows: Tag[] = existing.data?.data || [];
+        const tag = rows.find(tag => tag.name === name);
+        if (tag) { res = { data: tag }; break; }
+        if (rows.length < 50 || page * 50 >= (existing.data?.total || 0)) throw error;
+      }
     }
     const tag = res.data || res;
     emit('changed', { kbId });

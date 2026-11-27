@@ -41,7 +41,7 @@ const all = (el: Host, predicate: (node: Host) => boolean): Host[] => [
 const hasClass = (el: Host, name: string) => String(el.props.class || '').split(' ').includes(name)
 
 
-async function fixture(options: { selectCreateOnly?: boolean; allowCreate?: boolean; empty?: boolean; conflict?: boolean; create?: (...args: any[]) => Promise<any>; list?: () => void } = {}) {
+async function fixture(options: { selectCreateOnly?: boolean; allowCreate?: boolean; empty?: boolean; conflict?: boolean; pagedConflict?: boolean; create?: (...args: any[]) => Promise<any>; list?: () => void } = {}) {
   const calls: { create: unknown[][]; rename: unknown[][]; remove: unknown[][] } = { create: [], rename: [], remove: [] }
   let rows = [{ id: 'used', seq_id: 1, name: 'Used', knowledge_count: 2 }, { id: 'free', seq_id: 2, name: 'Free', knowledge_count: 0 }]
   if (options.empty) rows = []
@@ -51,8 +51,12 @@ async function fixture(options: { selectCreateOnly?: boolean; allowCreate?: bool
     if (name === 'vue-i18n') return { useI18n: () => ({ t: translate }) }
     if (name === 'tdesign-vue-next') return { MessagePlugin: { success() {}, error() {}, warning() {} } }
     if (name === '@/api/knowledge-base') return {
-      listKnowledgeTags: async (_kb: string, params: { keyword?: string }) => {
+      listKnowledgeTags: async (_kb: string, params: { keyword?: string; page?: number }) => {
         options.list?.()
+        if (options.pagedConflict && params.keyword && calls.create.length) {
+          const matches = params.page === 1 ? Array.from({ length: 50 }, (_, index) => ({ id: 'similar-' + index, name: params.keyword + index })) : rows.filter(row => row.name === params.keyword)
+          return { data: { data: matches, total: 51 } }
+        }
         const filtered = rows.filter(r => !params.keyword || r.name.includes(params.keyword))
         return { data: { data: filtered.map(r => ({ ...r })), total: filtered.length } }
       },
@@ -188,6 +192,14 @@ test('conflicting name is queried and reused without dropping prior selection', 
   await f.search('Raced')
   await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
   assert.deepEqual([...f.selectedIds.value], ['free', 'new'])
+  assert.equal(f.calls.create.length, 1)
+})
+
+test('conflict recovery finds an exact name beyond the first search page', async t => {
+  const f = await fixture({ conflict: true, pagedConflict: true }); t.after(f.close)
+  await f.search('Common')
+  await f.fire(f.find(el => hasClass(el, 'tag-picker-create')))
+  assert.deepEqual([...f.selectedIds.value], ['new'])
   assert.equal(f.calls.create.length, 1)
 })
 
