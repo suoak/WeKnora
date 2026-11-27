@@ -50,7 +50,11 @@ jobs:
         run: |
           mkdir -p evidence
           set -o pipefail
-          go test -p 2 -tags sqlite_fts5 ./internal/types ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/database -run 'Folder|MigrationNumbers|MigrationGovernance|TestFeishuLegacyAtomicPostgres|TestKnowledgeDerivedWritePostgres' -count=1 -timeout=15m -v 2>&1 | tee evidence/backend.log
+          go test -p 2 -tags sqlite_fts5 ./internal/types ./internal/application/repository ./internal/application/service ./internal/handler ./internal/router ./internal/database -run 'Folder|KnowledgeSubmitter|MigrationNumbers|MigrationGovernance|TestFeishuLegacyAtomicPostgres|TestKnowledgeDerivedWritePostgres' -count=1 -timeout=15m -v 2>&1 | tee evidence/backend.log
+      - name: Historical submitter attribution on disposable PostgreSQL
+        run: |
+          set -o pipefail
+          go test -p 2 -tags sqlite_fts5,personal_exact_live ./internal/application/service -run '^TestKnowledgeSubmitter' -count=1 -timeout=10m -v 2>&1 | tee evidence/submitter-postgres.log
       - name: Frontend component state and locale regression
         working-directory: frontend
         run: |
