@@ -9,6 +9,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/perftrace"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/Tencent/WeKnora/internal/types/interfaces"
@@ -593,6 +594,7 @@ func (s *PersonalWikiStore) RevalidatePages(
 	read []*types.WikiPage,
 ) error {
 	defer perftrace.Measure(ctx, perftrace.WikiOutputProof)()
+	ctx = access.WithoutPortalSnapshotReads(ctx)
 	if len(read) > 200 {
 		return ErrWikiMCPUnverified
 	}

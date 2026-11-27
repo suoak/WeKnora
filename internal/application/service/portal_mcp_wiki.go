@@ -60,6 +60,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	ctx = repository.WithWikiReadProofSession(ctx)
+	ctx = access.WithPortalSnapshotReads(access.WithoutPortalSnapshotReads(ctx))
 	ctx, diagnostics := access.WithPortalDiagnostics(ctx)
 	if len(requested) > 128 || len(requested) > 0 && operation != "wiki_search" ||
 		operation == "wiki_search" && limit > 50 {
@@ -217,6 +218,9 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 	if result.Status == "partial" {
 		result.Warning = "Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope."
 	}
+	// Output authorization is a fresh phase; candidate snapshots never
+	// authorize a returned title or body after a concurrent policy change.
+	ctx = access.WithoutPortalSnapshotReads(ctx)
 	if e = validatePortalTargets(ctx, used); e != nil {
 		return nil, e
 	}
