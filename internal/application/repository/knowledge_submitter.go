@@ -39,7 +39,7 @@ func (r *knowledgeRepository) ReadKnowledgeSubmitters(
  WHERE a.actor_user_id<>''
  AND (coalesce(a.details->>'api_key_id','')='' OR EXISTS (
  SELECT 1 FROM tenant_api_keys credential
- WHERE credential.id::text=a.details->>'api_key_id'
+ WHERE CAST(credential.id AS TEXT)=a.details->>'api_key_id'
  AND credential.scope_type='user_mcp' AND credential.owner_user_id=a.actor_user_id))
 ), best AS (SELECT id,MIN(priority) AS priority FROM people GROUP BY id), chosen AS (
  SELECT p.id,MIN(p.user_id) AS user_id FROM people p
