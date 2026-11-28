@@ -16,8 +16,10 @@ func TestSyncHeartbeatPublicationContentionPostgres(t *testing.T) {
 	db := syncdb.Open(t, "postgres")
 	repo := &SyncLogRepository{db: db}
 	ctx := context.Background()
-	ds := &types.DataSource{ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb",
-		Name: "heartbeat fixture", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive}
+	ds := &types.DataSource{
+		ID: uuid.NewString(), TenantID: 1, KnowledgeBaseID: "kb",
+		Name: "heartbeat fixture", Type: types.ConnectorTypeFeishu, Status: types.DataSourceStatusActive,
+	}
 	require.NoError(t, db.Create(ds).Error)
 	log := &types.SyncLog{DataSourceID: ds.ID, TenantID: 1, Status: types.SyncLogStatusRunning}
 	ok, err := repo.CreateIfNoRunning(ctx, log)
