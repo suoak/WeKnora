@@ -124,7 +124,9 @@ func TestSourceDocumentReparseAutomaticDeliveryPostgres(t *testing.T) {
 	var queues []string
 	enqueue := func(task *asynq.Task, options ...asynq.Option) (*asynq.TaskInfo, error) {
 		tasks = append(tasks, task)
-		for _, option := range options {
+		// The production path embeds queue defaults in NewTask; enqueue options
+		// override them. Capture both just as the real client resolves them.
+		for _, option := range append(task.Options(), options...) {
 			if option.Type() == asynq.QueueOpt {
 				queues = append(queues, option.Value().(string))
 			}
