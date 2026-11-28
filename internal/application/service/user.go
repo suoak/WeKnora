@@ -1895,9 +1895,6 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
-	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
-		return nil, err
-	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && !cfg.SourceIDEnable {
 		return nil, errors.New("sourceid sso requires sourceid identity gate")
 	}
@@ -1920,6 +1917,9 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		((!cfg.SourceIDContractConfirmed && !cfg.SourceIDProtocolOnly) ||
 			cfg.IssuerURL == "" || cfg.RedirectURI == "") {
 		return nil, errors.New("sourceid protocol contract unconfirmed")
+	}
+	if err := config.ValidateOIDCProviderConfig(&cfg); err != nil {
+		return nil, fmt.Errorf("%w: %w", config.ErrOIDCProviderUnavailable, err)
 	}
 	if cfg.UserInfoMapping == nil {
 		cfg.UserInfoMapping = &config.OIDCUserInfoMapping{Username: "name", Email: "email"}

@@ -185,6 +185,7 @@ type OIDCConfigResponse struct {
 	RedirectURI           string `json:"redirect_uri,omitempty"`
 	Success               bool   `json:"success"`
 	Enabled               bool   `json:"enabled"`
+	Unavailable           bool   `json:"unavailable,omitempty"`
 	ProviderDisplayName   string `json:"provider_display_name,omitempty"`
 }
 

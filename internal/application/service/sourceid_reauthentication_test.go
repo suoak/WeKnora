@@ -29,6 +29,7 @@ func TestSourceIDPromptLoginURLAndDurableTransaction(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			s, db, _ := sourceIDLocalFixture(t)
 			cfg := s.config.OIDCAuth
+			cfg.ClientID, cfg.ClientSecret = "synthetic-client", "synthetic-secret"
 			cfg.AuthorizationEndpoint = "https://127.0.0.1:18443/authorize"
 			cfg.TokenEndpoint = "https://127.0.0.1:18443/token"
 			cfg.JwksURI = "https://127.0.0.1:18443/jwks"
@@ -78,6 +79,7 @@ func TestSourceIDForcedPromptCannotBeEnabledForOldTransaction(t *testing.T) {
 	withOIDCSSRFWhitelist(t, "127.0.0.1")
 	s, _, _ := sourceIDLocalFixture(t)
 	cfg := s.config.OIDCAuth
+	cfg.ClientID, cfg.ClientSecret = "synthetic-client", "synthetic-secret"
 	cfg.AuthorizationEndpoint = "https://127.0.0.1:18443/authorize"
 	cfg.TokenEndpoint = "https://127.0.0.1:18443/token"
 	cfg.JwksURI = "https://127.0.0.1:18443/jwks"

@@ -43,7 +43,10 @@ try {
   console.log('SOURCEID_SYNTHETIC_STAGE: browser_start')
   browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
-    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
+    // Mock SID's registered HTTP callback is an exact deployment contract.
+    // Disable Chromium's automatic HTTP upgrade only in this local fixture;
+    // normal certificate validation and the strict network allowlist remain.
+    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--disable-features=HttpsUpgrades,HttpsFirstModeV2,HttpsFirstBalancedMode,HttpsFirstModeIncognito', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
   })
   const context = await browser.newContext()
   // Chromium resolves this single approved domain directly to the local Vite
@@ -52,6 +55,8 @@ try {
   await context.route('**/*', async route => {
     const url = new URL(route.request().url())
     if ([browserOrigin, frontend, mock.origin].includes(url.origin)) return route.continue()
+    const host = url.hostname === 'knowhub.ruijie.com.cn' ? 'fixture_domain' : 'outside_fixture'
+    console.log(`SOURCEID_SYNTHETIC_BLOCK: scheme=${url.protocol === 'https:' ? 'https' : 'other'} host=${host}`)
     return route.abort()
   })
   const page = await context.newPage()
@@ -114,7 +119,8 @@ try {
   // even synthetic authorization codes. Preserve only a class and test line.
   const category = ['TimeoutError', 'AssertionError', 'Error'].includes(error?.name) ? error.name : 'Error'
   const line = /sourceid-local-e2e\.mjs:(\d+)/.exec(error?.stack || '')?.[1] || 'unknown'
-  console.error(`SOURCEID_SYNTHETIC_FAILURE: ${category} test_line=${line}`)
+  const network = /\bnet::ERR_[A-Z_]+\b/.exec(error?.message || '')?.[0] || 'none'
+  console.error(`SOURCEID_SYNTHETIC_FAILURE: ${category} test_line=${line} network=${network}`)
   process.exitCode = 1
 } finally {
   if (browser) await browser.close()
