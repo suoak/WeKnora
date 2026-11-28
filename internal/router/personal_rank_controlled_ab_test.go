@@ -2,6 +2,8 @@ package router
 
 import (
 	"bytes"
+	"context"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	pgretrieve "github.com/Tencent/WeKnora/internal/application/repository/retriever/postgres"
 	"github.com/Tencent/WeKnora/internal/application/service"
@@ -30,6 +33,23 @@ import (
 	"gorm.io/gorm"
 	gormlog "gorm.io/gorm/logger"
 )
+
+type controlledRankDBLogger struct{ gormlog.Interface }
+
+func (l controlledRankDBLogger) Trace(
+	ctx context.Context, started time.Time, statement func() (string, int64), err error,
+) {
+	if err != nil {
+		state := "unknown"
+		if coded, ok := err.(interface{ SQLState() string }); ok {
+			state = coded.SQLState()
+		}
+		sql, _ := statement()
+		fmt.Printf("CONTROLLED_RANK_AB_DB_ERROR: type=%T state=%s statement_sha256=%x\n",
+			err, state, sha256.Sum256([]byte(sql)))
+	}
+	l.Interface.Trace(ctx, started, statement, err)
+}
 
 // This opt-in operator harness starts no listener, worker or scheduler. Its
 // credentials arrive only on stdin when the compiled test is run deliberately.
@@ -82,7 +102,9 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		cfg.PersonalMCP == nil || !cfg.PersonalMCP.Enabled || cfg.PersonalMCP.PolicyReference == "" {
 		t.Fatal("actual approved deployment MCP configuration required")
 	}
-	db, err := gorm.Open(postgres.Open(input.DSN), &gorm.Config{Logger: gormlog.Default.LogMode(gormlog.Silent)})
+	db, err := gorm.Open(postgres.Open(input.DSN), &gorm.Config{
+		Logger: controlledRankDBLogger{gormlog.Default.LogMode(gormlog.Silent)},
+	})
 	if err != nil {
 		t.Fatal("read-only database connection unavailable")
 	}
@@ -132,6 +154,14 @@ func TestControlledPersonalRankAB(t *testing.T) {
 			repository.NewChunkRepository(db), models, registry, nil, nil, nil)
 		if portal == nil {
 			t.Fatal("normal personal knowledge constructor rejected the configuration")
+		}
+		embed := portal.Embed
+		portal.Embed = func(ctx context.Context, d access.PortalKBDescriptor, query string) ([]float32, error) {
+			vector, err := embed(ctx, d, query)
+			if err != nil {
+				fmt.Printf("CONTROLLED_RANK_AB_EMBED_ERROR: type=%T forbidden=%t\n", err, err == access.ErrForbidden)
+			}
+			return vector, err
 		}
 		engine := gin.New()
 		engine.Use(legacyReadScopeMiddleware(tenants))
