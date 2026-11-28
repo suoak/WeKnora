@@ -370,12 +370,6 @@ func runSourceIDLocalBusinessLoginScope(
 			"openid",
 		}, RedirectURI: "http://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback", ProviderDisplayName: "OA",
 	}
-	if browser && os.Getenv("SOURCEID_E2E_HTTPS_CERT") != "" && os.Getenv("SOURCEID_E2E_HTTPS_KEY") != "" {
-		// The isolated Mock SID must register the same HTTPS callback origin as
-		// the trusted browser fixture. Keep the real result handler's exact
-		// configured-origin CSRF check intact.
-		cfg.RedirectURI = "https://knowhub.ruijie.com.cn/api/v1/auth/oidc/callback"
-	}
 	if ordinary {
 		cfg.SourceIDAdmissionMode = "oidc_sso_approved"
 		cfg.SourceIDSSOPolicyConfirmed = true

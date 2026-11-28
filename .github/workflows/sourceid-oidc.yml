@@ -105,38 +105,6 @@ jobs:
           node-version: "22"
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - name: Trust certificate for the isolated browser fixture
-        shell: bash
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y libnss3-tools
-          fixture_tls="$RUNNER_TEMP/sourceid-browser-tls"
-          mkdir -p "$fixture_tls" "$HOME/.pki/nssdb"
-          openssl req -x509 -newkey rsa:2048 -nodes -days 2 -sha256 \
-            -subj '/CN=KnowHub isolated browser fixture CA' \
-            -addext 'basicConstraints=critical,CA:TRUE,pathlen:0' \
-            -addext 'nameConstraints=critical,permitted;DNS:knowhub.ruijie.com.cn' \
-            -keyout "$fixture_tls/ca.key" -out "$fixture_tls/ca.pem"
-          openssl req -newkey rsa:2048 -nodes -subj '/CN=knowhub.ruijie.com.cn' \
-            -keyout "$fixture_tls/leaf.key" -out "$fixture_tls/leaf.csr"
-          cat > "$fixture_tls/leaf.ext" <<'EOF'
-          basicConstraints=critical,CA:FALSE
-          keyUsage=critical,digitalSignature,keyEncipherment
-          extendedKeyUsage=serverAuth
-          subjectAltName=DNS:knowhub.ruijie.com.cn
-          EOF
-          openssl x509 -req -in "$fixture_tls/leaf.csr" -CA "$fixture_tls/ca.pem" \
-            -CAkey "$fixture_tls/ca.key" -CAcreateserial -days 1 -sha256 \
-            -extfile "$fixture_tls/leaf.ext" -out "$fixture_tls/leaf.pem"
-          chmod 600 "$fixture_tls/ca.key" "$fixture_tls/leaf.key"
-          if [ ! -f "$HOME/.pki/nssdb/cert9.db" ]; then
-            certutil -N --empty-password -d "sql:$HOME/.pki/nssdb"
-          fi
-          certutil -A -d "sql:$HOME/.pki/nssdb" -t 'C,,' \
-            -n "KnowHub isolated fixture $GITHUB_RUN_ID" -i "$fixture_tls/ca.pem"
-          openssl verify -CAfile "$fixture_tls/ca.pem" "$fixture_tls/leaf.pem"
-          echo "SOURCEID_E2E_HTTPS_CERT=$fixture_tls/leaf.pem" >> "$GITHUB_ENV"
-          echo "SOURCEID_E2E_HTTPS_KEY=$fixture_tls/leaf.key" >> "$GITHUB_ENV"
       - name: Real frontend and business auth handlers with isolated Mock SID
         run: |
           set -euo pipefail
