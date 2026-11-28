@@ -63,6 +63,7 @@ VALUES('unreferenced-chunk',1,'public-two','unreferenced-doc','other source body
 			if tc.level == "chunk" {
 				require.Len(t, source.Chunks, 1)
 				require.Equal(t, "public-two-chunk", source.Chunks[0].ChunkID)
+				require.Equal(t, source.Reference, source.Chunks[0].Reference)
 			} else {
 				require.Empty(t, source.Chunks, "summary attribution must not invent chunk evidence")
 			}

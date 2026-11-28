@@ -13,6 +13,8 @@ type WikiPageLineage struct {
 	Sources        []WikiSourceAttribution `json:"sources"`
 }
 
+// WikiSourceAttribution binds a recorded source to its canonical document and
+// the exact input version covered by the page's persisted generation seal.
 type WikiSourceAttribution struct {
 	KnowledgeID   string               `json:"knowledge_id"`
 	Title         string               `json:"title"`
@@ -22,6 +24,8 @@ type WikiSourceAttribution struct {
 	Chunks        []WikiChunkReference `json:"chunks"`
 }
 
+// WikiChunkReference uses the same document-reference/chunk-ID pair returned
+// by Personal MCP document reads, after checking the current chunk's parent.
 type WikiChunkReference struct {
 	ChunkID   string `json:"chunk_id"`
 	Reference string `json:"reference"`

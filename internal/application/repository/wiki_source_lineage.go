@@ -93,7 +93,7 @@ func (s *PersonalWikiStore) VerifiedPageLineage(
 			source := &lineage.Sources[index]
 			source.Level = "chunk"
 			source.Chunks = append(source.Chunks, types.WikiChunkReference{
-				ChunkID: reference.ID, Reference: source.Reference + ":chunk:" + reference.ID,
+				ChunkID: reference.ID, Reference: source.Reference,
 			})
 			validChunks++
 		}
