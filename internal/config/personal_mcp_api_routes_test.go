@@ -28,7 +28,9 @@ func TestPersonalMCPTechnicalAPIRoutesEnvironment(t *testing.T) {
 			v.SetConfigType("yaml")
 			require.NoError(t, v.ReadConfig(strings.NewReader(tc.yaml)))
 			var cfg Config
-			require.NoError(t, v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) { dc.TagName = "yaml" }))
+			require.NoError(t, v.Unmarshal(&cfg, func(dc *mapstructure.DecoderConfig) {
+				dc.TagName = "yaml"
+			}))
 			require.NotNil(t, cfg.PersonalMCP)
 			require.Equal(t, tc.want, cfg.PersonalMCP.TechnicalAPIRoutes)
 		})

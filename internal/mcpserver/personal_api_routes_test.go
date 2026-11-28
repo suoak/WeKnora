@@ -34,7 +34,8 @@ func TestPersonalTechnicalAPIRoutePolicyAndSerialization(t *testing.T) {
 		}
 		var decoded any
 		require.NoError(t, json.Unmarshal([]byte(text), &decoded))
-		require.Equal(t, decoded, result.StructuredContent, "text and structured content must share the same policy")
+		require.Equal(t, decoded, result.StructuredContent,
+			"text and structured content must share the same policy")
 	}
 	cfg := &config.Config{PersonalMCP: &config.PersonalMCPConfig{
 		Enabled: true, PolicyReference: "synthetic-approved-policy",

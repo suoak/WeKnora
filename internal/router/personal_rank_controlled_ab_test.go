@@ -80,7 +80,8 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		t.Fatal("unsupported controlled comparison")
 	}
 	for _, item := range input.Cases {
-		if input.Comparison == "technical_api_routes" && (item.Tool != "read_document" || len(item.Arguments) == 0) {
+		if input.Comparison == "technical_api_routes" &&
+			(item.Tool != "read_document" || len(item.Arguments) == 0) {
 			t.Fatal("technical projection comparison permits only normal explicit document reads")
 		}
 		if input.Comparison == "ranking" && (item.Tool != "" || len(item.Arguments) != 0) {
@@ -261,7 +262,9 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		for _, question := range input.Cases {
 			started := time.Now()
 			tool := "search_knowledge"
-			args := map[string]any{"query": question.Question, "mode": "hybrid", "limit": input.ResultLimit}
+			args := map[string]any{
+				"query": question.Question, "mode": "hybrid", "limit": input.ResultLimit,
+			}
 			if input.Comparison == "technical_api_routes" {
 				tool, args = question.Tool, question.Arguments
 			}
@@ -277,9 +280,10 @@ func TestControlledPersonalRankAB(t *testing.T) {
 				"duration_ms":    float64(time.Since(started).Microseconds()) / 1000,
 				"authorized_kbs": len(ids), "original_question": input.Comparison == "ranking",
 				"scope_narrowed": false,
-				"comparison":     input.Comparison, "tool": tool, "explicit_document_read": input.Comparison == "technical_api_routes",
-				"result_limit":         input.ResultLimit,
-				"runtime_baseline_sha": input.RuntimeSHA, "database_read_only": true,
+				"comparison":     input.Comparison, "tool": tool,
+				"explicit_document_read": input.Comparison == "technical_api_routes",
+				"result_limit":           input.ResultLimit,
+				"runtime_baseline_sha":   input.RuntimeSHA, "database_read_only": true,
 				"transport": "actual Go MCP handler with normal authentication; no listener or worker",
 			}
 			if input.Comparison == "technical_api_routes" {

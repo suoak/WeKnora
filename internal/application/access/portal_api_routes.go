@@ -85,5 +85,6 @@ func documentedPortalAPIRoute(original string, view portalTextView, match []int)
 		paragraphEnd = end + next
 	}
 	paragraph := view.text[paragraphStart:paragraphEnd]
-	return len(paragraph) <= 1024 && portalURLField.MatchString(paragraph) && portalMethodField.MatchString(paragraph)
+	return len(paragraph) <= 1024 && portalURLField.MatchString(paragraph) &&
+		portalMethodField.MatchString(paragraph)
 }
