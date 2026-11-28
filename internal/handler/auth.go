@@ -330,7 +330,7 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
 		if stderrors.Is(err, config.ErrOIDCProviderUnavailable) {
-			c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
+			_ = c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
 			return
 		}
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
@@ -387,7 +387,7 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
 		if stderrors.Is(err, config.ErrOIDCProviderUnavailable) {
-			c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
+			_ = c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
 			return
 		}
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
