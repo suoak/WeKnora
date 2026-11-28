@@ -91,6 +91,9 @@ func BeginWikiDocumentGeneration(
 				return err
 			}
 		}
+		if err := recordWikiNoWikiSources(tx, proof); err != nil {
+			return err
+		}
 		var pages []*types.WikiPage
 		// Internal inspection only: no historical body is returned to the
 		// caller. Each page is proved below or moved out of the live namespace.

@@ -25,7 +25,7 @@ import (
 func run() error {
 	tenant := flag.Uint64("tenant", 0, "exact owning tenant ID")
 	kb := flag.String("kb", "", "knowledge base UUID")
-	apply := flag.Bool("apply", false, "apply the reviewed snapshot and queue generation")
+	apply := flag.Bool("apply", false, "apply the reviewed recovery snapshot")
 	snapshot := flag.String("snapshot", "", "snapshot from the preview; required with -apply")
 	deadline := flag.Duration("timeout", 2*time.Minute, "bounded operator deadline between 1m and 10m")
 	resume := flag.Bool("resume-pending-ingest", false,
@@ -46,11 +46,17 @@ func run() error {
 		"queue verified regeneration while keeping old browser pages until atomic replacement")
 	finishPreserving := flag.Bool("finish-preserving-pages", false,
 		"retire unchanged obsolete pages only after generation and current summary coverage are complete")
+	certifyNoWiki := flag.Bool("certify-no-wiki-sources", false,
+		"preview/apply source-bound insufficient-text terminals without regenerating restored documents")
 	publishedBackup := flag.String("restore-published-snapshots", "",
 		"original recovery JSONL backup; restore browser snapshots without publishing drafts")
 	knowledge := flag.String("knowledge", "", "exact knowledge UUID for folder proof repair")
 	originalFolder := flag.String("original-folder", "", "original folder path proved by the publication digest")
 	flag.Parse()
+	if *certifyNoWiki && (*publishedBackup != "" || *preservePages || *finishPreserving || *folderProof ||
+		*documentPreview || *personalHandoff || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
+		return errors.New("choose one recovery mode")
+	}
 	if *publishedBackup != "" && (*preservePages || *finishPreserving || *folderProof || *documentPreview ||
 		*personalHandoff || *resume || *retireEmpty || *isolatePages || *restoreParsed) {
 		return errors.New("choose one recovery mode")
@@ -153,6 +159,18 @@ func run() error {
 		err = wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
 			var e error
 			plan, e = repository.RestoreWikiPublishedSnapshots(locked, db, *tenant, *kb, pages, *snapshot, *apply)
+			return e
+		})
+		if err != nil {
+			return err
+		}
+		return json.NewEncoder(os.Stdout).Encode(plan)
+	}
+	if *certifyNoWiki {
+		var plan *repository.WikiNoWikiSourcePlan
+		err := wikilock.With(ctx, rc, *kb, func(locked context.Context) error {
+			var e error
+			plan, e = repository.PrepareWikiNoWikiSources(locked, db, *tenant, *kb, *snapshot, *apply)
 			return e
 		})
 		if err != nil {
