@@ -93,6 +93,7 @@ agent_type_presets:
         - "wiki_search"
         - "wiki_read_page"
         - "read_document"
+        - "list_documents"
         - "wiki_flag_issue"
       retain_retrieval_history: false
       kb_selection_mode: "all"

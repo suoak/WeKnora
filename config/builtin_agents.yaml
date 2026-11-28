@@ -171,6 +171,7 @@ builtin_agents:
         - "wiki_search"
         - "wiki_read_page"
         - "read_document"
+        - "list_documents"
         - "wiki_flag_issue"
       web_search_enabled: false
       web_search_max_results: 0
