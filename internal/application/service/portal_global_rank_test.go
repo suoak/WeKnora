@@ -43,7 +43,9 @@ func TestPortalRankDomainKeepsDifferentStoresAndModelsIndependent(t *testing.T) 
 	lexicalB, _ := portalCompatibleRankDomain(first, "model-b", types.KeywordsRetrieverType, nil)
 	require.Equal(t, lexicalA, lexicalB, "lexical relevance does not depend on the embedding model")
 	otherStore, _ := portalCompatibleRankDomain(second, "model-a", types.KeywordsRetrieverType, nil)
-	require.NotEqual(t, lexicalA, otherStore, "driver type alone does not identify a scoring corpus")
+	// Domain maps use Go interface/pointer identity, not recursive equality of
+	// the fields inside two independently constructed adapters.
+	require.False(t, lexicalA == otherStore, "driver type alone does not identify a scoring corpus")
 	vectorA, _ := portalCompatibleRankDomain(first, "model-a", types.VectorRetrieverType, []float32{0.1, 0.2})
 	vectorB, _ := portalCompatibleRankDomain(first, "model-b", types.VectorRetrieverType, []float32{0.1, 0.2})
 	require.NotEqual(t, vectorA, vectorB)
