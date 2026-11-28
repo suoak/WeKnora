@@ -65,6 +65,12 @@ func embedLegacyCheckpointed(
 	// well as by BatchEmbed. Yield only newly persisted, incomplete v2 work;
 	// replayed cache entries and other failures retain their original handling.
 	defer func() {
+		var fence *repository.LegacyFenceError
+		if ctx.Err() != nil || errors.Is(resultErr, context.Canceled) ||
+			errors.Is(resultErr, context.DeadlineExceeded) ||
+			errors.Is(resultErr, types.ErrLegacySourceRestricted) || errors.As(resultErr, &fence) {
+			return
+		}
 		if checkpoint.Version == 2 && errors.Is(resultErr, feishusafety.ErrBudgetBusy) &&
 			len(cache) > initialCachedInputs && completed > 0 && completed < len(texts) {
 			result, resultErr = nil, &repository.FeishuEmbeddingProgress{

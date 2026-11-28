@@ -41,6 +41,11 @@ func TestLegacyEmbeddingCheckpointRenewalAfterDurableWork(t *testing.T) {
 		{"cached-only", 2, true, feishusafety.ErrBudgetBusy, false},
 		{"revoked", 2, false, types.ErrLegacySourceRestricted, false},
 		{"canceled", 2, false, context.Canceled, false},
+		{"joined-canceled", 2, false, errors.Join(feishusafety.ErrBudgetBusy, context.Canceled), false},
+		{"joined-deadline", 2, false, errors.Join(feishusafety.ErrBudgetBusy, context.DeadlineExceeded), false},
+		{"joined-revoked", 2, false, errors.Join(feishusafety.ErrBudgetBusy, types.ErrLegacySourceRestricted), false},
+		{"joined-fence", 2, false, errors.Join(feishusafety.ErrBudgetBusy,
+			&repository.LegacyFenceError{Reason: "synthetic_execution_changed"}), false},
 		{"provider-error", 2, false, errors.New("synthetic provider failure"), false},
 	} {
 		t.Run(test.name, func(t *testing.T) {
