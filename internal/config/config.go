@@ -671,8 +671,12 @@ func LoadConfig() (*Config, error) {
 	applyAuthAndTenantDefaults(&cfg)
 	applyAuditDefaults(&cfg)
 
-	if err := ValidateConfig(&cfg); err != nil {
+	if err := ValidateApplicationConfig(&cfg); err != nil {
 		return nil, err
+	}
+	if cfg.OIDCAuth != nil && cfg.OIDCAuth.Enable && ValidateOIDCProviderConfig(cfg.OIDCAuth) != nil {
+		fmt.Println("[config] OIDC provider unavailable: invalid provider configuration; " +
+			"existing sessions remain subject to their own admission and expiry checks")
 	}
 
 	// Surface RBAC enforcement state at startup. air's hot-reload only
@@ -715,26 +719,21 @@ func applyMCPPublicURLEnv(cfg *Config) {
 // ValidateConfig performs basic validation of the loaded configuration.
 // It checks for obviously invalid or missing values that would cause runtime failures.
 func ValidateConfig(cfg *Config) error {
-	var errs []string
-	if cfg.OIDCAuth != nil {
-		if err := cfg.OIDCAuth.ValidateSourceIDValidationStrategy(); err != nil {
-			errs = append(errs, err.Error())
-		}
-		if _, err := cfg.OIDCAuth.EffectiveSourceIDBasicEncoding(); err != nil {
-			errs = append(errs, err.Error())
-		}
-	}
+	return validateConfig(cfg, true)
+}
 
-	if cfg.OIDCAuth != nil && cfg.OIDCAuth.Enable {
-		if strings.TrimSpace(cfg.OIDCAuth.ClientID) == "" {
-			errs = append(errs, "oidc_auth.client_id is required when OIDC is enabled")
-		}
-		if strings.TrimSpace(cfg.OIDCAuth.ClientSecret) == "" {
-			errs = append(errs, "oidc_auth.client_secret is required when OIDC is enabled")
-		}
-		if strings.TrimSpace(cfg.OIDCAuth.DiscoveryURL) == "" &&
-			(strings.TrimSpace(cfg.OIDCAuth.AuthorizationEndpoint) == "" || strings.TrimSpace(cfg.OIDCAuth.TokenEndpoint) == "") {
-			errs = append(errs, "oidc_auth.discovery_url or both oidc_auth.authorization_endpoint and oidc_auth.token_endpoint are required when OIDC is enabled")
+// ValidateApplicationConfig isolates optional identity-provider configuration
+// failures from API, MCP and worker startup. Authentication still validates the
+// provider on each new authorization attempt; strict preflight uses ValidateConfig.
+func ValidateApplicationConfig(cfg *Config) error {
+	return validateConfig(cfg, false)
+}
+
+func validateConfig(cfg *Config, includeOIDC bool) error {
+	var errs []string
+	if includeOIDC {
+		if err := ValidateOIDCProviderConfig(cfg.OIDCAuth); err != nil {
+			errs = append(errs, err.Error())
 		}
 	}
 

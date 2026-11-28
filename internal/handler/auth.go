@@ -329,6 +329,10 @@ func (h *AuthHandler) GetOIDCAuthorizationURL(c *gin.Context) {
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
+		if stderrors.Is(err, config.ErrOIDCProviderUnavailable) {
+			c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
+			return
+		}
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
@@ -382,6 +386,10 @@ func (h *AuthHandler) OIDCStart(c *gin.Context) {
 	resp, err := h.userService.GetOIDCAuthorizationURL(ctx, redirectURI)
 	if err != nil {
 		logger.Errorf(ctx, "Failed to generate OIDC authorization URL: %v", err)
+		if stderrors.Is(err, config.ErrOIDCProviderUnavailable) {
+			c.Error(errors.NewServiceUnavailableError("OIDC authentication temporarily unavailable"))
+			return
+		}
 		appErr := errors.NewForbiddenError("OIDC authorization unavailable")
 		c.Error(appErr)
 		return
@@ -403,10 +411,13 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 	providerDisplayName := ""
 	redirectURI := ""
 	enabled := false
+	unavailable := false
 	sourceIDBasicEncoding := ""
 
 	if h.configInfo != nil && h.configInfo.OIDCAuth != nil {
 		enabled = h.configInfo.OIDCAuth.Enable
+		unavailable = enabled && config.ValidateOIDCProviderConfig(h.configInfo.OIDCAuth) != nil
+		enabled = enabled && !unavailable
 		providerDisplayName = strings.TrimSpace(h.configInfo.OIDCAuth.ProviderDisplayName)
 		redirectURI = h.configInfo.OIDCAuth.RedirectURI
 		if h.configInfo.OIDCAuth.SourceIDEnable {
@@ -418,6 +429,7 @@ func (h *AuthHandler) GetOIDCConfig(c *gin.Context) {
 		RedirectURI:           redirectURI,
 		Success:               true,
 		Enabled:               enabled,
+		Unavailable:           unavailable,
 		ProviderDisplayName:   providerDisplayName,
 		SourceIDBasicEncoding: sourceIDBasicEncoding,
 	})

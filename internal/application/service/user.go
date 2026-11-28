@@ -1895,8 +1895,8 @@ func (s *userService) getOIDCConfig(ctx context.Context) (*config.OIDCAuthConfig
 		return nil, errors.New("OIDC login is disabled")
 	}
 	cfg := *s.config.OIDCAuth
-	if err := cfg.ValidateSourceIDValidationStrategy(); err != nil {
-		return nil, err
+	if err := config.ValidateOIDCProviderConfig(&cfg); err != nil {
+		return nil, fmt.Errorf("%w: %w", config.ErrOIDCProviderUnavailable, err)
 	}
 	if cfg.SourceIDAdmissionMode == "oidc_sso_approved" && !cfg.SourceIDEnable {
 		return nil, errors.New("sourceid sso requires sourceid identity gate")
