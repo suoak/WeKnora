@@ -712,6 +712,51 @@ func (s *PersonalWikiStore) verifiedPagesSelection(
 	ctx context.Context, tenant uint64, kb string, authorized []string,
 	slug, query string, slugs []string, limit int,
 ) ([]*types.WikiPage, bool, error) {
+	return s.verifiedPagesMatching(ctx, tenant, kb, authorized, slug, query, "", slugs, limit)
+}
+
+// VerifiedPatternSearchPages retains the native tool's PostgreSQL regex and
+// field-priority ranking, with the same bounded seal/source proof as MCP.
+func (s *PersonalWikiStore) VerifiedPatternSearchPages(
+	ctx context.Context, tenant uint64, kb string, authorized []string, pattern string,
+) ([]*types.WikiPage, bool, error) {
+	if s.DB.Name() != "postgres" || pattern == "" || len(pattern) > 4096 {
+		return nil, false, ErrWikiMCPUnverified
+	}
+	return s.verifiedPagesMatching(ctx, tenant, kb, authorized, "", "", pattern, nil, 200)
+}
+
+// SharedWikiDocumentIDs projects the currently enabled documents only after the
+// ordinary whole-KB source/private gate. The service must independently authorize
+// the caller's full shared-KB grant before and after this read. This is not a
+// Personal MCP scope resolver and cannot mint document or workspace grants.
+func (s *PersonalWikiStore) SharedWikiDocumentIDs(
+	ctx context.Context, tenant uint64, kb string,
+) ([]string, error) {
+	if types.WorkspaceWebReadTenant(ctx) == 0 || tenant == 0 || kb == "" {
+		return nil, types.ErrLegacySourceRestricted
+	}
+	db := s.DB.WithContext(ctx)
+	if err := types.CheckLegacySourceRead(db, "", kb); err != nil {
+		return nil, err
+	}
+	var ids []string
+	if err := db.Model(&types.Knowledge{}).Select("id").Where(
+		"tenant_id=? AND knowledge_base_id=? AND parse_status=? AND enable_status=?",
+		tenant, kb, types.ParseStatusCompleted, "enabled").Order("id").Limit(wikiMCPMaxPages + 1).
+		Scan(&ids).Error; err != nil {
+		return nil, err
+	}
+	if len(ids) > wikiMCPMaxPages {
+		return nil, ErrWikiMCPUnverified
+	}
+	return ids, types.CheckLegacySourceRead(db, "", kb)
+}
+
+func (s *PersonalWikiStore) verifiedPagesMatching(
+	ctx context.Context, tenant uint64, kb string, authorized []string,
+	slug, query, pattern string, slugs []string, limit int,
+) ([]*types.WikiPage, bool, error) {
 	defer perftrace.Measure(ctx, perftrace.WikiCandidates)()
 	if limit < 1 || limit > 200 || len(slug) > 255 {
 		return nil, false, ErrWikiMCPUnverified
@@ -736,6 +781,9 @@ func (s *PersonalWikiStore) verifiedPagesSelection(
 		if query != "" {
 			countQuery = wikiLiteralSearchCandidates(countQuery, query)
 		}
+		if pattern != "" {
+			countQuery = wikiPatternSearchCandidates(countQuery, pattern)
+		}
 		if e = countQuery.Count(&total).Error; e != nil {
 			return e
 		}
@@ -753,6 +801,15 @@ func (s *PersonalWikiStore) verifiedPagesSelection(
 		}
 		if query != "" {
 			pageQuery = wikiLiteralSearchCandidates(pageQuery, query)
+		}
+		if pattern != "" {
+			pageQuery = wikiPatternSearchCandidates(pageQuery, pattern).Order(clause.OrderBy{
+				Expression: clause.Expr{
+					SQL: "CASE WHEN title ~* ? THEN 4 WHEN slug ~* ? THEN 3 " +
+						"WHEN summary ~* ? THEN 2 WHEN content ~* ? THEN 1 ELSE 0 END DESC, updated_at DESC, slug,id",
+					Vars: []interface{}{pattern, pattern, pattern, pattern},
+				},
+			})
 		}
 		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
 			"length(content)<=262144 AND length(title)<=4096 AND "+
@@ -837,6 +894,11 @@ func (s *PersonalWikiStore) verifiedPagesSelection(
 		return nil
 	})
 	return result, partial, e
+}
+
+func wikiPatternSearchCandidates(tx *gorm.DB, pattern string) *gorm.DB {
+	return tx.Where("(title ~* ? OR slug ~* ? OR summary ~* ? OR content ~* ?)",
+		pattern, pattern, pattern, pattern)
 }
 
 func wikiLiteralSearchCandidates(tx *gorm.DB, query string) *gorm.DB {

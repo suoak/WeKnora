@@ -1289,9 +1289,13 @@ func (s *agentService) registerTools(
 
 		// Wiki tools — only registered when wiki KBs are detected
 		case tools.ToolWikiReadPage:
-			toolToRegister = tools.NewWikiReadPageTool(s.wikiPageService, s.knowledgeService, wikiScopes, wikiRoutes)
+			toolToRegister = tools.NewWikiReadPageTool(
+				newAgentWikiReader(s.wikiPageService, s.db), s.knowledgeService, wikiScopes, wikiRoutes,
+			)
 		case tools.ToolWikiSearch:
-			toolToRegister = tools.NewWikiSearchTool(s.wikiPageService, s.knowledgeService, wikiScopes, wikiRoutes)
+			toolToRegister = tools.NewWikiSearchTool(
+				newAgentWikiReader(s.wikiPageService, s.db), s.knowledgeService, wikiScopes, wikiRoutes,
+			)
 		case tools.ToolWikiFlagIssue:
 			toolToRegister = tools.NewWikiFlagIssueTool(s.wikiPageService, writableWikiKBIDs, wikiRoutes).
 				WithKnowledgeScope(s.knowledgeService, config.SearchTargets)

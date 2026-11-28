@@ -860,6 +860,7 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 
 	var allOutputs []string
 	var searchErrors []string
+	partialSearch := false
 	successfulSearchCalls := 0
 	// Per-slug list of KB IDs that produced a match. Multiple KBs may share a
 	// slug when the agent has several wiki KBs in scope, so we keep the full list.
@@ -895,7 +896,17 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 				fetchLimit = max(params.Limit, min(params.Limit*wikiScopedSearchOverfetch, wikiScopedSearchMaxFetch))
 			}
 			kept := 0
-			pages, err := t.wikiService.SearchPages(ctx, kbID, pattern, fetchLimit)
+			var pages []*types.WikiPage
+			var err error
+			if reader, ok := t.wikiService.(interface {
+				SearchPagesWithStatus(context.Context, string, string, int) ([]*types.WikiPage, bool, error)
+			}); ok {
+				var partial bool
+				pages, partial, err = reader.SearchPagesWithStatus(ctx, kbID, pattern, fetchLimit)
+				partialSearch = partialSearch || partial
+			} else {
+				pages, err = t.wikiService.SearchPages(ctx, kbID, pattern, fetchLimit)
+			}
 			if err != nil {
 				searchErrors = append(searchErrors, fmt.Sprintf("Wiki search %q failed in KB %s: %v", query, kbID, err))
 				continue
@@ -985,6 +996,11 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 		return &types.ToolResult{Success: false, Error: strings.Join(searchErrors, "; ")}, nil
 	}
 	output := strings.Join(allOutputs, "\n\n")
+	if partialSearch {
+		output += "\n\n<warning partial=\"true\">Some pages were excluded " +
+			"or the verified candidate window was reached; " +
+			"empty results do not establish absence from the complete knowledge scope.</warning>"
+	}
 	if len(searchErrors) > 0 {
 		output += "\n\n<errors>\n" + strings.Join(searchErrors, "\n") + "\n</errors>"
 	}
@@ -993,6 +1009,7 @@ func (t *wikiSearchTool) Execute(ctx context.Context, args json.RawMessage) (*ty
 		Output:  output,
 		Data: map[string]interface{}{
 			"found_kbs": foundKBs,
+			"partial":   partialSearch,
 		},
 	}, nil
 }
