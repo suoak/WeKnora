@@ -53,7 +53,7 @@ func WithSourceDocumentReparseFailure(ctx context.Context, err error, budgetBusy
 	for _, r := range facts.ErrorType {
 		letter := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
 		digit := r >= '0' && r <= '9'
-		if !(letter || digit || r == '_' || r == '.' || r == '*' || r == '[' || r == ']') {
+		if !letter && !digit && r != '_' && r != '.' && r != '*' && r != '[' && r != ']' {
 			facts.ErrorType = "unclassified_error"
 			break
 		}
@@ -81,7 +81,7 @@ func WithSourceDocumentReparseFailure(ctx context.Context, err error, budgetBusy
 // scope survives delivery/exhaustion errors without changing request payloads or
 // becoming a task that older application versions could dispatch on rollback.
 func recordSourceDocumentReparseFailure(
-	tx *gorm.DB, ctx context.Context, ds *types.DataSource, request *types.FeishuDocumentReparse,
+	ctx context.Context, tx *gorm.DB, ds *types.DataSource, request *types.FeishuDocumentReparse,
 	code string, busy bool,
 ) error {
 	facts, present := ctx.Value(sourceReparseFailureKey{}).(sourceReparseFailureFacts)
