@@ -803,13 +803,10 @@ func (s *PersonalWikiStore) verifiedPagesMatching(
 			pageQuery = wikiLiteralSearchCandidates(pageQuery, query)
 		}
 		if pattern != "" {
-			pageQuery = wikiPatternSearchCandidates(pageQuery, pattern).Order(clause.OrderBy{
-				Expression: clause.Expr{
-					SQL: "CASE WHEN title ~* ? THEN 4 WHEN slug ~* ? THEN 3 " +
-						"WHEN summary ~* ? THEN 2 WHEN content ~* ? THEN 1 ELSE 0 END DESC, updated_at DESC, slug,id",
-					Vars: []interface{}{pattern, pattern, pattern, pattern},
-				},
-			})
+			pageQuery = wikiPatternSearchCandidates(pageQuery, pattern).Select(
+				"*, CASE WHEN title ~* ? THEN 4 WHEN slug ~* ? THEN 3 "+
+					"WHEN summary ~* ? THEN 2 WHEN content ~* ? THEN 1 ELSE 0 END AS agent_match_rank",
+				pattern, pattern, pattern, pattern).Order("agent_match_rank DESC, updated_at DESC")
 		}
 		if e = pageQuery.Where("tenant_id=? AND knowledge_base_id=? AND status=? AND "+
 			"length(content)<=262144 AND length(title)<=4096 AND "+
