@@ -48,12 +48,13 @@ func (s *PortalMCPKnowledge) wikiCandidatePages(
 }
 
 type PortalWikiPage struct {
-	TenantID  uint64 `json:"tenant_id"`
-	KBID      string `json:"knowledge_base_id"`
-	Slug      string `json:"slug"`
-	Title     string `json:"title"`
-	Content   string `json:"content,omitempty"`
-	Truncated bool   `json:"truncated,omitempty"`
+	TenantID   uint64                 `json:"tenant_id"`
+	KBID       string                 `json:"knowledge_base_id"`
+	Slug       string                 `json:"slug"`
+	Title      string                 `json:"title"`
+	Content    string                 `json:"content,omitempty"`
+	Truncated  bool                   `json:"truncated,omitempty"`
+	Provenance *types.WikiPageLineage `json:"provenance,omitempty"`
 }
 type PortalWikiResult struct {
 	Pages      []PortalWikiPage `json:"pages"`
@@ -208,6 +209,30 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 					row.Truncated = true
 				}
 				row.Content = string(text)
+				if reader, ok := s.Wiki.(interface {
+					VerifiedPageLineage(context.Context, uint64, string, []string, *types.WikiPage) (
+						*types.WikiPageLineage, error,
+					)
+				}); ok {
+					row.Provenance, err = reader.VerifiedPageLineage(ctx, d.TenantID, d.ID,
+						target.DocumentIDs(), page)
+					if err != nil {
+						return nil, err
+					}
+					if row.Provenance == nil {
+						return nil, access.ErrForbidden
+					}
+					for i := range row.Provenance.Sources {
+						source := &row.Provenance.Sources[i]
+						source.Title, err = access.SanitizePortalText(source.Title)
+						if err != nil {
+							return nil, err
+						}
+					}
+					if row.Provenance.Status != "complete" {
+						result.Status = "partial"
+					}
+				}
 			}
 			result.Pages = append(result.Pages, row)
 		}
