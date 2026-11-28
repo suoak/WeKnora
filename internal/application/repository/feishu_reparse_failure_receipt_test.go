@@ -18,7 +18,7 @@ func (e reparseSyntheticSQLFailure) SQLState() string { return e.state }
 
 func TestSourceDocumentReparseFailureFacts(t *testing.T) {
 	ctx := context.Background()
-	require.Same(t, ctx, WithSourceDocumentReparseFailure(ctx, nil, false))
+	require.True(t, ctx == WithSourceDocumentReparseFailure(ctx, nil, false))
 	for _, state := range []string{"23505", "password=synthetic-secret", "ab123"} {
 		captured := WithSourceDocumentReparseFailure(ctx,
 			fmt.Errorf("synthetic wrapper: %w", reparseSyntheticSQLFailure{state: state}), false)
