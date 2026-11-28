@@ -15,7 +15,7 @@ permissions:
 jobs:
   build:
     name: Compatible ranking regressions and operator harness
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-22.04
     timeout-minutes: 25
     env:
       GOTOOLCHAIN: local

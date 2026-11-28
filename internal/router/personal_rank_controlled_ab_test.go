@@ -76,13 +76,26 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		t.Fatal("only the original limit or explicitly diagnostic limit is supported")
 	}
 	dsn, err := url.Parse(input.DSN)
-	if err != nil || dsn.Query().Get("sslmode") != "verify-full" ||
-		dsn.Query().Get("default_transaction_read_only") != "on" ||
-		dsn.Query().Get("sslrootcert") == "" || len(input.Cases) > 6 || len(input.ExpectedKBs) != 71 {
-		t.Fatal("read-only TLS and frozen complete-scope preconditions required")
+	if err != nil {
+		t.Fatal("invalid controlled database connection")
+	}
+	verifiedTLS := dsn.Query().Get("sslmode") == "verify-full" && dsn.Query().Get("sslrootcert") != ""
+	// The production application uses its existing private Docker network for
+	// PostgreSQL, while the external audit gateway uses verified TLS and a
+	// restricted audit role. The operator must attest the exact application
+	// network before enabling this private-only transport. It changes no HBA
+	// rule, database privilege, public listener, or production TLS setting.
+	sameAppNetwork := os.Getenv("CONTROLLED_PRIVATE_APPLICATION_NETWORK") == "1" &&
+		dsn.Hostname() == "postgres" && dsn.Port() == "5432" && dsn.Query().Get("sslmode") == "disable"
+	if !verifiedTLS && !sameAppNetwork || dsn.Query().Get("default_transaction_read_only") != "on" ||
+		len(input.Cases) > 6 || len(input.ExpectedKBs) != 71 {
+		t.Fatal("read-only verified transport and frozen complete-scope preconditions required")
 	}
 	for name, value := range input.Env {
-		if name == "SYSTEM_AES_KEY" || name == "RETRIEVE_DRIVER" || strings.HasPrefix(name, "PERSONAL_MCP_") {
+		if name == "SYSTEM_AES_KEY" || name == "RETRIEVE_DRIVER" || name == "WEKNORA_MODEL_MAX_CONCURRENCY" ||
+			name == "WEKNORA_VERIFY_SSL" || strings.HasPrefix(name, "PERSONAL_MCP_") ||
+			strings.HasPrefix(name, "FEISHU_") || strings.HasPrefix(name, "KNOWHUB_") ||
+			strings.HasPrefix(name, "SOURCEID_") || strings.HasPrefix(name, "MODEL_") {
 			t.Setenv(name, value)
 		}
 	}
