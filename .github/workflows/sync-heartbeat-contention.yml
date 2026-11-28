@@ -1,0 +1,70 @@
+name: Sync heartbeat publication contention
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'internal/application/repository/datasource*.go'
+      - '.github/workflows/sync-heartbeat-contention.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'internal/application/repository/datasource*.go'
+      - '.github/workflows/sync-heartbeat-contention.yml'
+permissions:
+  contents: read
+concurrency:
+  group: heartbeat-contention-${{ github.event_name }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: false
+jobs:
+  postgres:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: isolated-heartbeat-test
+          POSTGRES_DB: heartbeat_test
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres -d heartbeat_test"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      CGO_ENABLED: '1'
+      GOMAXPROCS: '2'
+      SYNC_EXECUTION_POSTGRES_DSN: postgres://postgres:isolated-heartbeat-test@localhost:5432/heartbeat_test?sslmode=disable
+      REQUIRE_SYNC_EXECUTION_POSTGRES: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.26.8'
+          cache: true
+      - name: Format and exact source identity
+        run: |
+          git rev-parse HEAD
+          test -z "$(gofmt -l internal/application/repository/datasource*.go)"
+          git diff --check
+      - name: Reproduce old heartbeat wait and verify nonblocking fenced ownership
+        run: |
+          set -euo pipefail
+          go test -race -json ./internal/application/repository -run '^(TestSyncHeartbeatPublicationContentionPostgres|TestSyncExecutionPostgres|TestSyncExecutionSQLite)$' -count=3 -timeout=10m > heartbeat-results.jsonl
+          python3 - <<'PY'
+          import json
+          events=[json.loads(line) for line in open('heartbeat-results.jsonl')]
+          expected=['TestSyncHeartbeatPublicationContentionPostgres','TestSyncExecutionPostgres','TestSyncExecutionSQLite']
+          for name in expected:
+              assert sum(e.get('Test')==name and e.get('Action')=='pass' for e in events)==3,name
+          assert not any(e.get('Action') in ['skip','fail'] for e in events)
+          PY
+      - name: Vet repository
+        run: go vet ./internal/application/repository
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: heartbeat-contention-results
+          path: heartbeat-results.jsonl
+          retention-days: 14

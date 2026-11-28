@@ -194,9 +194,35 @@ func (r *SyncLogRepository) WriteExecution(
 
 // HeartbeatExecution only locks the sync-log row, never subsequently the datasource.
 // It cannot revive a released, recovered, deleted or superseded attempt.
+// A fenced index transaction already holds this row through publication. Do not
+// wait behind that transaction: the worker's bounded heartbeat would otherwise
+// cancel its own transaction. Contention confirms only visible ownership; every
+// write still obtains the normal execution fence and rechecks the generation.
 func (r *SyncLogRepository) HeartbeatExecution(ctx context.Context, e types.SyncExecution) (bool, error) {
 	if e.Generation <= 0 {
 		return false, errors.New("invalid sync execution generation")
+	}
+	if r.db.Name() == "postgres" {
+		var valid bool
+		err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+			var rows []types.SyncLog
+			if err := ownedSyncLog(tx, e).Select("id").
+				Clauses(clause.Locking{Strength: "UPDATE", Options: "SKIP LOCKED"}).Find(&rows).Error; err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				var count int64
+				if err := ownedSyncLog(tx, e).Count(&count).Error; err != nil {
+					return err
+				}
+				valid = count == 1
+				return nil
+			}
+			result := ownedSyncLog(tx, e).Update("updated_at", time.Now().UTC())
+			valid = result.RowsAffected == 1 && result.Error == nil
+			return result.Error
+		})
+		return valid && err == nil, err
 	}
 	result := ownedSyncLog(r.db.WithContext(ctx), e).Update("updated_at", time.Now().UTC())
 	return result.RowsAffected == 1 && result.Error == nil, result.Error
