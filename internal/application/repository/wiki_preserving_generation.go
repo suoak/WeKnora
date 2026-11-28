@@ -128,6 +128,9 @@ func BeginWikiPreservingGeneration(
 			return ErrWikiMCPInputsChanged
 		}
 		proof.WikiGeneration, proof.WikiIncarnation, proof.Replacement = after.Generation, after.Incarnation, state
+		if err := recordWikiNoWikiSources(tx, proof); err != nil {
+			return err
+		}
 		return nil
 	})
 	if err != nil {

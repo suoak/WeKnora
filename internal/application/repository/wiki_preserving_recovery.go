@@ -267,6 +267,7 @@ type WikiPreservingFinishPlan struct {
 	KnowledgeBaseID string   `json:"knowledge_base_id"`
 	RetainedPages   int      `json:"retained_pages"`
 	RetiredPages    []string `json:"retired_pages"`
+	NoWikiDocuments []string `json:"no_wiki_documents,omitempty"`
 	Snapshot        string   `json:"snapshot"`
 	Applied         bool     `json:"applied"`
 }
@@ -352,14 +353,22 @@ func FinishWikiPreservingRecovery(
 		}
 		for id := range proof.Sources {
 			if !proof.EmptySources[id] && !covered[id] {
-				return errors.New("verified summary coverage is incomplete")
+				terminal, err := verifiedWikiNoWikiSource(tx, proof, id)
+				if err != nil {
+					return err
+				}
+				if !terminal {
+					return errors.New("verified summary coverage is incomplete")
+				}
+				plan.NoWikiDocuments = append(plan.NoWikiDocuments, id)
 			}
 		}
+		sort.Strings(plan.NoWikiDocuments)
 		epoch, err := readWikiMCPEpoch(tx, kb)
 		if err != nil {
 			return err
 		}
-		plan.Snapshot = wikiDigest([]any{anchor, markers[0], proof.Sources, proof.Epochs, pages, epoch})
+		plan.Snapshot = wikiDigest([]any{anchor, markers[0], proof.Sources, proof.Epochs, pages, epoch, plan.NoWikiDocuments})
 		if !apply {
 			return nil
 		}

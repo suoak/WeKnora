@@ -35,6 +35,7 @@ type (
 		KB               string
 		Sources          map[string]string
 		EmptySources     map[string]bool
+		NoWikiSources    map[string]int
 		Epochs           map[string]string
 		DependencySHA256 string
 		WikiGeneration   int64
@@ -370,6 +371,12 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 				// connector binding and the resource publication proof above.
 				// No TTL or cached authorization is involved.
 				p.Sources[d.ID], p.Epochs[d.ID] = old.Sources[d.ID], old.Epochs[d.ID]
+				if n, noWiki := old.NoWikiSources[d.ID]; noWiki {
+					if p.NoWikiSources == nil {
+						p.NoWikiSources = map[string]int{}
+					}
+					p.NoWikiSources[d.ID] = n
+				}
 				if old.EmptySources[d.ID] {
 					if p.EmptySources == nil {
 						p.EmptySources = map[string]bool{}
@@ -410,6 +417,12 @@ func wikiDependenciesSelected(db *gorm.DB, kb string, parsed map[string]bool, se
 			p.EmptySources[d.ID] = true
 		}
 		p.Sources[d.ID] = wikiDigest([]any{identity, inputs})
+		if n, noWiki := wikiInsufficientPlainText(inputs); noWiki {
+			if p.NoWikiSources == nil {
+				p.NoWikiSources = map[string]int{}
+			}
+			p.NoWikiSources[d.ID] = n
+		}
 	}
 	if selected != nil && len(p.Sources) != len(selected) {
 		return nil, ErrWikiMCPInputsChanged
