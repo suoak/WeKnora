@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - "internal/application/service/wiki*.go"
+      - "internal/application/service/agent_shared_wiki*.go"
+      - "internal/application/service/agent_service.go"
+      - "internal/agent/tools/wiki*.go"
       - "internal/application/repository/wiki*.go"
       - "internal/common/wikilock/**"
       - "internal/common/redislock/**"
@@ -17,6 +20,9 @@ on:
     branches: [main]
     paths:
       - "internal/application/service/wiki*.go"
+      - "internal/application/service/agent_shared_wiki*.go"
+      - "internal/application/service/agent_service.go"
+      - "internal/agent/tools/wiki*.go"
       - "internal/application/repository/wiki*.go"
       - "internal/common/wikilock/**"
       - "internal/common/redislock/**"
@@ -74,7 +80,9 @@ jobs:
           REQUIRE_SYNC_EXECUTION_POSTGRES: "1"
         run: >-
           go test -race -count=1 -timeout=15m ./internal/application/service
-          -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres|TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres|TestWikiPreservingIdenticalPendingDeliveriesPostgres|TestWikiReadSelectedProofSessionPostgres|TestWikiCandidateFanoutPostgres|TestWikiPreservingFinishTimezonePostgres|TestWikiNoWikiTerminalPostgres)$'
+          -run '^(TestWikiHistoryPostgres|TestWikiClaimAsynqShutdownPostgres|TestWikiSearchFindsLiteralMatchBeyondCandidateWindowPostgres|TestWikiPreservingIdenticalPendingDeliveriesPostgres|TestWikiReadSelectedProofSessionPostgres|TestWikiCandidateFanoutPostgres|TestWikiPreservingFinishTimezonePostgres|TestWikiNoWikiTerminalPostgres|TestAgentSharedWikiPostgres)$'
+      - name: Retain native Wiki scope, routing and partial-result regressions
+        run: go test -race -count=1 -timeout=3m ./internal/agent/tools -run 'TestWikiSearch|TestWikiRead'
       - name: Build operator regeneration command
         run: |
           mkdir -p operator-artifacts
