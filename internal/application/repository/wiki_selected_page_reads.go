@@ -106,5 +106,5 @@ func wikiPageReadProof(db *gorm.DB, kb string, page *types.WikiPage) (*wikiGener
 		read := context.WithValue(db.Statement.Context, wikiLocalPublishedReadKey{}, true)
 		db = db.WithContext(read)
 	}
-	return wikiDependenciesSelected(db, kb, nil, selected)
+	return wikiReadSelectedDependencies(db, kb, selected)
 }

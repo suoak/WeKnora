@@ -332,10 +332,13 @@ func (s *PersonalServer) enforceGuard(next server.ToolHandlerFunc) server.ToolHa
 				targets, reused = revalidatedCatalogTargets(ctx)
 			}
 			if !reused {
+				// Admission has its own immutable read phase. The handler and
+				// output fence must never inherit these policy snapshots.
+				resolution := access.WithPortalSnapshotReads(access.WithoutPortalSnapshotReads(ctx))
 				if r.Params.Name == "read_document" {
-					targets, err = s.knowledge.ResolveDocument(ctx, r.GetString("knowledge_id", ""))
+					targets, err = s.knowledge.ResolveDocument(resolution, r.GetString("knowledge_id", ""))
 				} else {
-					targets, err = s.knowledge.Resolve(ctx, ids)
+					targets, err = s.knowledge.Resolve(resolution, ids)
 				}
 			}
 			if err != nil {

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"os"
 	"strings"
 	"testing"
 
@@ -16,7 +17,13 @@ func wikiReadSessionFixture(
 	t *testing.T,
 ) (*fixture.Fixture, *repository.PersonalWikiStore, context.Context, []*types.WikiPage, *int) {
 	t.Helper()
-	f := fixture.New(t)
+	return wikiReadSessionWithFixture(t, fixture.New(t))
+}
+
+func wikiReadSessionWithFixture(
+	t *testing.T, f *fixture.Fixture,
+) (*fixture.Fixture, *repository.PersonalWikiStore, context.Context, []*types.WikiPage, *int) {
+	t.Helper()
 	f.PreparePublished(t)
 	r := repository.NewWikiPageRepository(f.DB)
 	gen, err := repository.BeginWikiMCPGeneration(context.Background(), r, "public-two")
@@ -80,6 +87,55 @@ VALUES('held-session-source',1,'public-two','held source','feishu','{}','hold','
 		store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages),
 		"an unchanged document epoch must not bypass a newly held source",
 	)
+}
+
+func TestWikiReadSelectedProofSessionKeepsLiveSourceAndInputFences(t *testing.T) {
+	testWikiReadSelectedProofSession(t, fixture.New)
+}
+
+func TestWikiReadSelectedProofSessionPostgres(t *testing.T) {
+	if os.Getenv("WIKI_HISTORY_POSTGRES_DSN") == "" {
+		t.Skip("requires isolated migrated PostgreSQL")
+	}
+	testWikiReadSelectedProofSession(t, wikiPendingRegenerationFixture)
+}
+
+func testWikiReadSelectedProofSession(t *testing.T, newFixture func(*testing.T) *fixture.Fixture) {
+	t.Helper()
+	for _, mutation := range []string{"none", "content", "disable", "source"} {
+		t.Run(mutation, func(t *testing.T) {
+			t.Setenv("KNOWHUB_WIKI_DOCUMENT_SELECTION", "true")
+			t.Setenv("KNOWHUB_WIKI_DOCUMENT_SELECTION_KBS", "public-two")
+			t.Setenv("KNOWHUB_WIKI_DOCUMENT_SELECTION_ACTIVE_FILE", "")
+			f, store, ctx, pages, reads := wikiReadSessionWithFixture(t, newFixture(t))
+			require.Equal(t, 1, *reads)
+			var statement string
+			switch mutation {
+			case "content":
+				statement = "UPDATE chunks SET content='selected raw change' WHERE knowledge_id='public-two-doc'"
+			case "disable":
+				statement = "UPDATE knowledges SET enable_status='disabled' WHERE id='public-two-doc'"
+			case "source":
+				statement = "UPDATE knowledges SET channel='unsupported-source' WHERE id='public-two-doc'"
+			}
+			if statement != "" {
+				require.NoError(t, f.DB.Exec(statement).Error)
+			}
+			err := store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages)
+			if mutation == "none" {
+				require.NoError(t, err)
+				require.Equal(t, 1, *reads, "unchanged selected producer inputs must not be rehashed at output")
+				fresh := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
+				require.NoError(t, store.RevalidatePages(fresh, 1, "public-two", []string{"public-two-doc"}, pages))
+				require.Greater(t, *reads, 1, "proof digests never cross requests")
+			} else {
+				require.Error(t, err)
+				if mutation == "content" {
+					require.Greater(t, *reads, 1, "raw input mutations invalidate the proof digest")
+				}
+			}
+		})
+	}
 }
 
 func TestWikiReadSealPrefilterRejectsUnreturnablePagesWithoutSourceBodyReads(t *testing.T) {
