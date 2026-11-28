@@ -24,17 +24,18 @@ import (
 // PersonalServer uses the existing Go MCP library/tool schemas, but never the
 // workspace machine principal, endpoint scope, ask or write tool handlers.
 type PersonalServer struct {
-	usage           usageRecorder
-	enabled         bool
-	knowledge       *service.PortalMCPKnowledge
-	handler         http.Handler
-	admission       *personalAdmission
-	searchWork      *personalAdmission
-	protocol        *personalAdmission
-	streams         *personalAdmission
-	content         personalContentService
-	writeSlots      chan struct{}
-	externalHandler http.Handler
+	usage              usageRecorder
+	enabled            bool
+	knowledge          *service.PortalMCPKnowledge
+	handler            http.Handler
+	admission          *personalAdmission
+	searchWork         *personalAdmission
+	protocol           *personalAdmission
+	streams            *personalAdmission
+	content            personalContentService
+	writeSlots         chan struct{}
+	externalHandler    http.Handler
+	technicalAPIRoutes bool
 }
 
 func NewDisabledPersonalServer() *PersonalServer { return NewPersonalServer(false, nil) }
@@ -388,7 +389,8 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 		return nil, err
 	}
 	if err == nil && logger.IsolatedPersonalPayload(ctx) {
-		b, err = redactPersonalOutput(b)
+		technical, _ := ctx.Value(personalTechnicalRoutesKey{}).(bool)
+		b, err = redactPersonalOutputWithRoutes(b, technical)
 	}
 	if err != nil {
 		return mcp.NewToolResultError("resource denied or unavailable"), nil
@@ -408,6 +410,9 @@ func personalJSON(ctx context.Context, value any) (*mcp.CallToolResult, error) {
 }
 
 func (s *PersonalServer) call(ctx context.Context, r mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+	if s.technicalAPIRoutes {
+		ctx = context.WithValue(ctx, personalTechnicalRoutesKey{}, true)
+	}
 	fail := func() (*mcp.CallToolResult, error) {
 		return mcp.NewToolResultError("resource denied or unavailable"), nil
 	}

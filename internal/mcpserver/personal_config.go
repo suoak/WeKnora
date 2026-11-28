@@ -19,5 +19,7 @@ func NewConfiguredPersonalServer(cfg *config.Config, knowledge *service.PortalMC
 		logger.Errorf(context.Background(), "personal MCP disabled: invalid concurrency configuration")
 		return NewDisabledPersonalServer()
 	}
-	return newPersonalServer(true, knowledge, limits)
+	server := newPersonalServer(true, knowledge, limits)
+	server.technicalAPIRoutes = cfg.PersonalMCP.TechnicalAPIRoutes
+	return server
 }

@@ -26,7 +26,13 @@ func personalToolBoundary(next server.ToolHandlerFunc) server.ToolHandlerFunc {
 	}
 }
 
+type personalTechnicalRoutesKey struct{}
+
 func redactPersonalOutput(raw []byte) ([]byte, error) {
+	return redactPersonalOutputWithRoutes(raw, false)
+}
+
+func redactPersonalOutputWithRoutes(raw []byte, technicalRoutes bool) ([]byte, error) {
 	d := json.NewDecoder(bytes.NewReader(raw))
 	d.UseNumber() // preserve uint64 identities exactly, including values > 2^53
 	var value any
@@ -37,6 +43,9 @@ func redactPersonalOutput(raw []byte) ([]byte, error) {
 	walk = func(value any) (any, error) {
 		switch v := value.(type) {
 		case string:
+			if technicalRoutes {
+				return access.SanitizePortalTechnicalOutputText(v)
+			}
 			return access.SanitizePortalOutputText(v)
 		case []any:
 			for i := range v {

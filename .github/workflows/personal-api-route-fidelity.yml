@@ -1,0 +1,51 @@
+name: Technical API route fidelity
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "internal/application/access/portal_text.go"
+      - "internal/application/access/portal_api_routes*.go"
+      - "internal/config/config.go"
+      - "internal/config/personal_mcp*.go"
+      - "internal/mcpserver/personal*.go"
+      - "internal/router/personal_rank_controlled_ab_test.go"
+      - ".github/workflows/personal-api-route-fidelity.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Technical API route containment and operator comparison
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Check default, rollback, API literals and containment
+        run: |
+          go test -race -count=1 -timeout=1m ./internal/config -run '^TestPersonalMCP(CompatibleGlobalRanks|TechnicalAPIRoutes)Environment$'
+          go test -race -count=1 -timeout=3m ./internal/application/access -run '^TestPortal'
+          go test -race -count=1 -timeout=3m ./internal/mcpserver -run '^Test(Personal.*(Output|Technical)|IsolatedOutput)'
+          go test -count=1 -timeout=1m ./internal/router -run '^TestControlledPersonalRankAB$'
+      - name: Build default-disabled read-only comparison operator
+        run: |
+          mkdir -p api-route-comparison
+          go test -c -o api-route-comparison/router.test ./internal/router
+          git rev-parse HEAD > api-route-comparison/source-sha.txt
+          go version > api-route-comparison/go-version.txt
+          sha256sum api-route-comparison/router.test > api-route-comparison/SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: personal-api-route-comparison-${{ github.event.pull_request.head.sha || github.sha }}
+          path: api-route-comparison/

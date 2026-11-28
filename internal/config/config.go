@@ -52,6 +52,7 @@ type Config struct {
 
 type PersonalMCPConfig struct {
 	CompatibleGlobalRanks bool `yaml:"compatible_global_ranks" json:"compatible_global_ranks"`
+	TechnicalAPIRoutes    bool `yaml:"technical_api_routes" json:"technical_api_routes"`
 
 	UploadScannerAddress string                       `yaml:"upload_scanner_address" json:"-"`
 	Concurrency          PersonalMCPConcurrencyConfig `yaml:"concurrency" json:"concurrency"`
