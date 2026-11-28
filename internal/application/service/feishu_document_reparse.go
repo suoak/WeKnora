@@ -335,10 +335,22 @@ func (s *DataSourceService) RecoverSourceDocumentReparses(ctx context.Context) e
 				continue
 			}
 		}
-		_, wakeErr := s.ManualSync(
-			context.WithValue(work, documentReparseRunKey{}, true),
-			request.DataSourceID,
-		)
+		var wakeErr error
+		if readErr != nil || ds == nil {
+			wakeErr = readErr
+			if wakeErr == nil {
+				wakeErr = errors.New("document reparse source unavailable")
+			}
+		} else {
+			var delivery context.Context
+			delivery, wakeErr = store.PrepareSourceDocumentReparseDelivery(work, ds, &request)
+			if wakeErr == nil {
+				_, wakeErr = s.ManualSync(
+					context.WithValue(delivery, documentReparseRunKey{}, true),
+					request.DataSourceID,
+				)
+			}
+		}
 		cancel()
 		if wakeErr != nil {
 			logger.Warnf(ctx, "Document reparse recovery deferred source=%s", request.DataSourceID)

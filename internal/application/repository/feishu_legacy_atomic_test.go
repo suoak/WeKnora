@@ -788,6 +788,60 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 			Where("id=? AND is_enabled", m.Chunks[0].ID).Count(&oldChunks).Error)
 		require.EqualValues(t, 1, oldChunks, "capacity backpressure must not rewrite serving output")
 	})
+	t.Run("source-document-reparse-delivery-requires-exact-live-intent", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		background := types.WithExecutionTenant(request.Initiator.Apply(context.Background()), tenant.ID)
+		_, err = local.PrepareSourceDocumentReparseDelivery(background, ds, request)
+		require.Error(t, err, "audit identity alone cannot create delivery authority")
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		delivery, err := local.PrepareSourceDocumentReparseDelivery(background, ds, request)
+		require.NoError(t, err)
+		require.True(t, HasSourceDocumentReparseDelivery(delivery))
+		require.Nil(t, delivery.Value(types.PrincipalContextKey), "no WebUser principal is fabricated")
+		checked, err := local.CheckSourceDocumentReparseDelivery(delivery, ds)
+		require.NoError(t, err)
+		require.Equal(t, request.ID, checked.ID)
+		forged := *request
+		forged.ID = uuid.NewString()
+		_, err = local.PrepareSourceDocumentReparseDelivery(background, ds, &forged)
+		require.Error(t, err)
+		for _, principal := range []types.Principal{{}, {Type: types.PrincipalWebUser, ID: request.Initiator.UserID}} {
+			web := context.WithValue(background, types.PrincipalContextKey, principal)
+			_, err := local.PrepareSourceDocumentReparseDelivery(web, ds, request)
+			require.Error(t, err, "HTTP requests must retain ordinary terminal authentication")
+		}
+		wrongActor := context.WithValue(background, types.UserIDContextKey, uuid.NewString())
+		_, err = local.PrepareSourceDocumentReparseDelivery(wrongActor, ds, request)
+		require.Error(t, err)
+		keyed := types.WithTenantAPIKeyScope(background, types.TenantAPIKeyScope{KeyID: 1})
+		_, err = local.PrepareSourceDocumentReparseDelivery(keyed, ds, request)
+		require.Error(t, err, "a machine key cannot become scheduler authority")
+		wrongTenant := types.WithExecutionTenant(background, tenant.ID+1)
+		_, err = local.PrepareSourceDocumentReparseDelivery(wrongTenant, ds, request)
+		require.Error(t, err)
+		changed := *ds
+		changed.LegacyAccessState = "hold"
+		_, err = local.CheckSourceDocumentReparseDelivery(delivery, &changed)
+		require.Error(t, err)
+		var op types.TaskPendingOp
+		require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
+			sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
+		require.Equal(t, "queued", op.Op)
+		var untouched types.FeishuDocumentReparse
+		require.NoError(t, json.Unmarshal(op.Payload, &untouched))
+		require.Zero(t, untouched.Attempts, "read-only delivery proof cannot reset or spend attempts")
+		require.NoError(t, tx.Model(&op).UpdateColumn("op", "completed").Error)
+		_, err = local.CheckSourceDocumentReparseDelivery(delivery, ds)
+		require.Error(t, err, "a completed or withdrawn intent cannot queue another execution")
+	})
 	t.Run("source-document-reparse-retry-budget-survives-new-executions", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
