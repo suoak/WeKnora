@@ -99,7 +99,8 @@ func TestSourceDocumentReparseTimeoutCheckpointParentPostgres(t *testing.T) {
 			var retained types.TaskPendingOp
 			require.NoError(t, db.First(&retained, "id=?", op.ID).Error)
 			require.Equal(t, tc.state, retained.Op)
-			require.JSONEq(t, string(payload), string(retained.Payload), "selection must not reset old budgets or diagnostics")
+			require.JSONEq(t, string(payload), string(retained.Payload),
+				"selection must not reset old budgets or diagnostics")
 		})
 	}
 }
