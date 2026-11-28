@@ -43,10 +43,17 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		DSN, Key, YAML, RuntimeSHA string
 		Env                        map[string]string
 		ExpectedKBs                []string
+		ResultLimit                int
 		Cases                      []struct{ ID, Question string }
 	}
 	if json.NewDecoder(io.LimitReader(os.Stdin, 4<<20)).Decode(&input) != nil {
 		t.Fatal("invalid controlled input")
+	}
+	if input.ResultLimit == 0 {
+		input.ResultLimit = 10
+	}
+	if input.ResultLimit != 10 && input.ResultLimit != 30 {
+		t.Fatal("only the original limit or explicitly diagnostic limit is supported")
 	}
 	dsn, err := url.Parse(input.DSN)
 	if err != nil || dsn.Query().Get("sslmode") != "verify-full" ||
@@ -83,7 +90,11 @@ func TestControlledPersonalRankAB(t *testing.T) {
 	if err != nil {
 		t.Fatal("read-only database pool unavailable")
 	}
-	defer conn.Close()
+	t.Cleanup(func() {
+		if conn.Close() != nil {
+			t.Error("read-only database pool did not close cleanly")
+		}
+	})
 	conn.SetMaxOpenConns(10)
 	var readOnly string
 	if db.Raw("SHOW default_transaction_read_only").Scan(&readOnly).Error != nil || readOnly != "on" {
@@ -184,7 +195,7 @@ func TestControlledPersonalRankAB(t *testing.T) {
 			started := time.Now()
 			code, response := rpc(input.Key, "tools/call", map[string]any{
 				"name": "search_knowledge", "arguments": map[string]any{
-					"query": question.Question, "mode": "hybrid", "limit": 30,
+					"query": question.Question, "mode": "hybrid", "limit": input.ResultLimit,
 				},
 			})
 			var payload any = response
@@ -195,6 +206,7 @@ func TestControlledPersonalRankAB(t *testing.T) {
 				"case": question.ID, "candidate": candidate, "http": code, "response": payload,
 				"duration_ms":    float64(time.Since(started).Microseconds()) / 1000,
 				"authorized_kbs": len(ids), "original_question": true, "scope_narrowed": false,
+				"result_limit":         input.ResultLimit,
 				"runtime_baseline_sha": input.RuntimeSHA, "database_read_only": true,
 				"transport": "actual Go MCP handler with normal authentication; no listener or worker",
 			}
