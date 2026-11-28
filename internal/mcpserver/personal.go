@@ -141,7 +141,8 @@ func (s *PersonalServer) Handler() http.Handler {
 		}
 		waitStarted := time.Now()
 		if toolName == "search_knowledge" || toolName == "grep_chunks" ||
-			toolName == "search_documents" || toolName == "read_document" {
+			toolName == "search_documents" || toolName == "read_document" ||
+			toolName == "wiki_search" || toolName == "wiki_read_page" || toolName == "wiki_index" {
 			r = r.WithContext(access.WithPortalSnapshotReads(r.Context()))
 		}
 		release, err := pool.acquire(r.Context(), principal.ID)

@@ -10,12 +10,43 @@ import (
 	"github.com/Tencent/WeKnora/internal/application/access"
 	"github.com/Tencent/WeKnora/internal/application/repository"
 	"github.com/Tencent/WeKnora/internal/types"
+	"golang.org/x/sync/errgroup"
 )
 
 type PersonalWikiReader interface {
 	VerifiedPages(context.Context, uint64, string, []string) ([]*types.WikiPage, bool, error)
 	RevalidatePages(context.Context, uint64, string, []string, []*types.WikiPage) error
 }
+
+const portalWikiCandidateConcurrency = 2
+
+type portalWikiCandidate struct {
+	pages   []*types.WikiPage
+	partial bool
+	err     error
+}
+
+func (s *PortalMCPKnowledge) wikiCandidatePages(
+	ctx context.Context, target *access.PortalKBTarget, operation, query, slug string, limit, offset int,
+) ([]*types.WikiPage, bool, error) {
+	d := target.Descriptor()
+	if search, ok := s.Wiki.(interface {
+		VerifiedSearchPages(context.Context, uint64, string, []string, string) ([]*types.WikiPage, bool, error)
+	}); ok && operation == "wiki_search" {
+		return search.VerifiedSearchPages(ctx, d.TenantID, d.ID, target.DocumentIDs(), query)
+	}
+	if bounded, ok := s.Wiki.(interface {
+		VerifiedPagesWindow(context.Context, uint64, string, []string, string, int) ([]*types.WikiPage, bool, error)
+	}); ok && operation != "wiki_search" {
+		take, exactSlug := min(200, offset+limit+1), ""
+		if operation == "wiki_read_page" {
+			exactSlug, take = slug, 1
+		}
+		return bounded.VerifiedPagesWindow(ctx, d.TenantID, d.ID, target.DocumentIDs(), exactSlug, take)
+	}
+	return s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
+}
+
 type PortalWikiPage struct {
 	TenantID  uint64 `json:"tenant_id"`
 	KBID      string `json:"knowledge_base_id"`
@@ -75,6 +106,35 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 	if e != nil {
 		return nil, e
 	}
+	// Each target keeps its complete source proof. Bound parallel reads rather
+	// than spending the entire unchanged deadline on an early serial prefix.
+	candidates := make([]portalWikiCandidate, len(targets))
+	group, candidateCtx := errgroup.WithContext(ctx)
+	group.SetLimit(portalWikiCandidateConcurrency)
+	for i, target := range targets {
+		d := target.Descriptor()
+		if kb != "" && d.ID != kb && d.Name != kb {
+			continue
+		}
+		group.Go(func() error {
+			if err := target.Revalidate(candidateCtx); err != nil {
+				return err
+			}
+			types.ObserveMCPKnowledgeBase(candidateCtx, d.ID)
+			out := &candidates[i]
+			out.pages, out.partial, out.err = s.wikiCandidatePages(
+				candidateCtx, target, operation, query, slug, limit, offset,
+			)
+			if out.err != nil && !errors.Is(out.err, types.ErrLegacySourceRestricted) &&
+				!errors.Is(out.err, repository.ErrWikiMCPUnverified) {
+				return out.err
+			}
+			return nil
+		})
+	}
+	if err := group.Wait(); err != nil {
+		return nil, err
+	}
 	result := &PortalWikiResult{Pages: []PortalWikiPage{}, Status: "complete"}
 	var used []*access.PortalKBTarget
 	type readSet struct {
@@ -83,7 +143,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 	}
 	var readSets []readSet
 	matchedKB := false
-	for _, target := range targets {
+	for i, target := range targets {
 		d := target.Descriptor()
 		if kb != "" && d.ID != kb && d.Name != kb {
 			continue
@@ -92,37 +152,7 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 		if len(used) >= 128 {
 			return nil, access.ErrForbidden
 		}
-		if e = target.Revalidate(ctx); e != nil {
-			return nil, e
-		}
-		types.ObserveMCPKnowledgeBase(ctx, d.ID)
-		var pages []*types.WikiPage
-		var partial bool
-		var err error
-		if search, ok := s.Wiki.(interface {
-			VerifiedSearchPages(context.Context, uint64, string, []string, string) ([]*types.WikiPage, bool, error)
-		}); ok && operation == "wiki_search" {
-			pages, partial, err = search.VerifiedSearchPages(ctx, d.TenantID, d.ID, target.DocumentIDs(), query)
-		} else if bounded, ok := s.Wiki.(interface {
-			VerifiedPagesWindow(context.Context, uint64, string, []string, string, int) ([]*types.WikiPage, bool, error)
-		}); ok && operation != "wiki_search" {
-			take := min(200, offset+limit+1)
-			exactSlug := ""
-			if operation == "wiki_read_page" {
-				exactSlug = slug
-				take = 1
-			}
-			pages, partial, err = bounded.VerifiedPagesWindow(
-				ctx,
-				d.TenantID,
-				d.ID,
-				target.DocumentIDs(),
-				exactSlug,
-				take,
-			)
-		} else {
-			pages, partial, err = s.Wiki.VerifiedPages(ctx, d.TenantID, d.ID, target.DocumentIDs())
-		}
+		pages, partial, err := candidates[i].pages, candidates[i].partial, candidates[i].err
 		if err != nil {
 			if errors.Is(err, types.ErrLegacySourceRestricted) || errors.Is(err, repository.ErrWikiMCPUnverified) {
 				result.Status = "partial"
@@ -216,7 +246,8 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 		result.Status = "partial"
 	}
 	if result.Status == "partial" {
-		result.Warning = "Some sources or generated pages are unavailable pending verified regeneration; this is not the complete knowledge scope."
+		result.Warning = "Some sources or generated pages are unavailable pending verified regeneration; " +
+			"this is not the complete knowledge scope."
 	}
 	// Output authorization is a fresh phase; candidate snapshots never
 	// authorize a returned title or body after a concurrent policy change.

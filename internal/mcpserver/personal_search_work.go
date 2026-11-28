@@ -11,7 +11,7 @@ import (
 	"github.com/Tencent/WeKnora/internal/perftrace"
 )
 
-// Full-scope searches multiply each request's database work. On the isolated
+// Full-scope retrieval and Wiki proofs multiply database work. On the isolated
 // two-core PostgreSQL instance two complete searches fit the existing budget;
 // four do not. Keep the normal tool/user quotas and bound this expensive subset
 // separately, before scope SQL. Excess work receives an explicit retryable 429.
@@ -21,7 +21,8 @@ func newPersonalSearchWork(c config.PersonalMCPConcurrencyConfig) *personalAdmis
 }
 
 func personalNeedsSearchWork(tool string, targets []string) bool {
-	if tool != "search_knowledge" && tool != "grep_chunks" && tool != "search_documents" {
+	if tool != "search_knowledge" && tool != "grep_chunks" && tool != "search_documents" &&
+		tool != "wiki_search" && tool != "wiki_read_page" && tool != "wiki_index" {
 		return false
 	}
 	// Eight is one retrieval batch. This bounds work, never the searched scope.
