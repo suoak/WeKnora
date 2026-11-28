@@ -6,6 +6,7 @@ on:
     paths:
       - "internal/application/service/portal_global_rank*.go"
       - "internal/router/personal_rank_controlled_ab_test.go"
+      - "internal/config/personal_mcp_ranking*.go"
       - ".github/workflows/personal-rank-comparison.yml"
   workflow_dispatch:
 
@@ -30,6 +31,7 @@ jobs:
           cache: true
       - name: Test comparable ranking and default-disabled controlled harness
         run: |
+          go test -race -count=1 -timeout=1m ./internal/config -run '^TestPersonalMCPCompatibleGlobalRanksEnvironment$'
           go test -race -count=1 -timeout=3m ./internal/application/service -run 'TestPortalCompatibleRanks|TestPortalRankDomain'
           go test -count=1 -timeout=1m ./internal/router -run '^TestControlledPersonalRankAB$'
       - name: Build operator harness without deployment credentials

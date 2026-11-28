@@ -587,6 +587,7 @@ func LoadConfig() (*Config, error) {
 	viper.AddConfigPath("/etc/appname/")  // etc目录
 
 	// 启用环境变量替换
+	registerPersonalMCPRanking(viper.GetViper())
 	viper.AutomaticEnv()
 	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 
