@@ -9,6 +9,7 @@ import (
 	"errors"
 	"time"
 
+	werrors "github.com/Tencent/WeKnora/internal/errors"
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -224,7 +225,14 @@ func sourceReparseCheckpointParent(
 }
 
 func reusableReparseRequest(previous types.FeishuDocumentReparse, current *types.FeishuDocumentReparse) bool {
-	if current == nil || previous.ID == "" || previous.ErrorCode != "retry_exhausted" ||
+	// Acknowledged timeout failures retain their actual error code when the
+	// third attempt finishes. They exhausted the same finite budget as an
+	// unacknowledged request later closed by ClaimSourceDocumentReparse.
+	// This selects private model work only for a NEW authenticated intent;
+	// it neither reopens the failed operation nor schedules another retry.
+	exhausted := previous.ErrorCode == "retry_exhausted" ||
+		previous.Attempts >= 3 && previous.ErrorCode == werrors.ErrCodeDocReaderTimeout
+	if current == nil || previous.ID == "" || !exhausted ||
 		previous.FileType != "xlsx" || current.FileType != "xlsx" ||
 		previous.DataSourceID != current.DataSourceID || previous.TenantID != current.TenantID ||
 		previous.KnowledgeID != current.KnowledgeID || previous.KnowledgeBaseID != current.KnowledgeBaseID ||
