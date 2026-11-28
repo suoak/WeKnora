@@ -675,6 +675,30 @@ func (s *PersonalWikiStore) VerifiedSearchPages(
 func (s *PersonalWikiStore) verifiedPagesWindow(
 	ctx context.Context, tenant uint64, kb string, authorized []string, slug, query string, limit int,
 ) ([]*types.WikiPage, bool, error) {
+	return s.verifiedPagesSelection(ctx, tenant, kb, authorized, slug, query, nil, limit)
+}
+
+// VerifiedLinkedPages resolves exact same-KB targets through the ordinary sealed
+// page and current-source proof. Link text is never authorized by its source page
+// alone, by a matching title in another KB, or by an unverified historical page.
+func (s *PersonalWikiStore) VerifiedLinkedPages(
+	ctx context.Context, tenant uint64, kb string, authorized, slugs []string,
+) ([]*types.WikiPage, bool, error) {
+	if len(slugs) == 0 || len(slugs) > 200 {
+		return nil, false, ErrWikiMCPUnverified
+	}
+	for _, slug := range slugs {
+		if slug == "" || len(slug) > 255 {
+			return nil, false, ErrWikiMCPUnverified
+		}
+	}
+	return s.verifiedPagesSelection(ctx, tenant, kb, authorized, "", "", slugs, 200)
+}
+
+func (s *PersonalWikiStore) verifiedPagesSelection(
+	ctx context.Context, tenant uint64, kb string, authorized []string,
+	slug, query string, slugs []string, limit int,
+) ([]*types.WikiPage, bool, error) {
 	defer perftrace.Measure(ctx, perftrace.WikiCandidates)()
 	if limit < 1 || limit > 200 || len(slug) > 255 {
 		return nil, false, ErrWikiMCPUnverified
@@ -693,6 +717,9 @@ func (s *PersonalWikiStore) verifiedPagesWindow(
 		if slug != "" {
 			countQuery = countQuery.Where("slug=?", slug)
 		}
+		if len(slugs) > 0 {
+			countQuery = countQuery.Where("slug IN ?", slugs)
+		}
 		if query != "" {
 			countQuery = wikiLiteralSearchCandidates(countQuery, query)
 		}
@@ -707,6 +734,9 @@ func (s *PersonalWikiStore) verifiedPagesWindow(
 		}
 		if slug != "" {
 			pageQuery = pageQuery.Where("slug=?", slug)
+		}
+		if len(slugs) > 0 {
+			pageQuery = pageQuery.Where("slug IN ?", slugs)
 		}
 		if query != "" {
 			pageQuery = wikiLiteralSearchCandidates(pageQuery, query)

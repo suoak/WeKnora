@@ -164,6 +164,19 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 			result.Status = "partial"
 			result.Truncated = true
 		}
+		visibleLinks, linkedPages, linksPartial, err := s.visibleWikiLinks(
+			ctx, target, pages, operation == "wiki_read_page",
+		)
+		if err != nil {
+			return nil, err
+		}
+		if linksPartial {
+			result.Status = "partial"
+			result.Truncated = true
+		}
+		if len(linkedPages) > 0 {
+			readSets = append(readSets, readSet{target: target, pages: linkedPages})
+		}
 		for _, page := range pages {
 			if !personalWikiSlug.MatchString(page.Slug) || strings.Contains(page.Slug, "..") {
 				result.Status = "partial"
@@ -179,16 +192,16 @@ func (s *PortalMCPKnowledge) PersonalWiki(
 				) {
 				continue
 			}
-			title, err := access.SanitizePortalText(personalWikiLink.ReplaceAllString(page.Title, ""))
-			if err != nil {
-				return nil, err
-			}
-			body, err := access.SanitizePortalText(personalWikiLink.ReplaceAllString(page.Content, ""))
+			title, err := access.SanitizePortalText(renderVisibleWikiLinks(page.Title, visibleLinks))
 			if err != nil {
 				return nil, err
 			}
 			row := PortalWikiPage{TenantID: d.TenantID, KBID: d.ID, Slug: page.Slug, Title: title}
 			if operation == "wiki_read_page" {
+				body, err := access.SanitizePortalText(renderVisibleWikiLinks(page.Content, visibleLinks))
+				if err != nil {
+					return nil, err
+				}
 				text := []rune(body)
 				if len(text) > 65536 {
 					text = text[:65536]
