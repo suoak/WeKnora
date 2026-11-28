@@ -51,6 +51,8 @@ type Config struct {
 }
 
 type PersonalMCPConfig struct {
+	CompatibleGlobalRanks bool `yaml:"compatible_global_ranks" json:"compatible_global_ranks"`
+
 	UploadScannerAddress string                       `yaml:"upload_scanner_address" json:"-"`
 	Concurrency          PersonalMCPConcurrencyConfig `yaml:"concurrency" json:"concurrency"`
 	Enabled              bool                         `yaml:"enabled" json:"enabled"`

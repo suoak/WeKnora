@@ -20,6 +20,7 @@ import (
 // PortalMCPKnowledge is a bounded coordinator over existing access, repositories
 // and retrieval drivers. It does not implement an index or issue memberships.
 type PortalMCPKnowledge struct {
+	globalRanks        bool // Candidate experiment; enable only after full-scope comparison.
 	candidateOnce      sync.Once
 	candidateWork      *portalCandidateWork
 	personalRecovery   *PersonalRecovery
@@ -255,6 +256,7 @@ const (
 
 type portalTargetSearchOutcome struct {
 	hits      map[string]*PortalMCPHit
+	ranks     map[portalRankDomain]map[string]portalRankCandidate
 	failed    bool
 	partial   bool
 	skipped   bool
@@ -385,6 +387,10 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 		}
 		rank := 0
 		modeHits := map[string]*PortalMCPHit{}
+		var modeRanks map[string]portalRankCandidate
+		if s.globalRanks {
+			modeRanks = make(map[string]portalRankCandidate)
+		}
 		failed := false
 		for _, g := range groups {
 			if g == nil || g.Error != nil {
@@ -415,6 +421,11 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 						continue // use the best rank once per mode
 					}
 					modeHits[key].RankScore += 1 / float64(60+rank)
+					if modeRanks != nil {
+						modeRanks[key] = portalRankCandidate{
+							key: key, id: candidate.ID, score: candidate.Score, localRank: rank,
+						}
+					}
 					continue
 				}
 				// Completeness/canonical equality is enforced in SQL before candidates.
@@ -461,6 +472,17 @@ func (s *PortalMCPKnowledge) searchPortalTarget(
 		if failed {
 			modeFailed("retrieval_failed")
 			continue
+		}
+		if s.globalRanks && mode != "grep" {
+			domain, comparable := portalCompatibleRankDomain(
+				engine, descriptor.EmbeddingModelID, kind, params.Embedding,
+			)
+			if comparable {
+				if outcome.ranks == nil {
+					outcome.ranks = make(map[portalRankDomain]map[string]portalRankCandidate)
+				}
+				outcome.ranks[domain] = modeRanks
+			}
 		}
 		succeeded = append(succeeded, actualMode)
 		for key, hit := range modeHits {
@@ -654,6 +676,12 @@ func (s *PortalMCPKnowledge) search(
 		}
 	}
 	mergeDone := perftrace.Measure(ctx, perftrace.Merge)
+	if s.globalRanks && mode != "grep" {
+		if err := portalApplyCompatibleRanks(aggregate, outcomes); err != nil {
+			mergeDone()
+			return nil, err
+		}
+	}
 	for _, hit := range aggregate {
 		result.Results = append(result.Results, *hit)
 	}

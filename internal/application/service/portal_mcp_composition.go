@@ -38,6 +38,7 @@ func NewPortalPersonalKnowledge(cfg *config.Config, db *gorm.DB, members interfa
 	documents := access.NewDocumentReader(true, store, base, accounts)
 	resolver := &access.PortalMCPResolver{Enabled: true, PublishedDefaults: true, Directory: store, Store: store, Public: public, Documents: documents, Employees: accounts}
 	s := &PortalMCPKnowledge{Resolver: resolver, Knowledge: knowledge, Chunks: chunks, Wiki: &repository.PersonalWikiStore{DB: db}}
+	s.globalRanks = cfg.PersonalMCP.CompatibleGlobalRanks
 	BindPortalMCPAdapters(s, kbs, tenants, models, registry, ownership)
 	return s
 }
