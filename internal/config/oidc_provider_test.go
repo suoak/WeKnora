@@ -1,10 +1,14 @@
 package config
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestOIDCProviderFailureIsolatedFromApplicationConfig(t *testing.T) {
@@ -35,4 +39,27 @@ func TestOIDCProviderFailureIsolatedFromApplicationConfig(t *testing.T) {
 			require.Error(t, ValidateApplicationConfig(cfg), "core configuration errors remain fatal")
 		})
 	}
+}
+
+func TestOIDCExpiredProviderDoesNotPreventConfigLoading(t *testing.T) {
+	provider := tlsUserInfoConfig()
+	provider.DiscoveryURL = SourceIDPinnedIssuer + "/oidc/.well-known/openid-configuration"
+	provider.SourceIDTLSUserInfoExpiresAt = time.Now().Add(-time.Hour).Format(time.RFC3339)
+	raw, err := yaml.Marshal(&Config{
+		Server: &ServerConfig{Port: 8080}, OIDCAuth: provider,
+		KnowledgeBase: &KnowledgeBaseConfig{ChunkSize: 512, ChunkOverlap: 64},
+	})
+	require.NoError(t, err)
+	path := filepath.Join(t.TempDir(), "config.yaml")
+	require.NoError(t, os.WriteFile(path, raw, 0o600))
+	viper.Reset()
+	t.Cleanup(viper.Reset)
+	originalConfigDir := resolvedConfigDir
+	t.Cleanup(func() { resolvedConfigDir = originalConfigDir })
+	t.Chdir(filepath.Dir(path))
+	loaded, err := LoadConfig()
+	require.NoError(t, err, "the actual startup loader must isolate expired optional provider policy")
+	require.True(t, loaded.OIDCAuth.Enable)
+	require.Equal(t, provider.SourceIDTLSUserInfoExpiresAt, loaded.OIDCAuth.SourceIDTLSUserInfoExpiresAt)
+	require.Error(t, ValidateConfig(loaded), "strict release validation still rejects the unchanged expiry")
 }
