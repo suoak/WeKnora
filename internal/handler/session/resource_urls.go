@@ -1,8 +1,11 @@
 package session
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	stderrors "errors"
+	"io"
 	"strings"
 
 	"github.com/Tencent/WeKnora/internal/errors"
@@ -116,13 +119,12 @@ func emitStreamEvent(
 	evt interfaces.StreamEvent,
 	requestID string,
 	rewriter *storageurl.StreamRewriter,
-) {
+) bool {
 	response := buildStreamResponseFor(ctx, evt, requestID, rewriter)
-	if terminalResponseTypes[evt.Type] {
-		flushHeldStreamContent(ctx, c, requestID, rewriter)
+	if terminalResponseTypes[evt.Type] && !flushHeldStreamContent(ctx, c, requestID, rewriter) {
+		return false
 	}
-	c.SSEvent("message", response)
-	c.Writer.Flush()
+	return writeStreamResponse(c, response)
 }
 
 // flushHeldStreamContent emits whatever the holdback buffer still retains, so a
@@ -136,10 +138,13 @@ func flushHeldStreamContent(
 	c *gin.Context,
 	requestID string,
 	rewriter *storageurl.StreamRewriter,
-) {
+) bool {
 	held := rewriter.FlushAll(ctx)
-	if len(held) == 0 || c.Request.Context().Err() != nil {
-		return
+	if c.Request.Context().Err() != nil {
+		return false
+	}
+	if len(held) == 0 {
+		return true
 	}
 	for key, fragment := range held {
 		if fragment.Content == "" {
@@ -147,14 +152,16 @@ func flushHeldStreamContent(
 		}
 		responseType, eventID := parseHoldbackKey(key)
 		logger.Debugf(ctx, "Flushing held stream fragment, type: %s, event: %s", responseType, eventID)
-		c.SSEvent("message", &types.StreamResponse{
+		if !writeStreamResponse(c, &types.StreamResponse{
 			ID:           requestID,
 			ResponseType: responseType,
 			Content:      fragment.Content,
 			Data:         heldFragmentData(fragment.Meta, eventID),
-		})
-		c.Writer.Flush()
+		}) {
+			return false
+		}
 	}
+	return true
 }
 
 // heldFragmentData rebuilds the metadata for a released tail from the event it
@@ -171,4 +178,33 @@ func heldFragmentData(meta interface{}, eventID string) map[string]interface{} {
 		data["event_id"] = eventID
 	}
 	return data
+}
+
+// writeStreamResponse encodes before crossing the live response boundary. One
+// complete frame uses one guarded write; a denied or failed write ends delivery
+// immediately without bypassing the guard or manufacturing a completion event.
+func writeStreamResponse(c *gin.Context, response *types.StreamResponse) bool {
+	var frame bytes.Buffer
+	frame.WriteString("event:message\ndata:")
+	if err := json.NewEncoder(&frame).Encode(response); err != nil {
+		_ = c.Error(err)
+		c.Abort()
+		return false
+	}
+	frame.WriteByte('\n')
+	if c.Request.Context().Err() != nil {
+		return false
+	}
+	c.Header("Content-Type", "text/event-stream;charset=utf-8")
+	written, err := c.Writer.Write(frame.Bytes())
+	if err == nil && written != frame.Len() {
+		err = io.ErrShortWrite
+	}
+	if err != nil {
+		_ = c.Error(err)
+		c.Abort()
+		return false
+	}
+	c.Writer.Flush()
+	return true
 }
