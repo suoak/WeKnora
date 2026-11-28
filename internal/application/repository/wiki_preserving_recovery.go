@@ -368,7 +368,9 @@ func FinishWikiPreservingRecovery(
 		if err != nil {
 			return err
 		}
-		plan.Snapshot = wikiDigest([]any{anchor, markers[0], proof.Sources, proof.Epochs, pages, epoch, plan.NoWikiDocuments})
+		plan.Snapshot = wikiDigest([]any{
+			anchor, markers[0], proof.Sources, proof.Epochs, pages, epoch, plan.NoWikiDocuments,
+		})
 		if !apply {
 			return nil
 		}
