@@ -87,9 +87,11 @@ func TestWikiPreservingFinishTimezonePostgres(t *testing.T) {
 			}))
 			switch scenario {
 			case "changed_body":
-				require.NoError(t, utc.Exec("UPDATE wiki_pages SET content='CONCURRENT_OWNER_EDIT' WHERE id=?", old.ID).Error)
+				require.NoError(t, utc.Exec(
+					"UPDATE wiki_pages SET content='CONCURRENT_OWNER_EDIT' WHERE id=?", old.ID).Error)
 			case "changed_timestamp":
-				require.NoError(t, utc.Exec("UPDATE wiki_pages SET updated_at=updated_at+interval '1 microsecond' WHERE id=?",
+				require.NoError(t, utc.Exec(
+					"UPDATE wiki_pages SET updated_at=updated_at+interval '1 microsecond' WHERE id=?",
 					old.ID).Error)
 			}
 			finish, err := repository.FinishWikiPreservingRecovery(ctx, cst, 1, "public-two", "", false)
@@ -107,7 +109,8 @@ func TestWikiPreservingFinishTimezonePostgres(t *testing.T) {
 			require.NoError(t, err)
 			require.True(t, applied.Applied)
 			var retired types.WikiPage
-			require.NoError(t, utc.Unscoped().Session(&gorm.Session{SkipHooks: true}).First(&retired, "id=?", old.ID).Error)
+			require.NoError(t, utc.Unscoped().Session(&gorm.Session{SkipHooks: true}).
+				First(&retired, "id=?", old.ID).Error)
 			require.True(t, retired.DeletedAt.Valid)
 			require.Equal(t, old.Content, retired.Content)
 		})
