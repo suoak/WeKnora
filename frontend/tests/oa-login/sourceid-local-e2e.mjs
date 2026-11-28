@@ -114,7 +114,8 @@ try {
   // even synthetic authorization codes. Preserve only a class and test line.
   const category = ['TimeoutError', 'AssertionError', 'Error'].includes(error?.name) ? error.name : 'Error'
   const line = /sourceid-local-e2e\.mjs:(\d+)/.exec(error?.stack || '')?.[1] || 'unknown'
-  console.error(`SOURCEID_SYNTHETIC_FAILURE: ${category} test_line=${line}`)
+  const network = /\bnet::ERR_[A-Z_]+\b/.exec(error?.message || '')?.[0] || 'none'
+  console.error(`SOURCEID_SYNTHETIC_FAILURE: ${category} test_line=${line} network=${network}`)
   process.exitCode = 1
 } finally {
   if (browser) await browser.close()
