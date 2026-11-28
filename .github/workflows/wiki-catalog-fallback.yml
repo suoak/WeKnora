@@ -1,0 +1,36 @@
+name: Wiki catalog fallback regressions
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "config/builtin_agents.yaml"
+      - "config/agent_type_presets.yaml"
+      - "config/prompt_templates/agent_system_prompt.yaml"
+      - "internal/config/wiki_catalog_fallback_test.go"
+      - ".github/workflows/wiki-catalog-fallback.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  catalog:
+    name: Wiki preset, bounded catalog and selected-source regressions
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Resolve actual Wiki presets and prompt
+        run: go test -race -count=1 -timeout=2m ./internal/config -run '^TestWikiCatalogFallbackPresetAndRuntimePrompt$'
+      - name: Retain bounded catalog and pinned document/tag/KB scopes
+        run: >-
+          go test -race -count=1 -timeout=3m ./internal/agent/tools
+          -run 'TestListDocuments|TestWikiSearchRejectsKnowledgeBaseOutsideScope'
