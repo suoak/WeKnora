@@ -205,9 +205,16 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		engine.Use(legacyReadScopeMiddleware(tenants))
 		RegisterPersonalMCPRoutes(engine, mcpserver.NewConfiguredPersonalServer(&cfg, portal),
 			tenants, users, members, keys, &cfg)
+		rpcPath := "/api/v1/mcp/personal"
+		if input.Comparison == "technical_api_routes" {
+			// The compatibility endpoint deliberately retains its old result
+			// contract. Output-policy comparisons must use the actual isolated
+			// boundary selected by the production Portal proxy.
+			rpcPath = "/internal/mcp/isolated/personal"
+		}
 		rpc := func(key, method string, params any) (int, json.RawMessage) {
 			raw, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/mcp/personal", bytes.NewReader(raw))
+			req := httptest.NewRequest(http.MethodPost, rpcPath, bytes.NewReader(raw))
 			req.Header.Set("Authorization", "Bearer "+key)
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json, text/event-stream")
@@ -257,6 +264,7 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		preflight, _ := json.Marshal(map[string]any{
 			"candidate": candidate, "unauthenticated_http": http.StatusUnauthorized,
 			"normal_mcp_scope_equal": true, "authorized_kbs": len(ids), "database_read_only": true,
+			"rpc_path": rpcPath,
 		})
 		fmt.Println("CONTROLLED_RANK_AB_PREFLIGHT:" + string(preflight))
 		for _, question := range input.Cases {
@@ -281,6 +289,7 @@ func TestControlledPersonalRankAB(t *testing.T) {
 				"authorized_kbs": len(ids), "original_question": input.Comparison == "ranking",
 				"scope_narrowed": false,
 				"comparison":     input.Comparison, "tool": tool,
+				"rpc_path":               rpcPath,
 				"explicit_document_read": input.Comparison == "technical_api_routes",
 				"result_limit":           input.ResultLimit,
 				"runtime_baseline_sha":   input.RuntimeSHA, "database_read_only": true,
