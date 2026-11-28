@@ -43,7 +43,10 @@ try {
   console.log('SOURCEID_SYNTHETIC_STAGE: browser_start')
   browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
-    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
+    // This isolated Vite/Mock SID fixture deliberately serves the registered
+    // HTTP callback contract. Keep automatic HTTPS navigation upgrades from
+    // leaving that fixture; certificate verification is never disabled.
+    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--disable-features=HttpsUpgrades', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
   })
   const context = await browser.newContext()
   // Chromium resolves this single approved domain directly to the local Vite
@@ -52,6 +55,8 @@ try {
   await context.route('**/*', async route => {
     const url = new URL(route.request().url())
     if ([browserOrigin, frontend, mock.origin].includes(url.origin)) return route.continue()
+    const host = url.hostname === 'knowhub.ruijie.com.cn' ? 'fixture_domain' : 'outside_fixture'
+    console.log(`SOURCEID_SYNTHETIC_BLOCK: scheme=${url.protocol === 'https:' ? 'https' : 'other'} host=${host}`)
     return route.abort()
   })
   const page = await context.newPage()
