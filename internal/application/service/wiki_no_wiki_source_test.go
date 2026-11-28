@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 
 	"github.com/Tencent/WeKnora/internal/application/repository"
@@ -26,6 +27,7 @@ func testWikiNoWikiTerminal(t *testing.T, realPostgres bool) {
 	t.Helper()
 	for _, scenario := range []string{
 		"unchanged", "changed_short", "longer", "image", "disabled", "missing_terminal", "wrong_scope",
+		"operator_preview", "operator_stale_apply",
 	} {
 		t.Run(scenario, func(t *testing.T) {
 			f := fixture.New(t)
@@ -56,8 +58,36 @@ func testWikiNoWikiTerminal(t *testing.T, realPostgres bool) {
 			require.NoError(t, db.Where("scope='knowledge_base' AND scope_id='public-two'").
 				Delete(&types.TaskPendingOp{}).Error)
 			repo := repository.NewWikiPageRepository(db)
-			_, err = repository.BeginWikiPreservingGeneration(ctx, repo, "public-two")
-			require.NoError(t, err)
+			operatorDecision := strings.HasPrefix(scenario, "operator_")
+			if operatorDecision {
+				decision, decisionErr := repository.PrepareWikiNoWikiSources(ctx, db, 1, "public-two", "", false)
+				require.NoError(t, decisionErr)
+				require.False(t, decision.Applied)
+				var terminals int64
+				require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("op='no_wiki'").Count(&terminals).Error)
+				require.Zero(t, terminals, "preview cannot write a terminal")
+				if scenario == "operator_stale_apply" {
+					require.NoError(t, db.Exec(
+						"UPDATE chunks SET content='**变化**' WHERE knowledge_id='public-two-doc'",
+					).Error)
+					_, decisionErr = repository.PrepareWikiNoWikiSources(
+						ctx, db, 1, "public-two", decision.Snapshot, true,
+					)
+					require.ErrorContains(t, decisionErr, "snapshot changed")
+					require.NoError(t, db.Model(&types.TaskPendingOp{}).Where("op='no_wiki'").Count(&terminals).Error)
+					require.Zero(t, terminals)
+					decision, decisionErr = repository.PrepareWikiNoWikiSources(ctx, db, 1, "public-two", "", false)
+					require.NoError(t, decisionErr)
+				}
+				applied, decisionErr := repository.PrepareWikiNoWikiSources(
+					ctx, db, 1, "public-two", decision.Snapshot, true,
+				)
+				require.NoError(t, decisionErr)
+				require.True(t, applied.Applied)
+			} else {
+				_, err = repository.BeginWikiPreservingGeneration(ctx, repo, "public-two")
+				require.NoError(t, err)
+			}
 			switch scenario {
 			case "changed_short":
 				require.NoError(t, db.Exec(
@@ -82,7 +112,7 @@ func testWikiNoWikiTerminal(t *testing.T, realPostgres bool) {
 					Where("scope='wiki_document_skip' AND op='no_wiki'").Update("tenant_id", 999).Error)
 			}
 			finish, err := repository.FinishWikiPreservingRecovery(ctx, db, 1, "public-two", "", false)
-			if scenario != "unchanged" {
+			if scenario != "unchanged" && !operatorDecision {
 				require.Error(t, err, "old terminal cannot cover changed or inaccessible input")
 				if scenario != "changed_short" {
 					return
