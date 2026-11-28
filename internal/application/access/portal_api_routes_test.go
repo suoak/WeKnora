@@ -46,7 +46,9 @@ func TestPortalTechnicalAPIRoutesKeepContainment(t *testing.T) {
 			require.Contains(t, got, "remaining text")
 		})
 	}
-	for _, input := range []string{"/v2/widgets/activate/", "ordinary /v2/widgets/activate/ text", "URL: /v2/widgets/activate/"} {
+	for _, input := range []string{
+		"/v2/widgets/activate/", "ordinary /v2/widgets/activate/ text", "URL: /v2/widgets/activate/",
+	} {
 		got, err := SanitizePortalTechnicalOutputText(input)
 		require.NoError(t, err)
 		require.Contains(t, got, "[path omitted]", "a bare or unclassified path is not an API grant")

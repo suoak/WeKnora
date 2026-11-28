@@ -94,7 +94,9 @@ func redactPortalSpans(text string, pattern *regexp.Regexp, marker string) (stri
 	return redactPortalSpansWithRoutes(text, pattern, marker, false)
 }
 
-func redactPortalSpansWithRoutes(text string, pattern *regexp.Regexp, marker string, technicalRoutes bool) (string, error) {
+func redactPortalSpansWithRoutes(
+	text string, pattern *regexp.Regexp, marker string, technicalRoutes bool,
+) (string, error) {
 	view, err := portalDetectionView(text)
 	if err != nil {
 		return "", err

@@ -275,11 +275,18 @@ func TestControlledPersonalRankAB(t *testing.T) {
 			row := map[string]any{
 				"case": question.ID, "candidate": candidate, "http": code, "response": payload,
 				"duration_ms":    float64(time.Since(started).Microseconds()) / 1000,
-				"authorized_kbs": len(ids), "original_question": input.Comparison == "ranking", "scope_narrowed": false,
-				"comparison": input.Comparison, "tool": tool, "explicit_document_read": input.Comparison == "technical_api_routes",
+				"authorized_kbs": len(ids), "original_question": input.Comparison == "ranking",
+				"scope_narrowed": false,
+				"comparison":     input.Comparison, "tool": tool, "explicit_document_read": input.Comparison == "technical_api_routes",
 				"result_limit":         input.ResultLimit,
 				"runtime_baseline_sha": input.RuntimeSHA, "database_read_only": true,
 				"transport": "actual Go MCP handler with normal authentication; no listener or worker",
+			}
+			if input.Comparison == "technical_api_routes" {
+				delete(row, "result_limit")
+				delete(row, "scope_narrowed")
+				row["document_read_limit"] = question.Arguments["limit"]
+				row["normal_authorized_scope_unchanged"] = true
 			}
 			raw, err := json.Marshal(row)
 			if err != nil {

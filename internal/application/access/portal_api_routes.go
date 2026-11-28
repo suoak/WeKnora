@@ -6,11 +6,18 @@ import (
 )
 
 var (
-	portalVersionedRouteCapability = regexp.MustCompile(`(?i)/v[1-9][0-9]{0,2}/[^\s<>"'\x60\[\]{}]*[?#][^\s<>"'\x60\[\]{}]*`)
-	portalVersionedAPIRoute        = regexp.MustCompile(`^/v[1-9][0-9]{0,2}(?:/[a-z][A-Za-z0-9_-]{0,39}){2,12}/$`)
-	portalHTTPMethod               = regexp.MustCompile("(?:^|[ \\t|`])(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:$|[ \\t|`])")
-	portalURLField                 = regexp.MustCompile("(?im)^\\s*(?:[-*]\\s*)?(?:URL|URI|Path|接口路径)\\s*[:：]")
-	portalMethodField              = regexp.MustCompile("(?im)^\\s*(?:[-*]\\s*)?(?:Method|HTTP Method|方法|请求方法)\\s*[:：]\\s*`?(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\\b")
+	portalVersionedRouteCapability = regexp.MustCompile(
+		`(?i)/v[1-9][0-9]{0,2}/[^\s<>"'\x60\[\]{}]*[?#][^\s<>"'\x60\[\]{}]*`,
+	)
+	portalVersionedAPIRoute = regexp.MustCompile(`^/v[1-9][0-9]{0,2}(?:/[a-z][A-Za-z0-9_-]{0,39}){2,12}/$`)
+	portalHTTPMethod        = regexp.MustCompile(
+		`(?:^|[ \t|\x60])(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)(?:$|[ \t|\x60])`,
+	)
+	portalURLField    = regexp.MustCompile(`(?im)^\s*(?:[-*]\s*)?(?:URL|URI|Path|接口路径)\s*[:：]`)
+	portalMethodField = regexp.MustCompile(
+		`(?im)^\s*(?:[-*]\s*)?(?:Method|HTTP Method|方法|请求方法)\s*[:：]\s*\x60?` +
+			`(?:GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\b`,
+	)
 )
 
 // A generic absolute path cannot establish that it is an API route. This
