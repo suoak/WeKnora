@@ -42,10 +42,66 @@ func TestSourceDocumentReparseCheckpointParentRequiresSameBinding(t *testing.T) 
 		changed := current
 		mutation(&changed)
 		require.False(t, reusableReparseRequest(previous, &changed))
+		timedOut := previous
+		timedOut.Attempts, timedOut.ErrorCode = 3, "DOCREADER_TIMEOUT"
+		require.False(t, reusableReparseRequest(timedOut, &changed), "timeout parents retain every binding fence")
 	}
 	previous.ErrorCode = "source_document_access_unavailable"
 	require.False(t, reusableReparseRequest(previous, &current))
 	require.False(t, reusableReparseRequest(previous, nil))
+}
+
+func TestSourceDocumentReparseTimeoutCheckpointParentPostgres(t *testing.T) {
+	db := syncdb.Open(t, "postgres")
+	require.NoError(t, db.AutoMigrate(&types.TaskPendingOp{}))
+	ds := &types.DataSource{ID: "source", TenantID: 1, KnowledgeBaseID: "kb"}
+	for _, tc := range []struct {
+		name, state, code string
+		attempts          int
+		eligible          bool
+	}{
+		{"acknowledged-third-timeout", "failed", "DOCREADER_TIMEOUT", 3, true},
+		{"reclaimed-timeout", "failed", "DOCREADER_TIMEOUT", 4, true},
+		{"legacy-exhaustion", "failed", "retry_exhausted", 0, true},
+		{"first-timeout", "failed", "DOCREADER_TIMEOUT", 1, false},
+		{"second-timeout", "failed", "DOCREADER_TIMEOUT", 2, false},
+		{"permanent-access-failure", "failed", "source_document_access_unavailable", 3, false},
+		{"configuration-failure", "failed", "kb_configuration_changed", 3, false},
+		{"live-queued", "queued", "DOCREADER_TIMEOUT", 3, false},
+		{"live-processing", "processing", "DOCREADER_TIMEOUT", 3, false},
+		{"completed", "completed", "DOCREADER_TIMEOUT", 3, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			previous := types.FeishuDocumentReparse{
+				ID: tc.name, DataSourceID: ds.ID, TenantID: ds.TenantID,
+				KnowledgeBaseID: ds.KnowledgeBaseID, KnowledgeID: tc.name,
+				RootID: "root", ExternalID: "external", FileType: "xlsx",
+				ConfigHash: strings.Repeat("1", 64), KBConfigHash: strings.Repeat("2", 64),
+				ErrorCode: tc.code, Attempts: tc.attempts, Initiator: types.TaskInitiator{UserID: "owner"},
+			}
+			payload, err := json.Marshal(previous)
+			require.NoError(t, err)
+			op := &types.TaskPendingOp{
+				TaskType: sourceDocumentReparseTask, Scope: sourceDocumentReparseScope,
+				TenantID: ds.TenantID, ScopeID: ds.ID, DedupKey: previous.KnowledgeID, Op: tc.state,
+				Payload: payload, EnqueuedAt: time.Now(),
+			}
+			require.NoError(t, db.Create(op).Error)
+			current := previous
+			current.ID, current.ErrorCode, current.ReuseCheckpointID = "", "", "forged-parent"
+			selected, err := sourceReparseCheckpointParent(db, ds, &current)
+			require.NoError(t, err)
+			if tc.eligible {
+				require.Equal(t, previous.ID, selected)
+			} else {
+				require.Empty(t, selected)
+			}
+			var retained types.TaskPendingOp
+			require.NoError(t, db.First(&retained, "id=?", op.ID).Error)
+			require.Equal(t, tc.state, retained.Op)
+			require.JSONEq(t, string(payload), string(retained.Payload), "selection must not reset old budgets or diagnostics")
+		})
+	}
 }
 
 func TestSourceDocumentReparseCheckpointParentIsSelectedByServer(t *testing.T) {
