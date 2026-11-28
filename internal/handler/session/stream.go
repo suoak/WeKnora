@@ -150,7 +150,9 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	replay := coalesceReplayEvents(events)
 	logger.Debugf(ctx, "Replaying %d existing events as %d frames", len(events), len(replay))
 	for _, evt := range replay {
-		emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter)
+		if !emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter) {
+			return
+		}
 	}
 
 	// If stream is already completed, send final event and return
@@ -192,7 +194,9 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 					streamCompletedNow = true
 				}
 
-				emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter)
+				if !emitStreamEvent(ctx, c, evt, message.RequestID, resourceRewriter) {
+					return
+				}
 			}
 
 			// Update offset
@@ -396,16 +400,17 @@ func (h *Handler) handleAgentEventsForSSE(
 					// before the stop is still the user's content, and in
 					// public resource URL mode part of it may be sitting in
 					// the holdback buffer.
-					flushHeldStreamContent(ctx, c, requestID, resourceRewriter)
+					if !flushHeldStreamContent(ctx, c, requestID, resourceRewriter) {
+						return
+					}
 
 					// Send stop notification to frontend
-					c.SSEvent("message", &types.StreamResponse{
+					writeStreamResponse(c, &types.StreamResponse{
 						ID:           requestID,
 						ResponseType: "stop",
 						Content:      "Generation stopped by user",
 						Done:         true,
 					})
-					c.Writer.Flush()
 					return
 				}
 
@@ -428,7 +433,9 @@ func (h *Handler) handleAgentEventsForSSE(
 					return
 				}
 
-				emitStreamEvent(ctx, c, evt, requestID, resourceRewriter)
+				if !emitStreamEvent(ctx, c, evt, requestID, resourceRewriter) {
+					return
+				}
 			}
 
 			// Update offset
@@ -458,7 +465,9 @@ func (h *Handler) handleAgentEventsForSSE(
 							}
 							if len(events) > 0 {
 								for _, evt := range events {
-									emitStreamEvent(ctx, c, evt, requestID, resourceRewriter)
+									if !emitStreamEvent(ctx, c, evt, requestID, resourceRewriter) {
+										return
+									}
 									// If we got the title, we can exit
 									if evt.Type == types.ResponseTypeSessionTitle {
 										log.Infof("Title event received: %s", evt.Content)
