@@ -63,23 +63,31 @@ func TestPortalWikiLinkedLabelsRequireLiveSameScopeTargets(t *testing.T) {
 			gen, err := repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 			require.NoError(t, err)
 			for _, page := range []*types.WikiPage{
-				{ID: "linked-target", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/dpd",
+				{
+					ID: "linked-target", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/dpd",
 					Title: "链路探测 DPD", Content: "DPD detects peer liveness.", Version: 1,
 					Status: types.WikiPageStatusPublished, PageType: types.WikiPageTypeConcept,
-					SourceRefs: types.StringArray{"public-two-doc|source"}},
-				{ID: "link-source", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/link-source",
+					SourceRefs: types.StringArray{"public-two-doc|source"},
+				},
+				{
+					ID: "link-source", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/link-source",
 					Title: "source", Content: "启用 [[concept/dpd|DPD]]；再次 [[concept/dpd]]。" +
 						"[[concept/foreign|跨空间秘密]] [[concept/unsealed|未验证秘密]] [[missing|不存在名称]]",
 					Version: 1, Status: types.WikiPageStatusPublished, PageType: types.WikiPageTypeConcept,
-					SourceRefs: types.StringArray{"public-two-doc|source"}},
+					SourceRefs: types.StringArray{"public-two-doc|source"},
+				},
 			} {
 				require.NoError(t, repo.Create(gen, page))
 			}
 			for _, page := range []*types.WikiPage{
-				{ID: "foreign-target", TenantID: 1, KnowledgeBaseID: "public-kb", Slug: "concept/foreign",
-					Title: "跨空间秘密", Content: "private", Status: types.WikiPageStatusPublished},
-				{ID: "unsealed-target", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/unsealed",
-					Title: "未验证秘密", Content: "old", Status: types.WikiPageStatusPublished},
+				{
+					ID: "foreign-target", TenantID: 1, KnowledgeBaseID: "public-kb", Slug: "concept/foreign",
+					Title: "跨空间秘密", Content: "private", Status: types.WikiPageStatusPublished,
+				},
+				{
+					ID: "unsealed-target", TenantID: 1, KnowledgeBaseID: "public-two", Slug: "concept/unsealed",
+					Title: "未验证秘密", Content: "old", Status: types.WikiPageStatusPublished,
+				},
 			} {
 				require.NoError(t, f.DB.Create(page).Error)
 			}

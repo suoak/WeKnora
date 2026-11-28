@@ -1,4 +1,3 @@
-// Markdown link scanner adapted from Tencent/WeKnora c3786353b79b (wiki_links_markdown.go).
 package service
 
 import (
@@ -11,6 +10,7 @@ import (
 	"github.com/yuin/goldmark/util"
 )
 
+// Markdown link scanning is adapted from Tencent/WeKnora c3786353b79b.
 var markdownWikiLinkRegex = regexp.MustCompile(`\[\[((?:\\.|[^\]\\\r\n])+)\]\]`)
 
 type markdownWikiLink struct {
