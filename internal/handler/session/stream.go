@@ -164,6 +164,7 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 	logger.Debug(ctx, "Starting event update monitoring")
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	keepAlive := newSSEKeepAlive(c)
 
 	for {
 		select {
@@ -171,7 +172,10 @@ func (h *Handler) ContinueStream(c *gin.Context) {
 			logger.Debug(ctx, "Client connection closed")
 			return
 
-		case <-ticker.C:
+		case now := <-ticker.C:
+			if !keepAlive.pulse(c, now) {
+				return
+			}
 			// Get new events from current offset
 			newEvents, newOffset, err := h.streamManager.GetEvents(ctx, sessionID, messageID, currentOffset)
 			if err != nil {
@@ -338,6 +342,7 @@ func (h *Handler) handleAgentEventsForSSE(
 ) {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
+	keepAlive := newSSEKeepAlive(c)
 
 	lastOffset := 0
 	log := logger.GetLogger(ctx)
@@ -355,7 +360,10 @@ func (h *Handler) handleAgentEventsForSSE(
 			)
 			return
 
-		case <-ticker.C:
+		case now := <-ticker.C:
+			if !keepAlive.pulse(c, now) {
+				return
+			}
 			// Get new events from StreamManager using offset
 			events, newOffset, err := h.streamManager.GetEvents(ctx, sessionID, assistantMessageID, lastOffset)
 			if err != nil {
