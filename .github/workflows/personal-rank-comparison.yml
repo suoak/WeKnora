@@ -1,0 +1,47 @@
+name: Personal retrieval rank comparison
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "internal/application/service/portal_global_rank*.go"
+      - "internal/router/personal_rank_controlled_ab_test.go"
+      - "internal/config/personal_mcp_ranking*.go"
+      - ".github/workflows/personal-rank-comparison.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Compatible ranking regressions and operator harness
+    runs-on: ubuntu-22.04
+    timeout-minutes: 25
+    env:
+      GOTOOLCHAIN: local
+      CGO_ENABLED: "1"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "1.26.8"
+          cache: true
+      - name: Test comparable ranking and default-disabled controlled harness
+        run: |
+          go test -race -count=1 -timeout=1m ./internal/config -run '^TestPersonalMCPCompatibleGlobalRanksEnvironment$'
+          go test -race -count=1 -timeout=3m ./internal/application/service -run 'TestPortalCompatibleRanks|TestPortalRankDomain'
+          go test -count=1 -timeout=1m ./internal/router -run '^TestControlledPersonalRankAB$'
+      - name: Build operator harness without deployment credentials
+        run: |
+          mkdir -p rank-comparison
+          go test -c -o rank-comparison/router.test ./internal/router
+          git rev-parse HEAD > rank-comparison/source-sha.txt
+          go version > rank-comparison/go-version.txt
+          sha256sum rank-comparison/router.test > rank-comparison/SHA256SUMS
+      - uses: actions/upload-artifact@v6
+        with:
+          name: personal-rank-comparison-${{ github.event.pull_request.head.sha || github.sha }}
+          path: rank-comparison/

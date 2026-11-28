@@ -4,6 +4,8 @@
 # policy_reference identifies that environment's enablement decision, not a
 # per-KB approval. Never enable the historical review workflow for this mode.
 personal_mcp:
+  # Opt in only after comparing the full authorized corpus on this deployment.
+  compatible_global_ranks: false
   enabled: false
   policy_reference: ""
   review_enabled: false
