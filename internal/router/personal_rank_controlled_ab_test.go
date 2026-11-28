@@ -175,6 +175,11 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		if !slices.Equal(ids, input.ExpectedKBs) {
 			t.Fatal("normal authentication resolved a different knowledge scope")
 		}
+		preflight, _ := json.Marshal(map[string]any{
+			"candidate": candidate, "unauthenticated_http": http.StatusUnauthorized,
+			"normal_mcp_scope_equal": true, "authorized_kbs": len(ids), "database_read_only": true,
+		})
+		fmt.Println("CONTROLLED_RANK_AB_PREFLIGHT:" + string(preflight))
 		for _, question := range input.Cases {
 			started := time.Now()
 			code, response := rpc(input.Key, "tools/call", map[string]any{
@@ -182,14 +187,21 @@ func TestControlledPersonalRankAB(t *testing.T) {
 					"query": question.Question, "mode": "hybrid", "limit": 30,
 				},
 			})
+			var payload any = response
+			if !json.Valid(response) {
+				payload = string(response)
+			}
 			row := map[string]any{
-				"case": question.ID, "candidate": candidate, "http": code, "response": response,
+				"case": question.ID, "candidate": candidate, "http": code, "response": payload,
 				"duration_ms":    float64(time.Since(started).Microseconds()) / 1000,
 				"authorized_kbs": len(ids), "original_question": true, "scope_narrowed": false,
 				"runtime_baseline_sha": input.RuntimeSHA, "database_read_only": true,
 				"transport": "actual Go MCP handler with normal authentication; no listener or worker",
 			}
-			raw, _ := json.Marshal(row)
+			raw, err := json.Marshal(row)
+			if err != nil {
+				t.Fatal("cannot retain the actual comparison response")
+			}
 			fmt.Println("CONTROLLED_RANK_AB_ROW:" + string(raw))
 		}
 		if portal.ClosePortalCandidateWork() != nil {
