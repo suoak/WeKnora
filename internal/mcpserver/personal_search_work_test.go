@@ -14,6 +14,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func TestPersonalWikiWorkUsesExistingFullScopeBudget(t *testing.T) {
+	for _, tool := range []string{"wiki_search", "wiki_read_page", "wiki_index"} {
+		require.True(t, personalNeedsSearchWork(tool, nil))
+		require.True(t, personalNeedsSearchWork(tool, make([]string, 9)))
+		require.False(t, personalNeedsSearchWork(tool, []string{"one-kb"}))
+	}
+	require.False(t, personalNeedsSearchWork("list_knowledge_bases", nil))
+}
+
 func TestPersonalConsistencyFullScopeWorkRejectsBeforeScopeAndPreservesOtherPools(t *testing.T) {
 	limits, err := (config.PersonalMCPConcurrencyConfig{}).Resolve()
 	require.NoError(t, err)
@@ -48,7 +57,7 @@ func TestPersonalConsistencyFullScopeWorkRejectsBeforeScopeAndPreservesOtherPool
 		return w
 	}
 	for _, isolated := range []bool{false, true} {
-		for _, tool := range []string{"search_knowledge", "grep_chunks", "search_documents"} {
+		for _, tool := range []string{"search_knowledge", "grep_chunks", "search_documents", "wiki_search"} {
 			w := request(tool, nil, isolated)
 			require.Equal(t, 429, w.Code, "reject overload before attempting the unavailable policy store")
 			require.Equal(t, "concurrency_limited", w.Header().Get("X-KnowHub-Error-Code"))
