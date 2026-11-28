@@ -61,13 +61,32 @@ func TestControlledPersonalRankAB(t *testing.T) {
 	}
 	var input struct {
 		DSN, Key, YAML, RuntimeSHA string
+		Comparison                 string
 		Env                        map[string]string
 		ExpectedKBs                []string
 		ResultLimit                int
-		Cases                      []struct{ ID, Question string }
+		Cases                      []struct {
+			ID, Question, Tool string
+			Arguments          map[string]any
+		}
 	}
 	if json.NewDecoder(io.LimitReader(os.Stdin, 4<<20)).Decode(&input) != nil {
 		t.Fatal("invalid controlled input")
+	}
+	if input.Comparison == "" {
+		input.Comparison = "ranking"
+	}
+	if input.Comparison != "ranking" && input.Comparison != "technical_api_routes" {
+		t.Fatal("unsupported controlled comparison")
+	}
+	for _, item := range input.Cases {
+		if input.Comparison == "technical_api_routes" &&
+			(item.Tool != "read_document" || len(item.Arguments) == 0) {
+			t.Fatal("technical projection comparison permits only normal explicit document reads")
+		}
+		if input.Comparison == "ranking" && (item.Tool != "" || len(item.Arguments) != 0) {
+			t.Fatal("ranking retains its frozen hybrid-only protocol")
+		}
 	}
 	if input.ResultLimit == 0 {
 		input.ResultLimit = 10
@@ -103,6 +122,8 @@ func TestControlledPersonalRankAB(t *testing.T) {
 	v.SetConfigType("yaml")
 	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
 	v.AutomaticEnv()
+	v.SetDefault("personal_mcp.compatible_global_ranks", false)
+	v.SetDefault("personal_mcp.technical_api_routes", false)
 	yaml := os.Expand(input.YAML, func(name string) string {
 		if value, ok := input.Env[name]; ok {
 			return value
@@ -161,7 +182,11 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		t.Fatal("normal PostgreSQL engine initialization failed")
 	}
 	for _, candidate := range []bool{false, true} {
-		cfg.PersonalMCP.CompatibleGlobalRanks = candidate
+		if input.Comparison == "ranking" {
+			cfg.PersonalMCP.CompatibleGlobalRanks = candidate
+		} else {
+			cfg.PersonalMCP.TechnicalAPIRoutes = candidate
+		}
 		portal := service.NewPortalPersonalKnowledge(&cfg, db, members, keyRepo, kbs,
 			repository.NewTenantRepository(db), repository.NewKnowledgeRepository(db),
 			repository.NewChunkRepository(db), models, registry, nil, nil, nil)
@@ -180,9 +205,16 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		engine.Use(legacyReadScopeMiddleware(tenants))
 		RegisterPersonalMCPRoutes(engine, mcpserver.NewConfiguredPersonalServer(&cfg, portal),
 			tenants, users, members, keys, &cfg)
+		rpcPath := "/api/v1/mcp/personal"
+		if input.Comparison == "technical_api_routes" {
+			// The compatibility endpoint deliberately retains its old result
+			// contract. Output-policy comparisons must use the actual isolated
+			// boundary selected by the production Portal proxy.
+			rpcPath = "/internal/mcp/isolated/personal"
+		}
 		rpc := func(key, method string, params any) (int, json.RawMessage) {
 			raw, _ := json.Marshal(map[string]any{"jsonrpc": "2.0", "id": 1, "method": method, "params": params})
-			req := httptest.NewRequest(http.MethodPost, "/api/v1/mcp/personal", bytes.NewReader(raw))
+			req := httptest.NewRequest(http.MethodPost, rpcPath, bytes.NewReader(raw))
 			req.Header.Set("Authorization", "Bearer "+key)
 			req.Header.Set("Content-Type", "application/json")
 			req.Header.Set("Accept", "application/json, text/event-stream")
@@ -232,14 +264,20 @@ func TestControlledPersonalRankAB(t *testing.T) {
 		preflight, _ := json.Marshal(map[string]any{
 			"candidate": candidate, "unauthenticated_http": http.StatusUnauthorized,
 			"normal_mcp_scope_equal": true, "authorized_kbs": len(ids), "database_read_only": true,
+			"rpc_path": rpcPath,
 		})
 		fmt.Println("CONTROLLED_RANK_AB_PREFLIGHT:" + string(preflight))
 		for _, question := range input.Cases {
 			started := time.Now()
+			tool := "search_knowledge"
+			args := map[string]any{
+				"query": question.Question, "mode": "hybrid", "limit": input.ResultLimit,
+			}
+			if input.Comparison == "technical_api_routes" {
+				tool, args = question.Tool, question.Arguments
+			}
 			code, response := rpc(input.Key, "tools/call", map[string]any{
-				"name": "search_knowledge", "arguments": map[string]any{
-					"query": question.Question, "mode": "hybrid", "limit": input.ResultLimit,
-				},
+				"name": tool, "arguments": args,
 			})
 			var payload any = response
 			if !json.Valid(response) {
@@ -248,10 +286,20 @@ func TestControlledPersonalRankAB(t *testing.T) {
 			row := map[string]any{
 				"case": question.ID, "candidate": candidate, "http": code, "response": payload,
 				"duration_ms":    float64(time.Since(started).Microseconds()) / 1000,
-				"authorized_kbs": len(ids), "original_question": true, "scope_narrowed": false,
-				"result_limit":         input.ResultLimit,
-				"runtime_baseline_sha": input.RuntimeSHA, "database_read_only": true,
+				"authorized_kbs": len(ids), "original_question": input.Comparison == "ranking",
+				"scope_narrowed": false,
+				"comparison":     input.Comparison, "tool": tool,
+				"rpc_path":               rpcPath,
+				"explicit_document_read": input.Comparison == "technical_api_routes",
+				"result_limit":           input.ResultLimit,
+				"runtime_baseline_sha":   input.RuntimeSHA, "database_read_only": true,
 				"transport": "actual Go MCP handler with normal authentication; no listener or worker",
+			}
+			if input.Comparison == "technical_api_routes" {
+				delete(row, "result_limit")
+				delete(row, "scope_narrowed")
+				row["document_read_limit"] = question.Arguments["limit"]
+				row["normal_authorized_scope_unchanged"] = true
 			}
 			raw, err := json.Marshal(row)
 			if err != nil {

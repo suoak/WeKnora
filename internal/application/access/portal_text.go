@@ -65,14 +65,38 @@ func SanitizePortalText(text string) (string, error) {
 // SanitizePortalOutputText additionally applies the existing personal MCP
 // machine-path containment policy, using the same encoded detection view.
 func SanitizePortalOutputText(text string) (string, error) {
+	return sanitizePortalOutputText(text, false)
+}
+
+// SanitizePortalTechnicalOutputText keeps only explicitly documented, inert
+// versioned API route literals. It does not retain destinations, query strings,
+// file paths, or opaque resource identifiers. The caller must opt in after the
+// same document/source authorization as the ordinary output projection.
+func SanitizePortalTechnicalOutputText(text string) (string, error) {
+	return sanitizePortalOutputText(text, true)
+}
+
+func sanitizePortalOutputText(text string, technicalRoutes bool) (string, error) {
 	text, err := SanitizePortalText(text)
 	if err != nil {
 		return "", err
 	}
-	return redactPortalSpans(text, portalAbsolutePath, "[path omitted]")
+	if technicalRoutes {
+		text, err = redactPortalSpans(text, portalVersionedRouteCapability, "[link omitted]")
+		if err != nil {
+			return "", err
+		}
+	}
+	return redactPortalSpansWithRoutes(text, portalAbsolutePath, "[path omitted]", technicalRoutes)
 }
 
 func redactPortalSpans(text string, pattern *regexp.Regexp, marker string) (string, error) {
+	return redactPortalSpansWithRoutes(text, pattern, marker, false)
+}
+
+func redactPortalSpansWithRoutes(
+	text string, pattern *regexp.Regexp, marker string, technicalRoutes bool,
+) (string, error) {
 	view, err := portalDetectionView(text)
 	if err != nil {
 		return "", err
@@ -84,6 +108,9 @@ func redactPortalSpans(text string, pattern *regexp.Regexp, marker string) (stri
 	var out strings.Builder
 	last := 0
 	for _, match := range matches {
+		if technicalRoutes && pattern == portalAbsolutePath && documentedPortalAPIRoute(text, view, match) {
+			continue
+		}
 		start, end := view.sourceRange(match[0], match[1])
 		if start < last { // one encoded entity can expand to multiple runes
 			return "", ErrForbidden
@@ -115,11 +142,13 @@ func ValidatePortalQuery(text string) error {
 	return nil
 }
 
-type portalTextSpan struct{ start, end int }
-type portalTextView struct {
-	text  string
-	spans []portalTextSpan // nil is the identity map, avoiding allocations for ordinary text
-}
+type (
+	portalTextSpan struct{ start, end int }
+	portalTextView struct {
+		text  string
+		spans []portalTextSpan // nil is the identity map, avoiding allocations for ordinary text
+	}
+)
 
 func (v portalTextView) sourceRange(start, end int) (int, int) {
 	if v.spans == nil {
