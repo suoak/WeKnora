@@ -124,7 +124,7 @@ func testWikiReadSelectedProofSession(t *testing.T, newFixture func(*testing.T) 
 			err := store.RevalidatePages(ctx, 1, "public-two", []string{"public-two-doc"}, pages)
 			if mutation == "none" {
 				require.NoError(t, err)
-				require.Equal(t, 1, *reads, "selected producer inputs must not be rehashed at an unchanged output boundary")
+				require.Equal(t, 1, *reads, "unchanged selected producer inputs must not be rehashed at output")
 				fresh := repository.WithWikiReadProofSession(fixture.Key("A", 1, 1, true))
 				require.NoError(t, store.RevalidatePages(fresh, 1, "public-two", []string{"public-two-doc"}, pages))
 				require.Greater(t, *reads, 1, "proof digests never cross requests")

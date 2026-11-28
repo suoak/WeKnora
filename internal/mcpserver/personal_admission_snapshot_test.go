@@ -19,10 +19,11 @@ type admissionSnapshotStore struct {
 func (s *admissionSnapshotStore) LoadDocumentReadSnapshot(
 	ctx context.Context, user string, key uint64, kb string,
 ) (*types.EnterpriseReadSnapshot, error) {
-	return access.ReadPortalSnapshot(ctx, s, user, key, kb, false, false, func() (*types.EnterpriseReadSnapshot, error) {
+	load := func() (*types.EnterpriseReadSnapshot, error) {
 		s.loads++
 		return s.selectedMCPStore.LoadDocumentReadSnapshot(ctx, user, key, kb)
-	})
+	}
+	return access.ReadPortalSnapshot(ctx, s, user, key, kb, false, false, load)
 }
 
 func TestPersonalAdmissionSnapshotPhaseHasIndependentOutputFence(t *testing.T) {
@@ -31,9 +32,13 @@ func TestPersonalAdmissionSnapshotPhaseHasIndependentOutputFence(t *testing.T) {
 			s, original, ctx := selectedMCPFixture()
 			store := &admissionSnapshotStore{selectedMCPStore: original}
 			s.knowledge.Resolver.Store = store
-			s.knowledge.Resolver.Documents = access.NewDocumentReader(true, store, selectedMCPBase{}, selectedMCPEmployee{})
+			s.knowledge.Resolver.Documents = access.NewDocumentReader(
+				true, store, selectedMCPBase{}, selectedMCPEmployee{},
+			)
 			called := false
-			handler := s.enforceGuard(func(handlerCtx context.Context, _ mcp.CallToolRequest) (*mcp.CallToolResult, error) {
+			handler := s.enforceGuard(func(
+				handlerCtx context.Context, _ mcp.CallToolRequest,
+			) (*mcp.CallToolResult, error) {
 				called = true
 				require.Equal(t, 1, store.loads, "admission must merge identical candidate policy reads")
 				// An independent handler read must not see the admission cache.
@@ -50,7 +55,8 @@ func TestPersonalAdmissionSnapshotPhaseHasIndependentOutputFence(t *testing.T) {
 				}
 				return mcp.NewToolResultText("SYNTHETIC_OUTPUT"), nil
 			})
-			result, err := handler(ctx, selectedMCPRequest(t, map[string]any{"knowledge_base_ids": []string{"selected"}}))
+			request := selectedMCPRequest(t, map[string]any{"knowledge_base_ids": []string{"selected"}})
+			result, err := handler(ctx, request)
 			require.NoError(t, err)
 			require.True(t, called)
 			if mutation == "none" {
