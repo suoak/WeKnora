@@ -26,11 +26,12 @@ func TestPortalWikiLineageUsesRecordedSourcesAndCanonicalChunkParents(t *testing
 			f := fixture.New(t)
 			f.PreparePublished(t)
 			require.NoError(t, f.DB.Exec(`INSERT INTO knowledges
-(id,tenant_id,knowledge_base_id,type,title,parse_status,enable_status,channel)
-VALUES('unreferenced-doc',1,'public-two','file','not a page citation','completed','enabled','web')`).Error)
+(id,tenant_id,knowledge_base_id,type,title,source,file_name,parse_status,enable_status,channel)
+VALUES('unreferenced-doc',1,'public-two','file','not a page citation',
+'synthetic-local','unreferenced.txt','completed','enabled','web')`).Error)
 			require.NoError(t, f.DB.Exec(`INSERT INTO chunks
-(id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_type,content_revision,is_enabled,chunk_index)
-VALUES('unreferenced-chunk',1,'public-two','unreferenced-doc','other source body','text',1,true,0)`).Error)
+(id,tenant_id,knowledge_base_id,knowledge_id,content,chunk_type,content_revision,is_enabled,chunk_index,start_at,end_at)
+VALUES('unreferenced-chunk',1,'public-two','unreferenced-doc','other source body','text',1,true,0,0,17)`).Error)
 			repo := repository.NewWikiPageRepository(f.DB)
 			gen, err := repository.BeginWikiMCPGeneration(context.Background(), repo, "public-two")
 			require.NoError(t, err)
