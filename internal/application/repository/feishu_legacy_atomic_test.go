@@ -788,6 +788,60 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 			Where("id=? AND is_enabled", m.Chunks[0].ID).Count(&oldChunks).Error)
 		require.EqualValues(t, 1, oldChunks, "capacity backpressure must not rewrite serving output")
 	})
+	t.Run("source-document-reparse-delivery-requires-exact-live-intent", func(t *testing.T) {
+		tx := db.Begin()
+		require.NoError(t, tx.Error)
+		defer tx.Rollback()
+		local := NewFeishuLegacyStore(tx)
+		request, err := local.SourceReparseTarget(ctx, ds, kid)
+		require.NoError(t, err)
+		request.Initiator = types.TaskInitiator{UserID: uuid.NewString(), Role: types.TenantRoleAdmin}
+		request.KBConfigHash = LegacyKBConfigHash(kb)
+		background := types.WithExecutionTenant(request.Initiator.Apply(context.Background()), tenant.ID)
+		_, err = local.PrepareSourceDocumentReparseDelivery(background, ds, request)
+		require.Error(t, err, "audit identity alone cannot create delivery authority")
+		_, err = local.QueueSourceDocumentReparse(ctx, ds, request)
+		require.NoError(t, err)
+		delivery, err := local.PrepareSourceDocumentReparseDelivery(background, ds, request)
+		require.NoError(t, err)
+		require.True(t, HasSourceDocumentReparseDelivery(delivery))
+		require.Nil(t, delivery.Value(types.PrincipalContextKey), "no WebUser principal is fabricated")
+		checked, err := local.CheckSourceDocumentReparseDelivery(delivery, ds)
+		require.NoError(t, err)
+		require.Equal(t, request.ID, checked.ID)
+		forged := *request
+		forged.ID = uuid.NewString()
+		_, err = local.PrepareSourceDocumentReparseDelivery(background, ds, &forged)
+		require.Error(t, err)
+		for _, principal := range []types.Principal{{}, {Type: types.PrincipalWebUser, ID: request.Initiator.UserID}} {
+			web := context.WithValue(background, types.PrincipalContextKey, principal)
+			_, err := local.PrepareSourceDocumentReparseDelivery(web, ds, request)
+			require.Error(t, err, "HTTP requests must retain ordinary terminal authentication")
+		}
+		wrongActor := context.WithValue(background, types.UserIDContextKey, uuid.NewString())
+		_, err = local.PrepareSourceDocumentReparseDelivery(wrongActor, ds, request)
+		require.Error(t, err)
+		keyed := types.WithTenantAPIKeyScope(background, types.TenantAPIKeyScope{KeyID: 1})
+		_, err = local.PrepareSourceDocumentReparseDelivery(keyed, ds, request)
+		require.Error(t, err, "a machine key cannot become scheduler authority")
+		wrongTenant := types.WithExecutionTenant(background, tenant.ID+1)
+		_, err = local.PrepareSourceDocumentReparseDelivery(wrongTenant, ds, request)
+		require.Error(t, err)
+		changed := *ds
+		changed.LegacyAccessState = "hold"
+		_, err = local.CheckSourceDocumentReparseDelivery(delivery, &changed)
+		require.Error(t, err)
+		var op types.TaskPendingOp
+		require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
+			sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
+		require.Equal(t, "queued", op.Op)
+		var untouched types.FeishuDocumentReparse
+		require.NoError(t, json.Unmarshal(op.Payload, &untouched))
+		require.Zero(t, untouched.Attempts, "read-only delivery proof cannot reset or spend attempts")
+		require.NoError(t, tx.Model(&op).UpdateColumn("op", "completed").Error)
+		_, err = local.CheckSourceDocumentReparseDelivery(delivery, ds)
+		require.Error(t, err, "a completed or withdrawn intent cannot queue another execution")
+	})
 	t.Run("source-document-reparse-retry-budget-survives-new-executions", func(t *testing.T) {
 		tx := db.Begin()
 		require.NoError(t, tx.Error)
@@ -819,10 +873,42 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 				duplicate,
 				"one execution cannot claim an already processing request twice",
 			)
+			failure := WithSourceDocumentReparseFailure(work, reparseSyntheticSQLFailure{state: "23505"}, false)
+			if attempt == 1 {
+				stale := types.WithSyncExecution(failure, types.SyncExecution{
+					DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 999,
+				})
+				require.Error(t, local.FinishSourceDocumentReparse(stale, ds, "temporary_failure", true, false))
+				require.NoError(t, tx.Exec(`CREATE FUNCTION reparse_failure_fault() RETURNS trigger
+ LANGUAGE plpgsql AS $$ BEGIN IF NEW.scope='feishu_document_reparse_v1' AND NEW.op='queued'
+ THEN RAISE EXCEPTION 'synthetic failure ACK fault'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER reparse_failure_fault BEFORE UPDATE ON task_pending_ops
+ FOR EACH ROW EXECUTE FUNCTION reparse_failure_fault()`).Error)
+				require.Error(t, local.FinishSourceDocumentReparse(failure, ds, "temporary_failure", true, false))
+				var count int64
+				require.NoError(t, tx.Model(&types.TaskPendingOp{}).
+					Where("scope=? AND scope_id=?", sourceReparseFailureScope, request.ID).Count(&count).Error)
+				require.Zero(t, count, "failed authority or rolled back ACK cannot leave an audit receipt")
+				require.NoError(t, tx.Exec(`DROP TRIGGER reparse_failure_fault ON task_pending_ops;
+ DROP FUNCTION reparse_failure_fault()`).Error)
+				status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
+				require.NoError(t, err)
+				require.Equal(t, "processing", status.State)
+			}
 			require.NoError(
 				t,
-				local.FinishSourceDocumentReparse(work, ds, "temporary_failure", true, false),
+				local.FinishSourceDocumentReparse(failure, ds, "temporary_failure", true, false),
 			)
+			var receipts []types.TaskPendingOp
+			require.NoError(t, tx.Where("scope=? AND scope_id=?", sourceReparseFailureScope, request.ID).
+				Order("id").Find(&receipts).Error)
+			require.Len(t, receipts, attempt)
+			for _, receipt := range receipts {
+				require.Equal(t, "recorded", receipt.Op)
+				require.Contains(t, string(receipt.Payload), "23505")
+				require.Contains(t, string(receipt.Payload), "temporary_failure")
+				require.NotContains(t, string(receipt.Payload), "SYNTHETIC_SECRET")
+			}
 			status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
 			require.NoError(t, err)
 			if attempt < 3 {
@@ -831,6 +917,11 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 				require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
 					sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
 				var persisted types.FeishuDocumentReparse
+				require.NoError(t, json.Unmarshal(op.Payload, &persisted))
+				require.NoError(t, local.DeferSourceDocumentReparse(generation, &persisted))
+				require.NoError(t, tx.First(&op, "id=?", op.ID).Error)
+				require.Contains(t, string(op.Payload), "queue_delivery_pending")
+				require.NotContains(t, string(op.Payload), "fingerprint")
 				require.NoError(t, json.Unmarshal(op.Payload, &persisted))
 				persisted.RetryAfter = time.Now().Add(-time.Second)
 				payload, err := json.Marshal(persisted)

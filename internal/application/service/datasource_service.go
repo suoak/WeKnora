@@ -669,7 +669,7 @@ func (s *DataSourceService) manualSyncUsing(
 		}
 		admissionFingerprint = fingerprint
 		if types.ApprovedSyncLaneEnabled() && feishusynccontrol.ReconciliationPolicy(ctx, ds.ID) == "" {
-			normalQueued, err = feishusynccontrol.QueueNormalSource(ctx, ds.ID, fingerprint)
+			normalQueued, err = s.queueSourceAdmission(ctx, ds, fingerprint)
 			if err != nil {
 				if errors.Is(err, feishusynccontrol.ErrNormalQueueStopped) {
 					return nil, &datasource.SyncAdmissionError{Reason: "sync_platform_stopped", Cause: err}

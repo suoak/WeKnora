@@ -16,6 +16,8 @@ on:
       - internal/feishusafety/**
       - internal/application/access/source_write*
       - internal/application/service/datasource*
+      - internal/application/service/feishu_document_reparse*.go
+      - internal/application/repository/feishu_document_reparse*.go
       - internal/application/repository/datasource*
       - internal/application/repository/tenant_api_key.go
       - internal/datasource/scheduler*
@@ -109,7 +111,7 @@ jobs:
         if: ${{ !cancelled() }}
         run: |
           set -o pipefail
-          go test -json -p 1 ./internal/container ./internal/application/service ./internal/handler -run '^(TestOfficeHTTP|TestSteadyManualSyncErrors|TestProtectedSourceRecoveryInstructions)' -count=1 -timeout=10m | tee evidence/app-wiring.jsonl
+          go test -json -p 1 ./internal/container ./internal/application/service ./internal/handler -run '^(TestOfficeHTTP|TestSteadyManualSyncErrors|TestProtectedSourceRecoveryInstructions|TestSourceDocumentReparseAutomaticDeliveryPostgres)' -count=1 -timeout=10m | tee evidence/app-wiring.jsonl
       - uses: actions/upload-artifact@v4
         if: always()
         with:

@@ -33,7 +33,7 @@ func embedLegacyCheckpointed(
 	ctx context.Context, store legacyEmbeddingCheckpointStore, ds *types.DataSource,
 	owner *types.FeishuLegacyAttempt, model embedding.Embedder,
 	checkpoint types.FeishuLegacyEmbeddingCheckpoint, texts []string,
-) ([][]float32, error) {
+) (result [][]float32, resultErr error) {
 	if len(texts) != len(checkpoint.Inputs) {
 		return nil, fmt.Errorf("embedding checkpoint input cardinality mismatch")
 	}
@@ -61,6 +61,23 @@ func embedLegacyCheckpointed(
 	initialCachedInputs := len(cache)
 	saved := map[string]bool{}
 	completed, reused := 0, 0
+	// A budget boundary can be reached by renewal or a persistence callback as
+	// well as by BatchEmbed. Yield only newly persisted, incomplete v2 work;
+	// replayed cache entries and other failures retain their original handling.
+	defer func() {
+		var fence *repository.LegacyFenceError
+		if ctx.Err() != nil || errors.Is(resultErr, context.Canceled) ||
+			errors.Is(resultErr, context.DeadlineExceeded) ||
+			errors.Is(resultErr, types.ErrLegacySourceRestricted) || errors.As(resultErr, &fence) {
+			return
+		}
+		if checkpoint.Version == 2 && errors.Is(resultErr, feishusafety.ErrBudgetBusy) &&
+			len(cache) > initialCachedInputs && completed > 0 && completed < len(texts) {
+			result, resultErr = nil, &repository.FeishuEmbeddingProgress{
+				Owner: owner, Completed: completed, Total: len(texts),
+			}
+		}
+	}()
 	multiplicity := map[string]int{}
 	for i, text := range texts {
 		digest := repository.LegacyEmbeddingInputHash(text)
@@ -216,14 +233,6 @@ func embedLegacyCheckpointed(
 				break
 			}
 			if !errors.Is(callErr, feishusafety.ErrBudgetBusy) || retry >= 2 {
-				if checkpoint.Version == 2 && errors.Is(callErr, feishusafety.ErrBudgetBusy) &&
-					len(cache) > initialCachedInputs {
-					return nil, &repository.FeishuEmbeddingProgress{
-						Owner:     owner,
-						Completed: completed,
-						Total:     len(texts),
-					}
-				}
 				return nil, callErr
 			}
 			logger.Warnf(

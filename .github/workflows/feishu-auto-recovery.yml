@@ -12,6 +12,7 @@ on:
       - internal/application/service/feishu_document_failure*.go
       - internal/application/service/feishu_document_reparse*.go
       - internal/application/repository/feishu_document_reparse*.go
+      - internal/application/repository/feishu_reparse_failure_receipt*.go
       - internal/application/repository/feishu_legacy_atomic*.go
       - internal/application/repository/feishu_large_checkpoint*.go
       - internal/application/repository/feishu_legacy_embedding_checkpoint*.go
