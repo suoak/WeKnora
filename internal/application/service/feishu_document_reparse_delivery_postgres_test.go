@@ -77,6 +77,8 @@ func TestSourceDocumentReparseAutomaticDeliveryPostgres(t *testing.T) {
 		SyncSchedule: "0 0 2 * * *", LastSyncCursor: types.JSON(`{"fixture":"unchanged"}`),
 	}
 	require.NoError(t, db.Create(&ds).Error)
+	// Fingerprints use the persisted JSONB representation, as normal requests do.
+	require.NoError(t, db.First(&ds, "id=?", ds.ID).Error)
 	mini := miniredis.RunT(t)
 	rdb := redis.NewClient(&redis.Options{Addr: mini.Addr(), MaxRetries: -1})
 	t.Cleanup(func() { _ = rdb.Close() })
@@ -150,7 +152,8 @@ func TestSourceDocumentReparseAutomaticDeliveryPostgres(t *testing.T) {
 	require.Equal(t, request.Initiator, queued.Initiator)
 	require.Equal(t, log.ID, queued.SyncLogID)
 	require.Nil(t, delivery.Value(types.PrincipalContextKey))
-	require.Zero(t, rdb.Exists(context.Background(), guard.PermitKey()).Val(), "queueing cannot issue an outbound permit")
+	require.Zero(t, rdb.Exists(context.Background(), guard.PermitKey()).Val(),
+		"queueing cannot issue an outbound permit")
 	_, err = svc.manualSyncUsing(delivery, ds.ID, enqueue)
 	require.NoError(t, err)
 	require.Len(t, tasks, 1, "existing running log coalesces duplicate wake-ups")
