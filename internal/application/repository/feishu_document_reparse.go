@@ -496,6 +496,9 @@ func (s *FeishuLegacyStore) FinishSourceDocumentReparse(
 		// Disk capacity is backpressure. Persist a bounded delay and keep the
 		// original request/checkpoint without consuming a parsing-failure retry.
 		busy = busy || retry && code == "safe_staging_capacity_insufficient"
+		if err := recordSourceDocumentReparseFailure(tx, ctx, ds, request, code, busy); err != nil {
+			return err
+		}
 		state := "failed"
 		if busy || (retry && request.Attempts < 3) {
 			state = "queued"

@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"testing"
@@ -12,6 +13,85 @@ import (
 	"github.com/Tencent/WeKnora/internal/types"
 	"github.com/stretchr/testify/require"
 )
+
+type checkpointRenewBoundary struct {
+	*checkpointMemoryStore
+	err error
+}
+
+func (s *checkpointRenewBoundary) Renew(
+	context.Context, *types.DataSource, *types.FeishuLegacyAttempt,
+) error {
+	if s.saves > 0 {
+		return s.err
+	}
+	return nil
+}
+
+func TestLegacyEmbeddingCheckpointRenewalAfterDurableWork(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		version  int
+		cached   bool
+		err      error
+		progress bool
+	}{
+		{"v2-budget", 2, false, feishusafety.ErrBudgetBusy, true},
+		{"v1-budget", 1, false, feishusafety.ErrBudgetBusy, false},
+		{"cached-only", 2, true, feishusafety.ErrBudgetBusy, false},
+		{"revoked", 2, false, types.ErrLegacySourceRestricted, false},
+		{"canceled", 2, false, context.Canceled, false},
+		{"provider-error", 2, false, errors.New("synthetic provider failure"), false},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			memory := &checkpointMemoryStore{cache: map[string][]float32{}}
+			store := &checkpointRenewBoundary{checkpointMemoryStore: memory, err: test.err}
+			header := types.FeishuLegacyEmbeddingCheckpoint{Version: test.version}
+			texts := make([]string, 41)
+			for i := range texts {
+				texts[i] = fmt.Sprintf("boundary-input-%d", i)
+				header.Inputs = append(header.Inputs, types.FeishuLegacyEmbeddingInput{
+					ChunkID: fmt.Sprintf("c%d", i), SHA256: repository.LegacyEmbeddingInputHash(texts[i]),
+				})
+				if test.cached && i < 20 {
+					memory.cache[repository.LegacyEmbeddingInputHash(texts[i])] = []float32{1, 0, 0}
+				}
+			}
+			model := &checkpointTestEmbedder{store: memory}
+			owner := &types.FeishuLegacyAttempt{ID: "current-owner"}
+			vectors, err := embedLegacyCheckpointed(context.Background(), store, &types.DataSource{},
+				owner, model, header, texts)
+			require.Nil(t, vectors)
+			var progress *repository.FeishuEmbeddingProgress
+			if test.progress {
+				require.ErrorAs(t, err, &progress)
+				require.Same(t, owner, progress.Owner)
+				require.Equal(t, 20, progress.Completed)
+				require.Equal(t, 41, progress.Total)
+			} else {
+				require.ErrorIs(t, err, test.err)
+				require.False(t, errors.As(err, &progress))
+			}
+			require.Len(t, memory.cache, 20)
+			if test.cached {
+				require.Empty(t, model.calls, "replay alone cannot buy a progress window")
+			} else {
+				require.Len(t, model.calls, 1)
+				// A fresh execution reuses the durably saved first batch.
+				resume := &checkpointTestEmbedder{store: memory}
+				all, err := embedLegacyCheckpointed(context.Background(), memory, &types.DataSource{},
+					owner, resume, header, texts)
+				require.NoError(t, err)
+				require.Len(t, all, len(texts))
+				count := 0
+				for _, call := range resume.calls {
+					count += len(call)
+				}
+				require.Equal(t, 21, count)
+			}
+		})
+	}
+}
 
 type checkpointMemoryStore struct {
 	cache   map[string][]float32

@@ -819,10 +819,42 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 				duplicate,
 				"one execution cannot claim an already processing request twice",
 			)
+			failure := WithSourceDocumentReparseFailure(work, reparseSyntheticSQLFailure{state: "23505"}, false)
+			if attempt == 1 {
+				stale := types.WithSyncExecution(failure, types.SyncExecution{
+					DataSourceID: ds.ID, SyncLogID: log.ID, TenantID: tenant.ID, Generation: 999,
+				})
+				require.Error(t, local.FinishSourceDocumentReparse(stale, ds, "temporary_failure", true, false))
+				require.NoError(t, tx.Exec(`CREATE FUNCTION reparse_failure_fault() RETURNS trigger
+ LANGUAGE plpgsql AS $$ BEGIN IF NEW.scope='feishu_document_reparse_v1' AND NEW.op='queued'
+ THEN RAISE EXCEPTION 'synthetic failure ACK fault'; END IF; RETURN NEW; END $$;
+ CREATE TRIGGER reparse_failure_fault BEFORE UPDATE ON task_pending_ops
+ FOR EACH ROW EXECUTE FUNCTION reparse_failure_fault()`).Error)
+				require.Error(t, local.FinishSourceDocumentReparse(failure, ds, "temporary_failure", true, false))
+				var count int64
+				require.NoError(t, tx.Model(&types.TaskPendingOp{}).
+					Where("scope=? AND scope_id=?", sourceReparseFailureScope, request.ID).Count(&count).Error)
+				require.Zero(t, count, "failed authority or rolled back ACK cannot leave an audit receipt")
+				require.NoError(t, tx.Exec(`DROP TRIGGER reparse_failure_fault ON task_pending_ops;
+ DROP FUNCTION reparse_failure_fault()`).Error)
+				status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
+				require.NoError(t, err)
+				require.Equal(t, "processing", status.State)
+			}
 			require.NoError(
 				t,
-				local.FinishSourceDocumentReparse(work, ds, "temporary_failure", true, false),
+				local.FinishSourceDocumentReparse(failure, ds, "temporary_failure", true, false),
 			)
+			var receipts []types.TaskPendingOp
+			require.NoError(t, tx.Where("scope=? AND scope_id=?", sourceReparseFailureScope, request.ID).
+				Order("id").Find(&receipts).Error)
+			require.Len(t, receipts, attempt)
+			for _, receipt := range receipts {
+				require.Equal(t, "recorded", receipt.Op)
+				require.Contains(t, string(receipt.Payload), "23505")
+				require.Contains(t, string(receipt.Payload), "temporary_failure")
+				require.NotContains(t, string(receipt.Payload), "SYNTHETIC_SECRET")
+			}
 			status, err := local.SourceDocumentReparseStatus(generation, ds, kid)
 			require.NoError(t, err)
 			if attempt < 3 {
@@ -831,6 +863,11 @@ WHERE scope=? AND dedup_key=? AND op='queued'`,
 				require.NoError(t, tx.Where("scope=? AND scope_id=? AND dedup_key=?",
 					sourceDocumentReparseScope, ds.ID, kid).First(&op).Error)
 				var persisted types.FeishuDocumentReparse
+				require.NoError(t, json.Unmarshal(op.Payload, &persisted))
+				require.NoError(t, local.DeferSourceDocumentReparse(generation, &persisted))
+				require.NoError(t, tx.First(&op, "id=?", op.ID).Error)
+				require.Contains(t, string(op.Payload), "queue_delivery_pending")
+				require.NotContains(t, string(op.Payload), "fingerprint")
 				require.NoError(t, json.Unmarshal(op.Payload, &persisted))
 				persisted.RetryAfter = time.Now().Add(-time.Second)
 				payload, err := json.Marshal(persisted)

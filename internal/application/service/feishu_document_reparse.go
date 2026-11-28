@@ -271,7 +271,8 @@ func (s *DataSourceService) drainSourceDocumentReparse(
 	if errors.Is(err, core.ErrPermission) || errors.Is(err, core.ErrNotFound) {
 		code, permanent = "source_document_access_unavailable", true
 	}
-	if err := store.FinishSourceDocumentReparse(work, ds, code, !permanent,
+	failure := repository.WithSourceDocumentReparseFailure(work, err, errors.Is(err, feishusafety.ErrBudgetBusy))
+	if err := store.FinishSourceDocumentReparse(failure, ds, code, !permanent,
 		errors.Is(err, repository.ErrLegacyVersionBusy)); err != nil {
 		return true, err
 	}
