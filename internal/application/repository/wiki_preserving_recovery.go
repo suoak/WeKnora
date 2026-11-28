@@ -16,6 +16,23 @@ import (
 
 const wikiPreservingScope = "wiki_preserving_recovery"
 
+// Snapshot timestamps bind instants, not the scanning process's time zone.
+// Keep every field and timestamp precision; never reuse a changed historical row.
+func wikiPreservingPageDigest(page *types.WikiPage) string {
+	cloned := *page
+	cloned.CreatedAt, cloned.UpdatedAt = cloned.CreatedAt.UTC(), cloned.UpdatedAt.UTC()
+	if cloned.DeletedAt.Valid {
+		cloned.DeletedAt.Time = cloned.DeletedAt.Time.UTC()
+	}
+	return wikiDigest(&cloned)
+}
+
+func wikiPreservingPageUnchanged(page *types.WikiPage, expected string) bool {
+	// Old recovery markers contain the original process representation. Accept
+	// that exact digest as well as UTC; neither path ignores a field or instant.
+	return expected != "" && (wikiPreservingPageDigest(page) == expected || wikiDigest(page) == expected)
+}
+
 // WikiPreservingPlan describes a snapshot-bound, non-destructive regeneration.
 type WikiPreservingPlan struct {
 	TenantID          uint64            `json:"tenant_id"`
@@ -173,7 +190,7 @@ func PrepareWikiPreservingRecovery(
 		}
 		sort.Strings(plan.Documents)
 		for _, page := range pages {
-			plan.OriginalPages[page.ID] = wikiDigest(page)
+			plan.OriginalPages[page.ID] = wikiPreservingPageDigest(page)
 			if err := verifyWikiProof(tx, page, proof, false, nil); errors.Is(err, ErrWikiMCPUnverified) {
 				plan.UnverifiedPages++
 			} else if err != nil {
@@ -327,7 +344,7 @@ func FinishWikiPreservingRecovery(
 			if !errors.Is(err, ErrWikiMCPUnverified) {
 				return err
 			}
-			if original.OriginalPages[page.ID] != "" && original.OriginalPages[page.ID] == wikiDigest(page) {
+			if wikiPreservingPageUnchanged(page, original.OriginalPages[page.ID]) {
 				plan.RetiredPages = append(plan.RetiredPages, page.ID)
 			} else {
 				return errors.New("historical Wiki page changed after recovery; preserve for review")
