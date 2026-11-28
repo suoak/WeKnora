@@ -33,7 +33,7 @@ type reparseDeliveryKnowledge struct {
 func (k reparseDeliveryKnowledge) GetRepository() interfaces.KnowledgeRepository { return k.repo }
 
 // Real SQL source/identity/intent and the production automatic admission code.
-// Miniredis and a capturing queue exercise admission, not outbound execution.
+// Miniredis and the real queue client exercise admission, not outbound execution.
 func TestSourceDocumentReparseAutomaticDeliveryPostgres(t *testing.T) {
 	dsn := feishulegacy.PrivateDSN(t)
 	root, err := filepath.Abs("../../..")
@@ -122,16 +122,16 @@ func TestSourceDocumentReparseAutomaticDeliveryPostgres(t *testing.T) {
 	background := types.WithExecutionTenant(request.Initiator.Apply(context.Background()), tenant.ID)
 	var tasks []*asynq.Task
 	var queues []string
+	queue := asynq.NewClient(asynq.RedisClientOpt{Addr: mini.Addr()})
+	t.Cleanup(func() { require.NoError(t, queue.Close()) })
 	enqueue := func(task *asynq.Task, options ...asynq.Option) (*asynq.TaskInfo, error) {
-		tasks = append(tasks, task)
-		// The production path embeds queue defaults in NewTask; enqueue options
-		// override them. Capture both just as the real client resolves them.
-		for _, option := range append(task.Options(), options...) {
-			if option.Type() == asynq.QueueOpt {
-				queues = append(queues, option.Value().(string))
-			}
+		info, enqueueErr := queue.Enqueue(task, options...)
+		if enqueueErr != nil {
+			return nil, enqueueErr
 		}
-		return &asynq.TaskInfo{ID: uuid.NewString()}, nil
+		tasks = append(tasks, task)
+		queues = append(queues, info.Queue)
+		return info, nil
 	}
 	_, err = svc.manualSyncUsing(background, ds.ID, enqueue)
 	require.Error(t, err, "reproduce: restored audit identity is not a live Web principal")
