@@ -2,6 +2,9 @@
 import { chromium, expect } from '@playwright/test'
 import { spawn } from 'node:child_process'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import { request as proxyRequest } from 'node:http'
+import { createServer as createTLSServer } from 'node:https'
 
 const backend = new URL(process.env.SOURCEID_E2E_BACKEND)
 const mock = new URL(process.env.SOURCEID_E2E_MOCK)
@@ -14,7 +17,9 @@ for (const url of [backend, mock]) {
   assert.equal(url.hostname, '127.0.0.1')
 }
 const frontend = 'http://127.0.0.1:18195'
-const browserOrigin = 'http://knowhub.ruijie.com.cn'
+let browserOrigin = 'http://knowhub.ruijie.com.cn'
+let frontendPort = 18195
+let tlsServer
 const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', '--host', '127.0.0.1', '--port', '18195', '--strictPort'], {
   env: { ...process.env, VITE_DEV_PROXY_TARGET: backend.origin, __VITE_ADDITIONAL_SERVER_ALLOWED_HOSTS: 'knowhub.ruijie.com.cn' }, stdio: 'pipe',
 })
@@ -40,13 +45,28 @@ try {
     if (Date.now() > readyDeadline) throw new Error(`Synthetic Vite not ready: ${startup.join('')}`)
     await new Promise(resolve => setTimeout(resolve, 200))
   }
+  if (process.env.SOURCEID_E2E_HTTPS_CERT && process.env.SOURCEID_E2E_HTTPS_KEY) {
+    // CI installs this fixture CA in its ephemeral runner's trust store. Normal
+    // Chromium certificate checks and automatic HTTPS upgrades remain enabled.
+    tlsServer = createTLSServer({
+      cert: readFileSync(process.env.SOURCEID_E2E_HTTPS_CERT),
+      key: readFileSync(process.env.SOURCEID_E2E_HTTPS_KEY),
+    }, (req, res) => {
+      const upstream = proxyRequest(frontend + req.url, { method: req.method, headers: req.headers }, response => {
+        res.writeHead(response.statusCode, response.headers)
+        response.pipe(res)
+      })
+      upstream.on('error', () => { if (!res.headersSent) res.writeHead(502); res.end() })
+      req.pipe(upstream)
+    })
+    await new Promise(resolve => tlsServer.listen(0, '127.0.0.1', resolve))
+    frontendPort = tlsServer.address().port
+    browserOrigin = 'https://knowhub.ruijie.com.cn'
+  }
   console.log('SOURCEID_SYNTHETIC_STAGE: browser_start')
   browser = await chromium.launch({
     executablePath: process.env.CHROME_PATH || (process.platform === 'win32' ? 'C:/Program Files/Google/Chrome/Application/chrome.exe' : '/usr/bin/google-chrome'),
-    // This isolated Vite/Mock SID fixture deliberately serves the registered
-    // HTTP callback contract. Keep automatic HTTPS navigation upgrades from
-    // leaving that fixture; certificate verification is never disabled.
-    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', '--disable-features=HttpsUpgrades', '--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:18195'],
+    headless: true, args: ['--no-proxy-server', '--disable-gpu', '--disable-dev-shm-usage', `--host-resolver-rules=MAP knowhub.ruijie.com.cn 127.0.0.1:${frontendPort}`],
   })
   const context = await browser.newContext()
   // Chromium resolves this single approved domain directly to the local Vite
@@ -124,6 +144,7 @@ try {
   process.exitCode = 1
 } finally {
   if (browser) await browser.close()
+  if (tlsServer) { tlsServer.closeAllConnections(); await new Promise(resolve => tlsServer.close(resolve)) }
   server.kill()
   server.stdout.destroy()
   server.stderr.destroy()
